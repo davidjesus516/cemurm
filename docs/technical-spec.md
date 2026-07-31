@@ -9,31 +9,40 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                         CLIENT (PWA)                             │
-│  React 18 + Vite + Tailwind CSS + Workbox Service Worker         │
+│  TypeScript (strict) + React 18 + Vite + Tailwind CSS         │
+│  + WASM modules (Rust → wasm-pack, dynamic import)             │
+│  + Workbox Service Worker                                      │
 │                                                                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐    │
-│  │ ChordPro │ │MusicXML  │ │   ABC    │ │ Stage Mode       │    │
-│  │ Parser   │ │ (OSMD)   │ │ (abcjs)  │ │ (fullscreen,     │    │
-│  └──────────┘ └──────────┘ └──────────┘ │  transposition,   │    │
-│                                         │  pedal support)   │    │
-│  ┌──────────────────────────────────────┘                   │    │
-│  │ Offline Cache (IndexedDB + Cache API via Workbox)         │    │
-│  └──────────────────────────────────────────────────────────┘    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
+│  │ChordPro  │ │MusicXML  │ │   ABC    │ │ Stage Mode       │ │
+│  │ Parser   │ │ (OSMD)   │ │ (abcjs)  │ │ (fullscreen,     │ │
+│  │ (WASM)   │ │ WASM)    │ │ WASM)    │ │  transposition,  │ │
+│  └──────────┘ └──────────┘ └──────────┘ │  pedal support)   │ │
+│                                         └──────────────────┘ │
+│  ┌──────────────────────────────────────┐                       │
+│  │ WASM Layer (Rust → WASM):            │                       │
+│  │  • ChordPro parser (future)          │                       │
+│  │  • Key transposition                  │                       │
+│  │  • MusicXML lightweight parsing       │                       │
+│  └──────────────────────────────────────┘                       │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ Offline Cache (IndexedDB + Cache API via Workbox)       │  │
+│  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────┬─────────────────────────────────────────┘
-                         │ HTTPS + WebSocket (Realtime)
-                         ▼
+                          │ HTTPS + WebSocket (Realtime)
+                          ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                        SUPABASE                                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐    │
-│  │PostgreSQL│ │  Auth    │ │ Storage  │ │ Realtime         │    │
-│  │ Database │ │ (JWT)    │ │ (files)  │ │ (WebSocket)      │    │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
+│  │PostgreSQL│ │  Auth    │ │ Storage  │ │ Realtime         │ │
+│  │ Database │ │ (JWT)    │ │ (files)  │ │ (WebSocket)      │ │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘ │
 └────────────────────────┬─────────────────────────────────────────┘
-                         │
-                         ▼
+                          │
+                          ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                     CLOUDFLARE R2                                │
-│  Object storage for large files (PDFs, MusicXML, audio)         │
+│  Object storage for large files (PDFs, MusicXML, audio)       │
 │  S3-compatible API · No egress fees                              │
 └──────────────────────────────────────────────────────────────────┘
 
@@ -52,6 +61,7 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
+| TypeScript | 5+ (strict mode) | Type safety across frontend, hooks, and utility modules |
 | React | 18+ | UI framework |
 | Vite | 5+ | Build tool and dev server |
 | Tailwind CSS | 3+ | Utility-first styling |
@@ -60,12 +70,14 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 ### 3.2 Music Notation
 
-| Format | Library | Notes |
-|--------|---------|-------|
-| ChordPro | Custom parser | Lyrics with chord symbols, inline directives |
-| MusicXML | OpenSheetMusicDisplay (OSMD) | Full notation rendering |
-| ABC | abcjs | Text-based notation |
-| PDF | PDF.js | Fallback for scanned charts |
+| Format | Library | WASM? | Notes |
+|--------|---------|-------|-------|
+| ChordPro | Custom parser | ✅ (Rust → WASM, future) | Lyrics with chord symbols, inline directives |
+| MusicXML | OpenSheetMusicDisplay (OSMD) | ✅ (OSMD uses WASM internally) | Full notation rendering, playback via MIDI |
+| ABC | abcjs | ✅ (WASM variant available) | Text-based notation, client-side rendering |
+| PDF | PDF.js | N/A | Fallback for scanned charts |
+
+> **WASM strategy:** ChordPro and transposition logic will be compiled to WebAssembly (Rust → WASM via `wasm-pack` + `wasm-bindgen`) in a future phase. This enables offline parsing without server round-trips. OSMD and abcjs already leverage WASM internally. The WASM modules live under `src/wasm/` and are loaded dynamically.
 
 ### 3.3 Backend & Infrastructure
 
@@ -234,11 +246,16 @@ cemurm/
 │   │   ├── useSetlists.js
 │   │   ├── useOffline.js
 │   │   └── useTransposition.js
+│   ├── wasm/                # Rust → WASM modules (future phase)
+│   │   ├── chordpro/        # ChordPro parser compiled to WASM
+│   │   ├── transposition/   # Key transposition logic (WASM)
+│   │   └── musicxml/        # Lightweight MusicXML parsing (WASM, future)
 │   ├── lib/
 │   │   ├── supabase.js        # Supabase client init
 │   │   ├── r2.js              # R2 upload helpers
 │   │   ├── chordpro/
-│   │   │   ├── parser.js      # ChordPro text parser
+│   │   │   ├── parser.js      # ChordPro text parser (JS fallback)
+│   │   │   ├── parser.wasm    # WASM binary (compiled from Rust)
 │   │   │   └── renderer.jsx   # ChordPro React renderer
 │   │   ├── apis/
 │   │   │   ├── lrclib.js      # LRCLIB lyrics API
@@ -292,10 +309,16 @@ cemurm/
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Frontend | Vercel | Auto-deploy from `main` branch |
+| Frontend | Vercel | Auto-deploy from `main` branch, TypeScript + Vite build output |
 | Database | Supabase | Hosted PostgreSQL + Auth |
 | File Storage | Cloudflare R2 | S3-compatible, no egress fees |
 | DNS | Cloudflare | Optional, for custom domain |
+
+### Build Output
+
+- Vite compiles TypeScript → optimized JS bundles with code-splitting
+- WASM modules (future) are loaded dynamically via `import()` — not bundled in the initial JS payload
+- Service worker (Workbox) precaches the JS bundles + WASM binaries
 
 ### Environment Variables
 
@@ -334,3 +357,158 @@ VITE_SPOTIFY_CLIENT_ID=your-spotify-client-id
 - CSP headers configured in Vercel deployment
 - No secrets in client-side code (all via `VITE_` env vars are public by design)
 - R2 access via signed URLs only (no public bucket)
+
+## 10. Stack Alternatives and Architecture Decisions
+
+This section documents the stack alternatives evaluated during specification and the rationale for the base recommendation. It serves as the decision record for the current architecture and as a reference point for future migration considerations.
+
+### 10.1 Database: Relational Alternatives
+
+| Database | Why Considered | Verdict | Rationale |
+|----------|---------------|---------|-----------|
+| **PostgreSQL (Supabase)** — base choice | Default backend; RLS native, full SQL | ✅ **Selected for MVP** | RLS is the right security model for per-user data access; free tier covers beta scale |
+| CockroachDB | Distributed SQL, Postgres wire-compatible | ⏸ Deferred | Overkill for beta scale; useful if multi-region becomes a requirement |
+| MySQL / MariaDB | Familiar, widely deployed | ❌ Rejected | No native RLS; would require row-level filtering in application code |
+| SQLite via Turso (libSQL) | Edge SQLite, very low latency for edge computing | ⏸ Deferred | Interesting for edge-only deployment; lacks the relational joins required for CEMURM's collaborative features |
+| Firestore (Firebase) | Realtime + offline built into SDK | ⏸ Deferred | Lacks RLS granularity and relational query capabilities (joins across setlists, songs, annotations, collections) |
+| MongoDB | Schema flexibility, horizontal scaling | ❌ Rejected | No RLS, document model is a poor fit for the highly relational data (songs ↔ setlists ↔ annotations ↔ collections) |
+| DynamoDB (AWS) | Massive scale | ❌ Rejected | No RLS, no joins, pricing at scale is higher than PostgreSQL alternatives for this workload |
+
+### 10.2 Caching Layer: Redis
+
+Redis is **not a database replacement** for CEMURM but a potential acceleration layer:
+
+| Use Case | Redis Helps? | Recommendation |
+|----------|-------------|----------------|
+| Rate-limiting external APIs (MusicBrainz, LRCLIB) | ✅ Yes | Add at scale (>5k MAU) using Upstash Redis (serverless) |
+| Session cache / JWT blacklist | ✅ Yes | Supabase Auth handles this internally for the MVP |
+| Pub/sub for realtime collaboration | ⚠️ Redundant | Supabase Realtime already provides WebSocket-based pub/sub |
+| Queue for offline sync writes | ⚠️ Partially | IndexedDB in the client handles the client-side queue; no Redis needed |
+| Music parsing result cache | ⚠️ Optional | Only if the same song is parsed repeatedly across sessions |
+
+**Decision:** Redis is deferred to the growth phase (>10k MAU). The Supabase ecosystem and client-side IndexedDB cover the needs for beta and early scale.
+
+### 10.3 Backend Languages
+
+#### Option A: TypeScript via Supabase Edge Functions (Recommended)
+
+| Aspect | Details |
+|--------|---------|
+| Runtime | Deno (edge functions in Supabase) |
+| Stack | TypeScript end-to-end: shared types between client and backend |
+| Pros | Minimal infra to maintain; same language (TS) for frontend and backend; RLS handles auth; $0 free tier |
+| Cons | Edge function cold starts; limited execution time and memory; no heavy CPU-bound processing in edge |
+| Best for | MVP, beta, early growth |
+
+#### Option B: Rust (Axum) with PostgreSQL
+
+| Aspect | Details |
+|--------|---------|
+| Runtime | Compiled binary, async (Tokio) |
+| Stack | Rust + Axum + SQLx (compile-time checked queries) + PostgreSQL |
+| Pros | 10-50x faster than Node.js for CPU-bound tasks (MusicXML parsing, transcription); memory-safe; binary deployment; WASM export possible |
+| Cons | 2-3 weeks additional setup; smaller web ecosystem; steep learning curve; need separate deployment pipeline |
+| Best for | Performance-critical parsing workloads; teams with Rust experience |
+
+#### Option C: Java (Spring Boot / Quarkus)
+
+| Aspect | Details |
+|--------|---------|
+| Runtime | JVM (Quarkus supports native compilation via GraalVM) |
+| Stack | Spring Boot or Quarkus + Hibernate + PostgreSQL |
+| Pros | Massive ecosystem; mature enterprise tooling; excellent for large teams |
+| Cons | Verbose codebase; higher memory footprint; overkill for this application scope |
+| Best for | Enterprise environments with existing Java infrastructure |
+
+**Decision:** TypeScript via Supabase edge functions for the MVP. Rust is documented as the preferred backend for Phase 2 if performance becomes a bottleneck (particularly for batch MusicXML processing). Java is not recommended for CEMURM's scope.
+
+### 10.4 Client-Side Processing: WebAssembly (Rust → WASM)
+
+CEMURM's music notation workload (parsing ChordPro, transposing keys, rendering MusicXML) is **CPU-bound** and benefits significantly from client-side WASM processing:
+
+| Workload | Current (JS) | With WASM (Rust) | Impact |
+|----------|-------------|-------------------|--------|
+| ChordPro parsing | JS parser | Rust compiled to WASM via `wasm-pack` | Instant offline parsing, no server round-trip |
+| Key transposition | JS math | Rust WASM module | 10-50x faster, trivial computation but consistent |
+| MusicXML parsing | OSMD (already WASM internally) | Custom Rust parser for lightweight extraction | Offload heavy parsing from main thread |
+| ABC rendering | abcjs (already WASM internally) | Unchanged | abcjs already uses WASM |
+
+**Path:**
+1. **MVP:** All parsing in JavaScript (ChordPro custom parser, OSMD, abcjs)
+2. **Phase 2:** Compile ChordPro parser and transposition logic to WASM (Rust → `wasm-pack` → `wasm-bindgen`), loaded dynamically via `import()` with a JS fallback
+3. **Phase 3:** Add MusicXML lightweight WASM parser for offline use
+
+**WASM module location:** `src/wasm/` (compiled output from a separate Rust crate workspace)
+
+### 10.5 Deployment Architecture Comparison
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ARCHITECTURE A: Supabase Native (recommended for MVP)          │
+│                                                                 │
+│  Vite+TS (Vercel) → Supabase Edge Functions (Deno/TS)          │
+│                       → Supabase (PG + Auth + Realtime)         │
+│                       → Cloudflare R2 (files)                   │
+│                                                                 │
+│  Complexity: Low   Cost: $0 beta   Lock-in: Moderate           │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ ARCHITECTURE B: Rust Backend + Separate Services                │
+│                                                                 │
+│  Vite+TS+WASM (Vercel) → Vercel Edge (TS) → Axum (Rust/Fly)   │
+│                            → Neon (serverless PostgreSQL)       │
+│                            → Upstash Redis (cache)              │
+│                            → Cloudflare R2 (files)              │
+│                                                                 │
+│  Complexity: High   Cost: ~$10/mo at scale   Lock-in: Low      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ ARCHITECTURE C: Fastify + Railway (TypeScript backend)         │
+│                                                                 │
+│  Vite+TS+WASM (Vercel) → Fastify (Railway/Fly.io)              │
+│                            → Neon (serverless PostgreSQL)       │
+│                            → Redis (Upstash, optional)          │
+│                            → Cloudflare R2 (files)              │
+│                                                                 │
+│  Complexity: Medium   Cost: ~$5-20/mo   Lock-in: Low           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 10.6 Decision Matrix
+
+| Criterion (weight for CEMURM) | Supabase + TS (A) | Rust Axum + Neon (B) | Fastify + Railway (C) |
+|-------------------------------|-------------------|---------------------|---------------------|
+| MVP setup speed               | ⭐⭐⭐⭐⭐           | ⭐⭐                | ⭐⭐⭐              |
+| Offline-first capable         | ⭐⭐⭐              | ⭐⭐⭐⭐⭐ (WASM)      | ⭐⭐⭐              |
+| Music parsing performance     | ⭐⭐⭐ (server)     | ⭐⭐⭐⭐⭐ (WASM)      | ⭐⭐⭐ (server)     |
+| Realtime collaboration        | ⭐⭐⭐⭐⭐ (built-in) | ⭐⭐⭐ (manual WS)   | ⭐⭐⭐              |
+| Free tier beta cost           | ⭐⭐⭐⭐⭐ ($0)      | ⭐⭐⭐               | ⭐⭐⭐              |
+| Team learning curve            | ⭐⭐⭐⭐⭐ (TS unified)| ⭐⭐ (Rust curve)   | ⭐⭐⭐⭐            |
+| Long-term scalability         | ⭐⭐⭐              | ⭐⭐⭐⭐             | ⭐⭐⭐⭐           |
+| RLS / security model           | ⭐⭐⭐⭐⭐ (native)   | ⭐⭐⭐ (must build)   | ⭐⭐⭐              |
+| **Composite score**           | **Highest**       | **2nd (growth phase)** | **3rd**        |
+
+### 10.7 Recommended Path
+
+| Phase | Stack | Timeline |
+|-------|-------|----------|
+| **Phase 0 (MVP)** | Supabase + TypeScript + Workbox | Immediate |
+| **Phase 1 (Scale)** | Same stack, optimize WASM for parsers, add Upstash Redis | >5k MAU |
+| **Phase 2 (Performance)** | Add Rust WASM modules for ChordPro parsing and transposition; consider dedicated Axum service for batch operations | >10k MAU or performance bottleneck |
+| **Phase 3 (Independence)** | Migrate from Supabase to self-hosted PostgreSQL (Neon/Railway) + separate Rust/HTTP backend if lock-in or cost becomes a concern | >50k MAU |
+
+### 10.8 Key Decisions to Finalize Before Apply Phase
+
+1. **TypeScript strict mode** — mandatory, non-negotiable from day one
+2. **WASM strategy** — documented here, implementation deferred to Phase 2
+3. **Redis** — deferred; add only when API rate limiting needs it
+4. **Java backend** — not recommended for CEMURM's scope; rejected
+5. **CockroachDB / DynamoDB** — rejected; PostgreSQL covers all current and near-future needs
+6. **Firestore** — rejected; relational model is essential for CEMURM's data relationships
+
+---
+
+*This section should be revisited when the team composition changes, the user base exceeds 10k MAU, or a performance bottleneck in parsing is confirmed.*
+
