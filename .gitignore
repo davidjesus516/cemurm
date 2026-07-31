@@ -37,3 +37,7 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+# Tooling artifacts
+.codebase-memory/
+.obsidian/
