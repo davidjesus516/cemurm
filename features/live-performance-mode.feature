@@ -67,12 +67,19 @@ Feature: Live Performance Mode
   PERFORMANCE CONTROLS
   ──────────────────────────────────────────────
 
-  Scenario: Toggle capo/transpose during a performance
+  Scenario: Transpose during a performance
     Given I am performing "Wonderwall" in standard tuning
-    When I tap the transpose button and set capo to 2
+    When I tap the transpose button and set transpose to +2
     Then the displayed chords shift up a whole step
     And the lyrics remain unchanged
     And the change persists for the rest of the performance
+
+  Scenario: Capo control follows the chart convention
+    Given I am performing a song whose chart renders in key C
+    When I open the capo control and set capo to 2
+    Then the app shows "Capo 2 · sounds D"
+    And the displayed chord shapes stay relative to the capo (C shapes)
+    And the sounding key for the rest of the band is D
 
   Scenario: Adjust tempo in real time during performance
     Given a song has a base tempo of 100 BPM

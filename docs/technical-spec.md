@@ -498,6 +498,7 @@ CEMURM's music notation workload (parsing ChordPro, transposing keys, rendering 
 | **Phase 1 (Scale)** | Same stack, optimize WASM for parsers, add Upstash Redis | >5k MAU |
 | **Phase 2 (Performance)** | Add Rust WASM modules for ChordPro parsing and transposition; consider dedicated Axum service for batch operations | >10k MAU or performance bottleneck |
 | **Phase 3 (Independence)** | Migrate from Supabase to self-hosted PostgreSQL (Neon/Railway) + separate Rust/HTTP backend if lock-in or cost becomes a concern | >50k MAU |
+| **Phase 4 (Millions)** | Scale-to-millions architecture: tenant-partitioned PostgreSQL, dedicated realtime layer (CRDTs), search service, worker queues, full observability (see §10.9) | >1M MAU |
 
 ### 10.8 Key Decisions to Finalize Before Apply Phase
 
@@ -507,6 +508,65 @@ CEMURM's music notation workload (parsing ChordPro, transposing keys, rendering 
 4. **Java backend** — not recommended for CEMURM's scope; rejected
 5. **CockroachDB / DynamoDB** — rejected; PostgreSQL covers all current and near-future needs
 6. **Firestore** — rejected; relational model is essential for CEMURM's data relationships
+
+### 10.9 Scale to Millions (Phase 4)
+
+The phases above (1–3) take CEMURM from MVP to ~50k MAU. Reaching millions of users is a **qualitative jump, not a linear extension**: two orders of magnitude where the assumptions change. This section is the north star for architecture decisions — it documents what a million-user CEMURM looks like so that decisions made TODAY do not block the path to it.
+
+#### What changes at millions
+
+| Layer | At 50k MAU | At millions |
+|-------|-----------|-------------|
+| Database | 1 PostgreSQL instance | PostgreSQL + read replicas + tenant partitioning + cache layer |
+| Backend | Supabase edge functions | Stateful service runtimes (long-running processes) |
+| Realtime | Supabase Realtime (LISTEN/NOTIFY) | Dedicated WebSocket layer with CRDTs for collaboration |
+| Compute | WASM on the client | WASM on the client + worker pools on the server |
+| Failure | A concern | Engineered as the norm (chaos engineering) |
+| Cost | ~$0 | The #1 design variable |
+
+#### Capabilities a million-user system must have
+
+1. **Multi-tenancy from day one.** CEMURM's domain IS community-centered: each community/orchestra/church is a natural tenant. This enables sharding by tenant, data isolation, and per-community caching. Every core table carries a tenant identifier (`tenant_id` / `community_id`) so future partitioning is possible without a schema rewrite.
+
+2. **Offline-first as a scaling strategy, not a feature.** Already in place (Workbox + IndexedDB): every song cached on the musician's device is one fewer server read. At millions, locally-served reads cost nothing — this is the strongest scaling lever in CEMURM's architecture.
+
+3. **Domain separation (modular monolith first).** Not microservices from day one (operational complexity kills small teams), but hard module boundaries (songs, setlists, communities, auth, search, notifications) so modules can explode into services when the load demands it.
+
+4. **Realtime with CRDTs.** For real collaborative editing (two musicians editing the same arrangement), Supabase Realtime does not scale to thousands of subscribers per room. Yjs (or equivalent) over a dedicated WebSocket layer is required. This is a standalone project — ignorable for MVP but NOT patchable on top later.
+
+5. **Queues and workers.** Notifications, exports, search indexing, file processing: everything that is not request/response goes to a queue (Redis/BullMQ or Temporal). Without this, load spikes suffocate the system at millions.
+
+6. **Observability from day one.** Structured logs + metrics + tracing (OpenTelemetry) + SLOs + alerting. This is how million-user systems are operated; without telemetry there is no way to even diagnose the failure.
+
+7. **Dedicated search.** At millions, `ILIKE '%title%'` does not scale. PostgreSQL full-text search first, then a dedicated engine (Meilisearch, Typesense, or OpenSearch) for full-text song search.
+
+8. **Costs as a design input.** Every query costs money at millions. Hot-read caching (song views, repeated searches), R2 lifecycle policies, and cold-data tiering are required disciplines.
+
+#### Target stack at the maximum point
+
+```
+Frontend:  React + TypeScript + Vite (offline-first PWA)   ← unchanged
+Backend:   Rust (Axum) or Go, modular monolith             ← replaces edge functions
+Database:  PostgreSQL (partitioned, read replicas; CockroachDB if multi-region)
+Cache:     Redis (ValKey) + BullMQ / Temporal
+Realtime:  Yjs + dedicated WebSocket layer (Ably / self-hosted / Elixir / Go)
+Search:    Meilisearch or Typesense
+Files:     Cloudflare R2 + CDN + presigned URLs             ← unchanged
+Edge:      Cloudflare Workers (rate limiting, auth checks, cache)
+Observability: OpenTelemetry + Grafana stack (Loki / Tempo / Mimir)
+```
+
+#### Decisions that enable the jump (made TODAY)
+
+The million-user stack is NOT chosen now — choosing Rust + sharding + Temporal + CRDTs for a product with no users is the classic over-engineering mistake: slow velocity, dead infra spend, and probable death before 100k MAU. The art is choosing an architecture that LEAVES the door open. That translates into today's decisions:
+
+- Tenant-aware data model (`tenant_id` on core tables) → enables future sharding.
+- Clean module boundaries → enables future service split.
+- Versioned, stable API → no client breakage.
+- WASM on the client → heavy compute never lives on the server.
+- No coupling to non-migratable Supabase features (see Phase 3 independence).
+
+**Decision:** Phase 4 is a documented destination, not a build target. Revisit this section when the user base exceeds ~100k MAU or a confirmed bottleneck appears in search, realtime, or read load.
 
 ---
 
