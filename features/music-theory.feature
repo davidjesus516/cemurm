@@ -77,10 +77,10 @@ Feature: Music Theory Model (Advanced Scales, Modes, and Degrees)
     And the concrete chords resolve from the Phrygian scale intervals
 
   Scenario: Musician override wins over derived quality
-    Given "Canción Árabe" is in "E Phrygian dominant"
+    Given "Canción Árabe" is in "E Phrygian"
     And its chart is stored as concrete ChordPro content "E7 - F - D"
     When I open the degree view
-    Then the tonic chord renders as I7 (explicit chord E7, quality overrides the scale-derived minor)
+    Then the tonic chord renders as I7 (explicit chord E7 overrides the scale-derived minor i)
     And the concrete chart keeps E7 as entered
     And no later recomputation replaces the stored chord
 
@@ -112,15 +112,15 @@ Feature: Music Theory Model (Advanced Scales, Modes, and Degrees)
   Scenario: Stage-mode transpose re-renders in the target key context
     Given "Canción Bemol" is in Gb major with the chord progression Gb - Db - Eb
     When I open it in performance mode and set transpose to +2 semitones
-    Then the chords re-render in the target key context (A major) using its spelling
+    Then the chords re-render in the target key context (Ab major) using its spelling (Ab - Eb - F)
     And no chord renders with a spelling from the wrong key context (no mixed sharps/flats)
 
-  Scenario: Capo shapes stay relative while the degree view uses concert key
+  Scenario: Capo shapes stay relative while the degree view uses the written key
     Given "Canción Capo" is in C major and Pedro has a capo preference of fret 2
     When Pedro opens the song with the degree view enabled
-    Then the degree view resolves against concert C (the sounding key)
+    Then the degree view resolves against the written key C (the shapes' key)
     And the app shows "Capo 2 · sounds D" with the C shapes relative to the capo
-    And the degree numerals stay anchored to concert C, not to the capo shapes
+    And the degree numerals stay anchored to written C, not to the sounding key D
 
   Scenario: Mid-song meter and tempo changes belong to the section
     Given "Canción Cambio" has a Bridge in 3/4 at 90 BPM inside a 4/4 song at 120 BPM
@@ -138,7 +138,7 @@ Feature: Music Theory Model (Advanced Scales, Modes, and Degrees)
   Scenario: Transposing a modulating song shifts every section relative to its own context
     Given "Canción Modulación" has Verse in C major and Chorus in G major
     When I transpose the whole song up a whole step in performance mode
-    Then the Verse re-resolves in D major and the Chorus in A major
+    Then the Verse re-renders in D major and the Chorus in A major
     And the relative relationship between sections is preserved
     And the song-level key becomes D major (home section)
 
@@ -212,9 +212,10 @@ Feature: Music Theory Model (Advanced Scales, Modes, and Degrees)
     Given chord-name search in search-and-discovery matches rendered concrete chords ("G major")
     When I search for the chord "G major"
     Then songs whose rendered chords include G major appear, tagged with the matching chord
-    And songs with "Key not declared" are excluded from chord-name search results
+    And keyless songs still match chord-name search (their concrete chords render without a key)
     When I search for the progression "ii-V-I"
     Then only songs with declared degree patterns match (never auto-detected from raw names)
+    And keyless songs never match progression search
 
   ──────────────────────────────────────────────
   NON-GOALS (DECLARED, NOT ANALYZED)

@@ -11,7 +11,7 @@ The governing principles:
 3. **Degree quality derives from the scale, always.** No hardcoded "I = major" assumption. The same degree can be minor, major, or dominant depending on the scale context.
 4. **The concrete chart is canonical; degrees are a derived view.** The stored chart content is the concrete ChordPro text (G — C — D). When a key context is declared, the degree progression (I — IV — V) is computed from that concrete content. The degree representation is never the source of truth; it is a projection parameterized by key context. Transposition re-renders the concrete chart in the target key context (semitone shift is the degenerate case), and the degree view follows.
 
-> **Storage decision (2026-08):** Degree-canonical storage is deliberately NOT the model. Canonical degree storage would force key detection at import time (violating principle 1) and would rewrite the suite's concrete-chord content contract. The chosen path is concrete-canonical (C) with an **open door** to a future Nashville Number System (NNS) source format: because the theory core (scale catalog + degree resolver + section key contexts) is identical in both, an NNS source format can be added later as an opt-in format plugin per arrangement without rework. See §10.
+> **Storage decision (2026-08):** Degree-canonical storage is deliberately NOT the model. Canonical degree storage would force key detection at import time (violating principle 1) and would rewrite the suite's concrete-chord content contract. The chosen path is concrete-canonical (C) with an **open door** to a future Nashville Number System (NNS) source format: because the theory core (scale catalog + degree resolver + section key contexts) is identical in both, an NNS source format can be added later as an opt-in format plugin per arrangement without rework. See §11.
 
 ## 2. Core Concepts
 
@@ -232,7 +232,7 @@ NNS (number charts — `1-4-5`, `b3`, `4sus`) is a real, widely used notation in
 | Canonical content | ChordPro text (G - C - D) | Number chart (1 - 4 - 5) + key |
 | Import without key | Allowed (draft state) | Not allowed — key required to store numbers |
 | Conversion | — | ChordPro ↔ NNS with musician confirmation for non-diatonic chords |
-| Substitutions | Concrete-keyed (Bm → Dmaj7) | Degree-keyed by nature (i → bIII) — resolves MT-002 cleanly |
+| Substitutions | Concrete-keyed (Bm → Dmaj7) | Degree-keyed by nature (i → bIII) — resolves the root-changing substitution contract cleanly |
 | Transposition | Re-render concrete in target key | Re-resolve degrees — trivial |
 | Who sees what | Everyone sees concrete | Owner edits NNS; others see rendered concrete |
 
