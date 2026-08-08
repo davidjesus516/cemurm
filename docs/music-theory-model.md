@@ -9,7 +9,9 @@ The governing principles:
 1. **The musician declares, the system suggests.** CEMURM never guesses the key or the harmonic function of a chord. Tonic and scale come from the musician or from the imported file (MusicXML/ABC key signatures); the system may suggest but never imposes.
 2. **Scale is data, not logic.** Scales and modes are interval tables in a catalog. Adding a new scale never touches the resolution engine.
 3. **Degree quality derives from the scale, always.** No hardcoded "I = major" assumption. The same degree can be minor, major, or dominant depending on the scale context.
-4. **Chords are stored semantically, rendered concretely.** A chart stores (degree, quality, bass/extensions) against a key context; the display renders concrete chord names. Transposition is "move the tonic, re-resolve the degrees" — not "add semitones".
+4. **The concrete chart is canonical; degrees are a derived view.** The stored chart content is the concrete ChordPro text (G — C — D). When a key context is declared, the degree progression (I — IV — V) is computed from that concrete content. The degree representation is never the source of truth; it is a projection parameterized by key context. Transposition re-renders the concrete chart in the target key context (semitone shift is the degenerate case), and the degree view follows.
+
+> **Storage decision (2026-08):** Degree-canonical storage is deliberately NOT the model. Canonical degree storage would force key detection at import time (violating principle 1) and would rewrite the suite's concrete-chord content contract. The chosen path is concrete-canonical (C) with an **open door** to a future Nashville Number System (NNS) source format: because the theory core (scale catalog + degree resolver + section key contexts) is identical in both, an NNS source format can be added later as an opt-in format plugin per arrangement without rework. See §10.
 
 ## 2. Core Concepts
 
@@ -64,18 +66,18 @@ Examples: `E Phrygian`, `C# harmonic minor`, `Bb major`.
 
 ### 2.4 Chord
 
-A chord in a chart is stored semantically: its degree within the current key context, its quality (which must be consistent with the scale but may be explicitly overridden by the musician), and optional bass/extensions.
+The stored chart content is **concrete** — the ChordPro text as written. The semantic model below is the *resolution layer* used to derive the degree view when a key context exists; it is not the storage format.
 
 ```
-Chord = { degree: RomanNumeral, quality: Quality, bass?: Note, extensions?: string }
+Chord = { concreteName: string, quality: Quality, bass?: Note, extensions?: string }
 ```
 
-- `degree`: roman numeral in the active key context (I, ii, V7, ♭VII, ...).
-- `quality`: derived from the scale by default (see §3.2), overridable by the musician.
-- `bass`: inversion/slash chord support (G/B, D/F#) — the bass note is a concrete pitch, not a degree.
+- `concreteName`: the chord as entered (G, Bm, E7, G/B) — canonical content.
+- `quality`: derived from the scale by default (see §3.2), overridable by the musician; the override lives on the chord's concrete entry.
+- `bass`: inversion/slash chord support (G/B, D/F#) — a concrete pitch within the concrete name.
 - `extensions`: free-form (7, maj7, sus4, add9) — preserved as written.
 
-The concrete chord name is a **rendered view**: resolve (key context, degree, quality) → name. The stored representation never hardcodes "G-C-D"; it stores "I-IV-V in G major".
+The degree view is **computed**: resolve (key context, concrete chord) → degree (I, IV, V, ...). The stored representation remains "G-C-D"; "I-IV-V in G major" is the derived projection shown when the musician toggles the degree view.
 
 ### 2.5 Song structure (sectional)
 
@@ -84,15 +86,17 @@ A song is a sequence of sections. **Each section carries its own key context** �
 ```
 Section = {
   id, label: "Verse 1" | "Chorus" | "Bridge" | ...,
-  keyContext: KeyContext,        // tonic + scale
+  keyContext: KeyContext,        // tonic + scale (declared or inherited from song level)
   meter?: TimeSignature,         // 4/4, 3/4, 6/8, ...
   tempoBpm?: number,             // optional mid-song tempo change
-  chords: Chord[],               // semantically stored, positioned relative to lyrics
+  chords: Chord[],               // concrete chords, positioned relative to lyrics
   melody?: Note[]                // optional — enables vocal range analysis
 }
 ```
 
-Modulation = a section whose keyContext differs from the previous one. Transposition re-resolves each section's chords against its own context.
+Modulation = a section whose keyContext differs from the previous one. Transposition re-renders each section's concrete chords in its own target key context.
+
+**Song-level key.** The song-level key (used by agreed key, key distribution, version diffs, call sheets) is **derived from the home/first section's key context**. Sections keep their own contexts; the song-level key is the home section's.
 
 ## 3. Resolution Engine
 
@@ -101,10 +105,10 @@ Pure, deterministic, table-driven. No analysis, no guessing.
 ### 3.1 Degree resolution
 
 ```
-resolveDegree(keyContext, degree) -> Note
+resolveDegree(keyContext, concreteChord) -> RomanNumeral | null
 ```
 
-The degree's semitone offset comes from the scale's interval table: degree `n` = scale interval `n` + tonic. Used for both rendering and transposition.
+The concrete chord's root is mapped to a degree via the scale's interval table. A chord outside the scale's pitch collection resolves to `null` unless the musician declares its degree explicitly (borrowed/chromatic chords) — the system suggests, never guesses. Used for the degree view and for transposition of the concrete chart.
 
 ### 3.2 Quality derivation
 
@@ -114,11 +118,11 @@ The default quality of a diatonic triad/7th on each degree is derived from the s
 - Phrygian i → minor; Phrygian dominant i → **dominant 7** (the musician overrides quality when the harmony calls for it).
 - Harmonic minor V → major (dominant) — the raised 7th of the parent.
 
-Rule: quality defaults derive from the scale; explicit musician overrides always win. The override is stored with the chord, never recomputed.
+Rule: quality defaults derive from the scale; the concrete chord as entered by the musician always wins (it IS the canonical content).
 
 ### 3.3 Transposition
 
-Transposition = change the key context (tonic, and optionally scale), keep the degrees, re-resolve. Semitone transposition is the degenerate case (major-scale context, +N semitones). Section-aware: each section re-resolves with its own context.
+Transposition = re-render the concrete chart in a target key context: every chord shifts by the same semitone offset, then is re-spelled according to the target key context. Section-aware: each section re-renders against its own context. The degree view follows the concrete re-render. (Semitone shifting with correct key-context spelling is the whole mechanism — there is no separate "degree re-resolution" step because the concrete chart is canonical.)
 
 ### 3.4 Enharmonic spelling
 
@@ -194,7 +198,7 @@ Power for improvisers, zero logic — a lookup table over the existing catalog. 
 | Advanced notation in scores | Fidelity rendering layer: MusicXML (OSMD) / ABC (abcjs) / PDF. No theory engine involved. Already in scope (`music-notation.feature`). |
 | Exotic scales (major, minor, pentatonic, chromatic, foreign) | Scale catalog as interval data. Chromatic = 12-note table. "Foreign" scales (Phrygian dominant, etc.) = catalog entries or mode rotations. |
 | Greek modes | Mode = (parent, rotation). All 7 major modes + modes of harmonic/melodic minor derived at runtime. |
-| Chord degree relationships (I, IV, V) | Semantic chord storage: degree-based chart + key context. Degree view is a computed render. |
+| Chord degree relationships (I, IV, V) | Degree view derived from the concrete chart + key context. Concrete ChordPro stays canonical; degree numerals are a computed render. |
 | Modulation (key change mid-song) | Sectional structure: each section carries its own key context. |
 | Enharmonic spelling | Spelling convention in key context. |
 | Inversions / slash chords | `bass` field on chord. |
@@ -216,3 +220,20 @@ Power for improvisers, zero logic — a lookup table over the existing catalog. 
 - [ ] Progression catalog search syntax (exact degree match vs. transposed match).
 - [ ] Chord-scale view: shipped as a data-only lookup or exposed as a first-class view.
 - [ ] Scale catalog bootstrapping: curated seed list vs. import from an external theory dataset.
+
+## 11. Future: Nashville Number System (NNS) Source Format — the Open Door
+
+**Decision (2026-08):** concrete-canonical (C) now, with the door open for NNS later.
+
+NNS (number charts — `1-4-5`, `b3`, `4sus`) is a real, widely used notation in which the chord chart IS stored as degrees against a key. It is the natural "degree-canonical" (B) evolution — but only as an **opt-in source format per arrangement**, never as the global storage contract:
+
+| Aspect | Concrete-canonical (now) | NNS source format (future) |
+|--------|--------------------------|----------------------------|
+| Canonical content | ChordPro text (G - C - D) | Number chart (1 - 4 - 5) + key |
+| Import without key | Allowed (draft state) | Not allowed — key required to store numbers |
+| Conversion | — | ChordPro ↔ NNS with musician confirmation for non-diatonic chords |
+| Substitutions | Concrete-keyed (Bm → Dmaj7) | Degree-keyed by nature (i → bIII) — resolves MT-002 cleanly |
+| Transposition | Re-render concrete in target key | Re-resolve degrees — trivial |
+| Who sees what | Everyone sees concrete | Owner edits NNS; others see rendered concrete |
+
+The enabling condition: the theory core (scale catalog, degree resolver, section key contexts) is **identical** in both models. Adding NNS later is a format plugin + an opt-in flag + a conversion flow — no rework of the core, no rewrite of the suite's concrete-content contract. The decision to keep the door open costs nothing today; the decision to walk through it should be driven by real demand from advanced arrangers.

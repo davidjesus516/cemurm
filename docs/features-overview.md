@@ -1,6 +1,6 @@
 # CEMURM Feature Suite — Overview
 
-The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **23 feature files, 414 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, and the advanced music theory model (scales, modes, degrees).
+The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **23 feature files, 420 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, and the advanced music theory model (scales, modes, degrees).
 
 The suite's deepest domain is **Personal Preferences and Adaptations**: it owns the canonical-chart vs. personal-rendering model that ties together keys, versions, transpose, vocal range, and conflict resolution across the other features.
 
@@ -36,7 +36,7 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 | Setlist Creation | 4 | Plan gig order | Build, reorder, duplicate, duration |
 | Repertoire Management | 4 | Song library CRUD | Add/search/edit/soft-delete |
 | Music Notation File Support | 3 | Import/view notation files | ChordPro, MusicXML (OSMD), ABC (abcjs) |
-| Music Theory Model | 24 | Advanced scales, modes, degrees | Scale/mode declaration, degree charts, modulation, spelling, progression catalog, non-goals |
+| Music Theory Model | 30 | Advanced scales, modes, degrees | Scale/mode declaration, degree view (derived), modulation, spelling, progression catalog, non-goals |
 | Offline Access | 3 | Perform without connectivity | Cached repertoire, pending-sync edits, offline proximity |
 
 ## The core domain model
