@@ -41,3 +41,10 @@ coverage/
 # Tooling artifacts
 .codebase-memory/
 .obsidian/
+
+# Local Obsidian vault (notes only, never ship)
+CEMURM/
+
+# Local agent tooling state
+.atl/
+.reflection/

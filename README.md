@@ -41,4 +41,4 @@ The app will be available at `http://localhost:5173`.
 
 ## License
 
-Proprietary — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE) for details.
