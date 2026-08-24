@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CEMURM · MVP Roadmap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #eb6c36;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; min-width: 900px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Timeline · Diagram Design</p>
+    <h1>CEMURM · MVP roadmap — 12 months</h1>
+
+    <svg viewBox="0 0 1100 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="tl-title tl-desc">
+      <title id="tl-title">CEMURM · MVP Roadmap</title>
+      <desc id="tl-desc">Project timeline showing six two-month milestones over a twelve-month development period, from Core Viewer through Beta Polish.</desc>
+
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- BASELINE                               -->
+      <!-- ═══════════════════════════════════════ -->
+      <line x1="60" y1="260" x2="1040" y2="260" stroke="#bfc0c0" stroke-width="1"/>
+
+      <!-- Month tick marks -->
+      <line x1="60" y1="256" x2="60" y2="264" stroke="#4f5d75" stroke-width="1"/>
+      <line x1="223" y1="256" x2="223" y2="264" stroke="#4f5d75" stroke-width="1"/>
+      <line x1="386" y1="256" x2="386" y2="264" stroke="#4f5d75" stroke-width="1"/>
+      <line x1="550" y1="256" x2="550" y2="264" stroke="#4f5d75" stroke-width="1"/>
+      <line x1="713" y1="256" x2="713" y2="264" stroke="#4f5d75" stroke-width="1"/>
+      <line x1="876" y1="256" x2="876" y2="264" stroke="#4f5d75" stroke-width="1"/>
+      <line x1="1040" y1="256" x2="1040" y2="264" stroke="#4f5d75" stroke-width="1"/>
+
+      <!-- Month labels -->
+      <text x="60" y="284" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">M1</text>
+      <text x="223" y="284" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">M2</text>
+      <text x="386" y="284" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">M3</text>
+      <text x="550" y="284" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">M4</text>
+      <text x="713" y="284" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">M5</text>
+      <text x="876" y="284" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">M6</text>
+      <text x="1040" y="284" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">M7–12</text>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- HITO 1 — Core Viewer + Auth (M1–M2)    -->
+      <!-- ═══════════════════════════════════════ -->
+      <circle cx="142" cy="260" r="6" fill="#eb6c36"/>
+      <line x1="142" y1="254" x2="142" y2="170" stroke="#eb6c36" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <rect x="60" y="130" width="164" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="60" y="130" width="164" height="26" rx="6" fill="rgba(235,108,54,0.08)" stroke="none"/>
+      <text x="76" y="148" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" letter-spacing="0.12em">HITO 1</text>
+      <text x="76" y="174" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">Core Viewer + Auth</text>
+      <text x="76" y="192" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Song CRUD · Setlist CRUD</text>
+      <text x="76" y="204" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">ChordPro parser · Supabase Auth</text>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- HITO 2 — Stage Mode (M3–M4)            -->
+      <!-- ═══════════════════════════════════════ -->
+      <circle cx="386" cy="260" r="6" fill="#4f5d75"/>
+      <line x1="386" y1="266" x2="386" y2="340" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <rect x="304" y="340" width="164" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="304" y="340" width="164" height="26" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+      <text x="320" y="358" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" letter-spacing="0.12em">HITO 2</text>
+      <text x="320" y="384" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">Stage Mode</text>
+      <text x="320" y="402" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Fullscreen · Transposition</text>
+      <text x="320" y="414" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Offline · Pedal support</text>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- HITO 3 — Collaboration (M5–M6)         -->
+      <!-- ═══════════════════════════════════════ -->
+      <circle cx="650" cy="260" r="6" fill="#4f5d75"/>
+      <line x1="650" y1="254" x2="650" y2="140" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <rect x="568" y="60" width="164" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="568" y="60" width="164" height="26" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+      <text x="584" y="78" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" letter-spacing="0.12em">HITO 3</text>
+      <text x="584" y="104" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">Collaboration</text>
+      <text x="584" y="122" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Shared setlists · Realtime sync</text>
+      <text x="584" y="134" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Annotations · Collections</text>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- HITO 4 — Community (M7–M8)             -->
+      <!-- ═══════════════════════════════════════ -->
+      <circle cx="820" cy="260" r="6" fill="#4f5d75"/>
+      <line x1="820" y1="266" x2="820" y2="340" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <rect x="738" y="340" width="164" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="738" y="340" width="164" height="26" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+      <text x="754" y="358" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" letter-spacing="0.12em">HITO 4</text>
+      <text x="754" y="384" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">Basic Community</text>
+      <text x="754" y="402" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Public library · URL import</text>
+      <text x="754" y="414" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Profiles · Reputation</text>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- HITO 5 — Integrations (M9–M10)         -->
+      <!-- ═══════════════════════════════════════ -->
+      <circle cx="960" cy="260" r="6" fill="#4f5d75"/>
+      <line x1="960" y1="254" x2="960" y2="170" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <rect x="878" y="90" width="164" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="878" y="90" width="164" height="26" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+      <text x="894" y="108" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" letter-spacing="0.12em">HITO 5</text>
+      <text x="894" y="134" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">Integrations</text>
+      <text x="894" y="152" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">MIDI · External display</text>
+      <text x="894" y="164" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">OBS overlay · Spotify</text>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- HITO 6 — Beta Polish (M11–M12)         -->
+      <!-- ═══════════════════════════════════════ -->
+      <circle cx="1040" cy="260" r="6" fill="#4f5d75"/>
+      <line x1="1040" y1="266" x2="1040" y2="340" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <rect x="958" y="340" width="164" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="958" y="340" width="164" height="26" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+      <text x="974" y="358" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" letter-spacing="0.12em">HITO 6</text>
+      <text x="974" y="384" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">Beta Polish</text>
+      <text x="974" y="402" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Performance · A11y audit</text>
+      <text x="974" y="414" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Bug fixes · Docs</text>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- PHASE COLORED BARS (subtle)             -->
+      <!-- ═══════════════════════════════════════ -->
+      <!-- Hito 1 bar -->
+      <rect x="60" y="320" width="326" height="4" rx="2" fill="rgba(235,108,54,0.25)"/>
+      <!-- Hito 2 bar -->
+      <rect x="386" y="320" width="264" height="4" rx="2" fill="rgba(79,93,117,0.20)"/>
+      <!-- Hito 3 bar -->
+      <rect x="650" y="320" width="226" height="4" rx="2" fill="rgba(79,93,117,0.20)"/>
+      <!-- Hito 4 bar -->
+      <rect x="820" y="320" width="140" height="4" rx="2" fill="rgba(79,93,117,0.20)"/>
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- LEGEND                                  -->
+      <!-- ═══════════════════════════════════════ -->
+      <line x1="60" y1="500" x2="1040" y2="500" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="60" y="516" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <circle cx="72" cy="496" r="4" fill="#eb6c36"/>
+      <text x="84" y="500" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Milestone with coral = current/next priority</text>
+
+      <circle cx="370" cy="496" r="4" fill="#4f5d75"/>
+      <text x="382" y="500" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Milestone with muted = planned</text>
+
+      <rect x="640" y="492" width="40" height="4" rx="2" fill="rgba(79,93,117,0.20)"/>
+      <text x="690" y="500" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Phase duration bar</text>
+
+    </svg>
+  </div>
+</body>
+</html>
