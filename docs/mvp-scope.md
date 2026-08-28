@@ -102,7 +102,7 @@ Two bandmates open the same setlist. One adds a song — it appears instantly on
 
 ### Deliverables
 - [x] Public library: browsable catalog of public domain songs (bootstrapped from IMSLP/Wikifonia)
-- [ ] URL importer: paste a URL to fetch song metadata (MusicBrainz, LRCLIB for lyrics)
+- [x] URL importer: paste a URL to fetch song metadata (MusicBrainz, LRCLIB for lyrics)
 - [x] User profiles: public page showing user's songs, setlists, collections
 - [x] Follow/subscribe to other musicians
 - [x] Basic reputation: contribution count, collections curated
@@ -131,11 +131,11 @@ A new user browses the public library, finds "Amazing Grace" in ChordPro format,
 - [x] Web MIDI: send program change messages to hardware/software synths
 - [x] External display API: mirror Stage Mode to a second screen
 - [x] OBS Browser Source overlay: show current song, chords, and setlist position
-- [ ] Spotify integration: fetch album art, BPM, and key for auto-tagging songs
-- [ ] LRCLIB integration: auto-fetch synchronized lyrics
+- [x] Spotify integration: fetch album art, BPM, and key for auto-tagging songs
+- [x] LRCLIB integration: auto-fetch synchronized lyrics
 
 ### BDD coverage
-The integration surface is specified in `features/midi-integration.feature`, `features/external-display.feature`, and `features/obs-overlay.feature`. The foot pedal (Hito 2) hardware surface is specified in `features/foot-pedal-hid.feature`; thematic collection and shared-comment surfaces from Hito 3 are specified in `features/collections.feature` and `features/collaborative-comments.feature`.
+The integration surface is specified in `features/midi-integration.feature`, `features/external-display.feature`, and `features/obs-overlay.feature`. The foot pedal (Hito 2) hardware surface is specified in `features/foot-pedal-hid.feature`; thematic collection and shared-comment surfaces from Hito 3 are specified in `features/collections.feature` and `features/collaborative-comments.feature`. Spotify auto-tagging is specified in `features/external-autotagging.feature`; in-app feedback is specified in `features/in-app-feedback.feature`; PDF scan charts in `features/pdf-scan-charts.feature`.
 
 ### Demo Description
 A musician performing live connects a MIDI controller. When they switch songs in CEMURM, the app sends a program change message to their pedalboard. Their OBS stream shows a clean overlay of the current song title and chord progression.

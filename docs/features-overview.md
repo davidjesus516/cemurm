@@ -1,6 +1,6 @@
 # CEMURM Feature Suite — Overview
 
-The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **30 feature files, 506 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, and the advanced music theory model (scales, modes, degrees).
+The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **33 feature files, 532 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, and the advanced music theory model (scales, modes, degrees).
 
 The suite's deepest domain is **Personal Preferences and Adaptations**: it owns the canonical-chart vs. personal-rendering model that ties together keys, versions, transpose, vocal range, and conflict resolution across the other features.
 
@@ -29,6 +29,9 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 | External Display | 11 | Mirror performance to a 2nd screen | Audience-facing view, sync, transpose, offline |
 | OBS Overlay | 8 | Clean overlay for streaming | Browser Source URL, title/chords/position, privacy scope |
 | Public Library & Community | 16 | Discover + contribute shared songs | Browse, contribute, follow, reputation, reporting |
+| PDF Scan Charts | 9 | Store songs as PDF scans | PDF hosting, performance rendering, offline, limits |
+| In-App Feedback | 8 | Report bugs/feedback in-app | Bug/general forms, consent, offline queue |
+| External Auto-Tagging | 9 | Enrich songs from Spotify | Album art/BPM/key suggestions, provenance |
 | Live Performance Mode | 17 | Focused on-stage presentation | Chords/lyrics, navigation, capo/transpose, crash recovery |
 | Service Planning | 17 | Structure the service into blocks | Blocks, musician assignment, call sheet, check-in |
 | Substitutions and Coverage | 17 | Cover missing musicians | Sub requests, projection for subs, coverage status, cross-org |
