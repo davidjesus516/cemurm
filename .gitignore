@@ -48,3 +48,4 @@ CEMURM/
 # Local agent tooling state
 .atl/
 .reflection/
+.codegraph/
