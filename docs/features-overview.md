@@ -1,6 +1,6 @@
 # CEMURM Feature Suite — Overview
 
-The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **23 feature files, 420 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, and the advanced music theory model (scales, modes, degrees).
+The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **30 feature files, 506 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, and the advanced music theory model (scales, modes, degrees).
 
 The suite's deepest domain is **Personal Preferences and Adaptations**: it owns the canonical-chart vs. personal-rendering model that ties together keys, versions, transpose, vocal range, and conflict resolution across the other features.
 
@@ -25,6 +25,10 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 | Organizational Repertoire Model | 21 | Hierarchical shared catalog | System/org/branch levels, roles, events, access control |
 | Congregation Projection | 19 | Lyrics-only display for the audience | Slide control, transitions, high contrast, projection rights |
 | External Integrations and Import | 18 | Bring songs in, send setlists out | MusicBrainz/LRCLIB, OnSong/Planning Center, metadata-only URL, no scraping |
+| MIDI Integration | 11 | Control external gear live | Web MIDI, per-song program change, setlist MIDI maps |
+| External Display | 11 | Mirror performance to a 2nd screen | Audience-facing view, sync, transpose, offline |
+| OBS Overlay | 8 | Clean overlay for streaming | Browser Source URL, title/chords/position, privacy scope |
+| Public Library & Community | 16 | Discover + contribute shared songs | Browse, contribute, follow, reputation, reporting |
 | Live Performance Mode | 17 | Focused on-stage presentation | Chords/lyrics, navigation, capo/transpose, crash recovery |
 | Service Planning | 17 | Structure the service into blocks | Blocks, musician assignment, call sheet, check-in |
 | Substitutions and Coverage | 17 | Cover missing musicians | Sub requests, projection for subs, coverage status, cross-org |
@@ -33,6 +37,9 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 | User Onboarding | 16 | Guided first-run | Walkthrough, org setup, tours, completion tracking |
 | Collaboration — Bandmate Management | 15 | Coordinate via shared repertoire/setlists | Invites, proximity codes (offline), edge cases |
 | Shared Setlist Collaboration | 15 | Real-time joint setlist planning | Conflict/locking, offline merge, ownership, version history |
+| Collaborative Comments | 13 | Shared commentary attached to songs | Section-anchored comments, threading, per-version, mentions, offline queue |
+| Collections | 14 | Curate + reuse themed song sets | Thematic grouping, fork with lineage, setlist/block fill, sharing |
+| Foot Pedal HID | 13 | Hands-free pedal navigation | USB HID pairing, pedal mapping, navigation, robustness |
 | Setlist Creation | 4 | Plan gig order | Build, reorder, duplicate, duration |
 | Repertoire Management | 4 | Song library CRUD | Add/search/edit/soft-delete |
 | Music Notation File Support | 3 | Import/view notation files | ChordPro, MusicXML (OSMD), ABC (abcjs) |

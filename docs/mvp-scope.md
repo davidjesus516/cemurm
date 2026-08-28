@@ -101,12 +101,15 @@ Two bandmates open the same setlist. One adds a song — it appears instantly on
 - Implement basic reputation/engagement system
 
 ### Deliverables
-- [ ] Public library: browsable catalog of public domain songs (bootstrapped from IMSLP/Wikifonia)
+- [x] Public library: browsable catalog of public domain songs (bootstrapped from IMSLP/Wikifonia)
 - [ ] URL importer: paste a URL to fetch song metadata (MusicBrainz, LRCLIB for lyrics)
-- [ ] User profiles: public page showing user's songs, setlists, collections
-- [ ] Follow/subscribe to other musicians
-- [ ] Basic reputation: contribution count, collections curated
-- [ ] Content reporting mechanism
+- [x] User profiles: public page showing user's songs, setlists, collections
+- [x] Follow/subscribe to other musicians
+- [x] Basic reputation: contribution count, collections curated
+- [x] Content reporting mechanism
+
+### BDD coverage
+The community surface is specified in `features/public-library-community.feature` (browse, contribute, follow, reputation, reporting).
 
 ### Demo Description
 A new user browses the public library, finds "Amazing Grace" in ChordPro format, adds it to their setlist. They import a song from a URL, and the metadata (artist, key, BPM) is auto-filled. Other users can see their public profile and curated collections.
@@ -125,11 +128,14 @@ A new user browses the public library, finds "Amazing Grace" in ChordPro format,
 - Build OBS overlay for streaming musicians
 
 ### Deliverables
-- [ ] Web MIDI: send program change messages to hardware/software synths
-- [ ] External display API: mirror Stage Mode to a second screen
-- [ ] OBS Browser Source overlay: show current song, chords, and setlist position
+- [x] Web MIDI: send program change messages to hardware/software synths
+- [x] External display API: mirror Stage Mode to a second screen
+- [x] OBS Browser Source overlay: show current song, chords, and setlist position
 - [ ] Spotify integration: fetch album art, BPM, and key for auto-tagging songs
 - [ ] LRCLIB integration: auto-fetch synchronized lyrics
+
+### BDD coverage
+The integration surface is specified in `features/midi-integration.feature`, `features/external-display.feature`, and `features/obs-overlay.feature`. The foot pedal (Hito 2) hardware surface is specified in `features/foot-pedal-hid.feature`; thematic collection and shared-comment surfaces from Hito 3 are specified in `features/collections.feature` and `features/collaborative-comments.feature`.
 
 ### Demo Description
 A musician performing live connects a MIDI controller. When they switch songs in CEMURM, the app sends a program change message to their pedalboard. Their OBS stream shows a clean overlay of the current song title and chord progression.
