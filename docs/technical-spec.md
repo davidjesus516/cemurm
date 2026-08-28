@@ -572,3 +572,36 @@ The million-user stack is NOT chosen now — choosing Rust + sharding + Temporal
 
 *This section should be revisited when the team composition changes, the user base exceeds 10k MAU, or a performance bottleneck in parsing is confirmed.*
 
+## 11. Free-Tier Validation (itsfree.dev)
+
+Validated against [itsfree.dev](https://itsfree.dev) (revisión jul 2026), catálogo independiente de herramientas con capa gratuita útil, para confirmar que el stack de la §3 y §7 mantiene un coste de **$0/β**.
+
+### 11.1 Confirmado — ya parte del stack
+
+| Tool | Free tier (itsfree.dev) | Role in CEMURM | Spec ref |
+|--------|--------------------------|----------------|----------|
+| Supabase | 2 proyectos, 500 MB DB, 1 GB storage, 50k MAU | PostgreSQL + Auth + Storage + Realtime | §3.3, §4, §10.1 |
+| Cloudflare R2 | 10 GB storage, 10M lecturas/mes | Almacenamiento de archivos grandes (PDF, MusicXML, audio) | §3.3, §7 |
+| Vercel | Hobby, 1M peticiones edge, 100 deploys/día | Hosting frontend PWA | §3.3, §7 |
+| Cloudflare (DNS) | Gratis (capa global) | DNS/dominio personalizado opcional | §7 |
+
+No hay hueco funcional en el pilar de datos/hosting/auth: los cuatro servicios ya contemplados cubren las necesidades del MVP sin coste.
+
+### 11.2 No incluido — diferido a fases posteriores
+
+| Tool | Candidate role | Why deferred | Trigger to add |
+|------|----------------|--------------|----------------|
+| Resend | Emails transaccionales (confirmar cuenta, invitaciones) | Supabase Auth ya gestiona los emails de confirmación | Cuando se necesiten emails de producto propios (SaaS, invitaciones de banda) |
+| Sentry | Observabilidad de errores en producción | La observabilidad formal es del plan Phase 4 (§10.9) | Al desplegar para público real; no para el shell de MVP |
+| UptimeRobot / Better Stack | Páginas de estado y monitorización de uptime | Sin servicio en producción que vigilar | Tras el primer despliegue público |
+| Umami / Cloudflare Web Analytics | Analítica web privacy-first | No requerida por el MVP; metas de producto no definidas | Al definir KPIs de uso |
+| Fontshare | Fuentes tipográficas | "Tailwind only" en AGENTS.md; sin necesidad tipográfica identificada | Cuando se defina el diseño visual del branding |
+| Contentful / Sanity / Storyblok | CMS headless | El contenido es estructurado en PostgreSQL, no editorial | Solo si aparece un caso de contenido no musical a gestionar |
+
+### 11.3 Decisión
+
+- **MVP (Phase 0):** confirmado en Supabase + Cloudflare R2 + Vercel. Sin dependencias gratuitas adicionales → coste **$0/β** respaldado por la §8.
+- **Regla de oro:** no añadir servicios de su catálogo a menos que un hito (`mvp-scope.md`) o un requerimiento funcional los exija. Evaluar cada entrada del catálogo solo cuando el costo de build o el límite del tier gratuito sea un cuello de botella real.
+
+*Revisar de nuevo cuando se alcance un límite de tier gratuito, se añada un servicio en producción, o se defina la estrategia de observabilidad del despliegue público.*
+
