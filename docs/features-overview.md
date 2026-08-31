@@ -1,6 +1,6 @@
 # CEMURM Feature Suite — Overview
 
-The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **33 feature files, 532 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, and the advanced music theory model (scales, modes, degrees).
+The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **37 feature files, 607 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, the personal practice surface, the community moderation workflow, the PWA update and storage lifecycle, and the advanced music theory model (scales, modes, degrees).
 
 The suite's deepest domain is **Personal Preferences and Adaptations**: it owns the canonical-chart vs. personal-rendering model that ties together keys, versions, transpose, vocal range, and conflict resolution across the other features.
 
@@ -29,10 +29,13 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 | External Display | 11 | Mirror performance to a 2nd screen | Audience-facing view, sync, transpose, offline |
 | OBS Overlay | 8 | Clean overlay for streaming | Browser Source URL, title/chords/position, privacy scope |
 | Public Library & Community | 16 | Discover + contribute shared songs | Browse, contribute, follow, reputation, reporting |
+| Community Moderation | 18 | Actor side of public-library reporting | System moderator role, queue & consolidation, keep/remove/escalate, takedown propagation, appeals, offline report intake |
 | PDF Scan Charts | 9 | Store songs as PDF scans | PDF hosting, performance rendering, offline, limits |
 | In-App Feedback | 8 | Report bugs/feedback in-app | Bug/general forms, consent, offline queue |
 | External Auto-Tagging | 9 | Enrich songs from Spotify | Album art/BPM/key suggestions, provenance |
-| Live Performance Mode | 17 | Focused on-stage presentation | Chords/lyrics, navigation, capo/transpose, crash recovery |
+| Live Performance Mode | 18 | Focused on-stage presentation | Chords/lyrics, navigation, capo/transpose, crash recovery |
+| Gigs and Performance History | 18 | Single-org gig + actual-played record | Gig creation, venue reuse, planned→completed lifecycle, played/skipped record, visibility, offline |
+| Practice Mode | 20 | Personal practice surface with metronome + auto-scroll | Practice key/tempo projections, precedence, section-aware metronome, auto-scroll, session tracking, offline |
 | Service Planning | 17 | Structure the service into blocks | Blocks, musician assignment, call sheet, check-in |
 | Substitutions and Coverage | 17 | Cover missing musicians | Sub requests, projection for subs, coverage status, cross-org |
 | Cross-Organization Event Collaboration | 16 | Cross-org events with privacy preserved | 3 event types, visibility matrix, orchestral concerts |
@@ -48,6 +51,7 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 | Music Notation File Support | 3 | Import/view notation files | ChordPro, MusicXML (OSMD), ABC (abcjs) |
 | Music Theory Model | 30 | Advanced scales, modes, degrees | Scale/mode declaration, degree view (derived), modulation, spelling, progression catalog, non-goals |
 | Offline Access | 3 | Perform without connectivity | Cached repertoire, pending-sync edits, offline proximity |
+| PWA Updates and Storage | 18 | Safe app-update + storage lifecycle for an offline-first PWA | Background update/install, update prompt, no interruption of live use, tooltips after update, offline-write safety, failure handling, storage usage, quota eviction, non-goals |
 
 ## The core domain model
 
@@ -69,15 +73,19 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 
 - **Versions/arrangements** — org-level arrangements (`organizational-repertoire-model`), per-user version defaults and forks (`personal-preferences-and-adaptations`), per-org arrangements for overlapping repertoire in cross-org events.
 - **Setlists and agreed keys** — base setlist ops (`setlist-creation`), real-time collaboration (`shared-setlist-collaboration`), agreed key vs. per-user projection (`personal-preferences-and-adaptations`), performance rendering (`live-performance-mode`).
+- **Gigs and performance history** — the gig is the single-org performance event: date/time/venue, exactly one linked setlist, and a planned → confirmed → completed/cancelled lifecycle. Completion writes ONE performance record of what was actually played (skipped and off-setlist songs separated) — the write path behind live-performance-mode's post-show "played at" tags and the analytics performance/demand data; gig date/time/location feed the notification reminders; the gig carries the DECISION (which songs actually played) and never creates song versions. Multi-org events stay a separate entity (`cross-organization-event-collaboration`).
+- **Practice mode** — the personal practice projection of the same song, distinct from stage rendering. Practice key and tempo are PROJECTIONS of the canonical arrangement (per preferences in `personal-preferences-and-adaptations`), never new versions; practice auto-scroll is the personal variant of the stage flow in `live-performance-mode` and respects per-section meter/tempo from `music-theory`; practice sessions write the "practice hours by instrument" data consumed by the dashboard in `analytics-and-insights`. Sessions are personal and offline-first.
 - **Transpose / per-user rendering** — hub is `personal-preferences-and-adaptations`; on-stage transpose lives in `live-performance-mode`; primary instrument/skill level comes from profiles and onboarding.
 - **Orchestral / transposing instruments** — dedicated section in `personal-preferences-and-adaptations` (B-flat trumpet renders a whole step up, score stays concert pitch); orchestral event framing in `cross-organization-event-collaboration` and `organizational-repertoire-model`.
 - **Collaboration / conflict** — conflict toast, per-song locking, offline merge (`shared-setlist-collaboration`); leader-resolved version/key conflicts (`personal-preferences-and-adaptations`); invite lifecycle (`collaboration-bandmates`).
 - **Three render targets** — performer device with chords (`live-performance-mode`), audience phone view with titles only (`export-and-sharing`), congregation display controlled by the operator (`congregation-projection`).
 - **Projection rights** — licensing gates the congregation display (`congregation-projection`), following the licensing model in `docs/copyright-policy.md`; imports never scrape chord sites (`external-integrations`).
+- **Community moderation** — the actor side of `public-library-community`'s report surface. Community moderators are appointed at the system level (per the `organizational-repertoire-model` role conventions), and org admins get no community moderation powers. Public-library owns the reporter surface (browse, contribute, follow, reputation, reporting); `community-moderation` owns the moderation queue, the keep/remove/escalate decision, reporter+contributor notification, appeals, and takedown propagation to linked copies. Outcomes are delivered through the `notifications` feature, and community moderation never touches org or private repertoire.
+- **PWA updates and storage** — the offline-first runtime lifecycle. New app versions install in the background via the service worker and activate on the next app load, never mid-session and never during an active stage or practice session (the no-interruption contract with `live-performance-mode` and `practice-mode`; crash recovery stays owned by `live-performance-mode`). Offline write queues survive updates and keep their sync contract with `offline-access` — queue survival is asserted here, sync mechanics stay owned there. Storage management covers the bulk derived caches (cached PDF scans from `pdf-scan-charts`, cached exports from `export-and-sharing`, whose per-file deletion stays valid) — near-quota eviction is limited to that bulk content and never touches user-authored data.
 
 ## Reading order by goal
 
-- **Understand the product's spine:** Personal Preferences → Organizational Repertoire Model → Setlist Creation → Live Performance Mode.
+- **Understand the product's spine:** Personal Preferences → Organizational Repertoire Model → Setlist Creation → Gigs and Performance History → Live Performance Mode.
 - **Design the service week:** Song Lifecycle → Rehearsal Workflow → Service Planning → Substitutions and Coverage → Congregation Projection.
 - **Design a collaboration flow:** Shared Setlist Collaboration + Notifications + Bandmate Management.
 - **Design an organization/scale flow:** Organizational Repertoire Model + Cross-Organization Event Collaboration + Analytics.
