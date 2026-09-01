@@ -34,6 +34,9 @@
 ### Demo Description
 A user can sign up with email or Google, create a song by pasting ChordPro text, see it rendered with chords highlighted above lyrics, add it to a setlist, reorder songs in the setlist, and search across their library.
 
+### BDD coverage
+The personal practice surface (rendering a song at the performer's practice key/tempo with a section-aware metronome and auto-scroll, and recording personal practice sessions that feed analytics) is specified in `features/practice-mode.feature`.
+
 ### Estimated Team Effort
 - 1 frontend developer (full-time, 8 weeks)
 - 0.5 backend developer (part-time, 4 weeks — schema setup, RLS, auth config)
@@ -57,6 +60,9 @@ A user can sign up with email or Google, create a song by pasting ChordPro text,
 - [ ] Workbox service worker: precache app shell + cached songs
 - [ ] IndexedDB offline store for songs and setlists
 - [ ] Background sync for writes made offline
+
+### BDD coverage
+Gig planning and the performance-record write path are specified in `features/gigs-and-performance-history.feature` (gig lifecycle, venue reuse, played/skipped record, offline completion); the on-stage presentation consuming it is specified in `features/live-performance-mode.feature`. The PWA runtime that delivers this hito's service-worker and IndexedDB deliverables — background app updates that never interrupt the stage or practice surfaces, and storage management under quota pressure — is specified in `features/pwa-updates-and-storage.feature`.
 
 ### Demo Description
 A musician loads a setlist, enters Stage Mode (fullscreen), swipes through songs on an iPad, transposes a song from G to A on the fly, and the app continues working when the venue Wi-Fi drops out.
@@ -109,7 +115,7 @@ Two bandmates open the same setlist. One adds a song — it appears instantly on
 - [x] Content reporting mechanism
 
 ### BDD coverage
-The community surface is specified in `features/public-library-community.feature` (browse, contribute, follow, reputation, reporting).
+The community surface is specified in `features/public-library-community.feature` (browse, contribute, follow, reputation, reporting); the actor side of its reporting contract — system-appointed community moderators, the moderation queue, keep/remove/escalate decisions, takedown propagation to linked copies, and appeals — is specified in `features/community-moderation.feature`.
 
 ### Demo Description
 A new user browses the public library, finds "Amazing Grace" in ChordPro format, adds it to their setlist. They import a song from a URL, and the metadata (artist, key, BPM) is auto-filled. Other users can see their public profile and curated collections.

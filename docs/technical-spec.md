@@ -101,8 +101,13 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 ### PostgreSQL (Supabase)
 
+Every core user-owned table carries a `tenant_id` (the owning organization/community, or a per-user pseudo-tenant) from day one. This is not an implementation detail — it is the sharding hinge required by §10.9 point 1 ("Every core table carries a tenant identifier"). `tenant_id` references the owning tenant, not any row's own id. For the MVP's single-community scope it is a constant equal to the owning organization's root id; it still participates in every tenant index and becomes the partition key when sharding is introduced.
+
 ```sql
 -- Users table (extends Supabase auth.users)
+-- tenant_id is NOT added to global users: profiles are cross-tenant identity,
+-- and membership in a tenant is expressed through the org membership model
+-- (`organizational-repertoire-model` roles/branches), not a column on users.
 CREATE TABLE users (
   id UUID PRIMARY KEY REFERENCES auth.users(id),
   email TEXT NOT NULL,
@@ -114,6 +119,7 @@ CREATE TABLE users (
 -- Songs
 CREATE TABLE songs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,     -- owning org/community; sharding key (§10.9.1)
   title TEXT NOT NULL,
   artist TEXT,
   genre TEXT,
@@ -130,6 +136,7 @@ CREATE TABLE songs (
 -- Setlists
 CREATE TABLE setlists (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
   name TEXT NOT NULL,
   user_id UUID REFERENCES users(id),
   is_shared BOOLEAN DEFAULT FALSE,
@@ -139,6 +146,7 @@ CREATE TABLE setlists (
 -- Setlist items (ordered songs within a setlist)
 CREATE TABLE setlist_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
   setlist_id UUID REFERENCES setlists(id) ON DELETE CASCADE,
   song_id UUID REFERENCES songs(id) ON DELETE CASCADE,
   position INTEGER NOT NULL,
@@ -148,6 +156,7 @@ CREATE TABLE setlist_items (
 -- Annotations (comments, markings on songs)
 CREATE TABLE annotations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
   song_id UUID REFERENCES songs(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id),
   content TEXT NOT NULL,
@@ -158,6 +167,7 @@ CREATE TABLE annotations (
 -- Thematic collections (curated sets of songs)
 CREATE TABLE collections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
   name TEXT NOT NULL,
   description TEXT,
   curator_id UUID REFERENCES users(id),
@@ -168,16 +178,21 @@ CREATE TABLE collections (
 -- Collection-song join table
 CREATE TABLE collection_songs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
   collection_id UUID REFERENCES collections(id) ON DELETE CASCADE,
   song_id UUID REFERENCES songs(id) ON DELETE CASCADE,
   UNIQUE(collection_id, song_id)
 );
 
 -- Indexes
+CREATE INDEX idx_songs_tenant ON songs(tenant_id);
 CREATE INDEX idx_songs_created_by ON songs(created_by);
 CREATE INDEX idx_songs_is_public ON songs(is_public) WHERE is_public = TRUE;
+CREATE INDEX idx_setlists_tenant ON setlists(tenant_id);
 CREATE INDEX idx_setlists_user_id ON setlists(user_id);
+CREATE INDEX idx_annotations_tenant ON annotations(tenant_id);
 CREATE INDEX idx_annotations_song_id ON annotations(song_id);
+CREATE INDEX idx_collection_songs_tenant ON collection_songs(tenant_id);
 CREATE INDEX idx_collection_songs_collection ON collection_songs(collection_id);
 ```
 
@@ -567,6 +582,27 @@ The million-user stack is NOT chosen now — choosing Rust + sharding + Temporal
 - No coupling to non-migratable Supabase features (see Phase 3 independence).
 
 **Decision:** Phase 4 is a documented destination, not a build target. Revisit this section when the user base exceeds ~100k MAU or a confirmed bottleneck appears in search, realtime, or read load.
+
+### 10.10 Client Delivery Model: PWA offline-first vs. native app (ADR)
+
+**Decision:** **Offline-first PWA.** CEMURM is a Progressive Web App (offline-first, installable, runs on any device). Native (React Native/Flutter) and Capacitor (webview-with-store-wrapper) are rejected for the MVP. This ADR records why, so the choice is deliberate and traceable rather than assumed.
+
+| Criterion (weight for CEMURM) | PWA offline-first (chosen) | React Native / Flutter | Capacitor (webview) |
+|-------------------------------|---------------------------|------------------------|---------------------|
+| Music notation rendering (ChordPro, OSMD MusicXML, abcjs) | ⭐⭐⭐⭐⭐ — reuses the web notation engines directly | ⭐ — must re-implement the notation engine twice, or bridge a webview anyway | ⭐⭐⭐⭐⭐ — webview renders the same engines |
+| Stage Mode / external display / OBS overlay | ⭐⭐⭐⭐⭐ — inherently web surfaces (Browser Source, second screen) | ⭐⭐⭐ — no native equivalent without rebuilding | ⭐⭐⭐⭐⭐ — webview |
+| Foot pedal (HID) + MIDI | ⭐⭐⭐⭐⭐ — WebHID + Web MIDI cover both | ⭐⭐⭐⭐ — native USB/MIDI fully supported | ⭐⭐⭐⭐ — webview + native bridge |
+| Offline + offline sync | ⭐⭐⭐ — same offline problem native must still solve (Workbox + IndexedDB) | ⭐⭐⭐ — must build the same sync, but per-platform | ⭐⭐⭐ — same web offline, plus JSI bridge overhead |
+| $0 beta cost (Supabase + R2 + Vercel) | ⭐⭐⭐⭐⭐ — every solution keeps this backend stack; PWA adds no store/tooling cost | ⭐⭐⭐ — store fees + native CI/notarization | ⭐⭐⭐⭐⭐ |
+| Distribution | ⭐⭐⭐ — installable from browser/URL, no store | ⭐⭐⭐⭐⭐ — App/Play Store | ⭐⭐⭐⭐⭐ — store, wrapped |
+| Hardware beyond Web APIs (camera, GPS, deep sensors) | ⭐⭐ — limited | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Team velocity / single codebase | ⭐⭐⭐⭐⭐ — one web codebase, one deploy | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+
+**Why native does not win the core problem:** CEMURM's hard problem is **offline-first with sync** and **rich web notation rendering** — and native does not remove either. A native app still needs a local datastore, a pending-write queue, and a conflict/merge strategy; it still needs a rendering engine for ChordPro/MusicXML that today lives as battle-tested web libraries. Choosing native would double the notation-rendering work and add store/CI overhead, all to buy hardware access (foot pedal, MIDI, camera, GPS) that WebHID, Web MIDI, and PWA installability already deliver for this product's actual surfaces. The features that are uniquely CEMURM — Stage Mode, external display, OBS overlay, congregation projection — are inherently web render surfaces.
+
+**The real decision underneath is "offline-first" vs. "online-with-cache", not "PWA vs. native".** Offline-first (the spec's model: every song cached on device, pending writes queued, full stage/practice use without connectivity) is the product's defining property and the strongest scaling lever (§10.9 point 2). That property holds on any client; native is orthogonal to it. The client choice above simply picks the lowest-cost way to deliver that property with best-fit rendering.
+
+**Trigger to revisit (reconsider Capacitor/native):** only when a user-facing requirement depends on hardware that Web APIs cannot reach, or store-based distribution becomes mandatory for a paying segment. Neither is in the MVP. Revisit if the congregation projection needs native casting beyond browser mirroring, or if a store-distributed premium tier is required to sell.
 
 ---
 
