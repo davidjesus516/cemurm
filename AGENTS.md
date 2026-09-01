@@ -44,7 +44,7 @@ Most of these directories don't exist yet. When creating new files, follow this 
 
 ## Specs & docs
 
-- `features/*.feature` — 23 Gherkin BDD specs defining the full product. Read these to understand what the app should do.
+- `features/*.feature` — 37 Gherkin BDD specs defining the full product. Read these to understand what the app should do.
 - `docs/technical-spec.md` — architecture, tech choices, database schema.
 - `docs/mvp-scope.md` — milestone plan (Hito 1–6, 12-month timeline).
 - `CONTRIBUTING.md` — branch/commit/PR conventions.
