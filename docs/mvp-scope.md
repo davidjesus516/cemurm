@@ -28,6 +28,7 @@
 - [ ] Song CRUD: create, read, update, delete songs
 - [ ] Setlist CRUD: create setlists, add/remove/reorder songs
 - [ ] Basic search: filter songs by title, artist, genre
+- [ ] Basic practice view: render a song at the performer's chosen practice key and tempo (a thin slice of the practice-mode surface; the full metronome, auto-scroll, and session-tracking analytics are deferred to a later hito)
 - [ ] Responsive layout: works on desktop, tablet, and mobile
 - [ ] Database schema deployed with RLS policies
 
@@ -35,7 +36,7 @@
 A user can sign up with email or Google, create a song by pasting ChordPro text, see it rendered with chords highlighted above lyrics, add it to a setlist, reorder songs in the setlist, and search across their library.
 
 ### BDD coverage
-The personal practice surface (rendering a song at the performer's practice key/tempo with a section-aware metronome and auto-scroll, and recording personal practice sessions that feed analytics) is specified in `features/practice-mode.feature`.
+Hito 1's basic practice view (rendering a song at the performer's practice key/tempo) is a thin slice of the practice surface. The full surface — section-aware metronome, auto-scroll, and recording personal practice sessions that feed analytics — is specified in `features/practice-mode.feature` and is deferred to a later hito, not part of Hito 1's deliverables.
 
 ### Estimated Team Effort
 - 1 frontend developer (full-time, 8 weeks)
@@ -107,12 +108,12 @@ Two bandmates open the same setlist. One adds a song — it appears instantly on
 - Implement basic reputation/engagement system
 
 ### Deliverables
-- [x] Public library: browsable catalog of public domain songs (bootstrapped from IMSLP/Wikifonia)
-- [x] URL importer: paste a URL to fetch song metadata (MusicBrainz, LRCLIB for lyrics)
-- [x] User profiles: public page showing user's songs, setlists, collections
-- [x] Follow/subscribe to other musicians
-- [x] Basic reputation: contribution count, collections curated
-- [x] Content reporting mechanism
+- [ ] Public library: browsable catalog of public domain songs (bootstrapped from IMSLP/Wikifonia)
+- [ ] URL importer: paste a URL to fetch song metadata (MusicBrainz, LRCLIB for lyrics)
+- [ ] User profiles: public page showing user's songs, setlists, collections
+- [ ] Follow/subscribe to other musicians
+- [ ] Basic reputation: contribution count, collections curated
+- [ ] Content reporting mechanism
 
 ### BDD coverage
 The community surface is specified in `features/public-library-community.feature` (browse, contribute, follow, reputation, reporting); the actor side of its reporting contract — system-appointed community moderators, the moderation queue, keep/remove/escalate decisions, takedown propagation to linked copies, and appeals — is specified in `features/community-moderation.feature`.
@@ -134,11 +135,11 @@ A new user browses the public library, finds "Amazing Grace" in ChordPro format,
 - Build OBS overlay for streaming musicians
 
 ### Deliverables
-- [x] Web MIDI: send program change messages to hardware/software synths
-- [x] External display API: mirror Stage Mode to a second screen
-- [x] OBS Browser Source overlay: show current song, chords, and setlist position
-- [x] Spotify integration: fetch album art, BPM, and key for auto-tagging songs
-- [x] LRCLIB integration: auto-fetch synchronized lyrics
+- [ ] Web MIDI: send program change messages to hardware/software synths
+- [ ] External display API: mirror Stage Mode to a second screen
+- [ ] OBS Browser Source overlay: show current song, chords, and setlist position
+- [ ] Spotify integration: fetch album art, BPM, and key for auto-tagging songs
+- [ ] LRCLIB integration: auto-fetch synchronized lyrics
 
 ### BDD coverage
 The integration surface is specified in `features/midi-integration.feature`, `features/external-display.feature`, and `features/obs-overlay.feature`. The foot pedal (Hito 2) hardware surface is specified in `features/foot-pedal-hid.feature`; thematic collection and shared-comment surfaces from Hito 3 are specified in `features/collections.feature` and `features/collaborative-comments.feature`. Spotify auto-tagging is specified in `features/external-autotagging.feature`; in-app feedback is specified in `features/in-app-feedback.feature`; PDF scan charts in `features/pdf-scan-charts.feature`.

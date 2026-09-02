@@ -9,7 +9,7 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                         CLIENT (PWA)                             │
-│  TypeScript (strict) + React 18 + Vite + Tailwind CSS         │
+│  JavaScript (JS/JSX) + React 18 + Vite + Tailwind CSS         │
 │  + WASM modules (Rust → wasm-pack, dynamic import)             │
 │  + Workbox Service Worker                                      │
 │                                                                  │
@@ -61,7 +61,7 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| TypeScript | 5+ (strict mode) | Type safety across frontend, hooks, and utility modules |
+| JavaScript (ES2022+) | JS/JSX | Primary frontend language — TypeScript is planned for a future migration (see §10.8 D1) |
 | React | 18+ | UI framework |
 | Vite | 5+ | Build tool and dev server |
 | Tailwind CSS | 3+ | Utility-first styling |
@@ -99,11 +99,11 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 ## 4. Database Schema
 
-Authoritative schema: **`docs/database-schema-v2.md`** (approved 2026-09-08, merged via PR #10). This section is intentionally a pointer, not a duplicate — the v2 doc is the single source of truth for the DDL contract, the RLS matrix, and the resolved ambiguities (D1–D7, A1–A8). Anything written here previously drifted the moment it diverged from the 43-entity model the feature suite requires.
+Authoritative schema: **`docs/database-schema-v2.md`** (approved 2026-09-08, merged via PR #10). This section is intentionally a pointer, not a duplicate — the v2 doc is the single source of truth for the DDL contract, the RLS matrix, and the resolved ambiguities (D1–D7, A1–A8). Anything written here previously drifted the moment it diverged from the 44-entity model the feature suite requires.
 
 ### What supersedes what (from the v2 doc's mapping clause)
 
-- **§1 inventory (43 entities)** supersedes the old 5-table sketch (`users`, `songs`, `setlists`, `setlist_items`, `annotations`, `collections`, `collection_songs`). Every entity the 42 `.feature` files actually require is enumerated there with its visibility scope.
+- **§1 inventory (44 entities)** supersedes the old 5-table sketch (`users`, `songs`, `setlists`, `setlist_items`, `annotations`, `collections`, `collection_songs`). Every entity the 42 `.feature` files actually require is enumerated there with its visibility scope.
 - **§2 DDL** is the implementation contract. The tech-spec's former single `tenant_id` column is replaced by the `org_id` + `branch_id` (nullable) scope pair, because owner-org ≠ branch-scope (a Sede Lima branch under Academia Musical needs both). RLS scope columns live on the rows where the v2 matrix (§3.1) says they do.
 - **§3 RLS matrix** supplies the per-entity policies the old "Similar policies for setlists, annotations, collections" hand-waved past — org/branch/user/system visibility, event matrices, public-library scopes.
 - **§4 decisions (D1–D7, A1–A8)** carry forward the tech-spec's own §10.9.1 requirement ("every core table carries a tenant identifier") in a form the features can actually enforce.
@@ -212,14 +212,14 @@ cemurm/
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Frontend | Vercel | Auto-deploy from `main` branch, TypeScript + Vite build output |
+| Frontend | Vercel | Auto-deploy from `main` branch, JavaScript (Vite) build output |
 | Database | Supabase | Hosted PostgreSQL + Auth |
 | File Storage | Cloudflare R2 | S3-compatible, no egress fees |
 | DNS | Cloudflare | Optional, for custom domain |
 
 ### Build Output
 
-- Vite compiles TypeScript → optimized JS bundles with code-splitting
+- Vite bundles JavaScript (JS/JSX) → optimized JS bundles with code-splitting
 - WASM modules (future) are loaded dynamically via `import()` — not bundled in the initial JS payload
 - Service worker (Workbox) precaches the JS bundles + WASM binaries
 
@@ -405,7 +405,7 @@ CEMURM's music notation workload (parsing ChordPro, transposing keys, rendering 
 
 ### 10.8 Key Decisions to Finalize Before Apply Phase
 
-1. **TypeScript strict mode** — mandatory, non-negotiable from day one
+1. **Frontend language: JavaScript (JS/JSX) today, TypeScript planned** — the repo is plain JS/JSX (React + Vite + Tailwind, per AGENTS.md). TypeScript strict mode is a *planned* migration, NOT adopted — it will be introduced incrementally once the codebase stabilizes, rather than mandated from day one.
 2. **WASM strategy** — documented here, implementation deferred to Phase 2
 3. **Redis** — deferred; add only when API rate limiting needs it
 4. **Java backend** — not recommended for CEMURM's scope; rejected
@@ -429,7 +429,9 @@ The phases above (1–3) take CEMURM from MVP to ~50k MAU. Reaching millions of 
 
 #### Capabilities a million-user system must have
 
-1. **Multi-tenancy from day one.** CEMURM's domain IS community-centered: each community/orchestra/church is a natural tenant. This enables sharding by tenant, data isolation, and per-community caching. Every core table carries a tenant identifier (`tenant_id` / `community_id`) so future partitioning is possible without a schema rewrite.
+1. **Multi-tenancy from day one.** CEMURM's domain IS community-centered: each community/orchestra/church is a natural tenant. This enables sharding by tenant, data isolation, and per-community caching. This enables future partitioning without a schema rewrite.
+
+> **Superseded implementation note:** schema v2 (`docs/database-schema-v2.md` §2, D1) replaces the old single `tenant_id` column with the `org_id` + `branch_id` (nullable) scope pair — because owner-org ≠ branch-scope (a Sede Lima branch under Academia Musical needs both). The multi-tenancy rationale and intent (data isolation + future partitioning) stand unchanged; only the concrete column implementation differs.
 
 2. **Offline-first as a scaling strategy, not a feature.** Already in place (Workbox + IndexedDB): every song cached on the musician's device is one fewer server read. At millions, locally-served reads cost nothing — this is the strongest scaling lever in CEMURM's architecture.
 
@@ -463,7 +465,7 @@ Observability: OpenTelemetry + Grafana stack (Loki / Tempo / Mimir)
 
 The million-user stack is NOT chosen now — choosing Rust + sharding + Temporal + CRDTs for a product with no users is the classic over-engineering mistake: slow velocity, dead infra spend, and probable death before 100k MAU. The art is choosing an architecture that LEAVES the door open. That translates into today's decisions:
 
-- Tenant-aware data model (`tenant_id` on core tables) → enables future sharding.
+- Tenant-aware data model (`org_id` + `branch_id` scope pair, superseding the former single `tenant_id` column — see §10.9.1) → enables future sharding.
 - Clean module boundaries → enables future service split.
 - Versioned, stable API → no client breakage.
 - WASM on the client → heavy compute never lives on the server.
@@ -506,7 +508,7 @@ Validated against [itsfree.dev](https://itsfree.dev) (revisión jul 2026), catá
 |--------|--------------------------|----------------|----------|
 | Supabase | 2 proyectos, 500 MB DB, 1 GB storage, 50k MAU | PostgreSQL + Auth + Storage + Realtime | §3.3, §4, §10.1 |
 | Cloudflare R2 | 10 GB storage, 10M lecturas/mes | Almacenamiento de archivos grandes (PDF, MusicXML, audio) | §3.3, §7 |
-| Vercel | Hobby, 1M peticiones edge, 100 deploys/día | Hosting frontend PWA | §3.3, §7 |
+| Vercel | Hobby, 100k invocaciones edge, 100 deploys/día | Hosting frontend PWA | §3.3, §7 |
 | Cloudflare (DNS) | Gratis (capa global) | DNS/dominio personalizado opcional | §7 |
 
 No hay hueco funcional en el pilar de datos/hosting/auth: los cuatro servicios ya contemplados cubren las necesidades del MVP sin coste.
