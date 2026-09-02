@@ -1,6 +1,6 @@
 # CEMURM Feature Suite — Overview
 
-The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **37 feature files, 607 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, the personal practice surface, the community moderation workflow, the PWA update and storage lifecycle, and the advanced music theory model (scales, modes, degrees).
+The BDD specification layer for CEMURM (Community-Centered Musical Repertories Manager): **42 feature files, 656 scenarios** covering the full product surface — from authentication and repertoire management to the complete service week (lifecycle → rehearsal → service → substitution → projection), cross-organization events, per-user musical preferences, the personal practice surface, the community moderation workflow, the PWA update and storage lifecycle, the advanced music theory model (scales, modes, degrees), plus the data-governance and resilience surface: offline edit conflict policy, member offboarding cascade, published plan freeze, minor accounts and guardian consent, and account data export and erasure.
 
 The suite's deepest domain is **Personal Preferences and Adaptations**: it owns the canonical-chart vs. personal-rendering model that ties together keys, versions, transpose, vocal range, and conflict resolution across the other features.
 
@@ -17,14 +17,16 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 |---|---|---|---|
 | Personal Preferences and Adaptations | 39 | Canonical chart, personal rendering | Transpose/capo, versions, rebase, vocal range, conflicts |
 | Authentication and User Profiles | 31 | Secure auth + profile management | Registration, sessions/tokens, org profile, offline auth |
+| Minor Accounts and Guardian Consent | 10 | Under-18 accounts with guardian consent | Guardian consent, visibility restriction, org-only participation without public exposure |
 | Notifications and Activity Feed | 29 | Stay informed in collaboration | Invites, setlist/event alerts, preferences, offline queue |
 | Export and Sharing | 23 | Multi-format export + audience sharing | PDF/ChordPro/MusicXML/ABC, QR, audience view, batch ZIP |
+| Account Data Export and Erasure | 11 | Data portability + permanent erasure | Full account export, permanent deletion, dependent-content handoff, no silent loss |
 | Analytics and Insights | 23 | Data-driven repertoire/event decisions | Personal/org analytics, performance history, engagement |
 | Search and Discovery | 22 | Find & explore repertoire | Filters, tags, recommendations, offline search |
 | Song Lifecycle | 22 | Song states: draft → ready → retired → deleted | Chart completeness, version history, rollback, retire, duplicates, merge |
 | Organizational Repertoire Model | 21 | Hierarchical shared catalog | System/org/branch levels, roles, events, access control |
 | Congregation Projection | 19 | Lyrics-only display for the audience | Slide control, transitions, high contrast, projection rights |
-| External Integrations and Import | 18 | Bring songs in, send setlists out | MusicBrainz/LRCLIB, OnSong/Planning Center, metadata-only URL, no scraping |
+| External Integrations and Import | 17 | Bring songs in, send setlists out | MusicBrainz/LRCLIB, OnSong/Planning Center, metadata-only URL, no scraping |
 | MIDI Integration | 11 | Control external gear live | Web MIDI, per-song program change, setlist MIDI maps |
 | External Display | 11 | Mirror performance to a 2nd screen | Audience-facing view, sync, transpose, offline |
 | OBS Overlay | 8 | Clean overlay for streaming | Browser Source URL, title/chords/position, privacy scope |
@@ -37,12 +39,15 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 | Gigs and Performance History | 18 | Single-org gig + actual-played record | Gig creation, venue reuse, planned→completed lifecycle, played/skipped record, visibility, offline |
 | Practice Mode | 20 | Personal practice surface with metronome + auto-scroll | Practice key/tempo projections, precedence, section-aware metronome, auto-scroll, session tracking, offline |
 | Service Planning | 17 | Structure the service into blocks | Blocks, musician assignment, call sheet, check-in |
+| Published Plan Freeze | 9 | Publishing freezes the executed plan | Freeze boundary, no mid-service drift, member rehearses the published version |
 | Substitutions and Coverage | 17 | Cover missing musicians | Sub requests, projection for subs, coverage status, cross-org |
 | Cross-Organization Event Collaboration | 16 | Cross-org events with privacy preserved | 3 event types, visibility matrix, orchestral concerts |
 | Rehearsal Workflow | 16 | Plan and run rehearsals | Agenda, readiness flags, timebox, outcomes, carry-over |
 | User Onboarding | 16 | Guided first-run | Walkthrough, org setup, tours, completion tracking |
+| Member Offboarding Cascade | 10 | Clean, coordinated member departure | End org access, preserve personal/public content, transfer/remove coordinated, nothing silently deleted |
 | Collaboration — Bandmate Management | 15 | Coordinate via shared repertoire/setlists | Invites, proximity codes (offline), edge cases |
 | Shared Setlist Collaboration | 15 | Real-time joint setlist planning | Conflict/locking, offline merge, ownership, version history |
+| Offline Edit Conflict Policy | 10 | Deterministic resolution of same-field offline edits | Later-write wins, superseded history, notification, SAME-FIELD vs whole-entity scope |
 | Collaborative Comments | 13 | Shared commentary attached to songs | Section-anchored comments, threading, per-version, mentions, offline queue |
 | Collections | 14 | Curate + reuse themed song sets | Thematic grouping, fork with lineage, setlist/block fill, sharing |
 | Foot Pedal HID | 13 | Hands-free pedal navigation | USB HID pairing, pedal mapping, navigation, robustness |
@@ -82,6 +87,9 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 - **Projection rights** — licensing gates the congregation display (`congregation-projection`), following the licensing model in `docs/copyright-policy.md`; imports never scrape chord sites (`external-integrations`).
 - **Community moderation** — the actor side of `public-library-community`'s report surface. Community moderators are appointed at the system level (per the `organizational-repertoire-model` role conventions), and org admins get no community moderation powers. Public-library owns the reporter surface (browse, contribute, follow, reputation, reporting); `community-moderation` owns the moderation queue, the keep/remove/escalate decision, reporter+contributor notification, appeals, and takedown propagation to linked copies. Outcomes are delivered through the `notifications` feature, and community moderation never touches org or private repertoire.
 - **PWA updates and storage** — the offline-first runtime lifecycle. New app versions install in the background via the service worker and activate on the next app load, never mid-session and never during an active stage or practice session (the no-interruption contract with `live-performance-mode` and `practice-mode`; crash recovery stays owned by `live-performance-mode`). Offline write queues survive updates and keep their sync contract with `offline-access` — queue survival is asserted here, sync mechanics stay owned there. Storage management covers the bulk derived caches (cached PDF scans from `pdf-scan-charts`, cached exports from `export-and-sharing`, whose per-file deletion stays valid) — near-quota eviction is limited to that bulk content and never touches user-authored data.
+- **Offline edit conflicts** — `offline-edit-conflict-policy` owns the deterministic rule (later-write wins for same-field edits, superseded edit stays in history, loser notified) that complements the offline-merge story in `shared-setlist-collaboration`; the merge mechanics live there, the explicit conflict-decision policy lives here.
+- **Account and data governance** — `member-offboarding` ends org access without touching personal or public content; `account-data-export-and-erasure` gives every user a portable copy or a permanent delete with dependent-content handoff; `minor-accounts-and-guardian-consent` keeps under-18 accounts visibility-restricted within the org. These rely on the identity/org model in `authentication-user-profiles` and `organizational-repertoire-model` and deliver outcomes through `notifications`.
+- **Published plan freeze** — `published-plan-freeze` ties the executed plan to the published snapshot: a member rehearses and plays exactly the version that was published, complementing the block/assignment structure in `service-planning` and the rehearsal outcomes in `rehearsal-workflow`.
 
 ## Reading order by goal
 
