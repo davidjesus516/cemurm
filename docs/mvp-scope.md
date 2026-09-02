@@ -13,6 +13,77 @@
 
 ---
 
+## Feature → Hito Mapping
+
+Every one of the 42 BDD features (`features/*.feature`) is assigned to exactly one hito. Assignments follow dependency logic: a feature ships in the same or a later hito than the features it depends on; prerequisites land early; tightly-coupled surfaces are grouped. `practice-mode` is the only split feature — Hito 1 ships a thin practice-view slice, the full surface (metronome, auto-scroll, session tracking) is Hito 3.
+
+### Hito 1 — Core Viewer + Auth
+- `authentication-and-profiles`
+- `repertoire-mgmt`
+- `setlist-creation`
+- `search-and-discovery`
+- `song-lifecycle` (song state model underpins Hito 1 CRUD)
+
+### Hito 2 — Stage Mode
+- `gigs-and-performance-history`
+- `live-performance-mode`
+- `pwa-updates-and-storage`
+- `foot-pedal-hid`
+- `offline-access` (offline mode)
+- `personal-preferences-and-adaptations` (performer-specific Stage Mode adaptations)
+
+### Hito 3 — Collaboration
+- `shared-setlist-collaboration`
+- `collaboration-bandmates`
+- `collaborative-comments`
+- `collections`
+- `music-notation`
+- `notifications` (collaboration-driven activity; first real consumers are Hito 3 invites/comments/sync events)
+- `offline-edit-conflict-policy` (offline base + collaboration version history)
+- `practice-mode` (full surface: metronome, auto-scroll, session tracking)
+
+### Hito 4 — Basic Community
+- `public-library-community`
+- `community-moderation`
+- `organizational-repertoire-model` (org/branch base for the org-surface features)
+- `minors-and-guardian-consent` (org accounts + public-visibility boundaries)
+- `music-theory` (transpose/key base present; advanced-harmony content view)
+- `service-planning` (planning half of the service-week cluster)
+- `rehearsal-workflow`
+
+### Hito 5 — Integrations
+- `midi-integration`
+- `external-display`
+- `obs-overlay`
+- `external-autotagging`
+- `in-app-feedback`
+- `pdf-scan-charts`
+- `external-integrations`
+- `congregation-projection` (execution half of the service-week cluster)
+- `published-plan-freeze`
+- `substitutions-and-coverage`
+
+### Hito 6 — Beta Polish
+- `user-onboarding`
+- `account-data-export-and-erasure`
+- `offboarding-cascade`
+- `analytics-and-insights`
+- `export-and-sharing`
+- `cross-organization-event-collaboration` (advanced cross-org coordination; depends on org + service + performance bases from Hito 4/5)
+
+---
+
+## Service-Week Cluster Rationale
+
+The service-week cluster (`service-planning`, `rehearsal-workflow`, `substitutions-and-coverage`, `congregation-projection`, `published-plan-freeze`, ~77 scenarios) is one coherent surface but is split across Hito 4–5 rather than kept whole. Keeping all 77 scenarios in one 8-week hito alongside its existing scope would be unrealistic. The split follows the natural plan → execute dependency chain:
+
+- **Hito 4 (planning):** `service-planning` + `rehearsal-workflow`. Building a service into blocks/assignments and running rehearsals only needs the org base, setlists, and chart-readiness states — all present by Hito 4.
+- **Hito 5 (execution):** `published-plan-freeze`, `congregation-projection`, `substitutions-and-coverage`. These execute a finished plan: publishing a snapshot, projecting lyrics to a congregation display (which rides on the external-display surface from Hito 5), and filling absences via notifications + member base.
+
+Keeping them together in one hito would overload it; the split honors the dependency direction and the Hito 5 external-display dependency for projection.
+
+---
+
 ## Hito 1 — Core Viewer + Auth (Months 1–2)
 
 ### Objectives
@@ -36,7 +107,9 @@
 A user can sign up with email or Google, create a song by pasting ChordPro text, see it rendered with chords highlighted above lyrics, add it to a setlist, reorder songs in the setlist, and search across their library.
 
 ### BDD coverage
-Hito 1's basic practice view (rendering a song at the performer's practice key/tempo) is a thin slice of the practice surface. The full surface — section-aware metronome, auto-scroll, and recording personal practice sessions that feed analytics — is specified in `features/practice-mode.feature` and is deferred to a later hito, not part of Hito 1's deliverables.
+Authentication and profile management are specified in `features/authentication-and-profiles.feature`; song and setlist CRUD are specified in `features/repertoire-mgmt.feature` and `features/setlist-creation.feature`; basic search is specified in `features/search-and-discovery.feature`; the song state model (draft/ready/retired/deleted) that underpins CRUD is specified in `features/song-lifecycle.feature`.
+
+Hito 1's basic practice view (rendering a song at the performer's practice key/tempo) is a thin slice of the practice surface. The full surface — section-aware metronome, auto-scroll, and recording personal practice sessions that feed analytics — is specified in `features/practice-mode.feature` and is assigned to Hito 3, not part of Hito 1's deliverables.
 
 ### Estimated Team Effort
 - 1 frontend developer (full-time, 8 weeks)
@@ -63,7 +136,7 @@ Hito 1's basic practice view (rendering a song at the performer's practice key/t
 - [ ] Background sync for writes made offline
 
 ### BDD coverage
-Gig planning and the performance-record write path are specified in `features/gigs-and-performance-history.feature` (gig lifecycle, venue reuse, played/skipped record, offline completion); the on-stage presentation consuming it is specified in `features/live-performance-mode.feature`. The PWA runtime that delivers this hito's service-worker and IndexedDB deliverables — background app updates that never interrupt the stage or practice surfaces, and storage management under quota pressure — is specified in `features/pwa-updates-and-storage.feature`.
+Gig planning and the performance-record write path are specified in `features/gigs-and-performance-history.feature` (gig lifecycle, venue reuse, played/skipped record, offline completion); the on-stage presentation consuming it is specified in `features/live-performance-mode.feature`. The PWA runtime that delivers this hito's service-worker and IndexedDB deliverables — background app updates that never interrupt the stage or practice surfaces, and storage management under quota pressure — is specified in `features/pwa-updates-and-storage.feature`. Offline access to repertoire and setlists is specified in `features/offline-access.feature`; per-performer personal key/capo/version adaptation is specified in `features/personal-preferences-and-adaptations.feature`.
 
 ### Demo Description
 A musician loads a setlist, enters Stage Mode (fullscreen), swipes through songs on an iPad, transposes a song from G to A on the fly, and the app continues working when the venue Wi-Fi drops out.
@@ -93,6 +166,9 @@ A musician loads a setlist, enters Stage Mode (fullscreen), swipes through songs
 ### Demo Description
 Two bandmates open the same setlist. One adds a song — it appears instantly on the other's screen. They leave annotations ("slower intro", "key change here"). A third member creates a "Holiday Set" collection that others can browse and copy songs from.
 
+### BDD coverage
+Real-time shared setlists are specified in `features/shared-setlist-collaboration.feature`; bandmate management in `features/collaboration-bandmates.feature`; annotations and comments in `features/collaborative-comments.feature`; themed collections and forking in `features/collections.feature`. Notation imports (MusicXML via OpenSheetMusicDisplay, ABC via abcjs, ChordPro) are specified in `features/music-notation.feature`. The activity feed and notification delivery that back Hito 3's invites and comments are specified in `features/notifications.feature`; the explicit same-field conflict resolution for offline collaborative edits is specified in `features/offline-edit-conflict-policy.feature`. The full practice surface (section-aware metronome, auto-scroll, and session recording) that Hito 1 only slices is specified in `features/practice-mode.feature`.
+
 ### Estimated Team Effort
 - 1 frontend developer (full-time, 8 weeks)
 - 0.25 backend developer (part-time, 4 weeks — Realtime setup, storage policies)
@@ -116,7 +192,7 @@ Two bandmates open the same setlist. One adds a song — it appears instantly on
 - [ ] Content reporting mechanism
 
 ### BDD coverage
-The community surface is specified in `features/public-library-community.feature` (browse, contribute, follow, reputation, reporting); the actor side of its reporting contract — system-appointed community moderators, the moderation queue, keep/remove/escalate decisions, takedown propagation to linked copies, and appeals — is specified in `features/community-moderation.feature`.
+The community surface is specified in `features/public-library-community.feature` (browse, contribute, follow, reputation, reporting); the actor side of its reporting contract — system-appointed community moderators, the moderation queue, keep/remove/escalate decisions, takedown propagation to linked copies, and appeals — is specified in `features/community-moderation.feature`. The hierarchical org/branch repertoire model that underpins the org-surface features is specified in `features/organizational-repertoire-model.feature`; org accounts for under-18 students with guardian consent and visibility restrictions are specified in `features/minors-and-guardian-consent.feature`. Advanced scale/mode/degree harmony views are specified in `features/music-theory.feature`. The planning half of the service-week cluster — structuring a service into blocks and running rehearsals against setlists — is specified in `features/service-planning.feature` and `features/rehearsal-workflow.feature`; the execution half (freeze, projection, substitution) lands in Hito 5.
 
 ### Demo Description
 A new user browses the public library, finds "Amazing Grace" in ChordPro format, adds it to their setlist. They import a song from a URL, and the metadata (artist, key, BPM) is auto-filled. Other users can see their public profile and curated collections.
@@ -142,7 +218,7 @@ A new user browses the public library, finds "Amazing Grace" in ChordPro format,
 - [ ] LRCLIB integration: auto-fetch synchronized lyrics
 
 ### BDD coverage
-The integration surface is specified in `features/midi-integration.feature`, `features/external-display.feature`, and `features/obs-overlay.feature`. The foot pedal (Hito 2) hardware surface is specified in `features/foot-pedal-hid.feature`; thematic collection and shared-comment surfaces from Hito 3 are specified in `features/collections.feature` and `features/collaborative-comments.feature`. Spotify auto-tagging is specified in `features/external-autotagging.feature`; in-app feedback is specified in `features/in-app-feedback.feature`; PDF scan charts in `features/pdf-scan-charts.feature`.
+The integration surface is specified in `features/midi-integration.feature`, `features/external-display.feature`, and `features/obs-overlay.feature`. The foot pedal (Hito 2) hardware surface is specified in `features/foot-pedal-hid.feature`; thematic collection and shared-comment surfaces from Hito 3 are specified in `features/collections.feature` and `features/collaborative-comments.feature`. Spotify auto-tagging is specified in `features/external-autotagging.feature`; in-app feedback is specified in `features/in-app-feedback.feature`; PDF scan charts in `features/pdf-scan-charts.feature`. The broader import/export surface — MusicBrainz metadata enrichment, lyrics fetch, and export to stage apps — is specified in `features/external-integrations.feature`. The execution half of the service-week cluster — publishing a plan snapshot, projecting lyrics to a congregation display (riding the Hito 5 external-display surface), and covering absences with substitutes (via the Hito 3 notification base) — is specified in `features/published-plan-freeze.feature`, `features/congregation-projection.feature`, and `features/substitutions-and-coverage.feature`.
 
 ### Demo Description
 A musician performing live connects a MIDI controller. When they switch songs in CEMURM, the app sends a program change message to their pedalboard. Their OBS stream shows a clean overlay of the current song title and chord progression.
@@ -170,6 +246,9 @@ A musician performing live connects a MIDI controller. When they switch songs in
 - [ ] Onboarding flow: first-time user tutorial
 - [ ] Error boundaries and graceful degradation
 - [ ] Analytics dashboard (privacy-respecting, e.g., Plausible)
+
+### BDD coverage
+The first-time welcome flow is specified in `features/user-onboarding.feature`. Pre-release data-compliance surfaces — full account export/erasure and the org member offboarding cascade — are specified in `features/account-data-export-and-erasure.feature` and `features/offboarding-cascade.feature`. User-facing repertoire/practice analytics (most-used songs, repertoire growth, practice hours) that aggregate data produced in earlier hitos (setlists from Hito 1, practice sessions from Hito 3, gigs from Hito 2) are specified in `features/analytics-and-insights.feature` (distinct from the product-telemetry dashboard above). Setlist/repertoire export and sharing in printable and interoperable formats are specified in `features/export-and-sharing.feature`. The most advanced coordination surface — cross-organization events that preserve each org's repertoire privacy and ownership — is specified in `features/cross-organization-event-collaboration.feature`; it is last because it depends on the org model (Hito 4), service planning (Hito 4/5), shared-setlist collaboration (Hito 3), and repertoire ownership (Hito 1) being in place.
 
 ### Demo Description
 A beta tester installs the PWA on their phone, goes through the onboarding tutorial, creates their first setlist, performs live with Stage Mode, and reports a bug via the in-app feedback form. The app scores 95+ on Lighthouse across Performance, Accessibility, Best Practices, and SEO.
