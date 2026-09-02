@@ -11,7 +11,7 @@ The governing principles:
 3. **Degree quality derives from the scale, always.** No hardcoded "I = major" assumption. The same degree can be minor, major, or dominant depending on the scale context.
 4. **The concrete chart is canonical; degrees are a derived view.** The stored chart content is the concrete ChordPro text (G — C — D). When a key context is declared, the degree progression (I — IV — V) is computed from that concrete content. The degree representation is never the source of truth; it is a projection parameterized by key context. Transposition re-renders the concrete chart in the target key context (semitone shift is the degenerate case), and the degree view follows.
 
-> **Storage decision (2026-08):** Degree-canonical storage is deliberately NOT the model. Canonical degree storage would force key detection at import time (violating principle 1) and would rewrite the suite's concrete-chord content contract. The chosen path is concrete-canonical (C) with an **open door** to a future Nashville Number System (NNS) source format: because the theory core (scale catalog + degree resolver + section key contexts) is identical in both, an NNS source format can be added later as an opt-in format plugin per arrangement without rework. See §11.
+> **Storage decision (2026-08):** Degree-canonical storage is deliberately NOT the model. Canonical degree storage would force key detection at import time (violating principle 1) and would rewrite the suite's concrete-chord content contract. The chosen path is concrete-canonical (C) with an **open door** to a future Nashville Number System (NNS) source format: because the theory core (scale catalog + degree resolver + section key contexts) is identical in both, an NNS source format can be added later as an opt-in format plugin per arrangement without rework. See §12.
 
 ## 2. Core Concepts
 
@@ -38,7 +38,7 @@ Examples (intervals relative to tonic):
 | Major pentatonic | 0 2 4 7 9 |
 | Chromatic | 0 1 2 3 4 5 6 7 8 9 10 11 |
 
-The catalog (`scale_catalog`) is a data table. Semitone-based scales are in scope; microtonal scales (quarter tones) are an explicit non-goal (see §9).
+The catalog (`scale_catalog`) is a data table. Semitone-based scales are in scope; microtonal scales (quarter tones) are an explicit non-goal (see §10).
 
 ### 2.2 Mode (rotation)
 
@@ -158,7 +158,7 @@ melodyRange = { lowest: Note, highest: Note, spanSemitones: int }
 Compare against a singer's stored range (`profile.vocalRange`), and **suggest a transposition target**: "This key sits too high for this singer — try A instead of B." The musician decides; the system only suggests.
 
 Data needed:
-- Melody notes: extracted client-side at render time from notation files (MusicXML/ABC) — ephemeral, not stored. User-annotated melody notes, if implemented, would live in `personal_annotations` with `kind='melody_note'` — deferred per §10.
+- Melody notes: extracted client-side at render time from notation files (MusicXML/ABC) — ephemeral, not stored. User-annotated melody notes, if implemented, would live in `personal_annotations` with `kind='melody_note'` — deferred per §11.
 - Singer range: profile preference, per person (extends the existing Work → Arrangement → Personal Preference → Setlist Item model).
 
 ## 6. Progression Catalog
@@ -176,7 +176,7 @@ Uses:
 - Recommendation: suggest songs by progression pattern.
 - Transposition assist: recognize a declared progression and propose the next key.
 
-Catalog is data; recognition is exact-match on declared degrees (no automatic analysis — see §9).
+Catalog is data; recognition is exact-match on declared degrees (no automatic analysis — see §10).
 
 The progression catalog is a fixed curated seed list bundled with the client (no schema entity needed). If extensibility is desired later, it would become entity #44.
 
@@ -199,7 +199,7 @@ Examples:
 
 Power for improvisers, zero logic — a lookup table over the existing catalog. Deferred, but the data model must not preclude it.
 
-## 7b. Storage Mapping
+## 8. Storage Mapping
 
 How the theory model concepts map to schema v2 entities and columns:
 
@@ -211,7 +211,7 @@ How the theory model concepts map to schema v2 entities and columns:
 | Personal substitutions | `personal_annotations` with `kind='chord_substitution'` |
 | Scale/mode lookup | `scale_catalog.id` |
 
-## 8. How the Original Requirements Map
+## 9. How the Original Requirements Map
 
 | Requirement (user) | Model response |
 |--------------------|----------------|
@@ -227,13 +227,13 @@ How the theory model concepts map to schema v2 entities and columns:
 | Common progressions | Progression catalog as data. |
 | Improvisation / chord-scale | Chord-scale lookup over the catalog. |
 
-## 9. Non-Goals (explicit)
+## 10. Non-Goals (explicit)
 
 1. **Microtonality** — quarter-tone scales (maqam variants with ¾-tones, some ragas) cannot be rendered by standard notation tooling. Documented out of scope; the catalog is semitone-based.
 2. **Automatic harmonic analysis** — the system never derives the key or chord function from raw chords. Musician-declared or import-derived only. (A future "suggestion" mode is allowed, never authoritative.)
 3. **General music theory engine / tutoring** — CEMURM is a repertoire manager, not a theory curriculum.
 
-## 10. Open Decisions
+## 11. Open Decisions
 
 - [ ] Where the degree→quality override UI lives (per-chord inline vs. edit dialog).
 - [ ] Whether melody annotation is MVP or post-MVP (vocal range feature depends on it).
@@ -241,7 +241,7 @@ How the theory model concepts map to schema v2 entities and columns:
 - [ ] Chord-scale view: shipped as a data-only lookup or exposed as a first-class view.
 - [ ] Scale catalog bootstrapping: curated seed list vs. import from an external theory dataset.
 
-## 11. Future: Nashville Number System (NNS) Source Format — the Open Door
+## 12. Future: Nashville Number System (NNS) Source Format — the Open Door
 
 **Decision (2026-08):** concrete-canonical (C) now, with the door open for NNS later.
 
