@@ -169,7 +169,7 @@ Todas en la misma sesión, ninguna recibe la misma interfaz:
 - **Director** → estado de sesión, canción, página, tempo, integrantes, controles (`Anterior`/`SIGUIENTE`, `SYNC ALL`).
 - **Guitarrista** → su partitura/acordes (ej. `G D7 G`, "Página 2").
 - **Cantante** → su letra (`Amazing grace, how sweet...`).
-- **Proyección** → letra/visualización de pantalla pública.
+- **Proyección** → letra/visualización de pantalla pública (cubierta por `congregation-projection.feature` y `live-performance-mode.feature`).
 - **Streaming** → cámara + letra sincronizada para público remoto.
 
 ---
@@ -203,7 +203,7 @@ CEMURM
 ┌───┴───────────────┐
 │                   │
 NORMAL APP      LIVE ENGINE
-React/TS        Session Clock
+React/JS        Session Clock
                 Event Scheduler
                 Sync Engine
                     │
@@ -238,6 +238,9 @@ La idea del Live Engine es **complementaria** a lo ya decidido. No contradice ni
 | Colaboración realtime | Locking + merge offline para MVP; Yjs diferido (§6.5) | El Control Bus es cosa distinta a los CRDTs de edición de partituras |
 | Proyección | `congregation-projection.feature` (sesión operada, slides, multi-display) | Es la mitad "proyector" del Live Engine |
 | Modo escenario | `live-performance-mode.feature` (auto-scroll por BPM, pedal, transpose) | Implica un playback clock — pariente del Session Clock |
+| Audiencia remota | `audience_views` (QR/embed, vista de letra, push al actualizar el setlist) | Puente público del Live Engine (ver §12, decisión 1) |
+| Configuración por dispositivo | `device_configs` (MIDI, pedal, display externo) | Estado por dispositivo que el Control Bus orquesta |
+| Sincronización offline | `outbox` (cola de escritura transaccional), `notifications` (feed por usuario) | Base de sync del en vivo desde el esquema v2 |
 
 **Gaps** que el Live Engine añade y **ningún doc cubre hoy**:
 - Session Clock con offset por dispositivo.
@@ -252,7 +255,7 @@ La idea del Live Engine es **complementaria** a lo ya decidido. No contradice ni
 
 ## 12. Decisiones abiertas (para discutir)
 
-1. **Transporte del Control Bus:** ¿Supabase Realtime (ya decidido para colaboración) o un Session Server WebSocket propio dedicado al en vivo? (§10 del technical-spec ya advierte que la capa realtime "no se parchea después"; esta decisión debe cerrarse antes de implementar colaboración.)
+1. **Transporte del Control Bus:** ¿Supabase Realtime (ya decidido para colaboración) o un Session Server WebSocket propio dedicado al en vivo? La entidad `audience_views` ya asume **Supabase Realtime** para el push al público (vista anónima de setlist, opt-in de notificación al actualizar). (§10 del technical-spec ya advierte que la capa realtime "no se parchea después"; esta decisión debe cerrarse antes de implementar colaboración.)
 2. **Alcance del Live Engine en el MVP:** ¿prototipo de latencia primero (sección 9) antes de especificar?
 3. **Audio:** ¿CEMURM transporta algo de audio en el MVP, o solo se adhiere al patrón pistas-locales-desde el inicio?
 4. **Visuales Three.js:** ¿se declara no-goal del MVP o se deja la puerta abierta desde el diseño del evento?

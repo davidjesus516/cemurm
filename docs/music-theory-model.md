@@ -38,7 +38,7 @@ Examples (intervals relative to tonic):
 | Major pentatonic | 0 2 4 7 9 |
 | Chromatic | 0 1 2 3 4 5 6 7 8 9 10 11 |
 
-The catalog is a data table. Semitone-based scales are in scope; microtonal scales (quarter tones) are an explicit non-goal (see §9).
+The catalog (`scale_catalog`) is a data table. Semitone-based scales are in scope; microtonal scales (quarter tones) are an explicit non-goal (see §9).
 
 ### 2.2 Mode (rotation)
 
@@ -96,6 +96,8 @@ Section = {
 
 Modulation = a section whose keyContext differs from the previous one. Transposition re-renders each section's concrete chords in its own target key context.
 
+Chords within a section are resolved at render time from the chart content (ChordPro or MusicXML parse); they are not stored separately in section_context.
+
 **Song-level key.** The song-level key (used by agreed key, key distribution, version diffs, call sheets) is **derived from the home/first section's key context**. Sections keep their own contexts; the song-level key is the home section's.
 
 ## 3. Resolution Engine
@@ -108,6 +110,8 @@ Pure, deterministic, table-driven. No analysis, no guessing.
 resolveDegree(keyContext, concreteChord) -> RomanNumeral | null
 ```
 
+`ScaleId` in the KeyContext type references `scale_catalog.id` (see §2.3).
+
 The concrete chord's root is mapped to a degree via the scale's interval table. A chord outside the scale's pitch collection resolves to `null` unless the musician declares its degree explicitly (borrowed/chromatic chords) — the system suggests, never guesses. Used for the degree view and for transposition of the concrete chart.
 
 ### 3.2 Quality derivation
@@ -119,6 +123,8 @@ The default quality of a diatonic triad/7th on each degree is derived from the s
 - Harmonic minor V → major (dominant) — the raised 7th of the parent.
 
 Rule: quality defaults derive from the scale; the concrete chord as entered by the musician always wins (it IS the canonical content).
+
+**Quality overrides are chart text edits, not a separate storage layer.** When the musician overrides a default quality (e.g., entering E7 instead of Em in a Phrygian context), they are editing the concrete chart text directly — the override IS the chart. The degree-view projection derives quality from the concrete chord at render time; no separate annotation or override table is needed.
 
 ### 3.3 Transposition
 
@@ -152,7 +158,7 @@ melodyRange = { lowest: Note, highest: Note, spanSemitones: int }
 Compare against a singer's stored range (`profile.vocalRange`), and **suggest a transposition target**: "This key sits too high for this singer — try A instead of B." The musician decides; the system only suggests.
 
 Data needed:
-- Melody notes: imported (MusicXML/ABC) or annotated per section.
+- Melody notes: extracted client-side at render time from notation files (MusicXML/ABC) — ephemeral, not stored. User-annotated melody notes, if implemented, would live in `personal_annotations` with `kind='melody_note'` — deferred per §10.
 - Singer range: profile preference, per person (extends the existing Work → Arrangement → Personal Preference → Setlist Item model).
 
 ## 6. Progression Catalog
@@ -172,6 +178,8 @@ Uses:
 
 Catalog is data; recognition is exact-match on declared degrees (no automatic analysis — see §9).
 
+The progression catalog is a fixed curated seed list bundled with the client (no schema entity needed). If extensibility is desired later, it would become entity #44.
+
 ## 7. Chord-Scale Theory (improvisation hints)
 
 Connect the mode catalog with chord function: for a given chord (degree + quality) in a key context, which scale/mode sounds right over it.
@@ -190,6 +198,18 @@ Examples:
 | IV in major | Lydian (Ionian rotation 3) |
 
 Power for improvisers, zero logic — a lookup table over the existing catalog. Deferred, but the data model must not preclude it.
+
+## 7b. Storage Mapping
+
+How the theory model concepts map to schema v2 entities and columns:
+
+| Model concept | Schema entity / column |
+|---------------|------------------------|
+| Song key context | `song_versions.base_key` |
+| Section key context | `song_versions.section_context[i].key` (NULL = inherit base_key) |
+| Chord content | chart text (ChordPro/MusicXML) in `chart_files.content` or `chart_versions.content` |
+| Personal substitutions | `personal_annotations` with `kind='chord_substitution'` |
+| Scale/mode lookup | `scale_catalog.id` |
 
 ## 8. How the Original Requirements Map
 

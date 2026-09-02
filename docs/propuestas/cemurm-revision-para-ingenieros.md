@@ -36,13 +36,13 @@ No necesitan leer el código (no hay casi) ni conocer el dominio musical. La arq
 
 | Elemento | Estado |
 |---|---|
-| Documentación | `README.md`, `docs/technical-spec.md`, `docs/mvp-scope.md`, `docs/product-brief.md`, `docs/features-overview.md`, `docs/music-theory-model.md`, `docs/copyright-policy.md` |
-| Especificación BDD | 23 archivos `.feature`, **420 escenarios** (Gherkin) |
+| Documentación | `README.md`, `docs/technical-spec.md`, `docs/database-schema-v2.md`, `docs/mvp-scope.md`, `docs/product-brief.md`, `docs/features-overview.md`, `docs/music-theory-model.md`, `docs/copyright-policy.md` |
+| Especificación BDD | 42 archivos `.feature`, **656 escenarios** (Gherkin) |
 | Código | Solo scaffold Vite mínimo (`src/` con App.jsx, main.jsx, index.css) |
 | Dependencias | React 18.3, Vite 5.3, Tailwind 3.4 — sin dependencias de negocio instaladas |
 | Git | 8 commits en `main` |
 
-**Punto clave:** estamos en **fase de especificación, sin implementación real**. Todo el valor actual vive en los 420 escenarios BDD (el contrato de aceptación) y los documentos de diseño. Es el momento ideal para cuestionar decisiones de arquitectura: **nada de lo que se decida hoy está escrito en código todavía.**
+**Punto clave:** estamos en **fase de especificación, sin implementación real**. Todo el valor actual vive en los 656 escenarios BDD (el contrato de aceptación) y los documentos de diseño. Es el momento ideal para cuestionar decisiones de arquitectura: **nada de lo que se decida hoy está escrito en código todavía.**
 
 ---
 
@@ -50,7 +50,7 @@ No necesitan leer el código (no hay casi) ni conocer el dominio musical. La arq
 
 | Capa | Tecnología |
 |---|---|
-| Frontend | React 18+ / Vite 5 / Tailwind 3 / React Router 6 / Zustand 4 — **TypeScript 5 strict mode obligatorio desde el día 1** |
+| Frontend | React 18+ / Vite 5 / Tailwind 3 / React Router 6 / Zustand 4 — **JavaScript/JSX (plain JS). TypeScript tipo-a-tipo está planeado pero no adoptado en el código actual** |
 | Notación | ChordPro (parser propio en JS ahora, Rust→WASM en fase 2), MusicXML (OpenSheetMusicDisplay), ABC (abcjs), PDF (PDF.js como fallback) |
 | Backend | Supabase: PostgreSQL + Auth (JWT) + Storage + Realtime (WebSocket) |
 | Archivos | Cloudflare R2 (S3-compatible, sin egress fees, solo URLs firmadas) |
@@ -68,14 +68,14 @@ No necesitan leer el código (no hay casi) ni conocer el dominio musical. La arq
 
 | # | Decisión | Justificación |
 |---|---|---|
-| D1 | TypeScript strict mode desde el día 1 | Contratos tipados para el dominio de teoría musical y transposición |
+| D1 | JavaScript/JSX (plain JS) en el frontend; **TypeScript planeado pero no adoptado** | El código actual es JSX (React + Vite + Tailwind) per AGENTS.md. Una adopción de TS tipo-a-tipo es deseable para el dominio de teoría musical y transposición, pero aún no se decide |
 | D2 | PostgreSQL/Supabase sobre CockroachDB, Turso/SQLite (diferidos), MySQL/MongoDB/DynamoDB/Firestore (rechazados) | RLS nativo y modelo relacional esencial; análisis completo en §10 de technical-spec |
 | D3 | Backend MVP: TypeScript en Supabase Edge Functions (Deno), tipo a tipo con el frontend | $0, sin cambio de lenguaje en el MVP; Rust/Axum diferido a fase 2 |
 | D4 | R2 para archivos, solo URLs firmadas | Sin egress fees; seguridad por expiración |
 | D5 | Modelo de teoría musical: **concreto-canónico** | La partitura concreta ("G — C — D") es la fuente de verdad; los grados (I—IV—V) son vista derivada. Evita derivar calidad de acorde desde el grado (la armonía modal no sigue reglas diatónicas) |
 | D6 | Escalas y modos como **datos, no lógica** | Catálogo semitonado; agregar una escala no toca el motor |
 | D7 | RLS en todas las tablas; JWT short-lived + refresh; CSP | Seguridad desde el MVP |
-| D8 | Fases de escala definidas (Fase 0 MVP → Fase 4 >1M MAU) | Decisiones habilitadoras HOY: `tenant_id` en tablas core, módulos con fronteras limpias, API versionada, WASM en cliente |
+| D8 | Fases de escala definidas (Fase 0 MVP → Fase 4 >1M MAU) | Decisiones habilitadoras HOY: scope por `org_id` + `branch_id` en tablas core (reemplaza el `tenant_id` único del esquema previo — ver `docs/database-schema-v2.md`), módulos con fronteras limpias, API versionada, WASM en cliente |
 
 ---
 
@@ -109,7 +109,7 @@ Estos son los puntos donde todavía no estamos seguros. Para cada uno incluimos 
 **En debate:** ¿los umbrales son razonables? ¿Qué recomiendan para **errores de cliente** (¿Sentry o alternativa?) y para monitoreo de Supabase/Edge Functions?
 
 ### 6.7 Derechos de autor y dominio público
-**Posición:** prohibición de **scraping** de sitios de terceros (riesgo legal CFAA/TOS); biblioteca pública solo con dominio público verificado (IMSLP, Mutopia); proceso DMCA 512 con agente registrado.
+**Posición:** prohibición de **scraping** de sitios de terceros (riesgo legal CFAA/TOS); la biblioteca pública se modela en `public_songs` con **licencia confirmada (por defecto CC-BY-4.0)** además de dominio público verificado (IMSLP, Mutopia); los reportes se consolidan en `moderation_cases` y el proceso legal DMCA 512 con agente designado queda registrado en `dmca_notices`.
 **En debate:** detectamos una inconsistencia entre docs — technical-spec dice "pre-1927" para dominio público US y copyright-policy dice "life+70 US post-2022". ¿Qué riesgos legales/operativos ven en la estrategia general?
 
 ### 6.8 No-goals a validar
@@ -140,7 +140,8 @@ Si quieren profundizar, todo está en el repositorio:
 - `docs/mvp-scope.md` — alcance del MVP y hitos
 - `docs/music-theory-model.md` — modelo de teoría musical (el dominio más complejo)
 - `docs/copyright-policy.md` — política de copyright
-- `features/` — 23 features BDD, 420 escenarios de comportamiento
+- `features/` — 42 features BDD, 656 escenarios de comportamiento
+- `docs/database-schema-v2.md` — esquema de base de datos (44 entidades, scope `org_id` + `branch_id`)
 
 ---
 

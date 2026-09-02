@@ -23,16 +23,28 @@ The platform must balance openness for community contribution with respect for i
 
 CEMURM should qualify for **safe harbor protection** under DMCA Section 512 if it:
 
-1. **Designates a DMCA agent** with the U.S. Copyright Office
-2. **Implements a takedown process**: removes infringing content upon receiving a valid DMCA notice
-3. **Adopts a repeat infringer policy**: terminates accounts of users who repeatedly infringe
-4. **Does not have actual knowledge** of infringing activity on the platform
+ 1. **Designates a DMCA agent** with the U.S. Copyright Office
+ 2. **Implements a takedown process**: removes infringing content upon receiving a valid DMCA notice
+ 3. **Adopts a repeat infringer policy**: in appropriate circumstances, terminates the accounts of subscribers who are repeat infringers (see below)
+ 4. **Does not have actual knowledge** of infringing activity on the platform
 
 ### Recommended Actions
 - Register a DMCA agent with the Copyright Office (fee: ~$6 per designation, valid 3 years)
 - Build a takedown request form in the app (admin-facing)
-- Maintain a log of takedown notices and counter-notices
+- Maintain a log of takedown notices and counter-notices (stored per-notice in the `dmca_notices` table — see `docs/database-schema-v2.md` §2)
 - Draft a repeat infringer policy in the Terms of Service
+
+### Repeat Infringer Policy
+
+To qualify for safe harbor under DMCA §512(i)(1)(A), CEMURM must adopt and reasonably implement a policy that **provides for the termination of repeat infringers** — i.e., CEMURM "in appropriate circumstances, terminates the accounts of subscribers who are repeat infringers." This standard safe-harbor language is required and is retained in the Terms of Service.
+
+The MVP enforcement mechanism (matching the schema's actual capability) is escalating:
+
+1. **Rate-limiting**: after confirmed violations, the contributor is rate-limited via `rating_restrictions` (blocking further public contributions until `restricted_until`).
+2. **Suspension pending review**: after **N confirmed violations** (threshold admin-configurable), the account is **suspended** pending manual admin review. Suspension is not automatic termination — an admin reviews the case (`moderation_cases`) before any final action.
+3. **Termination**: applies "in appropriate circumstances" as required by §512(i)(1)(A), and in practice only after an admin confirms on review that the threshold for termination is met.
+
+This keeps the legally-required termination policy in force while aligning the day-to-day mechanism with what the MVP schema supports: escalating rate-limiting, then suspension pending review, rather than unconditional auto-termination. The suspension threshold and the decision to terminate remain admin-configurable, not a hard-coded app default.
 
 ### Limitations
 - Safe harbor does NOT apply if the platform **actively curates or promotes** infringing content
