@@ -1,6 +1,6 @@
 # CEMURM — Database Schema v2 (Proposal)
 
-Status: **DRAFT — supersedes `docs/technical-spec.md` §4 if approved.** Written against the 37-feature/607-scenario Gherkin suite (`features/*.feature`), not against the tech-spec's own §4, which covers ~5 tables and an owner-only RLS model that cannot express the org/branch/public visibility the suite demands.
+Status: **DRAFT — supersedes `docs/technical-spec.md` §4 if approved.** Written against the 42-feature/656-scenario Gherkin suite (`features/*.feature`), not against the tech-spec's own §4, which covers ~5 tables and an owner-only RLS model that cannot express the org/branch/public visibility the suite demands.
 
 Conventions: PostgreSQL 15 (Supabase). UUID PKs (`gen_random_uuid()`), `TIMESTAMPTZ` time columns, `jsonb` for flexible/personal data, native enums for small closed domains, FKs with `ON DELETE` rules chosen per relationship. All rich text (charts, lyrics) stored as text / object storage — no binary blobs in the DB. Object storage (Supabase Storage / R2) holds chart files and avatars; tables only store object keys. No test framework, no implementation — this is a data model contract.
 
@@ -8,7 +8,7 @@ Conventions: PostgreSQL 15 (Supabase). UUID PKs (`gen_random_uuid()`), `TIMESTAM
 
 ## 1. Entity inventory
 
-43 entities grouped by domain. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
+44 entities grouped by domain. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
 
 ### 1.1 Tenancy spine
 
@@ -96,6 +96,9 @@ Personal chord substitutions are keyed to the CONCRETE chart chord (music-theory
 | 41 | `external_connections` | Third-party integrations (Spotify enrichment, Planning Center, MusicBrainz, LRCLIB, meta-imports), re-vocable per user | external-integrations, external-autotagging, search-and-discovery | user |
 | 42 | `audience_views` | Audience-side setlist exposure: QR/embed links with tokens, expiry, simplified lyric-only view; anonymous by default, push on setlist update via OPT-IN binding (A8) | export-and-sharing, congregation-projection, notifications | public (expiring link); user only on opt-in |
 | 43 | `scale_catalog` | Extensible scale/mode catalog (major…melodic-minor modes) — addable by system director without code change; songs declare tonic + scale | music-theory, personal-preferences-and-adaptations | system |
+| 44 | `dmca_notices` | Formal DMCA takedown notices and counter-notices (sender, date received, statutory body) linked to a `public_song` and optionally a `moderation_cases`; the legal log DMCA §512(c)(3) requires retaining | legal retention (no Gherkin feature — see note) | system (moderator / designated agent) |
+
+> **Note on `dmca_notices` (entity #44):** no `.feature` file covers DMCA notices — the "Requires" value of *legal retention* reflects that this table is mandated by DMCA §512(c)(3) (retaining the notice) and §512(i)(1)(A) (repeat-infringer policy), not by any Gherkin scenario in the 42-feature suite. Visibility is inferred as system (moderator / designated agent), mirroring `moderation_cases`. If a DMCA feature spec is ever added (`features/dmca.feature`), this row should be re-cited.
 
 ### 1.9 Entities in scope of the task but NOT proposed (YAGNI)
 
@@ -622,6 +625,20 @@ CREATE TABLE rating_restrictions (        -- contributor rate-limited after CONF
   restricted_until timestamptz,
   confirmed_violations integer NOT NULL DEFAULT 0
 );
+
+CREATE TABLE dmca_notices (               -- entity #44: formal legal-log of takedown notices / counter-notices (DMCA §512(c)(3))
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind                 text NOT NULL,               -- 'notice' | 'counter_notice'
+  sender_name          text NOT NULL,               -- rightsholder / claimant (or the accused user on a counter-notice)
+  sender_email         text NOT NULL,               -- contact for the notice (required statutory detail)
+  recipient_email      text,                        -- designated DMCA agent email the notice was addressed to (NULL until registered)
+  subject_public_song_id uuid REFERENCES public_songs(id),  -- the infringing content; NULL if it names off-platform / non-public content
+  received_at          timestamptz NOT NULL DEFAULT now(), -- DMCA requires prompt action measured from receipt
+  statutory_details    jsonb,                       -- the legal notice body: signed statement, identification of the work, good-faith + perjury declarations (copied verbatim, retained per §512(c)(3))
+  case_id              uuid REFERENCES moderation_cases(id), -- set when a moderator opens a case from the notice
+  status               text NOT NULL DEFAULT 'received'      -- 'received' | 'processing' | 'resolved'
+);
+CREATE INDEX idx_dmca_notices_status ON dmca_notices(status, received_at);
 ```
 
 ### 2.9 Devices, hardware, sync (the offline queue)
@@ -670,6 +687,18 @@ CREATE TABLE audience_views (             -- A8: anonymous by default; push bind
   user_id      uuid REFERENCES auth.users(id),  -- NULL unless the viewer opts into "notify on update"
   push_token   text,                      -- push subscription ref, bound to user_id on opt-in; revocable
   created_by   uuid NOT NULL REFERENCES auth.users(id)  -- setlist owner/director
+);
+```
+
+```sql
+CREATE TABLE scale_catalog (              -- entity #43: extensible scale/mode catalog, data not logic
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            text NOT NULL,          -- 'Major', 'Dorian', 'Melodic Minor'
+  aliases         text[],                 -- alternative names, e.g. 'Ionian' | 'Aeolian' | 'Hijaz'
+  intervals       integer[] NOT NULL,     -- semitone offsets from root, e.g. Major = {0,2,4,5,7,9,11}
+  parent_scale_id uuid REFERENCES scale_catalog(id),  -- NULL for root scales, populated for modes
+  rotation        integer,                -- which rotation of the parent scale (0-based)
+  cardinality     integer NOT NULL        -- number of notes in the scale
 );
 ```
 
@@ -841,7 +870,7 @@ All seven resolved by the product owner. Schema §2 already reflects the chosen 
 
 | # | Question | Why it matters | Options | Resolution |
 |---|----------|----------------|---------|------------|
-| **D1** | **Single-tenant now vs. multi-tenant from day one?** | tech-spec §4/§10.9.1 mandates `tenant_id` on every core table and says partitioning is future work. The suite's org/branch/system/persona hierarchy makes per-row tenant scoping richer than one column, and 5-col RLS (org+role joins) is heavier than a single constant. | (1) Full multi-tenant now: org_id+branch_id everywhere (this doc) — matches the 37 files but costs RLS complexity per table. (2) MVP single-tenant: one org + one branch constant; all org/branch columns exist but are defaults — future sharding needs a migration, not a rewrite. (3) Org-only tenancy: branch_id nullable, branches as a filtered view — small MVs, breaks cross-branch isolation tests immediately. | **(1) Full multi-tenant now.** §2 stands as written; RLS complexity accepted as the price of branch/org isolation the 37 files actually require. |
+| **D1** | **Single-tenant now vs. multi-tenant from day one?** | tech-spec §4/§10.9.1 mandates `tenant_id` on every core table and says partitioning is future work. The suite's org/branch/system/persona hierarchy makes per-row tenant scoping richer than one column, and 5-col RLS (org+role joins) is heavier than a single constant. | (1) Full multi-tenant now: org_id+branch_id everywhere (this doc) — matches the 42 files but costs RLS complexity per table. (2) MVP single-tenant: one org + one branch constant; all org/branch columns exist but are defaults — future sharding needs a migration, not a rewrite. (3) Org-only tenancy: branch_id nullable, branches as a filtered view — small MVs, breaks cross-branch isolation tests immediately. | **(1) Full multi-tenant now.** §2 stands as written; RLS complexity accepted as the price of branch/org isolation the 42 files actually require. |
 | **D2** | **What exactly IS an event?** | `cross-organization-event-collaboration` uses ONE entity with 3 types + visibility matrices; `organizational-repertoire-model` also has "events" (cross-branch, partial/full collaboration) which look like the same entity at org size; `gigs-and-performance-history` excludes multi-org entirely. The `event_type` column proposed here is required by the features but unspecified — no scenario ever sets it. | (1) One `events` table + `type` + participants (this doc). (2) Two entities: org-level "event" vs. cross-org "event" — clean separation, but the org-level event (cross-branch) has no type vocabulary and would degenerate to `type='mixed-group'`. (3) Event-as-setlist-scope only: no separate event table, only a `setlists.scope='event'` flag + participant edges — fewer tables, but loses the slot sequence + slot-time budget that `sequence-only` visibility requires. | **(1) One `events` table + `type` + participants.** §2 stands; the degenerate org-level event is accepted as `type='mixed-group'`. `event_type` remains an open product question: the features name the types but no scenario sets one. |
 | **D3** | **Who owns an event setlist after the event ends?** | "The setlist belongs to the event, not to any single church" vs. "each participating church can reference the setlist in their historical records" vs. org-repertoire "Only Org A members can edit Song 2 after the event" vs. "setlist persists… read-only historical mode". The features never define post-event write capability (only read access). | (1) Event-owned, read-only for all participants (this doc) — the safest reading of "belongs to the event"; forks of the event setlist become personal/org copies. (2) Copy-on-close into each org's private repertoire (per-org snapshots) — matches "reference in their historical records" but duplicates rows. (3) Event-owned with org-level write on own songs post-event — matches org-repertoire permission preservation but contradicts "no single church owns the setlist". | **(1) Event-owned, read-only for all participants.** §2 stands. "Historical reference" is served by forks/copies at the org's own choice, never by post-event writes into the event entity. |
 | **D4** | **What is an annotation anchored to?** | `personal-preferences-and-adaptations` anchors personal annotations to "measure 8"; `collaborative-comments` anchors shared comments to "the second chorus" and PER VERSION; `music-theory` anchors personal chord substitutions to the concrete chord token while transposition keeps them moving with the song. No feature states what happens when the arrangement's sections/measures shift between versions. | (1) Structural anchor: {section, index} (stable) — survives minor chart edits, breaks if sections are reordered. (2) Text-token anchor: matches the exact chord string (stable under transpose, must be re-anchored on chart edits). (3) Positional anchor: measure/timestamp (matches the scenario literally) — breaks on any content shift; needs re-anchor rules. | **(1) Structural anchor: {section, index}.** §2's `shared_comments.anchor` and `personal_annotations.anchor` are already structural; the `measure/timestamp` variant stays available for free-text personal notes (positional), while chord substitutions remain text-token keyed per music-theory. |
@@ -853,4 +882,4 @@ All seven resolved by the product owner. Schema §2 already reflects the chosen 
 
 ## 5. Replacement note
 
-If approved, this doc replaces `docs/technical-spec.md` §4 (PostgreSQL schema + RLS block). The mapping is direct: §1 supersedes the current 5-table sketch, §2 is the DDL contract (the tech-spec's `tenant_id` column becomes the `org_id`+`branch_id` scope pair; its `annotations` table splits into `shared_comments` + `personal_annotations`), §3 supplies the RLS that §4's "Similar policies for setlists, annotations, collections" hand-waves past, and §4 carries forward the tech-spec's own §10.9.1 "every core table carries a tenant identifier" requirement in a form the 37 features can actually enforce. Nothing else in technical-spec.md is touched: §3 (stack) and §10 (decisions) remain authoritative, and §4's `users` note (profiles are cross-tenant identity) is preserved unchanged.
+If approved, this doc replaces `docs/technical-spec.md` §4 (PostgreSQL schema + RLS block). The mapping is direct: §1 supersedes the current 5-table sketch, §2 is the DDL contract (the tech-spec's `tenant_id` column becomes the `org_id`+`branch_id` scope pair; its `annotations` table splits into `shared_comments` + `personal_annotations`), §3 supplies the RLS that §4's "Similar policies for setlists, annotations, collections" hand-waves past, and §4 carries forward the tech-spec's own §10.9.1 "every core table carries a tenant identifier" requirement in a form the 42 features can actually enforce. Nothing else in technical-spec.md is touched: §3 (stack) and §10 (decisions) remain authoritative, and §4's `users` note (profiles are cross-tenant identity) is preserved unchanged.
