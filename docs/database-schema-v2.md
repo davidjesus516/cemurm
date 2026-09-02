@@ -8,7 +8,7 @@ Conventions: PostgreSQL 15 (Supabase). UUID PKs (`gen_random_uuid()`), `TIMESTAM
 
 ## 1. Entity inventory
 
-42 entities grouped by domain. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
+43 entities grouped by domain. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
 
 ### 1.1 Tenancy spine
 
@@ -19,7 +19,7 @@ Conventions: PostgreSQL 15 (Supabase). UUID PKs (`gen_random_uuid()`), `TIMESTAM
 | 3 | `org_memberships` | User ↔ org/branch membership with role and lifetime ("former" state survives membership end) | organizational-repertoire-model, authentication-and-profiles, notifications | system (cross-org identity), per-role at org/branch |
 | 4 | `roles` | Closed role set across system/org/branch levels: system_admin, community_moderator (system-appointed), org_owner, org_admin, branch_admin, instructor, org_member, performer, substitute, backstage_coordinator, event_coordinator | organizational-repertoire-model, community-moderation, cross-organization-event-collaboration, service-planning | system |
 | 5 | `users` | Global identity over `auth.users` (profile: display name, avatar, primary instrument, skill level, vocal range manual preference, public profile for the community) | authentication-and-profiles, public-library-community, personal-preferences-and-adaptations | system (cross-org), public |
-| 6 | `org_invite_codes` | Org/band invite codes with expiration (default 7 days; proximity codes 24 h) | user-onboarding, authentication-and-profiles, export-and-sharing, collaboration-bandmates | per-org / ephemeral |
+| 6 | `invite_codes` | ORG + proximity invite codes in ONE table (A6): `kind` drives expiry default (org_invite 7 days, proximity 24 h); bandmate proximity links reference the same table | user-onboarding, authentication-and-profiles, export-and-sharing, collaboration-bandmates | per-org / ephemeral |
 
 `users.id` = `auth.users.id`; org/branch roles live in `org_memberships`, not on `users` (mirrors tech-spec §4's own note). The org/branch tree comes from `organizational-repertoire-model` ("Sede Lima has its own organization under Academia Musical" — the spec is ambiguous on whether branches belong to one org exclusively; see Open Decisions D1).
 
@@ -56,45 +56,46 @@ Personal chord substitutions are keyed to the CONCRETE chart chord (music-theory
 | # | Entity | Purpose | Requires | Visibility scope |
 |---|--------|---------|----------|------------------|
 | 18 | `events` | Multi-org collaboration container. **Spec conflict: 3 event types**, each with its own visibility matrix (mixed-group / sequence-only / full-program) | cross-organization-event-collaboration, organizational-repertoire-model, notifications | cross-org (all participants), per-type matrix |
-| 19 | `gigs` | Single-org performance, exactly one linked setlist, planned → confirmed → completed/cancelled; NOT an event (explicit non-goal: multi-org gigs are events) | gigs-and-performance-history | user default → shareable to branch |
-| 20 | `venues` | Reused venue details (name, location, type: bar/outdoor/…) — no geo/maps (explicit non-goal) | gigs-and-performance-history | user |
-| 21 | `performances` | ONE record per completed gig: date, venue, songs actually played vs. skipped vs. played off-setlist; feeds "played at" tags, demand counts, rebase suggestions, analytics | gigs-and-performance-history, live-performance-mode, analytics-and-insights, personal-preferences-and-adaptations | follows gig scope |
-| 22 | `services` | Service (Sunday 10am) composed of ordered blocks; becomes read-only after completion | service-planning | org/branch |
-| 23 | `service_blocks` | Ordered blocks within a service, own time budget (min), own block setlist; song swap during service logged with decider | service-planning | inherits service scope |
-| 24 | `service_assignments` | Musician ↔ block (with part); absorbs substitution coverage (covered by / uncovered, substitute records, leader overrule, cross-org substitute scoped to the assignment) | service-planning, substitutions-and-coverage | org/branch; cross-org for event substitutes |
-| 25 | `substitution_requests` | Unavailability → request → candidate list → accept (first wins) → assignment/lifecycle | substitutions-and-coverage, rehearsal-workflow | org/branch |
+| 19 | `event_rsvps` | Per-member RSVP state on an event: invited/yes/no/undecided; event reminders target yes + undecided (A5); remembers the RSVP exactly as given | cross-organization-event-collaboration, notifications | event participant (member) |
+| 20 | `gigs` | Single-org performance, exactly one linked setlist, planned → confirmed → completed/cancelled; NOT an event (explicit non-goal: multi-org gigs are events) | gigs-and-performance-history | user default → shareable to branch |
+| 21 | `venues` | Reused venue details (name, location, type: bar/outdoor/…) — no geo/maps (explicit non-goal) | gigs-and-performance-history | user |
+| 22 | `performances` | ONE record per completed gig: date, venue, songs actually played vs. skipped vs. played off-setlist; feeds "played at" tags, demand counts, rebase suggestions, analytics | gigs-and-performance-history, live-performance-mode, analytics-and-insights, personal-preferences-and-adaptations | follows gig scope |
+| 23 | `services` | Service (Sunday 10am) composed of ordered blocks; becomes read-only after completion | service-planning | org/branch |
+| 24 | `service_blocks` | Ordered blocks within a service, own time budget (min), own block setlist; song swap during service logged with decider | service-planning | inherits service scope |
+| 25 | `service_assignments` | Musician ↔ block (with part); absorbs substitution coverage (covered by / uncovered, substitute records, leader overrule, cross-org substitute scoped to the assignment) | service-planning, substitutions-and-coverage | org/branch; cross-org for event substitutes |
+| 26 | `substitution_requests` | Unavailability → request → candidate list → accept (first wins) → assignment/lifecycle | substitutions-and-coverage, rehearsal-workflow | org/branch |
 
 ### 1.6 Practice, rehearsal, collaboration
 
 | # | Entity | Purpose | Requires | Visibility scope |
 |---|--------|---------|----------|------------------|
-| 26 | `practice_sessions` | Personal practice record (start time, instrument — per-session override allowed, duration, song); feeds "practice hours by instrument" analytics; offline-queued | practice-mode, analytics-and-insights | user only |
-| 27 | `rehearsals` | Agenda from a setlist (+ songs not in setlist), members per song, duration estimate, timebox, per-song outcome (Polished / Needs work), carry-over to next agenda, notes linked back to the song | rehearsal-workflow | org/branch |
-| 28 | `bandmate_links` | User-to-user collaboration edges (active/pending/declined), proxied by one-time proximity codes (24 h expiry) — the "band" concept referred to by setlist sharing | collaboration-bandmates, shared-setlist-collaboration, export-and-sharing | user pair |
-| 29 | `notifications` | Per-user notification feed: invites, setlist changes, event reminders, system alerts; categories + read state; offline-queued delivery; page/feature-scoped push preferences (per-user table) | notifications, collaboration-bandmates, community-moderation | user |
-| 30 | `notification_preferences` | Per-user push rules: master switch, category toggles, quiet hours (10 PM–7 AM), digest opt-in | notifications | user |
+| 27 | `practice_sessions` | Personal practice record (start time, instrument — per-session override allowed, duration, song); feeds "practice hours by instrument" analytics; offline-queued | practice-mode, analytics-and-insights | user only |
+| 28 | `rehearsals` | Agenda from a setlist (+ songs not in setlist), members per song, duration estimate, timebox, per-song outcome (Polished / Needs work), carry-over to next agenda, notes linked back to the song | rehearsal-workflow | org/branch |
+| 29 | `bandmate_links` | User-to-user collaboration edges (active/pending/declined), proxied by one-time proximity codes (24 h expiry, referencing `invite_codes` kind='proximity' — A6) — the "band" concept referred to by setlist sharing | collaboration-bandmates, shared-setlist-collaboration, export-and-sharing | user pair |
+| 30 | `notifications` | Per-user notification feed: invites, setlist changes, event reminders, system alerts; categories + read state; offline-queued delivery; page/feature-scoped push preferences (per-user table) | notifications, collaboration-bandmates, community-moderation | user |
+| 31 | `notification_preferences` | Per-user push rules: master switch, category toggles, quiet hours (10 PM–7 AM), digest opt-in | notifications | user |
 
 ### 1.7 Community, moderation, discovery
 
 | # | Entity | Purpose | Requires | Visibility scope |
 |---|--------|---------|----------|------------------|
-| 31 | `public_songs` | Community-contributed song in the public library: contributor/attribution, license confirmation (CC-BY-4.0 default), lineage to source arrangement, linked-copy semantics (subscription updates vs. standalone copies) | public-library-community, community-moderation, external-integrations | public |
-| 32 | `follows` | User ↔ contributor edge feeding the discovery feed; reputation counts derive from public activity (contributions + curated collections) | public-library-community | user pair |
-| 33 | `reports` | Content reports (reason category: copyright / offensive / spam-duplicate / wrong-metadata; reporter identity hidden from contributor); consolidated into moderation cases; offline report intake | public-library-community, community-moderation | public → moderator |
-| 34 | `moderation_cases` | Consolidated case per reported public entry (report grouping, counts), keep/remove/escalate decision with decider + date + reason (remove is appeal-only reversible), appeal assignment to a DIFFERENT moderator, reinstatement, takedown propagation to linked copies | community-moderation, public-library-community, notifications | system (moderator) |
-| 35 | `rating_restrictions` | Contributor rate-limiting after confirmed violations | public-library-community, community-moderation | system |
+| 32 | `public_songs` | Community-contributed song in the public library: contributor/attribution, license confirmation (CC-BY-4.0 default), lineage to source arrangement, linked-copy semantics (subscription updates vs. standalone copies) | public-library-community, community-moderation, external-integrations | public |
+| 33 | `follows` | User ↔ contributor edge feeding the discovery feed; reputation counts derive from public activity (contributions + curated collections) | public-library-community | user pair |
+| 34 | `reports` | Content reports (reason category: copyright / offensive / spam-duplicate / wrong-metadata; reporter identity hidden from contributor); consolidated into moderation cases; offline report intake | public-library-community, community-moderation | public → moderator |
+| 35 | `moderation_cases` | Consolidated case per reported public entry (report grouping, counts), keep/remove/escalate decision with decider + date + reason (remove is appeal-only reversible), appeal assignment to a DIFFERENT moderator, reinstatement, takedown propagation to linked copies | community-moderation, public-library-community, notifications | system (moderator) |
+| 36 | `rating_restrictions` | Contributor rate-limiting after confirmed violations | public-library-community, community-moderation | system |
 
 ### 1.8 Devices, hardware, sync, integrations
 
 | # | Entity | Purpose | Requires | Visibility scope |
 |---|--------|---------|----------|------------------|
-| 36 | `device_configs` | Per-device-bound preferences: MIDI output selection, foot-pedal switch→action maps (persist across sessions / reconnect), external-display mode ("Lyrics"/"Chords") and transpose | foot-pedal-hid, midi-integration, external-display | user (device-scoped) |
-| 37 | `midi_maps` | Setlist-level program-change mapping (song ↔ PC value), duplicated with setlists, never altered by transpose/capo | midi-integration | user (setlist-scoped) |
-| 38 | `outbox` | Transactional offline-sync queue: entity, operation, payload (jsonb), pending flag, ordering, per-entity resync on conflict | offline-access, shared-setlist-collaboration, community-moderation, pwa-updates-and-storage, in-app-feedback | user (client-owned) |
-| 39 | `chart_files` | Stored chart/scan objects (Cloudflare R2 / Supabase Storage keys): ChordPro text, MusicXML, ABC, PDF scans (versioned, soft-deleted, oversized rejection, size limits) | pdf-scan-charts, export-and-sharing, music-notation, pwa-updates-and-storage | same scope as owning version/file |
-| 40 | `external_connections` | Third-party integrations (Spotify enrichment, Planning Center, MusicBrainz, LRCLIB, meta-imports), re-vocable per user | external-integrations, external-autotagging, search-and-discovery | user |
-| 41 | `audience_views` | Audience-side setlist exposure: QR/embed links with tokens, expiry, simplified lyric-only view, push on setlist update | export-and-sharing, congregation-projection, notifications | public (expiring link) |
-| 42 | `scale_catalog` | Extensible scale/mode catalog (major…melodic-minor modes) — addable by system director without code change; songs declare tonic + scale | music-theory, personal-preferences-and-adaptations | system |
+| 37 | `device_configs` | Per-device-bound preferences: MIDI output selection, foot-pedal switch→action maps (persist across sessions / reconnect), external-display mode ("Lyrics"/"Chords") and transpose | foot-pedal-hid, midi-integration, external-display | user (device-scoped) |
+| 38 | `midi_maps` | Setlist-level program-change mapping (song ↔ PC value), duplicated with setlists, never altered by transpose/capo | midi-integration | user (setlist-scoped) |
+| 39 | `outbox` | Transactional offline-sync queue: entity, operation, payload (jsonb), pending flag, ordering, per-entity resync on conflict | offline-access, shared-setlist-collaboration, community-moderation, pwa-updates-and-storage, in-app-feedback | user (client-owned) |
+| 40 | `chart_files` | Stored chart/scan objects (Cloudflare R2 / Supabase Storage keys): ChordPro text, MusicXML, ABC, PDF scans (versioned, soft-deleted, oversized rejection, size limits) | pdf-scan-charts, export-and-sharing, music-notation, pwa-updates-and-storage | same scope as owning version/file |
+| 41 | `external_connections` | Third-party integrations (Spotify enrichment, Planning Center, MusicBrainz, LRCLIB, meta-imports), re-vocable per user | external-integrations, external-autotagging, search-and-discovery | user |
+| 42 | `audience_views` | Audience-side setlist exposure: QR/embed links with tokens, expiry, simplified lyric-only view; anonymous by default, push on setlist update via OPT-IN binding (A8) | export-and-sharing, congregation-projection, notifications | public (expiring link); user only on opt-in |
+| 43 | `scale_catalog` | Extensible scale/mode catalog (major…melodic-minor modes) — addable by system director without code change; songs declare tonic + scale | music-theory, personal-preferences-and-adaptations | system |
 
 ### 1.9 Entities in scope of the task but NOT proposed (YAGNI)
 
@@ -159,13 +160,14 @@ CREATE TABLE user_roles (
   PRIMARY KEY (user_id, role)
 );
 
-CREATE TABLE org_invite_codes (
+CREATE TABLE invite_codes (             -- A6: ONE table for org invites + proximity codes; kind drives the expiry default
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id      uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  kind        text NOT NULL DEFAULT 'org_invite',  -- 'org_invite' (default 7 days) | 'proximity' (24 h)
   code        text NOT NULL UNIQUE,    -- 'ACAD-MAD-001'
   role        text NOT NULL,
   created_by  uuid NOT NULL REFERENCES auth.users(id),
-  expires_at  timestamptz NOT NULL,    -- default: now() + interval '7 days' (proximity codes: 24 h)
+  expires_at  timestamptz NOT NULL,    -- default: now() + interval '7 days' for org_invite; '24 hours' for proximity
   used_at     timestamptz
 );
 ```
@@ -378,6 +380,7 @@ CREATE TABLE events (
   organizer_id   uuid REFERENCES auth.users(id),     -- event coordinator / concert organizer
   created_at     timestamptz NOT NULL DEFAULT now()
 );
+-- A1: event metadata (name/date/participants) is readable by ANY org; setlist content gated by event_setlists.visibility.
 
 CREATE TABLE event_participants (       -- org ↔ event edge; drives the per-event repertoire union
   event_id    uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -386,6 +389,15 @@ CREATE TABLE event_participants (       -- org ↔ event edge; drives the per-ev
   slot_minutes integer,                 -- Church E: 30-minute slot; overrun warning when setlist > slot
   sequence    integer,                  -- organizer controls the sequence order
   PRIMARY KEY (event_id, org_id)
+);
+
+CREATE TABLE event_rsvps (              -- A5: per-member RSVP state; event reminders target yes + undecided (never explicit no)
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id    uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  member_id   uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status      text NOT NULL DEFAULT 'undecided',   -- 'undecided' | 'yes' | 'no'
+  responded_at timestamptz,
+  UNIQUE (event_id, member_id)
 );
 
 CREATE TABLE event_setlists (           -- setlists that belong to the EVENT, not to any org (post-event ownership ambiguity → Open Decision D3)
@@ -475,6 +487,7 @@ CREATE TABLE substitution_requests (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   assignment_id uuid NOT NULL REFERENCES service_assignments(id) ON DELETE CASCADE,
   requested_by uuid NOT NULL REFERENCES auth.users(id),
+  scope       text NOT NULL DEFAULT 'org',    -- A3: 'org' plans → org members only; 'event' plans → cross-org allowed
   candidates  uuid[] NOT NULL,             -- eligible members (instrument match) — re-evaluated per request
   status      text NOT NULL DEFAULT 'open',    -- 'open' | 'covered' | 'closed' (first accept wins; cancels reopen)
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -499,8 +512,10 @@ CREATE INDEX idx_practice_user ON practice_sessions(user_id, started_at);
 
 CREATE TABLE rehearsals (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id      uuid NOT NULL REFERENCES organizations(id),
+  org_id      uuid REFERENCES organizations(id),  -- NULL when scope='event' (A7)
   branch_id   uuid REFERENCES branches(id),
+  event_id    uuid REFERENCES events(id),         -- A7: non-null for event-scoped (mixed-group) rehearsals
+  scope       text NOT NULL DEFAULT 'org',        -- 'org' (branch RLS) | 'event' (event visibility matrix)
   name        text NOT NULL,               -- 'Saturday Service Rehearsal'
   setlist_id  uuid REFERENCES setlists(id),-- agenda mirrors a setlist; extra songs allowed
   timebox_minutes integer,                 -- overrun warning; trim-to-review keeps agenda intact
@@ -526,7 +541,7 @@ CREATE TABLE bandmate_links (             -- the "band" edge
   user_id     uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   bandmate_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   status      text NOT NULL DEFAULT 'pending',  -- 'pending' | 'active' | 'declined'
-  proximity_code uuid,                     -- one-time; expires 24 h
+  invite_code_id uuid REFERENCES invite_codes(id),  -- A6: proximity codes ARE invite_codes (kind='proximity', 24 h)
   created_at  timestamptz NOT NULL DEFAULT now(),
   accepted_at timestamptz,
   PRIMARY KEY (user_id, bandmate_id)
@@ -646,6 +661,16 @@ CREATE TABLE outbox (                     -- transactional write queue (client-o
 CREATE INDEX idx_outbox_pending ON outbox(user_id, state) WHERE state = 'pending';
 -- Offline merge contract bounded, not invented: conflict resolution re-validates the payload against
 -- server RLS (org-permissions check on reconnect) and re-applies; documented decision-log limbo (see D5).
+
+CREATE TABLE audience_views (             -- A8: anonymous by default; push binding ONLY via opt-in
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  setlist_id   uuid NOT NULL REFERENCES setlists(id) ON DELETE CASCADE,
+  token        text NOT NULL UNIQUE,      -- QR/embed token; expiry enforced on read
+  expires_at   timestamptz NOT NULL,      -- 7-day default; owner revokes by deleting the row
+  user_id      uuid REFERENCES auth.users(id),  -- NULL unless the viewer opts into "notify on update"
+  push_token   text,                      -- push subscription ref, bound to user_id on opt-in; revocable
+  created_by   uuid NOT NULL REFERENCES auth.users(id)  -- setlist owner/director
+);
 ```
 
 ### 2.10 Realtime layer touchpoints (no over-design)
@@ -682,20 +707,20 @@ The core deliverable. Matrix uses the scope columns from §2 (`org_id`, `branch_
 | `collection_songs` | inherited from collection | collection owner | `collection_id` | collections fork/add/remove |
 | `shared_comments` | band/arrangement-scope: exactly the users who can see the arrangement/setlist | comment author (edit/delete own); any scoped member (post); resolve by anyone in scope | song/setlist scope | collaborative-comments "visibility follows the setlist/arrangement scope", "a member from another org cannot see it", "cannot comment on a song I do not have access to" |
 | `personal_annotations` | user only — never band, projection, overlay | user only | `user_id` | personal-preferences "stored on Juan's profile only"; congregation-projection / obs-overlay "never leak to the display" |
-| `events` | participants + their orgs (per event type matrix); AMBIGUOUS for non-participants | creator/event coordinator (visibility per type) | event participant edges + `type` | cross-organization-event-collaboration "Visibility matrix for cross-org event types" |
+| `events` | all orgs (metadata: name, date, participant orgs — A1); participants + their orgs see setlist content per event type matrix | creator/event coordinator (visibility per type); non-participants never write | event participant edges + `type` | cross-organization-event-collaboration "Visibility matrix for cross-org event types"; A1 |
 | `event_setlists` | mixed-group: group members (union of their churches' repertoires); sequence-only: org itself + organizer sees only slot/duration/summary; full-program: organizer sees all + approves, orgs see full program after finalize; backstage coordinator reads all, edits none | event coordinator (mixed-group group edits); org directors (own org setlist); organizer approves/reorders slots only | event + type + org | cross-organization-event-collaboration scenarios 1-3 (detailed per-type below) |
 | `gigs` | owner by default; branch when shared | owner; branch members readonly when shared; leader edits until completed | `owner_id`, `shared_to_branch` | gigs-and-performance-history "private to Lucia by default… not seen by Juan", "shared to Sede Madrid", "Pedro (Sede Lima) cannot open" |
-| `venues` | owner (suggestions come from the user's own history) | owner | `owner_id` | gigs "Prior venues are offered as suggestions for reuse" |
+| `venues` | owner (suggestions come from the user's own history); venue referenced by a SHARED gig is visible to that branch through the gig (A2) | owner | `owner_id` | gigs "Prior venues are offered as suggestions for reuse"; A2 |
 | `performances` / `performance_items` | follows gig scope (read after shared/completed); org analytics see aggregate, not per-user rows | gig owner writes exactly ONE record on completion (post-show flow is the only write path) | gig scope | gigs "creating a gig… completes writes the performance record"; analytics org views |
 | `services` / `service_blocks` | org/branch members (published plans; read-only for members until published); completed → read-only historical | service leader (draft plan); leader logs swaps/check-ins | `org_id`/`branch_id` + `leader_id` | service-planning "Plan is read-only for members until published", "Only the service leader can edit", "Completed service becomes a read-only record" |
-| `service_assignments` | org members see their own blocks; leaders see all | leader assigns; substitute accepts (first wins); leader overrides | `org_id` + `decided_by` | service-planning; substitutions-and-coverage lifecycle |
-| `substitution_requests` | requesting leader + eligible candidates (instrument match) + the substitute | leader creates; candidates accept/decline | org scope + instrument match (app-enforced candidate list) | substitutions-and-coverage "lists band members who play bass" |
+| `service_assignments` | org members see their own blocks; leaders see all; cross-org substitutes scoped to event plans only (A3) | leader assigns; substitute accepts (first wins); leader overrides | `org_id` + `decided_by`; event scope for cross-org | service-planning; substitutions-and-coverage lifecycle; A3 |
+| `substitution_requests` | requesting leader + eligible candidates (instrument match) + the substitute; org plans: org members only (A3) | leader creates; candidates accept/decline | org scope + instrument match (app-enforced candidate list); `scope='event'` for cross-org | substitutions-and-coverage "lists band members who play bass"; A3 |
 | `practice_sessions` | user only | user only | `user_id` | practice-mode "personal to Juan and not visible to bandmates or the organization" |
-| `rehearsals` / `rehearsal_items` | org/branch members | leader creates/publishes; members mark outcomes/notes on assigned songs | `org_id`/`branch_id` | rehearsal-workflow agenda publish + offline notes |
+| `rehearsals` / `rehearsal_items` | org/branch members (org scope); event participants per event matrix (event scope — A7) | leader creates/publishes; members mark outcomes/notes on assigned songs | `org_id`/`branch_id` or event scope | rehearsal-workflow agenda publish + offline notes; A7 |
 | `bandmate_links` | the two users | each user (self) | `user_id` pair | collaboration-bandmates add/accept/decline |
-| `notifications` | owner user only | system writes (edge functions); user marks read | `user_id` | notifications feed scenarios |
+| `notifications` | owner user only | system writes (edge functions); user marks read | `user_id` | notifications feed scenarios; event reminders per A5 (Yes + no-response) |
 | `notification_preferences` | owner only | owner | `user_id` | notifications "User enables or disables push", quiet hours |
-| `public_songs` | everyone (anonymous/public browse) | contributor (own entry) + community moderator (remove/keep after confirmed violation); contributor withdraw restores own entries | `contributor_id` + moderator role | public-library-community; community-moderation "Covers the public library only" |
+| `public_songs` | everyone (anonymous/public browse) | contributor (own entry) + community moderator (remove/keep after confirmed violation); contributor withdraw restores own entries; takedown surfaces `unlinked` flag + notification to each copy owner (A4) | `contributor_id` + moderator role | public-library-community; community-moderation "Covers the public library only"; A4 |
 | `follows` | follower + followed (public profile shows counts) | follower | `follower_id` | public-library-community follow/unfollow |
 | `reports` | moderator + reporter (simplified own-status); contributor NEVER sees identity | any user files; reporter cannot re-file same grounds | `reporter_id` hidden, moderator visibility | community-moderation "identity hidden from the contributor" |
 | `moderation_cases` | system moderators + system admins (escalate path) | moderator (keep/remove; escalate) — decision immutable, appeal-only | `decider_id`, escalation | community-moderation queue/keep/remove/escalate/appeals |
@@ -704,25 +729,25 @@ The core deliverable. Matrix uses the scope columns from §2 (`org_id`, `branch_
 | `midi_maps` | setlist scope, owner/collaborators | setlist editor; maps duplicate with the setlist, never alter via transpose | setlist scope | midi-integration "mapping is saved with the setlist"; "duplicate carries the same MIDI mappings" |
 | `outbox` | owning user/device only (client-owned) | owning user's client; server edge re-validates RLS on replay | `user_id` + `device_id` | offline-access; pwa-updates-and-storage queue-survival contract |
 | `external_connections` | owner user | owner user; disconnect revokes future enrichment | `user_id` | external-integrations revoke; external-autotagging "Disconnect from Spotify" |
-| `audience_views` | anyone with the expiring token (QR/embed link) — no auth required | setlist owner generates/revokes | token + expiry | export-and-sharing audience QR, 7-day link expiry |
+| `audience_views` | anyone with the expiring token (QR/embed link) — no auth required | setlist owner generates/revokes | token + expiry; push binding only via opt-in (A8) | export-and-sharing audience QR, 7-day link expiry; A8 |
 | `scale_catalog` | all users (rendered key contexts) | system director (org-level admin per organizational-repertoire-model conventions) | system | music-theory "catalog is extensible data… added by the system director" |
 
-### 3.2 Ambiguities in the features (marked AMBIGUOUS — exact questions)
+### 3.2 Ambiguities in the features (all resolved 2026-09-08 — formerly marked AMBIGUOUS)
 
-Product-owner resolutions 2026-09-01: event ownership → §4 D3; promote/edit of system songs → §4 D1/D7; chart content model → §4 D6; duration source → §4 D5; annotation/anchor model → §4 D4. Still open: non-participant read of event setlists, venue reuse scope, cross-org substitutes on org-private plans, takedown-flag surfacing, notification RSVP scope, proximity-vs-invite code sharing, cross-org rehearsals, anonymous audience tokens.
+Product-owner resolutions 2026-09-01: event ownership → §4 D3; promote/edit of system songs → §4 D1/D7; chart content model → §4 D6; duration source → §4 D5; annotation/anchor model → §4 D4. Product-owner resolutions 2026-09-08: all remaining ambiguities below resolved A1–A8 (venue reuse, cross-org substitutes, takedown surfacing, RSVP scope, proximity-vs-invite codes, cross-org rehearsals, audience tokens; event non-participant read resolved in the matrix row).
 
-| Row | Question |
-|---|---|
-| `events` + `event_setlists` | Can a non-participating org EVER read an event's setlist (e.g. org B excluded from "Gala Primavera")? Scenario only says its songs are excluded from the picker — nothing says B cannot see the event at all. |
-| `songs` (org-level) | When Org A promotes a song to the system repertoire, who may edit "the arrangement" at system level? "Only Org A can edit its version" implies system-writable blocks non-owners — but the scenario only covers versions; a later direct edit by another org is never tested. |
-| `gigs` | After Lucia shares her gig to Sede Madrid, may other members edit the setlist inside the gig, or share it onward (re-share)? Feature tests only "can open the gig and, once completed, its performance record". |
-| `venue` reuse | Venue suggestions are personal ("my venues"). If a branch-level gig reuses a venue, does the venue become branch-visible? Feature is silent. |
-| `service_assignments` + substitutes | May a substitute from another ORG (cross-org event coverage) be assigned to an org-private service plan, or only to event plans? substitutions scenario says the substitute "sees only the assigned songs and the event setlist" — implies event-only, but the request model isn't scoped. |
-| `public_songs` (linked copies) | After takedown, "linked copy loses its link and is flagged as unlinked" — flagged WHERE, for whom? No scenario states the flag is surfaced to the copy owner. |
-| `notifications` | Are org-level event reminders delivered only to RSVP'd members ("I have RSVP'd 'Yes'") or to all org members? Scenario 3 says "I am a member of the academy" (no RSVP mention). |
-| `proximity_code` | Expiry is 24 h (bandmates) — org invite codes default 7 days. Are proximity codes reused as org-invite codes in offline onboarding? user-onboarding "configurable expiration (default: 7 days)" vs. bandmates "expires after 24 hours" — two different codes for two different flows, but the schema must decide whether they share a table. |
-| `rehearsals` | May a rehearsal span multiple orgs (cross-org rehearsal in mixed-group events)? rehearsal-workflow is silent; cross-org events impose their own visibility. |
-| `audience_views` | The features say audience "receives push notification for setlist update" — requires an expiring token → user binding, but export-and-sharing's QR is anonymous. Which audience rows bind to which user (if any)? |
+| Row | Question | Resolution |
+|---|---|---|
+| `events` + `event_setlists` | Can a non-participating org EVER read an event's setlist (e.g. org B excluded from "Gala Primavera")? Scenario only says its songs are excluded from the picker — nothing says B cannot see the event at all. | **A1 — Event visible, setlist private.** The event metadata (name, date, participant orgs) is readable by any org; `event_setlists.visibility` gates setlist CONTENT. Non-participants see the event exists but never its setlist. |
+| `songs` (org-level) | When Org A promotes a song to the system repertoire, who may edit "the arrangement" at system level? "Only Org A can edit its version" implies system-writable blocks non-owners — but the scenario only covers versions; a later direct edit by another org is never tested. | **Resolved by D1/D7 §4.** Single `songs` table, level derived from nullable org_id/branch_id; system-level rows carry `source_org_id` and are system-admin writable only — other orgs can never edit. |
+| `gigs` | After Lucia shares her gig to Sede Madrid, may other members edit the setlist inside the gig, or share it onward (re-share)? Feature tests only "can open the gig and, once completed, its performance record". | **Resolved by the §3.1 `gigs` row.** Shared-to-branch gigs are owner-editable + branch readonly; only the owner may re-share (the `shared_to_branch` boolean is owner-controlled). No additional state. |
+| `venue` reuse | Venue suggestions are personal ("my venues"). If a branch-level gig reuses a venue, does the venue become branch-visible? Feature is silent. | **A2 — Venue stays personal; visible only inside shared gigs.** `venues.owner_id` stays the only writer; a venue referenced by a shared gig is visible to branch members THROUGH that gig, but never joins their suggestion list. |
+| `service_assignments` + substitutes | May a substitute from another ORG (cross-org event coverage) be assigned to an org-private service plan, or only to event plans? substitutions scenario says the substitute "sees only the assigned songs and the event setlist" — implies event-only, but the request model isn't scoped. | **A3 — Cross-org substitutes only on event plans.** `substitution_requests` carries an explicit `scope` (`event` | `org`); org-private plans only ever see org members as candidates. Cross-org candidates exist only when `scope='event'`; the substitute's visibility stays "assigned songs + event setlist". |
+| `public_songs` (linked copies) | After takedown, "linked copy loses its link and is flagged as unlinked" — flagged WHERE, for whom? No scenario states the flag is surfaced to the copy owner. | **A4 — Surface to the copy owner.** Takedown marks each linked copy `unlinked` and delivers a notification to the copy owner with the badge visible in their library. The flag is never internal-only. |
+| `notifications` | Are org-level event reminders delivered only to RSVP'd members ("I have RSVP'd 'Yes'") or to all org members? Scenario 3 says "I am a member of the academy" (no RSVP mention). | **A5 — Yes + no-response.** Reminders go to members who RSVP'd 'Yes' plus invited-but-unanswered members. Explicit 'No' is excluded. Requires an RSVP state per member on events. |
+| `proximity_code` | Expiry is 24 h (bandmates) — org invite codes default 7 days. Are proximity codes reused as org-invite codes in offline onboarding? user-onboarding "configurable expiration (default: 7 days)" vs. bandmates "expires after 24 hours" — two different codes for two different flows, but the schema must decide whether they share a table. | **A6 — Same table, `kind` + per-kind expiry.** One `invite_codes` table with `kind` (`org_invite` | `proximity`); `expires_at` defaults differ by kind (7 days vs 24 h). Proximity codes ARE org-invite codes in the offline onboarding path; the flows differ only in default expiry and intended audience. |
+| `rehearsals` | May a rehearsal span multiple orgs (cross-org rehearsal in mixed-group events)? rehearsal-workflow is silent; cross-org events impose their own visibility. | **A7 — Yes, event-scoped rehearsals.** `rehearsals.scope` (`org` | `event`); event-scoped rehearsals exist for mixed-group events and inherit the event's visibility matrix, never org RLS. Org-scoped rehearsals stay org/branch as today. |
+| `audience_views` | The features say audience "receives push notification for setlist update" — requires an expiring token → user binding, but export-and-sharing's QR is anonymous. Which audience rows bind to which user (if any)? | **A8 — Anonymous by default; opt-in binding for push.** Every audience row is anonymous (token + expiry). Only a viewer who opts into "notify me on update" binds the row to a user/device via a push subscription; the push token is the only identity, and opt-in is revocable. |
 
 ### 3.3 RLS policy sketches
 
