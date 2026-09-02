@@ -13,7 +13,7 @@ CEMURM (Community-Centered Musical Repertories Manager) es una aplicación web p
 
 Es un **cuaderno de partituras digital** que no depende de Wi-Fi: las salas de ensayo y los auditorios no siempre tienen buena conexión, y CEMURM fue diseñada para ese escenario.
 
-**Estado del proyecto:** estamos en fase de especificación avanzada (23 documentos de requerimientos, 420 escenarios de comportamiento, diseño técnico completo). Buscamos colaboradores como el sistema de orquestas para validar el producto antes de construir, no después.
+**Estado del proyecto:** estamos en fase de especificación avanzada (42 archivos de features, 656 escenarios de comportamiento, esquema de base de datos de 44 entidades en `docs/database-schema-v2.md`, diseño técnico completo). Buscamos colaboradores como el sistema de orquestas para validar el producto antes de construir, no después.
 
 ---
 
@@ -76,7 +76,7 @@ El proyecto incluye un modelo de teoría musical diseñado con criterio profesio
 - El acorde concreto siempre es la fuente de verdad; el grado es una vista derivada.
 
 ### 3.7 Privacidad, derecho de autor y costo
-- **Respeto del material con derechos:** el sistema no permite scraping de sitios de terceros; la biblioteca pública se nutre solo de dominio público verificado. El contenido institucional privado permanece privado.
+- **Respeto del material con derechos:** el sistema no permite scraping de sitios de terceros; la biblioteca pública se nutre de contribuciones con licencia confirmada — por defecto **CC-BY-4.0** — almacenadas en la entidad `public_songs`, además de dominio público verificado (IMSLP, etc.). El contenido institucional privado permanece privado.
 - **Offline por diseño** y sin consumo de datos para los músicos.
 - **Costo de beta: $0** durante la fase beta.
 - Accesibilidad: meta de conformidad **WCAG 2.1 AA** en la beta pública.
@@ -118,4 +118,4 @@ Nos ayudaría enormemente que respondan las que puedan, así sea brevemente:
 
 ---
 
-*Documento generado a partir de la especificación del proyecto (23 features BDD, 420 escenarios) — disponible para consulta si lo desean.*
+*Documento generado a partir de la especificación del proyecto (42 features BDD, 656 escenarios; esquema de base de datos: `docs/database-schema-v2.md`) — disponible para consulta si lo desean.*

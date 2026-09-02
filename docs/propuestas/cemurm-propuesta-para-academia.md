@@ -13,7 +13,7 @@ CEMURM (Community-Centered Musical Repertories Manager) es una aplicación web p
 
 Imagínela como un **cuaderno de partituras digital** que no depende de Wi-Fi: las salas de ensayo, los auditorios y las aulas no siempre tienen buena conexión, y CEMURM fue diseñada para ese escenario.
 
-**Estado del proyecto:** estamos en fase de especificación avanzada. Tenemos 23 documentos de requerimientos detallados (420 escenarios de comportamiento) y el diseño técnico completo. Buscamos socios como su academia para validar el producto antes de construir, no después.
+**Estado del proyecto:** estamos en fase de especificación avanzada. Tenemos 42 archivos de features con 656 escenarios de comportamiento (Gherkin), un esquema de base de datos con 44 entidades normalizadas (`docs/database-schema-v2.md`) y el diseño técnico completo. Buscamos socios como su academia para validar el producto antes de construir, no después.
 
 ---
 
@@ -25,7 +25,7 @@ Queremos que CEMURM sea útil para la enseñanza musical real, no solo para mús
 - ¿Qué necesita una academia con **varias sedes** para mantener un repertorio unificado?
 - ¿Cómo se prepara un recital o una audición con varios profesores y grupos?
 - ¿Qué datos de progreso le sirven a un docente (dificultad, tonalidad, tempo, anotaciones)?
-- ¿Qué restricciones hay al trabajar con **alumnos menores de edad** (privacidad, consentimiento)?
+- ¿Qué restricciones hay al trabajar con **alumnos menores de edad** (privacidad, consentimiento)? (Ver `features/minors-and-guardian-consent.feature` para los escenarios actuales.)
 
 ---
 
@@ -101,4 +101,4 @@ Nos ayudaría enormemente que respondan las que puedan, así sea brevemente:
 
 ---
 
-*Documento generado a partir de la especificación del proyecto (23 features BDD, 420 escenarios) — disponible para consulta si lo desean.*
+*Documento generado a partir de la especificación del proyecto (42 features BDD, 656 escenarios; esquema de base de datos: `docs/database-schema-v2.md`) — disponible para consulta si lo desean.*
