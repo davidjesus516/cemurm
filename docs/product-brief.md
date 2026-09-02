@@ -57,8 +57,7 @@ CEMURM is in **active development**. During the beta period:
 - ✅ Build and manage setlists
 - ✅ Stage Mode with transposition
 - ✅ Offline support
-- 🚧 Collaboration (in progress)
-- 🚧 Public library (in progress)
+- Following hitos: Collaboration (Hito 3) and Public library (Hito 4) — not in this beta scope, coming later
 
 ## How to Give Feedback
 
@@ -81,9 +80,9 @@ Have an idea? We want to hear it:
 - What's missing for your workflow?
 
 **Where to send feedback:**
-- GitHub Issues: [github.com/your-org/cemurm/issues](https://github.com/your-org/cemurm/issues)
-- Email: beta@cemurm.app
-- Discord: [discord.gg/cemurm](https://discord.gg/cemurm)
+- GitHub Issues: [github.com/davidjesus516/cemurm/issues](https://github.com/davidjesus516/cemurm/issues)
+- Email: to be finalized
+- Discord: to be finalized
 
 ## Timeline
 
