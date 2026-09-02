@@ -99,131 +99,19 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 ## 4. Database Schema
 
-### PostgreSQL (Supabase)
+Authoritative schema: **`docs/database-schema-v2.md`** (approved 2026-09-08, merged via PR #10). This section is intentionally a pointer, not a duplicate — the v2 doc is the single source of truth for the DDL contract, the RLS matrix, and the resolved ambiguities (D1–D7, A1–A8). Anything written here previously drifted the moment it diverged from the 43-entity model the feature suite requires.
 
-Every core user-owned table carries a `tenant_id` (the owning organization/community, or a per-user pseudo-tenant) from day one. This is not an implementation detail — it is the sharding hinge required by §10.9 point 1 ("Every core table carries a tenant identifier"). `tenant_id` references the owning tenant, not any row's own id. For the MVP's single-community scope it is a constant equal to the owning organization's root id; it still participates in every tenant index and becomes the partition key when sharding is introduced.
+### What supersedes what (from the v2 doc's mapping clause)
 
-```sql
--- Users table (extends Supabase auth.users)
--- tenant_id is NOT added to global users: profiles are cross-tenant identity,
--- and membership in a tenant is expressed through the org membership model
--- (`organizational-repertoire-model` roles/branches), not a column on users.
-CREATE TABLE users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id),
-  email TEXT NOT NULL,
-  display_name TEXT,
-  avatar_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+- **§1 inventory (43 entities)** supersedes the old 5-table sketch (`users`, `songs`, `setlists`, `setlist_items`, `annotations`, `collections`, `collection_songs`). Every entity the 42 `.feature` files actually require is enumerated there with its visibility scope.
+- **§2 DDL** is the implementation contract. The tech-spec's former single `tenant_id` column is replaced by the `org_id` + `branch_id` (nullable) scope pair, because owner-org ≠ branch-scope (a Sede Lima branch under Academia Musical needs both). RLS scope columns live on the rows where the v2 matrix (§3.1) says they do.
+- **§3 RLS matrix** supplies the per-entity policies the old "Similar policies for setlists, annotations, collections" hand-waved past — org/branch/user/system visibility, event matrices, public-library scopes.
+- **§4 decisions (D1–D7, A1–A8)** carry forward the tech-spec's own §10.9.1 requirement ("every core table carries a tenant identifier") in a form the features can actually enforce.
 
--- Songs
-CREATE TABLE songs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,     -- owning org/community; sharding key (§10.9.1)
-  title TEXT NOT NULL,
-  artist TEXT,
-  genre TEXT,
-  format TEXT NOT NULL CHECK (format IN ('chordpro', 'musicxml', 'abc', 'pdf')),
-  content TEXT,                -- inline content for text-based formats
-  file_url TEXT,               -- R2 URL for binary formats
-  created_by UUID REFERENCES users(id),
-  is_public BOOLEAN DEFAULT FALSE,
-  license_type TEXT,           -- e.g., 'CC-BY-4.0', 'public-domain', 'proprietary'
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+### Preserved notes
 
--- Setlists
-CREATE TABLE setlists (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
-  name TEXT NOT NULL,
-  user_id UUID REFERENCES users(id),
-  is_shared BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Setlist items (ordered songs within a setlist)
-CREATE TABLE setlist_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
-  setlist_id UUID REFERENCES setlists(id) ON DELETE CASCADE,
-  song_id UUID REFERENCES songs(id) ON DELETE CASCADE,
-  position INTEGER NOT NULL,
-  notes TEXT
-);
-
--- Annotations (comments, markings on songs)
-CREATE TABLE annotations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
-  song_id UUID REFERENCES songs(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id),
-  content TEXT NOT NULL,
-  timestamp INTERVAL,          -- optional timestamp within the song
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Thematic collections (curated sets of songs)
-CREATE TABLE collections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
-  name TEXT NOT NULL,
-  description TEXT,
-  curator_id UUID REFERENCES users(id),
-  is_public BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Collection-song join table
-CREATE TABLE collection_songs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,     -- sharding key (§10.9.1)
-  collection_id UUID REFERENCES collections(id) ON DELETE CASCADE,
-  song_id UUID REFERENCES songs(id) ON DELETE CASCADE,
-  UNIQUE(collection_id, song_id)
-);
-
--- Indexes
-CREATE INDEX idx_songs_tenant ON songs(tenant_id);
-CREATE INDEX idx_songs_created_by ON songs(created_by);
-CREATE INDEX idx_songs_is_public ON songs(is_public) WHERE is_public = TRUE;
-CREATE INDEX idx_setlists_tenant ON setlists(tenant_id);
-CREATE INDEX idx_setlists_user_id ON setlists(user_id);
-CREATE INDEX idx_annotations_tenant ON annotations(tenant_id);
-CREATE INDEX idx_annotations_song_id ON annotations(song_id);
-CREATE INDEX idx_collection_songs_tenant ON collection_songs(tenant_id);
-CREATE INDEX idx_collection_songs_collection ON collection_songs(collection_id);
-```
-
-### Row Level Security (RLS)
-
-```sql
--- Songs: users can read public songs + their own
-ALTER TABLE songs ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Public songs are readable by everyone"
-  ON songs FOR SELECT
-  USING (is_public = TRUE);
-
-CREATE POLICY "Users can read their own songs"
-  ON songs FOR SELECT
-  USING (auth.uid() = created_by);
-
-CREATE POLICY "Users can insert their own songs"
-  ON songs FOR INSERT
-  WITH CHECK (auth.uid() = created_by);
-
-CREATE POLICY "Users can update their own songs"
-  ON songs FOR UPDATE
-  USING (auth.uid() = created_by);
-
-CREATE POLICY "Users can delete their own songs"
-  ON songs FOR DELETE
-  USING (auth.uid() = created_by);
-
--- Similar policies for setlists, annotations, collections
-```
+- `users` is NOT modified (profiles are cross-tenant identity; membership lives in `org_memberships`, not a column on `users`) — unchanged from the previous §4.
+- §3 tech stack and §10 decisions remain authoritative; nothing else in this document is affected by the schema replacement.
 
 ## 5. Folder Structure
 
