@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEMURM — Diagrama Entidad-Relación (Schema v2)</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
+    --border: #2d3141; --text: #e2e4e9; --muted: #8b8fa3;
+    --accent: #6c8cff; --accent2: #a78bfa; --accent3: #34d399;
+    --accent4: #f472b6; --accent5: #fbbf24; --accent6: #fb923c;
+    --accent7: #38bdf8; --danger: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+
+  /* Header */
+  .header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 14px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .header .stats { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .search-box { flex: 1; max-width: 320px; }
+  .search-box input { width: 100%; padding: 6px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12px; font-family: inherit; outline: none; }
+  .search-box input:focus { border-color: var(--accent); }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .controls button { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: 11px; cursor: pointer; font-family: inherit; }
+  .controls button:hover { color: var(--text); border-color: var(--accent); }
+  .controls button.active { color: var(--accent); border-color: var(--accent); background: rgba(108,140,255,0.1); }
+
+  /* Sidebar */
+  .sidebar { position: fixed; top: 45px; left: 0; bottom: 0; width: 260px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; z-index: 50; padding: 12px 0; }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .domain-group { margin-bottom: 8px; }
+  .domain-header { padding: 6px 16px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .domain-header .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .entity-list { list-style: none; }
+  .entity-list li { padding: 4px 16px 4px 32px; font-size: 12px; cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+  .entity-list li:hover { color: var(--text); background: var(--surface2); }
+  .entity-list li.selected { color: var(--accent); background: rgba(108,140,255,0.08); }
+  .entity-list li .fk-count { font-size: 9px; color: var(--muted); margin-left: auto; background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+
+  /* Canvas */
+  .canvas-area { position: fixed; top: 45px; left: 260px; right: 0; bottom: 0; overflow: hidden; cursor: grab; }
+  .canvas-area.dragging { cursor: grabbing; }
+  #canvas { position: absolute; transform-origin: 0 0; }
+
+  /* Entity card */
+  .entity-card { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; min-width: 220px; max-width: 300px; font-size: 11px; transition: box-shadow 0.2s; cursor: pointer; z-index: 1; }
+  .entity-card:hover, .entity-card.highlighted { box-shadow: 0 0 0 2px var(--accent), 0 4px 20px rgba(0,0,0,0.4); z-index: 10; }
+  .entity-card.selected { box-shadow: 0 0 0 2px var(--accent2), 0 4px 20px rgba(167,139,250,0.3); z-index: 10; }
+  .entity-card.dimmed { opacity: 0.25; }
+  .card-header { padding: 8px 10px; border-radius: 5px 5px 0 0; display: flex; align-items: center; gap: 8px; }
+  .card-header .table-icon { font-size: 10px; opacity: 0.6; }
+  .card-header .entity-name { font-weight: 700; font-size: 12px; color: #fff; }
+  .card-header .entity-num { font-size: 9px; opacity: 0.5; margin-left: auto; }
+  .card-cols { padding: 6px 0; max-height: 200px; overflow-y: auto; }
+  .card-cols::-webkit-scrollbar { width: 3px; }
+  .card-cols::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .col-row { padding: 2px 10px; display: flex; align-items: center; gap: 6px; }
+  .col-row:hover { background: var(--surface2); }
+  .col-icon { font-size: 8px; width: 12px; text-align: center; flex-shrink: 0; }
+  .col-icon.pk { color: var(--accent5); }
+  .col-icon.fk { color: var(--accent4); }
+  .col-icon.jsonb { color: var(--accent6); }
+  .col-icon.col { color: var(--muted); }
+  .col-name { font-size: 11px; color: var(--text); }
+  .col-type { font-size: 9px; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+  .card-footer { padding: 5px 10px; border-top: 1px solid var(--border); font-size: 9px; color: var(--muted); }
+
+  /* Connection lines — plain HTML divs inside #canvas, same coords as cards */
+  #canvas .conn { position: absolute; height: 2px; width: 1px; transform-origin: 0 50%; border-radius: 1px; opacity: 0.35; pointer-events: none; z-index: 0; }
+  #canvas .conn.highlighted { opacity: 1; height: 3px; }
+  #canvas .conn-lbl { position: absolute; font-size: 8px; color: var(--muted); white-space: nowrap; background: var(--bg); padding: 0 3px; border-radius: 2px; pointer-events: none; z-index: 0; transform: translate(-50%, -50%); }
+  #canvas .conn-lbl.highlighted { color: var(--accent); background: var(--surface2); }
+
+  /* Minimap */
+  .minimap { position: fixed; bottom: 12px; right: 12px; width: 180px; height: 120px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; z-index: 50; overflow: hidden; }
+  .minimap-viewport { position: absolute; border: 1px solid var(--accent); background: rgba(108,140,255,0.08); border-radius: 1px; }
+  .minimap-dot { position: absolute; width: 3px; height: 3px; border-radius: 50%; }
+
+  /* Tooltip */
+  .tooltip { position: fixed; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; font-size: 11px; max-width: 300px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .tooltip .tt-title { font-weight: 700; margin-bottom: 4px; color: var(--accent); }
+  .tooltip .tt-body { color: var(--muted); line-height: 1.5; }
+
+  /* Zoom indicator */
+  .zoom-indicator { position: fixed; bottom: 12px; left: 272px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 10px; color: var(--muted); z-index: 50; }
+
+  /* Legend */
+  .legend { position: fixed; bottom: 40px; left: 272px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; font-size: 10px; z-index: 50; display: flex; gap: 12px; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CEMURM ER Diagram</h1>
+  <span class="stats">44 entities · 8 domains · schema v2</span>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search entities... (Ctrl+K)" />
+  </div>
+  <div class="controls">
+    <button id="btnFit">Fit All</button>
+    <button id="btnReset">Reset</button>
+    <button id="btnGroupToggle" class="active">Group</button>
+    <button id="btnLabels" class="active">Labels</button>
+  </div>
+</div>
+
+<div class="sidebar" id="sidebar"></div>
+
+<div class="canvas-area" id="canvasArea">
+  <div id="canvas"></div>
+</div>
+
+<div class="minimap" id="minimap"></div>
+<div class="tooltip" id="tooltip"></div>
+<div class="zoom-indicator" id="zoomIndicator">100%</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent5)"></div>PK</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent4)"></div>FK</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent6)"></div>jsonb</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div>Column</div>
+  <div class="legend-item"><span style="color:var(--accent)">──</span> 1:N</div>
+  <div class="legend-item"><span style="color:var(--accent)">── N:M</span></div>
+  <div class="legend-item"><span style="color:var(--accent)">── 1:1</span></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// DATA: All 44 entities with columns, types, and FK relationships
+// ═══════════════════════════════════════════════════════════════════
+const DOMAINS = {
+  tenancy:      { label: 'Tenancy Spine',          color: '#6c8cff', order: 0 },
+  repertoire:   { label: 'Repertoire Core',        color: '#a78bfa', order: 1 },
+  setlists:     { label: 'Setlists & Collections', color: '#34d399', order: 2 },
+  commentary:   { label: 'Commentary',             color: '#f472b6', order: 3 },
+  events:       { label: 'Events & Performance',   color: '#fbbf24', order: 4 },
+  practice:     { label: 'Practice & Collaboration', color: '#fb923c', order: 5 },
+  community:    { label: 'Community & Moderation',  color: '#ef4444', order: 6 },
+  sync:         { label: 'Sync & Integrations',    color: '#38bdf8', order: 7 },
+};
+
+const ENTITIES = [
+  // ═══ TENANCY ═══
+  { id: 'organizations', num: 1, domain: 'tenancy', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'name', type: 'text' },
+    { name: 'org_type', type: 'text' },
+    { name: 'logo_url', type: 'text' },
+    { name: 'status', type: 'text' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'branches', num: 2, domain: 'tenancy', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'name', type: 'text' },
+    { name: 'city', type: 'text' },
+    { name: 'status', type: 'text' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'org_memberships', num: 3, domain: 'tenancy', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'branch_id', type: 'uuid', fk: 'branches' },
+    { name: 'role', type: 'text' },
+    { name: 'status', type: 'member_status' },
+    { name: 'joined_at', type: 'timestamptz' },
+    { name: 'left_at', type: 'timestamptz' },
+  ]},
+  { id: 'user_roles', num: 4, domain: 'tenancy', cols: [
+    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'role', type: 'text', pk: true },
+  ]},
+  { id: 'invite_codes', num: 6, domain: 'tenancy', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'kind', type: 'text' },
+    { name: 'code', type: 'text' },
+    { name: 'role', type: 'text' },
+    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'expires_at', type: 'timestamptz' },
+    { name: 'used_at', type: 'timestamptz' },
+  ]},
+
+  // ═══ REPERTOIRE ═══
+  { id: 'songs', num: 7, domain: 'repertoire', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'branch_id', type: 'uuid', fk: 'branches' },
+    { name: 'title', type: 'text' },
+    { name: 'artist', type: 'text' },
+    { name: 'genre', type: 'text' },
+    { name: 'source', type: 'text' },
+    { name: 'source_org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'is_deleted', type: 'boolean' },
+    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'updated_at', type: 'timestamptz' },
+  ]},
+  { id: 'chart_files', num: 40, domain: 'repertoire', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'format', type: 'chart_format' },
+    { name: 'object_key', type: 'text' },
+    { name: 'content', type: 'text' },
+    { name: 'size_bytes', type: 'integer' },
+    { name: 'soft_deleted', type: 'boolean' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'song_versions', num: 8, domain: 'repertoire', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'name', type: 'text' },
+    { name: 'number', type: 'integer' },
+    { name: 'chart_file_id', type: 'uuid', fk: 'chart_files' },
+    { name: 'base_key', type: 'text' },
+    { name: 'base_tempo', type: 'integer' },
+    { name: 'duration_seconds', type: 'integer' },
+    { name: 'section_context', type: 'jsonb' },
+    { name: 'is_ready', type: 'boolean' },
+    { name: 'lineage_source', type: 'uuid', fk: 'song_versions(self)' },
+    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'change_note', type: 'text' },
+  ]},
+  { id: 'tags', num: 9, domain: 'repertoire', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'name', type: 'text' },
+  ]},
+  { id: 'song_tags', num: 9, domain: 'repertoire', cols: [
+    { name: 'song_id', type: 'uuid', pk: true, fk: 'songs' },
+    { name: 'tag_id', type: 'uuid', pk: true, fk: 'tags' },
+  ]},
+  { id: 'song_duplicates', num: 10, domain: 'repertoire', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'song_ids', type: 'uuid[]' },
+    { name: 'canonical_id', type: 'uuid', fk: 'songs' },
+    { name: 'merged_from', type: 'uuid', fk: 'songs' },
+    { name: 'decided_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'unmerge_ok', type: 'boolean' },
+    { name: 'decided_at', type: 'timestamptz' },
+  ]},
+  { id: 'external_enrichments', num: 11, domain: 'repertoire', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'source', type: 'text' },
+    { name: 'field', type: 'text' },
+    { name: 'value', type: 'jsonb' },
+    { name: 'state', type: 'text' },
+    { name: 'applied_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+
+  // ═══ SETLISTS & COLLECTIONS ═══
+  { id: 'setlists', num: 12, domain: 'setlists', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'branch_id', type: 'uuid', fk: 'branches' },
+    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'name', type: 'text' },
+    { name: 'visibility', type: 'text' },
+    { name: 'is_event_setlist', type: 'boolean' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'updated_at', type: 'timestamptz' },
+  ]},
+  { id: 'setlist_collaborators', num: 12, domain: 'setlists', cols: [
+    { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists' },
+    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'can_edit', type: 'boolean' },
+    { name: 'invited_at', type: 'timestamptz' },
+    { name: 'accepted_at', type: 'timestamptz' },
+  ]},
+  { id: 'setlist_items', num: 13, domain: 'setlists', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
+    { name: 'position', type: 'integer' },
+    { name: 'agreed_key', type: 'text' },
+    { name: 'vocal_parts', type: 'jsonb' },
+    { name: 'midi_program', type: 'integer' },
+    { name: 'notes', type: 'text' },
+  ]},
+  { id: 'collections', num: 14, domain: 'setlists', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'name', type: 'text' },
+    { name: 'description', type: 'text' },
+    { name: 'fork_of', type: 'uuid', fk: 'collections(self)' },
+    { name: 'visibility', type: 'text' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'collection_songs', num: 15, domain: 'setlists', cols: [
+    { name: 'collection_id', type: 'uuid', pk: true, fk: 'collections' },
+    { name: 'song_id', type: 'uuid', pk: true, fk: 'songs' },
+    { name: 'position', type: 'integer' },
+  ]},
+
+  // ═══ COMMENTARY ═══
+  { id: 'shared_comments', num: 16, domain: 'commentary', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
+    { name: 'anchor', type: 'jsonb' },
+    { name: 'parent_id', type: 'uuid', fk: 'shared_comments(self)' },
+    { name: 'author_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'body', type: 'text' },
+    { name: 'resolved', type: 'boolean' },
+    { name: 'deleted', type: 'boolean' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'updated_at', type: 'timestamptz' },
+  ]},
+  { id: 'personal_annotations', num: 17, domain: 'commentary', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'anchor', type: 'jsonb' },
+    { name: 'kind', type: 'text' },
+    { name: 'value', type: 'text' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'updated_at', type: 'timestamptz' },
+  ]},
+
+  // ═══ EVENTS & PERFORMANCE ═══
+  { id: 'events', num: 18, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'type', type: 'event_type' },
+    { name: 'name', type: 'text' },
+    { name: 'status', type: 'text' },
+    { name: 'organizer_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'event_participants', num: 18, domain: 'events', cols: [
+    { name: 'event_id', type: 'uuid', pk: true, fk: 'events' },
+    { name: 'org_id', type: 'uuid', pk: true, fk: 'organizations' },
+    { name: 'slot_time', type: 'timestamptz' },
+    { name: 'slot_minutes', type: 'integer' },
+    { name: 'sequence', type: 'integer' },
+  ]},
+  { id: 'event_rsvps', num: 19, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'event_id', type: 'uuid', fk: 'events' },
+    { name: 'member_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'status', type: 'text' },
+    { name: 'responded_at', type: 'timestamptz' },
+  ]},
+  { id: 'event_setlists', num: 18, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'event_id', type: 'uuid', fk: 'events' },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'group_name', type: 'text' },
+    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
+    { name: 'visibility', type: 'text' },
+  ]},
+  { id: 'venues', num: 21, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'name', type: 'text' },
+    { name: 'location', type: 'text' },
+    { name: 'type', type: 'text' },
+  ]},
+  { id: 'gigs', num: 20, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'branch_id', type: 'uuid', fk: 'branches' },
+    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'name', type: 'text' },
+    { name: 'venue_id', type: 'uuid', fk: 'venues' },
+    { name: 'scheduled_at', type: 'timestamptz' },
+    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
+    { name: 'status', type: 'text' },
+    { name: 'shared_to_branch', type: 'boolean' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'performances', num: 22, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'gig_id', type: 'uuid', fk: 'gigs' },
+    { name: 'venue_id', type: 'uuid', fk: 'venues' },
+    { name: 'performed_at', type: 'timestamptz' },
+  ]},
+  { id: 'performance_items', num: 22, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'performance_id', type: 'uuid', fk: 'performances' },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
+    { name: 'state', type: 'play_state' },
+    { name: 'position', type: 'integer' },
+  ]},
+  { id: 'services', num: 23, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'branch_id', type: 'uuid', fk: 'branches' },
+    { name: 'name', type: 'text' },
+    { name: 'status', type: 'text' },
+    { name: 'leader_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'service_blocks', num: 24, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'service_id', type: 'uuid', fk: 'services' },
+    { name: 'name', type: 'text' },
+    { name: 'position', type: 'integer' },
+    { name: 'time_budget', type: 'integer' },
+    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
+  ]},
+  { id: 'service_assignments', num: 25, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'service_id', type: 'uuid', fk: 'services' },
+    { name: 'block_id', type: 'uuid', fk: 'service_blocks' },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'part', type: 'text' },
+    { name: 'is_substitute', type: 'boolean' },
+    { name: 'covered_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'decided_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'checkin_at', type: 'timestamptz' },
+  ]},
+  { id: 'substitution_requests', num: 26, domain: 'events', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'assignment_id', type: 'uuid', fk: 'service_assignments' },
+    { name: 'requested_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'scope', type: 'text' },
+    { name: 'candidates', type: 'uuid[]' },
+    { name: 'status', type: 'text' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'resolved_at', type: 'timestamptz' },
+  ]},
+
+  // ═══ PRACTICE & COLLABORATION ═══
+  { id: 'practice_sessions', num: 27, domain: 'practice', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
+    { name: 'instrument', type: 'text' },
+    { name: 'started_at', type: 'timestamptz' },
+    { name: 'ended_at', type: 'timestamptz' },
+    { name: 'offline_sync', type: 'uuid' },
+  ]},
+  { id: 'rehearsals', num: 28, domain: 'practice', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'org_id', type: 'uuid', fk: 'organizations' },
+    { name: 'branch_id', type: 'uuid', fk: 'branches' },
+    { name: 'event_id', type: 'uuid', fk: 'events' },
+    { name: 'scope', type: 'text' },
+    { name: 'name', type: 'text' },
+    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
+    { name: 'timebox_minutes', type: 'integer' },
+    { name: 'status', type: 'text' },
+    { name: 'planned_for', type: 'timestamptz' },
+    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'rehearsal_items', num: 28, domain: 'practice', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'rehearsal_id', type: 'uuid', fk: 'rehearsals' },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
+    { name: 'outcome', type: 'text' },
+    { name: 'run_count', type: 'integer' },
+    { name: 'notes', type: 'text' },
+    { name: 'carry_over_to', type: 'uuid', fk: 'rehearsals(self)' },
+  ]},
+  { id: 'bandmate_links', num: 29, domain: 'practice', cols: [
+    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'bandmate_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'status', type: 'text' },
+    { name: 'invite_code_id', type: 'uuid', fk: 'invite_codes' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'accepted_at', type: 'timestamptz' },
+  ]},
+  { id: 'notifications', num: 30, domain: 'practice', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'category', type: 'text' },
+    { name: 'title', type: 'text' },
+    { name: 'body', type: 'text' },
+    { name: 'payload', type: 'jsonb' },
+    { name: 'read_at', type: 'timestamptz' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'notification_preferences', num: 31, domain: 'practice', cols: [
+    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'push_enabled', type: 'boolean' },
+    { name: 'categories', type: 'jsonb' },
+    { name: 'quiet_start_at', type: 'time' },
+    { name: 'quiet_end_at', type: 'time' },
+    { name: 'weekly_digest', type: 'boolean' },
+  ]},
+
+  // ═══ COMMUNITY & MODERATION ═══
+  { id: 'public_songs', num: 32, domain: 'community', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'song_id', type: 'uuid', fk: 'songs' },
+    { name: 'contributor_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'license', type: 'text' },
+    { name: 'license_confirmed', type: 'boolean' },
+    { name: 'lineage', type: 'uuid', fk: 'public_songs(self)' },
+    { name: 'linked_copies', type: 'uuid[]' },
+    { name: 'status', type: 'text' },
+    { name: 'updated_at', type: 'timestamptz' },
+  ]},
+  { id: 'follows', num: 33, domain: 'community', cols: [
+    { name: 'follower_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'followed_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'reports', num: 34, domain: 'community', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'public_song_id', type: 'uuid', fk: 'public_songs' },
+    { name: 'reporter_id', type: 'uuid' },
+    { name: 'reason', type: 'report_reason' },
+    { name: 'status', type: 'text' },
+    { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'moderation_cases', num: 35, domain: 'community', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'public_song_id', type: 'uuid', fk: 'public_songs' },
+    { name: 'reason_counts', type: 'jsonb' },
+    { name: 'grounds', type: 'text[]' },
+    { name: 'decision', type: 'text' },
+    { name: 'decider_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'appeal_of', type: 'uuid', fk: 'moderation_cases(self)' },
+    { name: 'decided_at', type: 'timestamptz' },
+    { name: 'notes', type: 'text' },
+  ]},
+  { id: 'rating_restrictions', num: 36, domain: 'community', cols: [
+    { name: 'contributor_id', type: 'uuid', pk: true, fk: 'auth.users' },
+    { name: 'restricted_until', type: 'timestamptz' },
+    { name: 'confirmed_violations', type: 'integer' },
+  ]},
+  { id: 'dmca_notices', num: 44, domain: 'community', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'kind', type: 'text' },
+    { name: 'sender_name', type: 'text' },
+    { name: 'sender_email', type: 'text' },
+    { name: 'recipient_email', type: 'text' },
+    { name: 'subject_public_song_id', type: 'uuid', fk: 'public_songs' },
+    { name: 'received_at', type: 'timestamptz' },
+    { name: 'statutory_details', type: 'jsonb' },
+    { name: 'case_id', type: 'uuid', fk: 'moderation_cases' },
+    { name: 'status', type: 'text' },
+  ]},
+
+  // ═══ SYNC & INTEGRATIONS ═══
+  { id: 'device_configs', num: 37, domain: 'sync', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'device_id', type: 'text' },
+    { name: 'midi_output', type: 'text' },
+    { name: 'pedal_switches', type: 'jsonb' },
+    { name: 'display_mode', type: 'text' },
+  ]},
+  { id: 'midi_maps', num: 38, domain: 'sync', cols: [
+    { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists' },
+    { name: 'song_id', type: 'uuid', pk: true, fk: 'songs' },
+    { name: 'program', type: 'integer' },
+  ]},
+  { id: 'outbox', num: 39, domain: 'sync', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'device_id', type: 'text' },
+    { name: 'entity', type: 'text' },
+    { name: 'entity_id', type: 'uuid' },
+    { name: 'operation', type: 'text' },
+    { name: 'payload', type: 'jsonb' },
+    { name: 'seq', type: 'bigint' },
+    { name: 'state', type: 'text' },
+    { name: 'created_at', type: 'timestamptz' },
+    { name: 'synced_at', type: 'timestamptz' },
+  ]},
+  { id: 'audience_views', num: 42, domain: 'sync', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
+    { name: 'token', type: 'text' },
+    { name: 'expires_at', type: 'timestamptz' },
+    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
+    { name: 'push_token', type: 'text' },
+    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
+  ]},
+  { id: 'scale_catalog', num: 43, domain: 'sync', cols: [
+    { name: 'id', type: 'uuid', pk: true },
+    { name: 'name', type: 'text' },
+    { name: 'aliases', type: 'text[]' },
+    { name: 'intervals', type: 'integer[]' },
+    { name: 'parent_scale_id', type: 'uuid', fk: 'scale_catalog(self)' },
+    { name: 'rotation', type: 'integer' },
+    { name: 'cardinality', type: 'integer' },
+  ]},
+];
+
+// Entity lookup — needed by FK_EDGES cardinality determination
+const entityMap = {};
+ENTITIES.forEach(e => entityMap[e.id] = e);
+
+// ═══════════════════════════════════════════════════════════════════
+// FK RELATIONSHIPS — extracted from DDL
+// ═══════════════════════════════════════════════════════════════════
+const FK_EDGES = [];
+ENTITIES.forEach(e => {
+  e.cols.forEach(c => {
+    if (c.fk && !c.fk.includes('auth.users') && !c.fk.includes('(self)')) {
+      FK_EDGES.push({
+        from: e.id, fromCol: c.name, to: c.fk,
+        label: c.name.replace('_id', ''),
+        cardinality: fkCardinality(e.id, c.name, c.fk),
+      });
+    }
+  });
+});
+
+// Cardinality per relationship, derived from the DDL.
+//  - N:M  : pure join tables (composite PK of exactly two FKs) — "many" side on both ends
+//  - 1:1  : PK-is-also-FK (notification_preferences, rating_restrictions) or UNIQUE FK (performances.gig_id)
+//  - 1:N  : default — one parent, many children
+function fkCardinality(fromTable, fromCol, toTable) {
+  const t = entityMap[fromTable];
+  if (t) {
+    const pkCols  = t.cols.filter(c => c.pk);
+    const fkPkCols = pkCols.filter(c => c.fk);
+    if (pkCols.length === 2 && fkPkCols.length === 2
+        && (fromCol === fkPkCols[0].name || fromCol === fkPkCols[1].name)) {
+      return 'N:M';
+    }
+  }
+  if (fromTable === 'notification_preferences' || fromTable === 'rating_restrictions') return '1:1';
+  if (fromTable === 'performances' && fromCol === 'gig_id') return '1:1';
+  return '1:N';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LAYOUT — group entities by domain in a grid
+// ═══════════════════════════════════════════════════════════════════
+const CARD_W = 240, CARD_H_BASE = 40, COL_H = 18, PADDING_X = 40, PADDING_Y = 50;
+const DOMAIN_GAP = 60;
+
+function layoutEntities() {
+  const positions = {};
+  const domainGroups = {};
+  ENTITIES.forEach(e => {
+    if (!domainGroups[e.domain]) domainGroups[e.domain] = [];
+    domainGroups[e.domain].push(e);
+  });
+
+  let globalY = 40;
+  const sortedDomains = Object.keys(domainGroups).sort((a, b) => DOMAINS[a].order - DOMAINS[b].order);
+
+  sortedDomains.forEach(domain => {
+    const entities = domainGroups[domain];
+    let x = 40;
+    let maxHeight = 0;
+    let colCount = 0;
+
+    entities.forEach(e => {
+      const cardH = CARD_H_BASE + e.cols.length * COL_H + 24;
+      positions[e.id] = { x, y: globalY, w: CARD_W, h: cardH, domain };
+      x += CARD_W + PADDING_X;
+      colCount++;
+      if (colCount % 4 === 0) { x = 40; globalY += maxHeight + PADDING_Y; maxHeight = 0; }
+      if (cardH > maxHeight) maxHeight = cardH;
+    });
+    if (colCount % 4 !== 0) globalY += maxHeight + DOMAIN_GAP;
+  });
+  return positions;
+}
+
+const positions = layoutEntities();
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const dvConnections = document.createElement('div');  // holds connection lines
+dvConnections.style.cssText = 'position:absolute;top:0;left:0;';
+const canvasArea = document.getElementById('canvasArea');
+const sidebar = document.getElementById('sidebar');
+const tooltip = document.getElementById('tooltip');
+const minimapEl = document.getElementById('minimap');
+const zoomIndicator = document.getElementById('zoomIndicator');
+const searchInput = document.getElementById('searchInput');
+
+let scale = 0.7, panX = 50, panY = 50;
+let selectedEntity = null;
+let showLabels = true;
+let groupMode = true;
+
+function color(domain) { return DOMAINS[domain]?.color || '#666'; }
+
+// Build sidebar
+function buildSidebar() {
+  sidebar.innerHTML = '';
+  const sortedDomains = Object.keys(DOMAINS).sort((a, b) => DOMAINS[a].order - DOMAINS[b].order);
+  sortedDomains.forEach(domain => {
+    const entities = ENTITIES.filter(e => e.domain === domain);
+    const group = document.createElement('div');
+    group.className = 'domain-group';
+    group.innerHTML = `<div class="domain-header"><div class="dot" style="background:${DOMAINS[domain].color}"></div>${DOMAINS[domain].label} <span style="font-size:9px;opacity:0.5">(${entities.length})</span></div>`;
+    const list = document.createElement('ul');
+    list.className = 'entity-list';
+    entities.forEach(e => {
+      const fkCount = e.cols.filter(c => c.fk && !c.fk.includes('(self)')).length;
+      const li = document.createElement('li');
+      li.dataset.id = e.id;
+      li.innerHTML = `<span style="color:${color(e.domain)}">#${e.num}</span> ${e.id} <span class="fk-count">${fkCount} FK</span>`;
+      li.onclick = () => selectEntity(e.id);
+      list.appendChild(li);
+    });
+    group.appendChild(list);
+    sidebar.appendChild(group);
+  });
+}
+
+// Build entity cards
+function buildCards() {
+  canvas.innerHTML = '';
+  canvas.appendChild(dvConnections);  // lines layer below cards
+  ENTITIES.forEach(e => {
+    const p = positions[e.id];
+    const card = document.createElement('div');
+    card.className = 'entity-card';
+    card.dataset.id = e.id;
+    card.style.left = p.x + 'px';
+    card.style.top = p.y + 'px';
+    card.style.width = p.w + 'px';
+
+    let colsHtml = e.cols.map(c => {
+      let icon = '○', iconClass = 'col';
+      if (c.pk) { icon = '◆'; iconClass = 'pk'; }
+      else if (c.fk) { icon = '◇'; iconClass = 'fk'; }
+      else if (c.type === 'jsonb') { icon = '⊕'; iconClass = 'jsonb'; }
+      const isSelf = c.fk && c.fk.includes('(self)');
+      const typeStr = c.type + (isSelf ? ' ↺' : c.fk ? ' → ' + c.fk.replace('(self)', '') : '');
+      return `<div class="col-row"><span class="col-icon ${iconClass}">${icon}</span><span class="col-name">${c.name}</span><span class="col-type">${typeStr}</span></div>`;
+    }).join('');
+
+    const fkCount = e.cols.filter(c => c.fk && !c.fk.includes('(self)')).length;
+    card.innerHTML = `
+      <div class="card-header" style="background:${color(e.domain)}22">
+        <span class="table-icon">⊞</span>
+        <span class="entity-name" style="color:${color(e.domain)}">${e.id}</span>
+        <span class="entity-num">#${e.num}</span>
+      </div>
+      <div class="card-cols">${colsHtml}</div>
+      <div class="card-footer">${DOMAINS[e.domain].label} · ${e.cols.length} cols · ${fkCount} FK</div>
+    `;
+    card.onclick = () => selectEntity(e.id);
+    card.onmouseenter = (ev) => showTooltip(ev, e);
+    card.onmouseleave = () => hideTooltip();
+    canvas.appendChild(card);
+  });
+}
+
+// Build HTML connection lines (plain divs — same coord space as cards)
+// Connect from nearest edges of the two rects, not from centers.
+function buildConnections() {
+  dvConnections.innerHTML = '';
+
+  // Point on the boundary of rect `r` closest to point p
+  function closestBoundaryPoint(r, px, py) {
+    const cx = Math.max(r.x, Math.min(px, r.x + r.w));
+    const cy = Math.max(r.y, Math.min(py, r.y + r.h));
+    if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) {
+      // p is inside the rect; snap to nearest edge
+      const dx = Math.min(px - r.x, r.x + r.w - px);
+      const dy = Math.min(py - r.y, r.y + r.h - py);
+      if (dx <= dy) return { x: (px < r.x + r.w / 2 ? r.x : r.x + r.w), y: cy };
+      return { x: cx, y: (py < r.y + r.h / 2 ? r.y : r.y + r.h) };
+    }
+    return { x: cx, y: cy };
+  }
+
+  FK_EDGES.forEach(edge => {
+    const fromPos = positions[edge.from];
+    const toPos = positions[edge.to];
+    if (!fromPos || !toPos) return;
+
+    const f = fromPos, t = toPos;
+    // Point on each rect's boundary nearest the OTHER rect's center
+    const p1 = closestBoundaryPoint(f, t.x + t.w / 2, t.y + t.h / 2);
+    const p2 = closestBoundaryPoint(t, f.x + f.w / 2, f.y + f.h / 2);
+
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return;
+
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    const line = document.createElement('div');
+    line.className = 'conn';
+    line.style.left = p1.x + 'px';
+    line.style.top = p1.y + 'px';
+    line.style.width = len + 'px';
+    line.style.background = color(entityMap[edge.from].domain);
+    line.style.transform = `rotate(${angle}deg)`;
+    line.dataset.from = edge.from;
+    line.dataset.to = edge.to;
+    line.dataset.cardinality = edge.cardinality;
+
+    // Cardinality label at midpoint — sibling of the line, not child (avoids rotation inheritance)
+    if (edge.cardinality !== '1:N') {
+      const lbl = document.createElement('div');
+      lbl.className = 'conn-lbl';
+      lbl.textContent = edge.cardinality;
+      lbl.style.left = ((p1.x + p2.x) / 2) + 'px';
+      lbl.style.top  = ((p1.y + p2.y) / 2) + 'px';
+      lbl.dataset.from = edge.from;
+      lbl.dataset.to = edge.to;
+      dvConnections.appendChild(lbl);
+    }
+
+    dvConnections.appendChild(line);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════════════════
+function selectEntity(id) {
+  if (selectedEntity === id) { deselectAll(); return; }
+  selectedEntity = id;
+  const related = new Set([id]);
+  FK_EDGES.forEach(e => {
+    if (e.from === id) related.add(e.to);
+    if (e.to === id) related.add(e.from);
+  });
+
+  document.querySelectorAll('.entity-card').forEach(card => {
+    card.classList.remove('selected', 'dimmed', 'highlighted');
+    if (card.dataset.id === id) card.classList.add('selected');
+    else if (!related.has(card.dataset.id)) card.classList.add('dimmed');
+    else card.classList.add('highlighted');
+  });
+
+  document.querySelectorAll('.entity-list li').forEach(li => {
+    li.classList.toggle('selected', li.dataset.id === id);
+  });
+
+  dvConnections.querySelectorAll('.conn').forEach(line => {
+    const connected = (line.dataset.from === id || line.dataset.to === id);
+    line.classList.toggle('highlighted', connected);
+    if (!connected) line.style.opacity = '0.05';
+    else line.style.opacity = '';
+  });
+  dvConnections.querySelectorAll('.conn-lbl').forEach(lbl => {
+    const connected = (lbl.dataset.from === id || lbl.dataset.to === id);
+    lbl.classList.toggle('highlighted', connected);
+    lbl.style.opacity = connected ? '1' : '0.1';
+  });
+
+  // Scroll sidebar into view
+  const sidebarItem = document.querySelector(`.entity-list li[data-id="${id}"]`);
+  if (sidebarItem) sidebarItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function deselectAll() {
+  selectedEntity = null;
+  document.querySelectorAll('.entity-card').forEach(c => c.classList.remove('selected', 'dimmed', 'highlighted'));
+  document.querySelectorAll('.entity-list li').forEach(l => l.classList.remove('selected'));
+  dvConnections.querySelectorAll('.conn').forEach(l => { l.classList.remove('highlighted'); l.style.opacity = ''; });
+  dvConnections.querySelectorAll('.conn-lbl').forEach(l => { l.classList.remove('highlighted'); l.style.opacity = ''; });
+}
+
+function showTooltip(ev, entity) {
+  const related = FK_EDGES.filter(e => e.from === entity.id || e.to === entity.id);
+  const fksOut = related.filter(e => e.from === entity.id);
+  const fksIn = related.filter(e => e.to === entity.id);
+  let html = `<div class="tt-title">${entity.id} (#${entity.num})</div><div class="tt-body">`;
+  html += `<b>Domain:</b> ${DOMAINS[entity.domain].label}<br>`;
+  html += `<b>Columns:</b> ${entity.cols.length}<br>`;
+  if (fksOut.length) html += `<b>FK references (${fksOut.length}):</b><br>${fksOut.map(e => `· ${e.fromCol} → <b>${e.to}</b>`).join('<br>')}<br>`;
+  if (fksIn.length) html += `<b>Referenced by (${fksIn.length}):</b><br>${fksIn.map(e => `· <b>${e.from}</b> via ${e.fromCol}`).join('<br>')}`;
+  html += '</div>';
+  tooltip.innerHTML = html;
+  tooltip.style.display = 'block';
+  tooltip.style.left = (ev.clientX + 16) + 'px';
+  tooltip.style.top = (ev.clientY - 10) + 'px';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+// ═══════════════════════════════════════════════════════════════════
+// PAN & ZOOM
+// ═══════════════════════════════════════════════════════════════════
+function updateTransform() {
+  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  // SVG is inside #canvas — inherits transform automatically, no separate transform needed
+  zoomIndicator.textContent = Math.round(scale * 100) + '%';
+  updateMinimap();
+}
+
+let isDragging = false, dragStartX, dragStartY, panStartX, panStartY;
+canvasArea.addEventListener('mousedown', (ev) => {
+  if (ev.target.closest('.entity-card')) return;
+  isDragging = true; dragStartX = ev.clientX; dragStartY = ev.clientY;
+  panStartX = panX; panStartY = panY;
+  canvasArea.classList.add('dragging');
+});
+document.addEventListener('mousemove', (ev) => {
+  if (!isDragging) return;
+  panX = panStartX + (ev.clientX - dragStartX);
+  panY = panStartY + (ev.clientY - dragStartY);
+  updateTransform();
+});
+document.addEventListener('mouseup', () => { isDragging = false; canvasArea.classList.remove('dragging'); });
+
+canvasArea.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const rect = canvasArea.getBoundingClientRect();
+  const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+  const delta = ev.deltaY > 0 ? 0.9 : 1.1;
+  const newScale = Math.min(3, Math.max(0.15, scale * delta));
+  panX = mx - (mx - panX) * (newScale / scale);
+  panY = my - (my - panY) * (newScale / scale);
+  scale = newScale;
+  updateTransform();
+}, { passive: false });
+
+canvasArea.addEventListener('click', (ev) => {
+  if (!ev.target.closest('.entity-card')) deselectAll();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════════════════════════
+function updateMinimap() {
+  const mmW = 180, mmH = 120;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  Object.values(positions).forEach(p => {
+    if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+    if (p.x + p.w > maxX) maxX = p.x + p.w; if (p.y + p.h > maxY) maxY = p.y + p.h;
+  });
+  const contentW = maxX - minX + 80, contentH = maxY - minY + 80;
+  const mmScale = Math.min(mmW / contentW, mmH / contentH);
+
+  minimapEl.innerHTML = '';
+  ENTITIES.forEach(e => {
+    const p = positions[e.id];
+    const dot = document.createElement('div');
+    dot.className = 'minimap-dot';
+    dot.style.left = ((p.x - minX + 40) * mmScale) + 'px';
+    dot.style.top = ((p.y - minY + 40) * mmScale) + 'px';
+    dot.style.background = color(e.domain);
+    minimapEl.appendChild(dot);
+  });
+
+  // Viewport rectangle
+  const areaRect = canvasArea.getBoundingClientRect();
+  const vpX = (-panX / scale - minX + 40) * mmScale;
+  const vpY = (-panY / scale - minY + 40) * mmScale;
+  const vpW = (areaRect.width / scale) * mmScale;
+  const vpH = (areaRect.height / scale) * mmScale;
+  const vp = document.createElement('div');
+  vp.className = 'minimap-viewport';
+  vp.style.left = vpX + 'px'; vp.style.top = vpY + 'px';
+  vp.style.width = vpW + 'px'; vp.style.height = vpH + 'px';
+  minimapEl.appendChild(vp);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════════
+document.getElementById('btnFit').onclick = () => {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  Object.values(positions).forEach(p => {
+    if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+    if (p.x + p.w > maxX) maxX = p.x + p.w; if (p.y + p.h > maxY) maxY = p.y + p.h;
+  });
+  const areaRect = canvasArea.getBoundingClientRect();
+  const contentW = maxX - minX + 80, contentH = maxY - minY + 80;
+  scale = Math.min(areaRect.width / contentW, areaRect.height / contentH, 1.2);
+  panX = (areaRect.width - contentW * scale) / 2 - (minX - 40) * scale;
+  panY = (areaRect.height - contentH * scale) / 2 - (minY - 40) * scale;
+  updateTransform();
+};
+
+document.getElementById('btnReset').onclick = () => { scale = 0.7; panX = 50; panY = 50; updateTransform(); deselectAll(); };
+
+document.getElementById('btnGroupToggle').onclick = function() {
+  groupMode = !groupMode;
+  this.classList.toggle('active', groupMode);
+  dvConnections.style.display = groupMode ? '' : 'none';
+};
+
+document.getElementById('btnLabels').onclick = function() {
+  showLabels = !showLabels;
+  this.classList.toggle('active', showLabels);
+  document.querySelectorAll('.col-type').forEach(el => el.style.display = showLabels ? '' : 'none');
+};
+
+// Search
+searchInput.addEventListener('input', (ev) => {
+  const q = ev.target.value.toLowerCase().trim();
+  if (!q) { deselectAll(); return; }
+  const matches = ENTITIES.filter(e => e.id.includes(q) || e.cols.some(c => c.name.includes(q)));
+  if (matches.length === 1) selectEntity(matches[0].id);
+  else {
+    const matchIds = new Set(matches.map(m => m.id));
+    document.querySelectorAll('.entity-card').forEach(card => {
+      card.classList.toggle('dimmed', !matchIds.has(card.dataset.id));
+      card.classList.toggle('highlighted', matchIds.has(card.dataset.id));
+      card.classList.remove('selected');
+    });
+  }
+});
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') deselectAll();
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === 'k') { ev.preventDefault(); searchInput.focus(); }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+buildSidebar();
+buildCards();
+buildConnections();
+updateTransform();
+// Auto-fit on first load
+setTimeout(() => document.getElementById('btnFit').click(), 100);
+</script>
+</body>
+</html>
