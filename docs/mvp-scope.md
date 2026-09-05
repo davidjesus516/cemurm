@@ -15,14 +15,14 @@
 
 ## Feature → Hito Mapping
 
-Every one of the 42 BDD features (`features/*.feature`) is assigned to exactly one hito. Assignments follow dependency logic: a feature ships in the same or a later hito than the features it depends on; prerequisites land early; tightly-coupled surfaces are grouped. `practice-mode` is the only split feature — Hito 1 ships a thin practice-view slice, the full surface (metronome, auto-scroll, session tracking) is Hito 3.
+Every one of the 42 BDD features (`features/*.feature`) is assigned to a hito; two features are documented splits (see below). Assignments follow dependency logic: a feature ships in the same or a later hito than the features it depends on; prerequisites land early; tightly-coupled surfaces are grouped. `practice-mode` is the only feature split across hitos by *surface slice* — Hito 1 ships a thin practice-view slice, the full surface (metronome, auto-scroll, session tracking) is Hito 3. `song-lifecycle` is partially split by *scenario class*: Hito 1 covers the state-model scenarios (draft/ready/retired/deleted), and the version-history/rollback and duplicate/merge scenarios are deferred to Hito 3 — same feature file, two maturity tiers (see Hito 1 and Hito 3 notes).
 
 ### Hito 1 — Core Viewer + Auth
 - `authentication-and-profiles`
 - `repertoire-mgmt`
 - `setlist-creation`
 - `search-and-discovery`
-- `song-lifecycle` (song state model underpins Hito 1 CRUD)
+- `song-lifecycle` (the song state model alone — draft/ready/retired/deleted; the heavyweight version-history and duplicate-merge scenarios are deferred to Hito 3)
 
 ### Hito 2 — Stage Mode
 - `gigs-and-performance-history`
@@ -41,6 +41,7 @@ Every one of the 42 BDD features (`features/*.feature`) is assigned to exactly o
 - `notifications` (collaboration-driven activity; first real consumers are Hito 3 invites/comments/sync events)
 - `offline-edit-conflict-policy` (offline base + collaboration version history)
 - `practice-mode` (full surface: metronome, auto-scroll, session tracking)
+- `song-lifecycle` (Hito 3 picks up the version-history & rollback and duplicate-detection & merge scenarios deferred from Hito 1; Hito 1 covered only the state-model scenarios)
 
 ### Hito 4 — Basic Community
 - `public-library-community`
@@ -107,7 +108,7 @@ Keeping them together in one hito would overload it; the split honors the depend
 A user can sign up with email or Google, create a song by pasting ChordPro text, see it rendered with chords highlighted above lyrics, add it to a setlist, reorder songs in the setlist, and search across their library.
 
 ### BDD coverage
-Authentication and profile management are specified in `features/authentication-and-profiles.feature`; song and setlist CRUD are specified in `features/repertoire-mgmt.feature` and `features/setlist-creation.feature`; basic search is specified in `features/search-and-discovery.feature`; the song state model (draft/ready/retired/deleted) that underpins CRUD is specified in `features/song-lifecycle.feature`.
+Authentication and profile management are specified in `features/authentication-and-profiles.feature`; song and setlist CRUD are specified in `features/repertoire-mgmt.feature` and `features/setlist-creation.feature`; basic search is specified in `features/search-and-discovery.feature`; the song state model (draft/ready/retired/deleted) that underpins CRUD is specified in `features/song-lifecycle.feature`. Hito 1 covers only the state-model scenarios of that file — chart readiness (draft↔ready with the "missing lyrics / missing base key / no chord chart" validations and per-version readiness) and retire/archive/reactivate. The feature's version-history & rollback scenarios and its duplicate-detection & merge scenarios are **deferred to Hito 3** (they are collaboration-grade work — immutable version audit trails and merge lineage — outside Hito 1's "state model underpins CRUD" scope).
 
 Hito 1's basic practice view (rendering a song at the performer's practice key/tempo) is a thin slice of the practice surface. The full surface — section-aware metronome, auto-scroll, and recording personal practice sessions that feed analytics — is specified in `features/practice-mode.feature` and is assigned to Hito 3, not part of Hito 1's deliverables.
 
