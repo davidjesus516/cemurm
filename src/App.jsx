@@ -1,19 +1,26 @@
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import AppLayout from './components/layout/AppLayout.jsx'
+import Home from './pages/Home.jsx'
+import Songs from './pages/Songs.jsx'
+import Setlists from './pages/Setlists.jsx'
+import Auth from './pages/Auth.jsx'
+import NotFound from './pages/NotFound.jsx'
+
+const router = createBrowserRouter([
+  {
+    element: <AppLayout />,
+    children: [
+      { path: '/', element: <Home /> },
+      { path: '/songs', element: <Songs /> },
+      { path: '/setlists', element: <Setlists /> },
+      { path: '/auth', element: <Auth /> },
+      { path: '*', element: <NotFound /> },
+    ],
+  },
+])
+
 function App() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">CEMURM</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Community-Centered Musical Repertories Manager
-          </p>
-        </div>
-      </header>
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <p className="text-gray-700">Welcome to CEMURM. The app is under development.</p>
-      </main>
-    </div>
-  )
+  return <RouterProvider router={router} />
 }
 
 export default App
