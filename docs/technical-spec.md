@@ -99,7 +99,7 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 ## 4. Database Schema
 
-Authoritative schema: **`docs/database-schema-v2.md`** (approved 2026-09-08, merged via PR #10). This section is intentionally a pointer, not a duplicate — the v2 doc is the single source of truth for the DDL contract, the RLS matrix, and the resolved ambiguities (D1–D7, A1–A8). Anything written here previously drifted the moment it diverged from the 44-entity model the feature suite requires.
+Authoritative schema: **`docs/database-schema-v2.md`** (approved 2026-09-01, merged via PR #10). This section is intentionally a pointer, not a duplicate — the v2 doc is the single source of truth for the DDL contract, the RLS matrix, and the resolved ambiguities (D1–D7, A1–A8). Anything written here previously drifted the moment it diverged from the 44-entity model the feature suite requires.
 
 ### What supersedes what (from the v2 doc's mapping clause)
 

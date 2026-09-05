@@ -761,9 +761,9 @@ The core deliverable. Matrix uses the scope columns from §2 (`org_id`, `branch_
 | `audience_views` | anyone with the expiring token (QR/embed link) — no auth required | setlist owner generates/revokes | token + expiry; push binding only via opt-in (A8) | export-and-sharing audience QR, 7-day link expiry; A8 |
 | `scale_catalog` | all users (rendered key contexts) | system director (org-level admin per organizational-repertoire-model conventions) | system | music-theory "catalog is extensible data… added by the system director" |
 
-### 3.2 Ambiguities in the features (all resolved 2026-09-08 — formerly marked AMBIGUOUS)
+### 3.2 Ambiguities in the features (all resolved 2026-09-01 — formerly marked AMBIGUOUS)
 
-Product-owner resolutions 2026-09-01: event ownership → §4 D3; promote/edit of system songs → §4 D1/D7; chart content model → §4 D6; duration source → §4 D5; annotation/anchor model → §4 D4. Product-owner resolutions 2026-09-08: all remaining ambiguities below resolved A1–A8 (venue reuse, cross-org substitutes, takedown surfacing, RSVP scope, proximity-vs-invite codes, cross-org rehearsals, audience tokens; event non-participant read resolved in the matrix row).
+Product-owner resolutions 2026-09-01: event ownership → §4 D3; promote/edit of system songs → §4 D1/D7; chart content model → §4 D6; duration source → §4 D5; annotation/anchor model → §4 D4. Product-owner resolutions 2026-09-01: all remaining ambiguities below resolved A1–A8 (venue reuse, cross-org substitutes, takedown surfacing, RSVP scope, proximity-vs-invite codes, cross-org rehearsals, audience tokens; event non-participant read resolved in the matrix row).
 
 | Row | Question | Resolution |
 |---|---|---|
