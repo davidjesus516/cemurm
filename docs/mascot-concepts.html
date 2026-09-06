@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEMURM — Diseño de Mascota: Kutu</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0f172a;--surface:#1e293b;--surface2:#334155;
+    --text:#f8fafc;--muted:#94a3b8;--amber:#f59e0b;--coral:#f97316;
+    --grey:#64748b;--dark:#020617;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.6;overflow-x:hidden}
+  .container{max-width:1200px;margin:0 auto;padding:0 24px}
+
+  /* Hero */
+  .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px;position:relative;overflow:hidden}
+  .hero::before{content:'';position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(245,158,11,.08) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+  .hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;margin-top:32px;background:linear-gradient(135deg,var(--amber),var(--coral));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .hero .subtitle{font-size:clamp(1rem,2.5vw,1.4rem);color:var(--muted);margin-top:12px;max-width:600px}
+  .hero .badge{display:inline-block;background:linear-gradient(135deg,var(--amber),var(--coral));color:var(--dark);font-weight:700;font-size:.85rem;padding:6px 18px;border-radius:999px;margin-bottom:20px;letter-spacing:.5px}
+
+  /* Sections */
+  section{padding:80px 0}
+  .section-title{font-size:clamp(1.5rem,3.5vw,2.2rem);font-weight:700;text-align:center;margin-bottom:12px}
+  .section-sub{text-align:center;color:var(--muted);margin-bottom:48px;font-size:1.05rem}
+
+  /* Expressions grid */
+  .expressions{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:28px;max-width:900px;margin:0 auto}
+  .expr-card{background:var(--surface);border-radius:20px;padding:28px 16px 20px;text-align:center;transition:transform .3s ease,box-shadow .3s ease;cursor:default}
+  .expr-card:hover{transform:translateY(-6px);box-shadow:0 12px 40px rgba(245,158,11,.15)}
+  .expr-card svg{display:block;margin:0 auto 14px}
+  .expr-card h3{font-size:1rem;font-weight:600;color:var(--amber)}
+  .expr-card p{font-size:.85rem;color:var(--muted);margin-top:4px}
+
+  /* App mockups */
+  .mockups{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:32px;max-width:1000px;margin:0 auto}
+  .mockup{background:var(--surface);border-radius:24px;overflow:hidden;border:1px solid var(--surface2);transition:transform .3s ease}
+  .mockup:hover{transform:translateY(-4px)}
+  .mockup-screen{padding:24px 20px;min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative}
+  .mockup-label{padding:14px 20px;background:var(--surface2);font-size:.85rem;color:var(--muted);text-align:center;font-weight:500}
+
+  /* Personality */
+  .personality{max-width:700px;margin:0 auto;background:var(--surface);border-radius:24px;padding:40px;border:1px solid var(--surface2)}
+  .personality-header{display:flex;align-items:center;gap:24px;margin-bottom:28px;flex-wrap:wrap;justify-content:center}
+  .personality-header svg{flex-shrink:0}
+  .personality-header h2{font-size:1.8rem;background:linear-gradient(135deg,var(--amber),var(--coral));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .personality-header .tagline{color:var(--muted);font-style:italic}
+  .traits{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}
+  .trait{background:rgba(245,158,11,.12);color:var(--amber);padding:6px 16px;border-radius:999px;font-size:.85rem;font-weight:500}
+  .role-desc{color:var(--muted);line-height:1.8}
+  .role-desc strong{color:var(--text)}
+
+  /* Footer */
+  footer{text-align:center;padding:40px 24px;color:var(--muted);font-size:.85rem}
+
+  /* Floating notes animation */
+  @keyframes float{0%,100%{transform:translateY(0) rotate(0deg);opacity:.7}50%{transform:translateY(-18px) rotate(8deg);opacity:1}}
+  .float-n1{animation:float 3s ease-in-out infinite}
+  .float-n2{animation:float 3.5s ease-in-out .5s infinite}
+  .float-n3{animation:float 2.8s ease-in-out 1s infinite}
+
+  /* Bounce */
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  .bounce{animation:bounce 2s ease-in-out infinite}
+</style>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<section class="hero">
+  <div class="container">
+    <div class="badge">MASCOTA OFICIAL CEMURM</div>
+    <svg width="320" height="340" viewBox="0 0 320 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Musical notes -->
+      <g class="float-n1"><text x="240" y="60" font-size="28" fill="#f59e0b" opacity=".8">&#9835;</text></g>
+      <g class="float-n2"><text x="60" y="80" font-size="22" fill="#f97316" opacity=".7">&#9834;</text></g>
+      <g class="float-n3"><text x="260" y="140" font-size="20" fill="#f59e0b" opacity=".6">&#9833;</text></g>
+
+      <!-- Tail — iconic black-and-white rings -->
+      <path d="M80 280 Q40 240 50 180 Q55 140 80 110 Q100 85 130 80" stroke="none" fill="none"/>
+      <!-- Tail base (grey) -->
+      <ellipse cx="80" cy="278" rx="14" ry="10" fill="#64748b"/>
+      <!-- Tail rings -->
+      <ellipse cx="76" cy="264" rx="12" ry="7" fill="#1e293b"/>
+      <ellipse cx="72" cy="252" rx="11" ry="7" fill="#f8fafc"/>
+      <ellipse cx="68" cy="240" rx="10" ry="7" fill="#1e293b"/>
+      <ellipse cx="64" cy="228" rx="10" ry="7" fill="#f8fafc"/>
+      <ellipse cx="60" cy="216" rx="9" ry="7" fill="#1e293b"/>
+      <ellipse cx="57" cy="204" rx="9" ry="7" fill="#f8fafc"/>
+      <ellipse cx="55" cy="192" rx="8" ry="7" fill="#1e293b"/>
+      <ellipse cx="54" cy="180" rx="8" ry="6" fill="#f8fafc"/>
+      <ellipse cx="54" cy="169" rx="7" ry="6" fill="#1e293b"/>
+      <ellipse cx="56" cy="158" rx="7" ry="6" fill="#f8fafc"/>
+      <ellipse cx="59" cy="147" rx="6" ry="6" fill="#1e293b"/>
+      <ellipse cx="63" cy="138" rx="6" ry="5" fill="#f8fafc"/>
+      <ellipse cx="68" cy="130" rx="5" ry="5" fill="#1e293b"/>
+      <ellipse cx="74" cy="124" rx="5" ry="4" fill="#f8fafc"/>
+      <ellipse cx="80" cy="120" rx="4" ry="4" fill="#1e293b"/>
+      <!-- Tail tip -->
+      <ellipse cx="84" cy="116" rx="4" ry="3" fill="#f8fafc"/>
+
+      <!-- Body -->
+      <ellipse cx="160" cy="260" rx="62" ry="50" fill="#64748b"/>
+      <!-- Belly -->
+      <ellipse cx="160" cy="268" rx="36" ry="32" fill="#94a3b8"/>
+
+      <!-- Left arm holding guitar -->
+      <path d="M102 245 Q80 255 75 275" stroke="#64748b" stroke-width="16" stroke-linecap="round" fill="none"/>
+      <!-- Right arm -->
+      <path d="M218 245 Q235 255 240 272" stroke="#64748b" stroke-width="16" stroke-linecap="round" fill="none"/>
+
+      <!-- Guitar -->
+      <rect x="52" y="268" width="4" height="60" rx="2" fill="#92400e" transform="rotate(-10 52 268)"/>
+      <ellipse cx="60" cy="295" rx="22" ry="18" fill="#b45309" stroke="#92400e" stroke-width="2"/>
+      <ellipse cx="60" cy="295" rx="6" ry="5" fill="#1e293b"/>
+      <line x1="54" y1="280" x2="54" y2="310" stroke="#f59e0b" stroke-width=".7"/>
+      <line x1="58" y1="278" x2="58" y2="312" stroke="#f59e0b" stroke-width=".7"/>
+      <line x1="62" y1="278" x2="62" y2="312" stroke="#f59e0b" stroke-width=".7"/>
+      <line x1="66" y1="280" x2="66" y2="310" stroke="#f59e0b" stroke-width=".7"/>
+
+      <!-- Head -->
+      <ellipse cx="160" cy="180" rx="52" ry="50" fill="#64748b"/>
+      <!-- Face mask (lighter) -->
+      <ellipse cx="160" cy="188" rx="36" ry="32" fill="#94a3b8"/>
+
+      <!-- White eye patches -->
+      <ellipse cx="142" cy="178" rx="16" ry="14" fill="#f8fafc"/>
+      <ellipse cx="178" cy="178" rx="16" ry="14" fill="#f8fafc"/>
+
+      <!-- Eyes (amber) -->
+      <ellipse cx="142" cy="178" rx="8" ry="8" fill="#f59e0b"/>
+      <ellipse cx="178" cy="178" rx="8" ry="8" fill="#f59e0b"/>
+      <!-- Pupils -->
+      <ellipse cx="144" cy="177" rx="4" ry="4.5" fill="#020617"/>
+      <ellipse cx="180" cy="177" rx="4" ry="4.5" fill="#020617"/>
+      <!-- Eye shine -->
+      <circle cx="146" cy="175" r="2" fill="#fff" opacity=".9"/>
+      <circle cx="182" cy="175" r="2" fill="#fff" opacity=".9"/>
+
+      <!-- Nose -->
+      <ellipse cx="160" cy="195" rx="5" ry="3.5" fill="#1e293b"/>
+
+      <!-- Mouth — happy smile -->
+      <path d="M150 202 Q160 212 170 202" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+
+      <!-- Ears with white tufts -->
+      <ellipse cx="118" cy="148" rx="10" ry="14" fill="#64748b"/>
+      <ellipse cx="118" cy="146" rx="6" ry="8" fill="#f8fafc" opacity=".6"/>
+      <ellipse cx="202" cy="148" rx="10" ry="14" fill="#64748b"/>
+      <ellipse cx="202" cy="146" rx="6" ry="8" fill="#f8fafc" opacity=".6"/>
+
+      <!-- Feet -->
+      <ellipse cx="130" cy="308" rx="20" ry="8" fill="#64748b"/>
+      <ellipse cx="190" cy="308" rx="20" ry="8" fill="#64748b"/>
+    </svg>
+    <h1>Hola, soy Kutu</h1>
+    <p class="subtitle">Tu compañero musical. Curioso, leal y siempre listo para ayudarte con tu repertorio.</p>
+  </div>
+</section>
+
+<!-- ==================== EXPRESSIONS ==================== -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Galería de Expresiones</h2>
+    <p class="section-sub">Kutu se adapta a cada momento de tu experiencia musical</p>
+    <div class="expressions">
+
+      <!-- 1. Happy -->
+      <div class="expr-card">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <!-- Tail up -->
+          <ellipse cx="22" cy="90" rx="5" ry="4" fill="#64748b"/>
+          <ellipse cx="20" cy="82" rx="4" ry="3" fill="#1e293b"/>
+          <ellipse cx="19" cy="75" rx="4" ry="3" fill="#f8fafc"/>
+          <ellipse cx="18" cy="68" rx="4" ry="3" fill="#1e293b"/>
+          <ellipse cx="18" cy="61" rx="3.5" ry="3" fill="#f8fafc"/>
+          <ellipse cx="19" cy="55" rx="3" ry="3" fill="#1e293b"/>
+          <ellipse cx="20" cy="49" rx="3" ry="3" fill="#f8fafc"/>
+          <ellipse cx="22" cy="44" rx="3" ry="2.5" fill="#1e293b"/>
+          <!-- Body -->
+          <ellipse cx="60" cy="88" rx="24" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="90" rx="15" ry="13" fill="#94a3b8"/>
+          <!-- Head -->
+          <ellipse cx="60" cy="52" rx="22" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="55" rx="16" ry="14" fill="#94a3b8"/>
+          <!-- Eye patches -->
+          <ellipse cx="51" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <ellipse cx="69" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <!-- Eyes — happy squint -->
+          <path d="M46 50 Q51 46 56 50" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <path d="M64 50 Q69 46 74 50" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <!-- Nose -->
+          <ellipse cx="60" cy="57" rx="2.5" ry="1.8" fill="#1e293b"/>
+          <!-- Big smile -->
+          <path d="M52 62 Q60 70 68 62" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <!-- Blush -->
+          <circle cx="44" cy="56" r="4" fill="#f97316" opacity=".2"/>
+          <circle cx="76" cy="56" r="4" fill="#f97316" opacity=".2"/>
+          <!-- Ears -->
+          <ellipse cx="40" cy="38" rx="5" ry="6" fill="#64748b"/>
+          <ellipse cx="40" cy="37" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          <ellipse cx="80" cy="38" rx="5" ry="6" fill="#64748b"/>
+          <ellipse cx="80" cy="37" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          <!-- Feet -->
+          <ellipse cx="50" cy="106" rx="9" ry="4" fill="#64748b"/>
+          <ellipse cx="70" cy="106" rx="9" ry="4" fill="#64748b"/>
+          <!-- Sparkles -->
+          <text x="88" y="36" font-size="14" fill="#f59e0b" opacity=".8">&#10024;</text>
+          <text x="18" y="40" font-size="10" fill="#f97316" opacity=".6">&#10024;</text>
+        </svg>
+        <h3>Feliz</h3>
+        <p>Cola arriba, sonrisa amplia</p>
+      </div>
+
+      <!-- 2. Thinking -->
+      <div class="expr-card">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <!-- Tail curled -->
+          <ellipse cx="88" cy="90" rx="5" ry="4" fill="#64748b"/>
+          <ellipse cx="92" cy="83" rx="4" ry="3" fill="#1e293b"/>
+          <ellipse cx="95" cy="76" rx="4" ry="3" fill="#f8fafc"/>
+          <ellipse cx="97" cy="70" rx="4" ry="3" fill="#1e293b"/>
+          <ellipse cx="97" cy="64" rx="3.5" ry="3" fill="#f8fafc"/>
+          <ellipse cx="95" cy="58" rx="3" ry="3" fill="#1e293b"/>
+          <!-- Body -->
+          <ellipse cx="60" cy="88" rx="24" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="90" rx="15" ry="13" fill="#94a3b8"/>
+          <!-- Paw on chin -->
+          <ellipse cx="48" cy="68" rx="6" ry="5" fill="#64748b"/>
+          <!-- Head — tilted -->
+          <g transform="rotate(-8 60 52)">
+            <ellipse cx="60" cy="52" rx="22" ry="20" fill="#64748b"/>
+            <ellipse cx="60" cy="55" rx="16" ry="14" fill="#94a3b8"/>
+            <!-- Eye patches -->
+            <ellipse cx="51" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+            <ellipse cx="69" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+            <!-- Eyes — looking up -->
+            <ellipse cx="50" cy="49" rx="4" ry="4" fill="#f59e0b"/>
+            <ellipse cx="68" cy="49" rx="4" ry="4" fill="#f59e0b"/>
+            <ellipse cx="51" cy="47.5" rx="2" ry="2.2" fill="#020617"/>
+            <ellipse cx="69" cy="47.5" rx="2" ry="2.2" fill="#020617"/>
+            <circle cx="52" cy="46.5" r="1" fill="#fff" opacity=".8"/>
+            <circle cx="70" cy="46.5" r="1" fill="#fff" opacity=".8"/>
+            <!-- Nose -->
+            <ellipse cx="60" cy="57" rx="2.5" ry="1.8" fill="#1e293b"/>
+            <!-- Mouth — pursed -->
+            <circle cx="60" cy="63" r="2" fill="#1e293b"/>
+            <!-- Ears -->
+            <ellipse cx="40" cy="38" rx="5" ry="6" fill="#64748b"/>
+            <ellipse cx="40" cy="37" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+            <ellipse cx="80" cy="38" rx="5" ry="6" fill="#64748b"/>
+            <ellipse cx="80" cy="37" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          </g>
+          <!-- Thought dots -->
+          <circle cx="88" cy="42" r="3" fill="var(--amber)" opacity=".5"/>
+          <circle cx="96" cy="35" r="4" fill="var(--amber)" opacity=".35"/>
+          <circle cx="104" cy="26" r="5" fill="var(--amber)" opacity=".2"/>
+          <!-- Feet -->
+          <ellipse cx="50" cy="106" rx="9" ry="4" fill="#64748b"/>
+          <ellipse cx="70" cy="106" rx="9" ry="4" fill="#64748b"/>
+        </svg>
+        <h3>Pensando</h3>
+        <p>Cabeza inclinada, pata en la barbilla</p>
+      </div>
+
+      <!-- 3. Celebrating -->
+      <div class="expr-card">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <!-- Tail bouncing -->
+          <ellipse cx="26" cy="80" rx="4" ry="3.5" fill="#64748b"/>
+          <ellipse cx="22" cy="73" rx="3.5" ry="3" fill="#1e293b"/>
+          <ellipse cx="20" cy="66" rx="3.5" ry="3" fill="#f8fafc"/>
+          <ellipse cx="19" cy="59" rx="3" ry="3" fill="#1e293b"/>
+          <ellipse cx="19" cy="53" rx="3" ry="2.5" fill="#f8fafc"/>
+          <ellipse cx="21" cy="48" rx="2.5" ry="2.5" fill="#1e293b"/>
+          <!-- Body — jumping -->
+          <g transform="translate(0,-10)">
+            <ellipse cx="60" cy="85" rx="22" ry="18" fill="#64748b"/>
+            <ellipse cx="60" cy="87" rx="14" ry="12" fill="#94a3b8"/>
+            <!-- Arms up -->
+            <line x1="42" y1="75" x2="28" y2="58" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+            <line x1="78" y1="75" x2="94" y2="55" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+            <!-- Guitar in air -->
+            <rect x="90" y="35" width="3" height="30" rx="1.5" fill="#92400e" transform="rotate(15 90 35)"/>
+            <ellipse cx="96" cy="50" rx="10" ry="8" fill="#b45309" stroke="#92400e" stroke-width="1"/>
+            <!-- Head -->
+            <ellipse cx="60" cy="50" rx="22" ry="20" fill="#64748b"/>
+            <ellipse cx="60" cy="53" rx="16" ry="14" fill="#94a3b8"/>
+            <!-- Eye patches -->
+            <ellipse cx="51" cy="48" rx="7" ry="6" fill="#f8fafc"/>
+            <ellipse cx="69" cy="48" rx="7" ry="6" fill="#f8fafc"/>
+            <!-- Eyes — star eyes -->
+            <text x="47" y="51" font-size="10" fill="#f59e0b">&#9733;</text>
+            <text x="65" y="51" font-size="10" fill="#f59e0b">&#9733;</text>
+            <!-- Nose -->
+            <ellipse cx="60" cy="55" rx="2.5" ry="1.8" fill="#1e293b"/>
+            <!-- Mouth — open happy -->
+            <ellipse cx="60" cy="61" rx="5" ry="4" fill="#1e293b"/>
+            <ellipse cx="60" cy="60" rx="4" ry="2" fill="#f59e0b" opacity=".3"/>
+            <!-- Ears -->
+            <ellipse cx="40" cy="36" rx="5" ry="6" fill="#64748b"/>
+            <ellipse cx="40" cy="35" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+            <ellipse cx="80" cy="36" rx="5" ry="6" fill="#64748b"/>
+            <ellipse cx="80" cy="35" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          </g>
+          <!-- Confetti -->
+          <rect x="15" y="22" width="4" height="4" rx="1" fill="#f59e0b" opacity=".7" transform="rotate(30 15 22)"/>
+          <rect x="100" y="30" width="3" height="3" rx="1" fill="#f97316" opacity=".6" transform="rotate(-20 100 30)"/>
+          <rect x="75" y="18" width="4" height="3" rx="1" fill="#f59e0b" opacity=".5" transform="rotate(45 75 18)"/>
+          <circle cx="35" cy="16" r="2" fill="#f97316" opacity=".6"/>
+          <circle cx="105" cy="48" r="2" fill="#f59e0b" opacity=".5"/>
+          <!-- Feet off ground -->
+          <ellipse cx="50" cy="98" rx="8" ry="3.5" fill="#64748b"/>
+          <ellipse cx="70" cy="98" rx="8" ry="3.5" fill="#64748b"/>
+        </svg>
+        <h3>Celebrando</h3>
+        <p>Saltando, guitarra en el aire</p>
+      </div>
+
+      <!-- 4. Surprised -->
+      <div class="expr-card">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <!-- Tail straight up -->
+          <ellipse cx="60" cy="110" rx="4" ry="3.5" fill="#64748b"/>
+          <ellipse cx="60" cy="103" rx="3.5" ry="3" fill="#1e293b"/>
+          <ellipse cx="60" cy="96" rx="3.5" ry="3" fill="#f8fafc"/>
+          <ellipse cx="60" cy="89" rx="3" ry="3" fill="#1e293b"/>
+          <!-- Body -->
+          <ellipse cx="60" cy="88" rx="24" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="90" rx="15" ry="13" fill="#94a3b8"/>
+          <!-- Arms out -->
+          <line x1="40" y1="80" x2="22" y2="72" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+          <line x1="80" y1="80" x2="98" y2="72" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+          <!-- Head -->
+          <ellipse cx="60" cy="52" rx="22" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="55" rx="16" ry="14" fill="#94a3b8"/>
+          <!-- Eye patches -->
+          <ellipse cx="51" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <ellipse cx="69" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <!-- Eyes — wide open -->
+          <ellipse cx="51" cy="50" rx="5.5" ry="5.5" fill="#f8fafc" stroke="#f59e0b" stroke-width="1"/>
+          <ellipse cx="69" cy="50" rx="5.5" ry="5.5" fill="#f8fafc" stroke="#f59e0b" stroke-width="1"/>
+          <ellipse cx="51" cy="50" rx="3.5" ry="3.5" fill="#f59e0b"/>
+          <ellipse cx="69" cy="50" rx="3.5" ry="3.5" fill="#f59e0b"/>
+          <ellipse cx="51.5" cy="49" rx="2" ry="2.2" fill="#020617"/>
+          <ellipse cx="69.5" cy="49" rx="2" ry="2.2" fill="#020617"/>
+          <circle cx="53" cy="48" r="1.2" fill="#fff" opacity=".9"/>
+          <circle cx="71" cy="48" r="1.2" fill="#fff" opacity=".9"/>
+          <!-- Nose -->
+          <ellipse cx="60" cy="57" rx="2.5" ry="1.8" fill="#1e293b"/>
+          <!-- Mouth — O shape -->
+          <ellipse cx="60" cy="64" rx="4" ry="4.5" fill="#1e293b"/>
+          <!-- Ears perked up -->
+          <ellipse cx="38" cy="34" rx="5" ry="7" fill="#64748b"/>
+          <ellipse cx="38" cy="33" rx="3" ry="4.5" fill="#f8fafc" opacity=".5"/>
+          <ellipse cx="82" cy="34" rx="5" ry="7" fill="#64748b"/>
+          <ellipse cx="82" cy="33" rx="3" ry="4.5" fill="#f8fafc" opacity=".5"/>
+          <!-- Exclamation -->
+          <text x="92" y="40" font-size="18" font-weight="bold" fill="#f59e0b">!</text>
+          <!-- Feet -->
+          <ellipse cx="50" cy="106" rx="9" ry="4" fill="#64748b"/>
+          <ellipse cx="70" cy="106" rx="9" ry="4" fill="#64748b"/>
+        </svg>
+        <h3>Sorprendido</h3>
+        <p>Ojos abiertos, boca en O</p>
+      </div>
+
+      <!-- 5. Encouraging -->
+      <div class="expr-card">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <!-- Tail wagging -->
+          <ellipse cx="88" cy="88" rx="5" ry="4" fill="#64748b"/>
+          <ellipse cx="93" cy="80" rx="4" ry="3" fill="#1e293b"/>
+          <ellipse cx="96" cy="73" rx="4" ry="3" fill="#f8fafc"/>
+          <ellipse cx="97" cy="66" rx="3.5" ry="3" fill="#1e293b"/>
+          <ellipse cx="96" cy="59" rx="3.5" ry="3" fill="#f8fafc"/>
+          <!-- Body -->
+          <ellipse cx="60" cy="88" rx="24" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="90" rx="15" ry="13" fill="#94a3b8"/>
+          <!-- Left arm waving -->
+          <path d="M40 78 Q25 65 20 55" stroke="#64748b" stroke-width="8" stroke-linecap="round" fill="none"/>
+          <!-- Right arm pointing -->
+          <path d="M80 78 Q95 70 105 65" stroke="#64748b" stroke-width="8" stroke-linecap="round" fill="none"/>
+          <!-- Hand open -->
+          <circle cx="18" cy="52" r="5" fill="#64748b"/>
+          <!-- Pointing finger -->
+          <circle cx="107" cy="63" r="3" fill="#64748b"/>
+          <!-- Head -->
+          <ellipse cx="60" cy="52" rx="22" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="55" rx="16" ry="14" fill="#94a3b8"/>
+          <!-- Eye patches -->
+          <ellipse cx="51" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <ellipse cx="69" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <!-- Eyes — confident wink -->
+          <ellipse cx="51" cy="50" rx="4" ry="4" fill="#f59e0b"/>
+          <ellipse cx="51.5" cy="49" rx="2" ry="2.2" fill="#020617"/>
+          <circle cx="52.5" cy="48" r="1" fill="#fff" opacity=".8"/>
+          <!-- Wink -->
+          <path d="M65 50 Q69 46 73 50" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <!-- Nose -->
+          <ellipse cx="60" cy="57" rx="2.5" ry="1.8" fill="#1e293b"/>
+          <!-- Mouth — smirk -->
+          <path d="M53 62 Q60 67 68 61" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <!-- Ears -->
+          <ellipse cx="40" cy="38" rx="5" ry="6" fill="#64748b"/>
+          <ellipse cx="40" cy="37" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          <ellipse cx="80" cy="38" rx="5" ry="6" fill="#64748b"/>
+          <ellipse cx="80" cy="37" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          <!-- Feet -->
+          <ellipse cx="50" cy="106" rx="9" ry="4" fill="#64748b"/>
+          <ellipse cx="70" cy="106" rx="9" ry="4" fill="#64748b"/>
+          <!-- Speech bubble -->
+          <rect x="82" y="22" width="30" height="18" rx="8" fill="var(--amber)" opacity=".9"/>
+          <polygon points="80,38 85,38 78,44" fill="var(--amber)" opacity=".9"/>
+          <text x="90" y="35" font-size="10" fill="var(--dark)" font-weight="bold">&#10004;</text>
+        </svg>
+        <h3>Animando</h3>
+        <p>Saliendo, guiñando un ojo</p>
+      </div>
+
+      <!-- 6. Concerned -->
+      <div class="expr-card">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <!-- Tail drooping -->
+          <ellipse cx="90" cy="88" rx="5" ry="4" fill="#64748b"/>
+          <ellipse cx="96" cy="82" rx="4" ry="3" fill="#1e293b"/>
+          <ellipse cx="100" cy="78" rx="4" ry="3" fill="#f8fafc"/>
+          <ellipse cx="103" cy="82" rx="3.5" ry="3" fill="#1e293b"/>
+          <ellipse cx="104" cy="88" rx="3.5" ry="3" fill="#f8fafc"/>
+          <ellipse cx="103" cy="94" rx="3" ry="3" fill="#1e293b"/>
+          <!-- Body -->
+          <ellipse cx="60" cy="88" rx="24" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="90" rx="15" ry="13" fill="#94a3b8"/>
+          <!-- Arms close to body -->
+          <path d="M40 82 Q35 90 38 100" stroke="#64748b" stroke-width="8" stroke-linecap="round" fill="none"/>
+          <path d="M80 82 Q85 90 82 100" stroke="#64748b" stroke-width="8" stroke-linecap="round" fill="none"/>
+          <!-- Head -->
+          <ellipse cx="60" cy="52" rx="22" ry="20" fill="#64748b"/>
+          <ellipse cx="60" cy="55" rx="16" ry="14" fill="#94a3b8"/>
+          <!-- Eye patches -->
+          <ellipse cx="51" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <ellipse cx="69" cy="50" rx="7" ry="6" fill="#f8fafc"/>
+          <!-- Eyes — worried -->
+          <ellipse cx="51" cy="50" rx="4" ry="4" fill="#f59e0b"/>
+          <ellipse cx="69" cy="50" rx="4" ry="4" fill="#f59e0b"/>
+          <ellipse cx="51.5" cy="50.5" rx="2" ry="2.2" fill="#020617"/>
+          <ellipse cx="69.5" cy="50.5" rx="2" ry="2.2" fill="#020617"/>
+          <circle cx="52.5" cy="49" r="1" fill="#fff" opacity=".8"/>
+          <circle cx="70.5" cy="49" r="1" fill="#fff" opacity=".8"/>
+          <!-- Eyebrows up (worry) -->
+          <path d="M45 43 Q51 39 57 43" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+          <path d="M63 43 Q69 39 75 43" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+          <!-- Nose -->
+          <ellipse cx="60" cy="57" rx="2.5" ry="1.8" fill="#1e293b"/>
+          <!-- Mouth — wavy worried -->
+          <path d="M53 64 Q57 61 60 64 Q63 67 67 64" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <!-- Ears — slightly back -->
+          <ellipse cx="40" cy="40" rx="5" ry="6" fill="#64748b" transform="rotate(-10 40 40)"/>
+          <ellipse cx="40" cy="39" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          <ellipse cx="80" cy="40" rx="5" ry="6" fill="#64748b" transform="rotate(10 80 40)"/>
+          <ellipse cx="80" cy="39" rx="3" ry="4" fill="#f8fafc" opacity=".5"/>
+          <!-- Sweat drop -->
+          <ellipse cx="34" cy="44" rx="2.5" ry="4" fill="#60a5fa" opacity=".5"/>
+          <!-- Feet -->
+          <ellipse cx="50" cy="106" rx="9" ry="4" fill="#64748b"/>
+          <ellipse cx="70" cy="106" rx="9" ry="4" fill="#64748b"/>
+        </svg>
+        <h3>Preocupado</h3>
+        <p>Cejas levantadas, colita caída</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== APP MOCKUPS ==================== -->
+<section style="background:var(--dark);padding:80px 0">
+  <div class="container">
+    <h2 class="section-title">Kutu en Contexto</h2>
+    <p class="section-sub">Así se integra Kutu en las pantallas principales de CEMURM</p>
+    <div class="mockups">
+
+      <!-- Mockup 1: Onboarding -->
+      <div class="mockup">
+        <div class="mockup-screen" style="background:linear-gradient(160deg,#1e293b,#0f172a)">
+          <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+            <!-- Mini Kutu -->
+            <ellipse cx="40" cy="60" rx="18" ry="14" fill="#64748b"/>
+            <ellipse cx="40" cy="62" rx="11" ry="9" fill="#94a3b8"/>
+            <ellipse cx="40" cy="34" rx="16" ry="15" fill="#64748b"/>
+            <ellipse cx="40" cy="37" rx="11" ry="10" fill="#94a3b8"/>
+            <ellipse cx="34" cy="33" rx="5" ry="4.5" fill="#f8fafc"/>
+            <ellipse cx="46" cy="33" rx="5" ry="4.5" fill="#f8fafc"/>
+            <ellipse cx="34" cy="33" rx="3" ry="3" fill="#f59e0b"/>
+            <ellipse cx="46" cy="33" rx="3" ry="3" fill="#f59e0b"/>
+            <ellipse cx="34.5" cy="32.5" rx="1.5" ry="1.7" fill="#020617"/>
+            <ellipse cx="46.5" cy="32.5" rx="1.5" ry="1.7" fill="#020617"/>
+            <circle cx="35.5" cy="31.5" r=".8" fill="#fff" opacity=".8"/>
+            <circle cx="47.5" cy="31.5" r=".8" fill="#fff" opacity=".8"/>
+            <ellipse cx="40" cy="39" rx="1.8" ry="1.3" fill="#1e293b"/>
+            <path d="M36 42 Q40 46 44 42" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <ellipse cx="28" cy="25" rx="3.5" ry="4.5" fill="#64748b"/>
+            <ellipse cx="28" cy="24.5" rx="2" ry="3" fill="#f8fafc" opacity=".5"/>
+            <ellipse cx="52" cy="25" rx="3.5" ry="4.5" fill="#64748b"/>
+            <ellipse cx="52" cy="24.5" rx="2" ry="3" fill="#f8fafc" opacity=".5"/>
+            <!-- Waving arm -->
+            <line x1="56" y1="55" x2="68" y2="42" stroke="#64748b" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <h3 style="font-size:1.2rem;margin-top:16px">Hola! Soy <span style="color:var(--amber)">Kutu</span></h3>
+          <p style="color:var(--muted);font-size:.9rem;margin-top:8px;max-width:220px">Tu gua musical. Vamos a armar tu primer repertorio juntos.</p>
+          <button style="margin-top:20px;background:linear-gradient(135deg,var(--amber),var(--coral));color:var(--dark);border:none;padding:10px 32px;border-radius:999px;font-weight:700;font-size:.9rem;cursor:pointer">Comenzar</button>
+        </div>
+        <div class="mockup-label">Pantalla de bienvenida</div>
+      </div>
+
+      <!-- Mockup 2: Empty state -->
+      <div class="mockup">
+        <div class="mockup-screen" style="background:#0f172a">
+          <svg width="100" height="90" viewBox="0 0 100 90" fill="none">
+            <!-- Sad Kutu with magnifying glass -->
+            <ellipse cx="50" cy="65" rx="20" ry="16" fill="#64748b"/>
+            <ellipse cx="50" cy="67" rx="12" ry="10" fill="#94a3b8"/>
+            <ellipse cx="50" cy="38" rx="18" ry="17" fill="#64748b"/>
+            <ellipse cx="50" cy="41" rx="13" ry="11" fill="#94a3b8"/>
+            <ellipse cx="44" cy="37" rx="5" ry="4.5" fill="#f8fafc"/>
+            <ellipse cx="56" cy="37" rx="5" ry="4.5" fill="#f8fafc"/>
+            <!-- Sad eyes -->
+            <ellipse cx="44" cy="38" rx="3" ry="3" fill="#f59e0b"/>
+            <ellipse cx="56" cy="38" rx="3" ry="3" fill="#f59e0b"/>
+            <ellipse cx="44.5" cy="38.5" rx="1.5" ry="1.7" fill="#020617"/>
+            <ellipse cx="56.5" cy="38.5" rx="1.5" ry="1.7" fill="#020617"/>
+            <!-- Sad brows -->
+            <path d="M39 32 Q44 30 49 33" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <path d="M51 33 Q56 30 61 32" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <ellipse cx="50" cy="43" rx="1.8" ry="1.3" fill="#1e293b"/>
+            <path d="M45 47 Q50 44 55 47" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <ellipse cx="37" cy="28" rx="3" ry="4" fill="#64748b"/>
+            <ellipse cx="63" cy="28" rx="3" ry="4" fill="#64748b"/>
+            <!-- Magnifying glass -->
+            <circle cx="74" cy="52" r="10" stroke="var(--amber)" stroke-width="2" fill="none" opacity=".7"/>
+            <line x1="81" y1="59" x2="88" y2="66" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+            <!-- Question marks -->
+            <text x="22" y="30" font-size="14" fill="var(--amber)" opacity=".4">?</text>
+            <text x="72" y="28" font-size="12" fill="var(--coral)" opacity=".3">?</text>
+          </svg>
+          <h3 style="font-size:1.1rem;margin-top:12px;color:var(--muted)">No hay canciones a&#250;n</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin-top:6px;max-width:200px;opacity:.7">Kutu est buscando... Agrega tu primera canci&#243;n para empezar.</p>
+          <button style="margin-top:16px;background:transparent;color:var(--amber);border:1.5px solid var(--amber);padding:8px 24px;border-radius:999px;font-weight:600;font-size:.85rem;cursor:pointer">+ Agregar canci&#243;n</button>
+        </div>
+        <div class="mockup-label">Estado vaco</div>
+      </div>
+
+      <!-- Mockup 3: Celebration -->
+      <div class="mockup">
+        <div class="mockup-screen" style="background:linear-gradient(160deg,rgba(245,158,11,.08),#0f172a)">
+          <!-- Confetti -->
+          <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 300 360">
+            <rect x="40" y="30" width="6" height="4" rx="1" fill="#f59e0b" opacity=".6" transform="rotate(25 40 30)"/>
+            <rect x="120" y="15" width="5" height="3" rx="1" fill="#f97316" opacity=".5" transform="rotate(-30 120 15)"/>
+            <rect x="200" y="40" width="7" height="4" rx="1" fill="#f59e0b" opacity=".4" transform="rotate(50 200 40)"/>
+            <rect x="260" y="20" width="5" height="3" rx="1" fill="#f97316" opacity=".5" transform="rotate(15 260 20)"/>
+            <circle cx="80" cy="20" r="3" fill="#f59e0b" opacity=".5"/>
+            <circle cx="180" cy="10" r="2.5" fill="#f97316" opacity=".4"/>
+            <circle cx="240" cy="50" r="3" fill="#f59e0b" opacity=".45"/>
+          </svg>
+          <svg width="90" height="90" viewBox="0 0 90 90" fill="none" class="bounce">
+            <!-- Happy Kutu -->
+            <ellipse cx="45" cy="68" rx="18" ry="14" fill="#64748b"/>
+            <ellipse cx="45" cy="70" rx="11" ry="9" fill="#94a3b8"/>
+            <ellipse cx="45" cy="38" rx="16" ry="15" fill="#64748b"/>
+            <ellipse cx="45" cy="41" rx="11" ry="10" fill="#94a3b8"/>
+            <ellipse cx="39" cy="37" rx="5" ry="4.5" fill="#f8fafc"/>
+            <ellipse cx="51" cy="37" rx="5" ry="4.5" fill="#f8fafc"/>
+            <path d="M35 37 Q39 34 43 37" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <path d="M47 37 Q51 34 55 37" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <ellipse cx="45" cy="43" rx="1.8" ry="1.3" fill="#1e293b"/>
+            <path d="M40 47 Q45 52 50 47" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <circle cx="34" cy="43" r="3" fill="#f97316" opacity=".15"/>
+            <circle cx="56" cy="43" r="3" fill="#f97316" opacity=".15"/>
+            <ellipse cx="33" cy="28" rx="3.5" ry="4.5" fill="#64748b"/>
+            <ellipse cx="57" cy="28" rx="3.5" ry="4.5" fill="#64748b"/>
+            <!-- Arms up holding star -->
+            <line x1="30" y1="60" x2="18" y2="42" stroke="#64748b" stroke-width="5" stroke-linecap="round"/>
+            <line x1="60" y1="60" x2="72" y2="42" stroke="#64748b" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <h3 style="font-size:1.1rem;margin-top:8px"><span style="color:var(--amber)">&#127881;</span> &#161;Primer setlist creado!</h3>
+          <p style="color:var(--muted);font-size:.85rem;margin-top:6px">Kutu est orgulloso de ti. &#161;A tocar!</p>
+        </div>
+        <div class="mockup-label">Celebraci&#243;n</div>
+      </div>
+
+      <!-- Mockup 4: Notification -->
+      <div class="mockup">
+        <div class="mockup-screen" style="background:#0f172a;align-items:stretch;justify-content:flex-start;padding-top:30px">
+          <div style="background:var(--surface);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;border:1px solid var(--surface2)">
+            <!-- Tiny Kutu avatar -->
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="flex-shrink:0">
+              <circle cx="22" cy="22" r="21" fill="#1e293b"/>
+              <ellipse cx="22" cy="26" rx="10" ry="8" fill="#64748b"/>
+              <ellipse cx="22" cy="18" rx="9" ry="8.5" fill="#64748b"/>
+              <ellipse cx="22" cy="19.5" rx="6.5" ry="6" fill="#94a3b8"/>
+              <ellipse cx="19" cy="17.5" rx="3" ry="2.7" fill="#f8fafc"/>
+              <ellipse cx="25" cy="17.5" rx="3" ry="2.7" fill="#f8fafc"/>
+              <ellipse cx="19" cy="17.5" rx="1.8" ry="1.8" fill="#f59e0b"/>
+              <ellipse cx="25" cy="17.5" rx="1.8" ry="1.8" fill="#f59e0b"/>
+              <ellipse cx="19.3" cy="17.2" rx=".9" ry="1" fill="#020617"/>
+              <ellipse cx="25.3" cy="17.2" rx=".9" ry="1" fill="#020617"/>
+              <ellipse cx="22" cy="20.5" rx="1.2" ry=".8" fill="#1e293b"/>
+              <path d="M20 22 Q22 24 24 22" stroke="#1e293b" stroke-width=".8" stroke-linecap="round" fill="none"/>
+              <ellipse cx="16" cy="13" rx="2" ry="2.5" fill="#64748b"/>
+              <ellipse cx="28" cy="13" rx="2" ry="2.5" fill="#64748b"/>
+            </svg>
+            <div style="text-align:left">
+              <p style="font-size:.85rem;font-weight:600;color:var(--text)">Julian agreg&#243; <span style="color:var(--amber)">Bohemian Rhapsody</span></p>
+              <p style="font-size:.75rem;color:var(--muted);margin-top:2px">al setlist "Viernes en Vivo" &#183; hace 2 min</p>
+            </div>
+          </div>
+          <!-- Second notification preview -->
+          <div style="background:var(--surface);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;border:1px solid var(--surface2);margin-top:12px;opacity:.6">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="flex-shrink:0">
+              <circle cx="22" cy="22" r="21" fill="#1e293b"/>
+              <ellipse cx="22" cy="26" rx="10" ry="8" fill="#64748b"/>
+              <ellipse cx="22" cy="18" rx="9" ry="8.5" fill="#64748b"/>
+              <ellipse cx="22" cy="19.5" rx="6.5" ry="6" fill="#94a3b8"/>
+              <ellipse cx="19" cy="17.5" rx="3" ry="2.7" fill="#f8fafc"/>
+              <ellipse cx="25" cy="17.5" rx="3" ry="2.7" fill="#f8fafc"/>
+              <path d="M17.5 17.5 Q19 16 20.5 17.5" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              <path d="M23.5 17.5 Q25 16 26.5 17.5" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              <ellipse cx="22" cy="20.5" rx="1.2" ry=".8" fill="#1e293b"/>
+              <path d="M20 22 Q22 24 24 22" stroke="#1e293b" stroke-width=".8" stroke-linecap="round" fill="none"/>
+              <ellipse cx="16" cy="13" rx="2" ry="2.5" fill="#64748b"/>
+              <ellipse cx="28" cy="13" rx="2" ry="2.5" fill="#64748b"/>
+            </svg>
+            <div style="text-align:left">
+              <p style="font-size:.85rem;font-weight:600;color:var(--text)">Kutu dice: &#161;Tu setlist est&#225; creciendo!</p>
+              <p style="font-size:.75rem;color:var(--muted);margin-top:2px">5 canciones listas para el show &#183; hace 15 min</p>
+            </div>
+          </div>
+        </div>
+        <div class="mockup-label">Notificaciones</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PERSONALITY CARD ==================== -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Ficha de Personalidad</h2>
+    <p class="section-sub">Kutu no es solo una mascota, es una parte fundamental de la experiencia CEMURM</p>
+    <div class="personality">
+      <div class="personality-header">
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+          <ellipse cx="40" cy="60" rx="18" ry="14" fill="#64748b"/>
+          <ellipse cx="40" cy="62" rx="11" ry="9" fill="#94a3b8"/>
+          <ellipse cx="40" cy="34" rx="16" ry="15" fill="#64748b"/>
+          <ellipse cx="40" cy="37" rx="11" ry="10" fill="#94a3b8"/>
+          <ellipse cx="34" cy="33" rx="5" ry="4.5" fill="#f8fafc"/>
+          <ellipse cx="46" cy="33" rx="5" ry="4.5" fill="#f8fafc"/>
+          <ellipse cx="34" cy="33" rx="3" ry="3" fill="#f59e0b"/>
+          <ellipse cx="46" cy="33" rx="3" ry="3" fill="#f59e0b"/>
+          <ellipse cx="34.5" cy="32.5" rx="1.5" ry="1.7" fill="#020617"/>
+          <ellipse cx="46.5" cy="32.5" rx="1.5" ry="1.7" fill="#020617"/>
+          <circle cx="35.5" cy="31.5" r=".8" fill="#fff" opacity=".8"/>
+          <circle cx="47.5" cy="31.5" r=".8" fill="#fff" opacity=".8"/>
+          <ellipse cx="40" cy="39" rx="1.8" ry="1.3" fill="#1e293b"/>
+          <path d="M36 42 Q40 46 44 42" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+          <ellipse cx="28" cy="25" rx="3.5" ry="4.5" fill="#64748b"/>
+          <ellipse cx="28" cy="24.5" rx="2" ry="3" fill="#f8fafc" opacity=".5"/>
+          <ellipse cx="52" cy="25" rx="3.5" ry="4.5" fill="#64748b"/>
+          <ellipse cx="52" cy="24.5" rx="2" ry="3" fill="#f8fafc" opacity=".5"/>
+        </svg>
+        <div>
+          <h2>Kutu</h2>
+          <p class="tagline">"Tu compa&#241;ero musical, siempre al ritmo."</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <h3 style="font-size:.95rem;color:var(--amber);margin-bottom:8px">&#128205; Nombre</h3>
+        <p style="color:var(--muted);font-size:.95rem"><strong style="color:var(--text)">Kutu</strong> &#8212; juego de letras con CEMURM (lek lemures / lem&#250;r). F&#225;cil de recordar, f&#225;cil de decir.</p>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <h3 style="font-size:.95rem;color:var(--amber);margin-bottom:8px">&#127752; Rasgos de personalidad</h3>
+        <div class="traits">
+          <span class="trait">&#128064; Curioso</span>
+          <span class="trait">&#128161; Siempre listo para ayudar</span>
+          <span class="trait">&#128521; Ligeramente travieso</span>
+          <span class="trait">&#129509; Profundamente leal</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <h3 style="font-size:.95rem;color:var(--amber);margin-bottom:8px">&#127911; Rol en la app</h3>
+        <p class="role-desc">
+          Kutu es <strong>gu&#237;a interactivo</strong> dentro de CEMURM. No es decorativo: aparece en momentos clave para:
+        </p>
+        <ul style="color:var(--muted);font-size:.92rem;margin-top:8px;padding-left:20px;list-style:none">
+          <li style="margin-bottom:6px"><span style="color:var(--amber)">&#10003;</span> <strong style="color:var(--text)">Onboarding</strong> &#8212; guiar al usuario en sus primeros pasos</li>
+          <li style="margin-bottom:6px"><span style="color:var(--amber)">&#10003;</span> <strong style="color:var(--text)">Estados vacos</strong> &#8212; motivar con calidez, no con culpa</li>
+          <li style="margin-bottom:6px"><span style="color:var(--amber)">&#10003;</span> <strong style="color:var(--text)">Celebraciones</strong> &#8212; celebrar logros junto al usuario</li>
+          <li style="margin-bottom:6px"><span style="color:var(--amber)">&#10003;</span> <strong style="color:var(--text)">Notificaciones</strong> &#8212; avatar en alerts de actividad del equipo</li>
+          <li style="margin-bottom:6px"><span style="color:var(--amber)">&#10003;</span> <strong style="color:var(--text)">Errores</strong> &#8212; mostrar preocupaci&#243;n y sugerir soluciones</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 style="font-size:.95rem;color:var(--amber);margin-bottom:8px">&#127912; Paleta visual</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:12px;background:#64748b;border:2px solid var(--surface2)"></div><span style="font-size:.75rem;color:var(--muted)">Cuerpo</span></div>
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:12px;background:#f8fafc;border:2px solid var(--surface2)"></div><span style="font-size:.75rem;color:var(--muted)">Parches</span></div>
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:12px;background:#f59e0b;border:2px solid var(--surface2)"></div><span style="font-size:.75rem;color:var(--muted)">Ojos</span></div>
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:12px;background:#1e293b;border:2px solid var(--surface2)"></div><span style="font-size:.75rem;color:var(--muted)">Anillos</span></div>
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#f97316);border:2px solid var(--surface2)"></div><span style="font-size:.75rem;color:var(--muted)">Acento</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>CEMURM &#183; Dise&#241;o de Mascota &#183; Kutu the Ring-tailed Lemur</p>
+  <p style="margin-top:4px;opacity:.5">Documento interactivo &#8212; Solo una mascota necesaria</p>
+</footer>
+
+</body>
+</html>
