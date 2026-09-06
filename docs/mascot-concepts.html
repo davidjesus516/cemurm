@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEMURM — Mascotas: Kutu vs Aulli</title>
+<style>
+  :root{
+    --bg:#0f172a;
+    --surface:#1e293b;
+    --surface-2:#24344c;
+    --text:#f8fafc;
+    --muted:#94a3b8;
+    --primary:#f59e0b;
+    --secondary:#f97316;
+    --success:#10b981;
+    --border:#334155;
+    --card-bg:#1e293b;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+    --radius:18px;
+  }
+  /* light mode overrides */
+  body.light{
+    --bg:#f6f7fb;
+    --surface:#ffffff;
+    --surface-2:#eef1f6;
+    --text:#0f172a;
+    --muted:#64748b;
+    --border:#e2e8f0;
+    --card-bg:#ffffff;
+    --shadow:0 10px 30px rgba(15,23,42,.08);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    line-height:1.55;
+    transition:background .4s ease,color .4s ease;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+
+  /* ---------- Top bar / toggle ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;background:var(--bg);
+    border-bottom:1px solid var(--border);
+    transition:background .4s ease;
+  }
+  .topbar .brand{font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  .brand .dot{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fbbf24,#f59e0b);box-shadow:0 0 10px var(--primary)}
+  .brand .dot.coral{background:radial-gradient(circle at 30% 30%,#fb923c,#f97316);box-shadow:0 0 10px var(--secondary)}
+  .toggle{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--surface);border:1px solid var(--border);border-radius:999px;
+    padding:8px 14px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text);
+    transition:background .3s,transform .1s;
+    -webkit-user-select:none;user-select:none;
+  }
+  .toggle:hover{transform:translateY(-1px)}
+  .toggle .thumb{
+    width:22px;height:22px;border-radius:50%;
+    background:linear-gradient(135deg,#f59e0b,#f97316);
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
+    transition:transform .4s cubic-bezier(.6,-.3,.3,1.6);
+  }
+  body.light .toggle .thumb{transform:translateX(4px) scale(.9);background:linear-gradient(135deg,#fef9c3,#fde047)}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    text-align:center;padding:46px 20px 30px;
+    background:
+      radial-gradient(900px 300px at 20% -10%,rgba(245,158,11,.10),transparent 60%),
+      radial-gradient(900px 300px at 80% -10%,rgba(249,115,22,.10),transparent 60%);
+  }
+  .hero .kicker{
+    display:inline-block;font-size:12px;font-weight:700;letter-spacing:2px;
+    color:var(--primary);text-transform:uppercase;
+    border:1px solid var(--border);padding:6px 14px;border-radius:999px;background:var(--surface);
+    margin-bottom:18px;
+  }
+  .hero h1{font-size:clamp(28px,5vw,46px);font-weight:900;line-height:1.1;letter-spacing:-.5px}
+  .hero h1 .vs{color:var(--primary);font-style:italic;padding:0 6px}
+  .hero p.sub{max-width:640px;margin:16px auto 0;color:var(--muted);font-size:clamp(15px,2vw,17px)}
+  .hero p.hint{margin-top:14px;font-size:13px;color:var(--muted);opacity:.8}
+  .hero p.hint b{color:var(--primary);cursor:pointer}
+
+  .stage{
+    display:flex;align-items:stretch;justify-content:center;gap:clamp(16px,4vw,48px);
+    margin:0 auto;padding:30px 20px 10px;
+  }
+  .mascot-card{
+    flex:1;max-width:400px;
+    background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);
+    padding:22px 24px 26px;box-shadow:var(--shadow);
+    position:relative;overflow:hidden;
+    transition:transform .3s ease,box-shadow .3s ease;
+  }
+  .mascot-card:hover{transform:translateY(-6px);box-shadow:0 20px 44px rgba(0,0,0,.4)}
+  .mascot-card.a{border-top:4px solid var(--primary)}
+  .mascot-card.b{border-top:4px solid var(--secondary)}
+  .mascot-card .pick{
+    position:absolute;top:16px;right:16px;
+    font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+    color:#fff;border-radius:999px;padding:5px 10px;
+  }
+  .mascot-card.a .pick{background:var(--primary)}
+  .mascot-card.b .pick{background:var(--secondary)}
+  .mascot-card .svg-wrap{text-align:center;margin-bottom:8px}
+  .mascot-card h3{font-size:24px;font-weight:900;text-align:center;margin-top:6px}
+  .mascot-card .tagline{text-align:center;color:var(--muted);font-size:14px;margin-top:2px}
+  .mascot-card .name-row{display:flex;align-items:center;justify-content:center;gap:10px}
+  .mascot-card .mirror{cursor:pointer;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;background:var(--surface)}
+  .mascot-card .mirror:hover{color:var(--text)}
+
+  /* ---------- Sections ---------- */
+  section{padding:44px 20px}
+  .section-head{text-align:center;max-width:640px;margin:0 auto 30px}
+  .section-head .eyebrow{color:var(--primary);font-weight:800;font-size:12px;letter-spacing:2px;text-transform:uppercase}
+  .section-head h2{font-size:clamp(22px,3.5vw,32px);font-weight:900;margin-top:6px;letter-spacing:-.3px}
+  .section-head p{color:var(--muted);font-size:15px;margin-top:8px}
+
+  .columns{display:grid;grid-template-columns:1fr;gap:22px;max-width:1000px;margin:0 auto}
+  @media(min-width:820px){.columns{grid-template-columns:1fr 1fr}}
+
+  .card{
+    background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px;box-shadow:var(--shadow);transition:transform .25s,box-shadow .25s;
+  }
+  .card:hover{transform:translateY(-3px)}
+  .card h4{font-size:17px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .card h4 .pill{width:8px;height:20px;border-radius:3px}
+  .card.a h4 .pill{background:var(--primary)}
+  .card.b h4 .pill{background:var(--secondary)}
+
+  .traits{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .traits li{display:flex;gap:10px;align-items:flex-start;font-size:15px}
+  .traits li .t{flex:1}
+  .traits li .bar{display:flex;gap:3px;align-self:center}
+  .traits li .bar i{width:7px;height:14px;border-radius:2px;background:var(--border)}
+  .traits li .bar i.on{background:var(--primary)}
+  .traits.b li .bar i.on{background:var(--secondary)}
+  .traits li .t small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+
+  .contexts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .context{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;
+    font-size:13.5px;
+  }
+  .context .lbl{font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .context .emoji{font-size:16px}
+  .context p{color:var(--muted);font-size:13px}
+
+  /* expressions strip */
+  .exprs{display:flex;flex-wrap:wrap;gap:14px;margin-top:16px;justify-content:center}
+  .expr{text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;width:80px}
+  .expr svg{width:52px;height:52px;display:block;margin:0 auto 6px}
+  .expr .nm{font-size:11px;color:var(--muted);font-weight:600}
+
+  /* ---------- Mockups ---------- */
+  .mock-grid{display:grid;grid-template-columns:1fr;gap:22px;max-width:900px;margin:0 auto}
+  @media(min-width:720px){.mock-grid{grid-template-columns:1fr 1fr}}
+  .mock-grp h4{font-size:16px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .mock-grp h4 .tagA{color:var(--primary)} .mock-grp h4 .tagB{color:var(--secondary)}
+  .mock-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:640px){.mock-row{grid-template-columns:repeat(2,1fr)}}
+  .mock-screen{
+    background:var(--card-bg);border:1px solid var(--border);border-radius:14px;
+    overflow:hidden;box-shadow:var(--shadow);transition:transform .25s;
+  }
+  .mock-screen:hover{transform:translateY(-4px)}
+  .mock-screen .sc-top{height:10px;background:linear-gradient(90deg,var(--primary),var(--secondary));opacity:.9}
+  .mock-screen .sc-body{padding:14px 12px;text-align:center;min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .mock-screen .sc-body p.title{font-weight:800;font-size:13.5px}
+  .mock-screen .sc-body p.desc{font-size:12px;color:var(--muted)}
+  .mock-screen .sc-body svg{width:76px;height:76px}
+  .mock-screen .btn{
+    background:var(--primary);color:#fff;font-weight:700;font-size:12px;padding:8px 16px;border-radius:999px;margin-top:4px;
+  }
+  .mock-screen.b .btn{background:var(--secondary)}
+
+  /* ---------- Comparison table ---------- */
+  .comp-wrap{max-width:1000px;margin:0 auto;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;font-size:14.5px;min-width:640px}
+  th,td{padding:15px 16px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  thead th{background:var(--surface);font-size:13px;letter-spacing:.5px}
+  thead th.colA{color:var(--primary)} thead th.colB{color:var(--secondary)}
+  td.row-lbl{font-weight:800;width:150px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+  tr:last-child td{border-bottom:none}
+  .pro{color:var(--success);font-weight:700}
+  .con{color:var(--secondary);font-weight:700}
+  ul.tick{list-style:none;display:flex;flex-direction:column;gap:7px}
+  ul.tick li{display:flex;gap:8px;align-items:flex-start}
+
+  /* ---------- Verdict ---------- */
+  .verdict{max-width:760px;margin:0 auto;text-align:center;background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(249,115,22,.08));border:1px solid var(--border);border-radius:var(--radius);padding:34px 26px}
+  .verdict h2{font-size:clamp(22px,3vw,30px);font-weight:900}
+  .verdict p{color:var(--muted);margin-top:12px;font-size:15px}
+  .verdict .rec{margin-top:16px;font-weight:800;color:var(--primary)}
+
+  footer{text-align:center;padding:30px 20px;color:var(--muted);font-size:13px;border-top:1px solid var(--border)}
+
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  @keyframes wag{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(6deg)}}
+  @keyframes bounceIn{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:scale(1)}}
+  .animate-in{animation:bounceIn .5s ease both}
+
+  .mascot-card .svg-wrap #tailA{transform-origin:left center;transition:transform .4s}
+  .mascot-card .svg-wrap:hover #tailA,#tailB-hover{animation:wag 1s ease-in-out infinite}
+
+  .fade-up{opacity:0;transform:translateY(20px);transition:opacity .6s ease,transform .6s ease}
+  .fade-up.show{opacity:1;transform:translateY(0)}
+
+  .mascot-card.a:hover .svg-wrap svg{animation:float 2.4s ease-in-out infinite}
+  .mascot-card.b:hover .svg-wrap svg{animation:float 2.4s ease-in-out infinite}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span><span class="dot coral"></span>CEMURM · Mascotas</div>
+  <button class="toggle" id="themeToggle" aria-label="Cambiar tema">
+    <span class="thumb"></span><span id="toggleLabel">Modo Claro</span>
+  </button>
+</header>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <span class="kicker">Mascotas Concepto</span>
+  <h1>Kutu <span class="vs">vs</span> Aulli</h1>
+  <p class="sub">Dos personalidades para CEMURM, la app de músicos con alma de comunidad. Elige la que dará cara, voz y emoción a tu repertorio.</p>
+  <p class="hint">💡 Pasea el ratón sobre las mascotas para verlas cobrar vida. <b>Al final hay veredicto.</b></p>
+</div>
+
+<div class="stage">
+  <!-- Concept A: Kutu -->
+  <div class="mascot-card a" id="cardA">
+    <span class="pick">Concepto A</span>
+    <div class="svg-wrap" id="wrapA"></div>
+    <div class="name-row">
+      <h3>Kutu</h3>
+      <button class="mirror" data-mirror="wrapA" title="Voltear">↔</button>
+    </div>
+    <p class="tagline">"El lémur que armoniza la tribu"</p>
+  </div>
+
+  <!-- Concept B: Aulli -->
+  <div class="mascot-card b" id="cardB">
+    <span class="pick">Concepto B</span>
+    <div class="svg-wrap" id="wrapB"></div>
+    <div class="name-row">
+      <h3>Aulli</h3>
+      <button class="mirror" data-mirror="wrapB" title="Voltear">↔</button>
+    </div>
+    <p class="tagline">"El mono que canta más fuerte"</p>
+  </div>
+</div>
+
+<!-- ============ PERSONALIDAD ============ -->
+<section>
+  <div class="section-head fade-up">
+    <div class="eyebrow">Personalidad</div>
+    <h2>Dos almas, dos identidades</h2>
+    <p>Qué representan, cuándo brillan y cómo se sienten frente al usuario.</p>
+  </div>
+
+  <div class="columns">
+    <!-- Kutu personality -->
+    <div class="card a fade-up">
+      <h4><span class="pill"></span>Kutu — el Lémur</h4>
+      <ul class="traits">
+        <li><span class="t">Social y tribu<b style="color:var(--primary)"> · 5/5</b><small>El lémur vive en grupo: comunidad por encima de todo.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+        <li><span class="t">Expresivo<b style="color:var(--primary)"> · 5/5</b><small>Ojos grandes y cara elocuente, ideal para emociones.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+        <li><span class="t">Memorable<b style="color:var(--primary)"> · 5/5</b><small>CEMURM≈Lemur: rima instantánea, mnemotecnia pura.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+        <li><span class="t">Exótico pero cercano<b style="color:var(--primary)"> · 4/5</b><small>Tierno sin clichés; diferente sin ser extraño.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i></span></li>
+        <li><span class="t">Comportamiento "sunbathing"<b style="color:var(--primary)"> · 4/5</b><small>Sentados cara al mismo sol = banda ensayando juntos.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i></span></li>
+      </ul>
+      <div class="contexts" style="margin-top:18px">
+        <div class="context"><div class="lbl"><span class="emoji">👋</span> Onboarding</div><p>Presentación cálida: "Bienvenido a tu banda".</p></div>
+        <div class="context"><div class="lbl"><span class="emoji">🌱</span> Empty states</div><p>Curiosidad: "Aún no hay canciones, ¡empecemos!"</p></div>
+        <div class="context"><div class="lbl"><span class="emoji">🎉</span> Celebración</div><p>Baile de tribu con cola en alto.</p></div>
+        <div class="context"><div class="lbl"><span class="emoji">😅</span> Errores</div><p>Ojitos comprensivos: "Se perdió la señal, respira."</p></div>
+      </div>
+      <div class="exprs" id="exprA"></div>
+    </div>
+
+    <!-- Aulli personality -->
+    <div class="card b fade-up">
+      <h4><span class="pill"></span>Aulli — el Mono Aullador</h4>
+      <ul class="traits">
+        <li><span class="t">Musical por naturaleza<b style="color:var(--secondary)"> · 5/5</b><small>El animal terrestre más ruidoso: literalmente música.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+        <li><span class="t">Identidad regional<b style="color:var(--secondary)"> · 5/5</b><small>Nativo de Latinoamérica: orgullo de origen.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+        <li><span class="t">Coordinación vocal<b style="color:var(--secondary)"> · 5/5</b><small>Comunidad que canta a la vez = banda perfecta.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+        <li><span class="t">Expresivo y divertido<b style="color:var(--secondary)"> · 4/5</b><small>Boca abierta, personalidad de showman.</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i></span></li>
+        <li><span class="t">Identidad de nombre<br>débil<b style="color:var(--secondary)"> · 2/5</b><small>"Aulli" no rima con CEMURM como "Kutu".</small></span><span class="bar"><i class="on"></i><i class="on"></i><i class="off"></i><i class="off"></i><i class="off"></i></span></li>
+      </ul>
+      <div class="contexts" style="margin-top:18px">
+        <div class="context"><div class="lbl"><span class="emoji">👋</span> Onboarding</div><p>"¡Aúlla con tu banda!" energía contagiosa.</p></div>
+        <div class="context"><div class="lbl"><span class="emoji">🌱</span> Empty states</div><p>Entusiasmo: "El escenario te espera."</p></div>
+        <div class="context"><div class="lbl"><span class="emoji">🎉</span> Celebración</div><p>Aullido triunfal de victoria.</p></div>
+        <div class="context"><div class="lbl"><span class="emoji">😅</span> Errores</div><p>Más grave: puede sentirse menos reconfortante.</p></div>
+      </div>
+      <div class="exprs" id="exprB"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MOCKUPS ============ -->
+<section style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="section-head fade-up">
+    <div class="eyebrow">En acción</div>
+    <h2>¿Cómo se ven dentro de la app?</h2>
+    <p>Cuatro pantallas reales de CEMURM en directo, lado a lado.</p>
+  </div>
+
+  <div class="mock-grid">
+    <div class="mock-grp fade-up">
+      <h4><span class="tagA">Concepto A · Kutu</span></h4>
+      <div class="mock-row" id="mockA"></div>
+    </div>
+    <div class="mock-grp fade-up">
+      <h4><span class="tagB">Concepto B · Aulli</span></h4>
+      <div class="mock-row" id="mockB"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPARACIÓN ============ -->
+<section>
+  <div class="section-head fade-up">
+    <div class="eyebrow">Pros & contras</div>
+    <h2>Tabla comparativa</h2>
+    <p>El papel frente a la pasión, todo sobre la mesa.</p>
+  </div>
+  <div class="comp-wrap fade-up">
+    <table>
+      <thead>
+        <tr><th>Criterio</th><th class="colA">Kutu (lémur)</th><th class="colB">Aulli (mono)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-lbl">Mnemotecnia</td>
+          <td><span class="pro">✔ Excelente</span> — CEMURM≈Lemur, rima instantánea, se recuerda sola.</td>
+          <td><span class="con">✘ Débil</span> — "Aulli" no conecta con el nombre de la app.</td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Metáfora de banda</td>
+          <td><span class="pro">✔ Fuerte</span> — sunbathing = banda mirando al mismo sol; tribu social.</td>
+          <td><span class="pro">✔ Fuerte</span> — aullido coordinado = sección de voces en armonía.</td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Expresividad</td>
+          <td><span class="pro">✔ Alta</span> — ojos grandes, cara elocuente, paleta emocional amplia.</td>
+          <td><span class="pro">✔ Alta</span> — boca abierta icónica, showman natural.</td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Identidad regional</td>
+          <td><span class="con">✘ Neutral</span> — Madagascar, exótico pero sin raíz local.</td>
+          <td><span class="pro">✔ Latina</span> — nativo de América; orgullo regional.</td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Originalidad</td>
+          <td><span class="pro">✔ Alta</span> — lémur poco usado como mascota de app.</td>
+          <td><span class="con">✘ Media</span> — mono aullador distinto, pero la "boca" limita poses.</td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Estado de error</td>
+          <td><span class="pro">✔ Reconfortante</span> — mirada tierna calma al usuario.</td>
+          <td><span class="con">✘ Desafiante</span> — aullar en un error puede parecer excesivo.</td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Animación</td>
+          <td><span class="pro">✔ Versátil</span> — cola rayada da wag elegante; orejas y ojos finos.</td>
+          <td><span class="con">✘ Limitada</span> — el rasgo principal (boca) restringe expresiones sutiles.</td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Encaje de marca</td>
+          <td><span class="pro">✔ Fuerte</span> — "professional-warm with community soul".</td>
+          <td><span class="pro">✔ Fuerte</span> — pasión y energía, algo más salvaje.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ VEREDICTO ============ -->
+<section>
+  <div class="verdict fade-up">
+    <h2 id="verdictTitle">Mi veredicto</h2>
+    <p id="verdictText">Empata técnicamente en metáfora de banda, pero Kutu gana en el factor decisivo: la mnemotecnia del nombre ("CEMURM ≈ Lemur") y la versatilidad emocional para errores y celebraciones. Aulli aporta identidad latina y pasión, pero su boca abierta fija limita las expresiones sutiles que una mascota de producto necesita en cada pantalla.</p>
+    <p class="rec">Recomendación: <b style="color:var(--primary)">Kutu</b>, con Aulli como side-kick de energía en celebraciones. 🤝</p>
+    <div style="margin-top:18px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="toggle" data-vote="A" style="border:1px solid rgba(245,158,11,.5)">🎯 Elegir Kutu</button>
+      <button class="toggle" data-vote="B" style="border:1px solid rgba(249,115,22,.5)">🥁 Elegir Aulli</button>
+    </div>
+    <p id="voteMsg" style="margin-top:14px;font-size:14px;color:var(--primary);font-weight:700"></p>
+  </div>
+</section>
+
+<footer>CEMURM · Documento interno de concepto de marca · Propietario</footer>
+
+<script>
+/* ================================================
+   SVG MASCOTS — Kutu (lémur) y Aulli (mono)
+   Diseñados a mano, inline, listos para copiar.
+   ================================================ */
+
+const PAL={amber:"#f59e0b",coral:"#f97316",cream:"#fef3c7",fur:"#a8783f",furD:"#7c5426",tail:"#e6d9c8",surface:"#1e293b"};
+
+/* ---------- KUTU the Lemur ---------- */
+const KUTU_BASE = `
+<svg viewBox="0 0 160 170" width="150" height="160" xmlns="http://www.w3.org/2000/svg">
+  <g id="kutuGroup">
+    <!-- tail -->
+    <g id="tailA">
+      <path d="M96 150 C 120 148 132 150 136 156" stroke="${PAL.tail}" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <path d="M96 150 C 120 148 132 150 136 156" stroke="${PAL.fur}" stroke-width="11" fill="none" stroke-linecap="round" stroke-dasharray="10 9"/>
+    </g>
+    <!-- body -->
+    <path d="M52 118 C 50 92 56 76 80 74 C 104 76 110 92 108 118 C 108 128 100 136 80 136 C 60 136 52 128 52 118 Z" fill="${PAL.fur}"/>
+    <!-- belly -->
+    <path d="M68 104 C 70 94 76 90 80 90 C 84 90 90 94 92 104 C 92 116 84 124 80 124 C 76 124 68 116 68 104 Z" fill="${PAL.cream}"/>
+    <!-- arms -->
+    <ellipse cx="56" cy="104" rx="10" ry="8" fill="${PAL.furD}" transform="rotate(30 56 104)"/>
+    <ellipse cx="104" cy="104" rx="10" ry="8" fill="${PAL.furD}" transform="rotate(-30 104 104)"/>
+    <!-- guitar body -->
+    <ellipse cx="80" cy="132" rx="16" ry="11" fill="${PAL.amber}"/>
+    <rect x="78" y="120" width="4" height="12" fill="${PAL.furD}"/>
+    <circle cx="80" cy="132" r="5" fill="#fff" opacity=".5"/>
+    <!-- head -->
+    <circle cx="80" cy="62" r="30" fill="${PAL.fur}"/>
+    <!-- ears -->
+    <ellipse cx="54" cy="46" rx="12" ry="16" fill="${PAL.fur}" transform="rotate(-20 54 46)"/>
+    <ellipse cx="106" cy="46" rx="12" ry="16" fill="${PAL.fur}" transform="rotate(20 106 46)"/>
+    <ellipse cx="54" cy="46" rx="7" ry="10" fill="${PAL.cream}" opacity=".6" transform="rotate(-20 54 46)"/>
+    <ellipse cx="106" cy="46" rx="7" ry="10" fill="${PAL.cream}" opacity=".6" transform="rotate(20 106 46)"/>
+    <!-- face mask: dark 'lemur' patches -->
+    <rect x="50" y="56" width="30" height="26" rx="10" fill="#242424"/>
+    <rect x="100" y="56" width="30" height="26" rx="10" fill="#242424"/>
+    <!-- eyes -->
+    <g id="eyesA">
+      <circle cx="66" cy="60" r="9" fill="#fff"/>
+      <circle cx="94" cy="60" r="9" fill="#fff"/>
+      <circle cx="68" cy="60" r="5" fill="#1e1e2e"/>
+      <circle cx="96" cy="60" r="5" fill="#1e1e2e"/>
+      <circle cx="69.5" cy="58.5" r="2" fill="#fff"/>
+      <circle cx="97.5" cy="58.5" r="2" fill="#fff"/>
+    </g>
+    <!-- nose + mouth -->
+    <ellipse cx="80" cy="72" rx="3.5" ry="2.6" fill="#3a2d22"/>
+    <path d="M80 74.5 C 78 77 76 77.5 74 77" stroke="#3a2d22" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <path d="M80 74.5 C 82 77 84 77.5 86 77" stroke="#3a2d22" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>`;
+
+/* ---------- Expressions variations for Kutu ---------- */
+function kutuExpr(expr){
+  const arms = `<ellipse cx="56" cy="104" rx="10" ry="8" fill="${PAL.furD}" transform="rotate(30 56 104)"/><ellipse cx="104" cy="104" rx="10" ry="8" fill="${PAL.furD}" transform="rotate(-30 104 104)"/>`;
+  let eyes, mouth, extra="";
+  switch(expr){
+    case "happy":
+      eyes=`<path d="M58 60 q8 -8 16 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M86 60 q8 -8 16 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+      mouth=`<path d="M74 76 q6 5 12 0" stroke="#3a2d22" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+      break;
+    case "thinking":
+      eyes=`<circle cx="66" cy="60" r="7" fill="#fff"/><circle cx="94" cy="60" r="7" fill="#fff"/><circle cx="68" cy="60" r="4" fill="#1e1e2e"/><circle cx="95" cy="60" r="4" fill="#1e1e2e"/>`;
+      mouth=`<circle cx="80" cy="75" r="1.6" fill="#3a2d22"/>`;
+      extra=`<path d="M100 40 q0 -10 12 -12 2 8 -6 12" stroke="${PAL.amber}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+      break;
+    case "celebrating":
+      eyes=`<path d="M58 62 q8 -12 16 -2 q-8 2 -16 2" fill="#fff"/><path d="M86 62 q8 -12 16 -2 q-8 2 -16 2" fill="#fff"/>`;
+      mouth=`<path d="M74 76 q6 6 12 0" stroke="#3a2d22" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+      extra=`<text x="52" y="96" font-size="14" fill="${PAL.amber}">✩</text><text x="106" y="96" font-size="14" fill="${PAL.coral}">✦</text>`;
+      break;
+    case "surprised":
+      eyes=`<circle cx="66" cy="60" r="8.5" fill="#fff"/><circle cx="94" cy="60" r="8.5" fill="#fff"/><circle cx="66" cy="60" r="4.5" fill="#1e1e2e"/><circle cx="94" cy="60" r="4.5" fill="#1e1e2e"/>`;
+      mouth=`<ellipse cx="80" cy="76" rx="3" ry="4.5" fill="#3a2d22"/>`;
+      break;
+    case "sleeping":
+      eyes=`<path d="M58 62 l14 -4 l-14 -2 z" fill="#fff" opacity=".85"/><path d="M94 62 l14 -4 l-14 -2 z" fill="#fff" opacity=".85"/>`;
+      mouth=`<path d="M76 76 l8 0" stroke="#3a2d22" stroke-width="1.6" stroke-linecap="round"/>`;
+      extra=`<text x="98" y="52" font-size="12" fill="#94a3b8">z</text><text x="106" y="42" font-size="10" fill="#94a3b8">z</text>`;
+      break;
+  }
+  return `
+  <svg viewBox="0 0 160 170" width="60" height="64" xmlns="http://www.w3.org/2000/svg">
+    <g>
+      <path d="M52 118 C 50 92 56 76 80 74 C 104 76 110 92 108 118 C 108 128 100 136 80 136 C 60 136 52 128 52 118 Z" fill="${PAL.fur}"/>
+      <path d="M68 104 C 70 94 76 90 80 90 C 84 90 90 94 92 104 C 92 116 84 124 80 124 C 76 124 68 116 68 104 Z" fill="${PAL.cream}"/>
+      ${arms}
+      <circle cx="80" cy="132" rx="13" ry="9" fill="${PAL.amber}"/>
+      <circle cx="80" cy="62" r="30" fill="${PAL.fur}"/>
+      <ellipse cx="54" cy="46" rx="11" ry="15" fill="${PAL.fur}" transform="rotate(-20 54 46)"/>
+      <ellipse cx="106" cy="46" rx="11" ry="15" fill="${PAL.fur}" transform="rotate(20 106 46)"/>
+      <rect x="50" y="56" width="29" height="25" rx="10" fill="#242424"/>
+      <rect x="101" y="56" width="29" height="25" rx="10" fill="#242424"/>
+      ${eyes}
+      <ellipse cx="80" cy="72" rx="3.5" ry="2.6" fill="#3a2d22"/>
+      ${mouth}
+      ${extra}
+    </g>
+  </svg>`;
+}
+
+/* ---------- AULLI the Howler Monkey ---------- */
+const AULLI_BASE = `
+<svg viewBox="0 0 160 170" width="150" height="160" xmlns="http://www.w3.org/2000/svg">
+  <g id="aulliGroup">
+    <!-- tail (prehensile, curving) -->
+    <path d="M70 148 C 48 150 38 140 42 122" stroke="${PAL.furD}" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <!-- body -->
+    <ellipse cx="84" cy="118" rx="34" ry="30" fill="${PAL.fur}"/>
+    <ellipse cx="84" cy="122" rx="22" ry="18" fill="${PAL.cream}"/>
+    <!-- arms -->
+    <ellipse cx="52" cy="118" rx="12" ry="10" fill="${PAL.furD}" transform="rotate(40 52 118)"/>
+    <ellipse cx="116" cy="118" rx="12" ry="10" fill="${PAL.furD}" transform="rotate(-40 116 118)"/>
+    <!-- hands cupping over mouth (howl) -->
+    <ellipse cx="118" cy="100" rx="9" ry="7" fill="${PAL.fur}" transform="rotate(-20 118 100)"/>
+    <!-- head -->
+    <circle cx="84" cy="66" r="36" fill="${PAL.fur}"/>
+    <!-- ears -->
+    <circle cx="50" cy="44" r="9" fill="${PAL.furD}"/>
+    <circle cx="118" cy="44" r="9" fill="${PAL.furD}"/>
+    <!-- face plate (lighter) -->
+    <ellipse cx="84" cy="72" rx="24" ry="20" fill="${PAL.cream}"/>
+    <!-- eyes -->
+    <g id="eyesB">
+      <circle cx="73" cy="62" r="7.5" fill="#fff"/>
+      <circle cx="95" cy="62" r="7.5" fill="#fff"/>
+      <circle cx="74" cy="62" r="4" fill="#3a2d22"/>
+      <circle cx="96" cy="62" r="4" fill="#3a2d22"/>
+      <circle cx="75.2" cy="60.8" r="1.6" fill="#fff"/>
+      <circle cx="97.2" cy="60.8" r="1.6" fill="#fff"/>
+    </g>
+    <!-- OPEN MOUTH (howling) -->
+    <ellipse cx="84" cy="80" rx="12" ry="9" fill="#4b1d10"/>
+    <path d="M73 76 q11 8 22 0 q-4 10 -11 10 q-7 0 -11 -10 Z" fill="#e5736b"/>
+    <ellipse cx="84" cy="82" rx="7" ry="3.4" fill="#fff"/>
+    <path d="M84 78.5 q1 1.5 0 3 M80 78.5 q-.8 1.5 .2 3 M88 78.5 q1 1.5 0 3" stroke="#fff" stroke-width=".6" fill="none"/>
+    <!-- nose -->
+    <ellipse cx="84" cy="71" rx="4" ry="3" fill="#3a2d22"/>
+  </g>
+</svg>`;
+
+/* ---------- Expressions variations for Aulli ---------- */
+function aulliExpr(expr){
+  const arms=`<ellipse cx="52" cy="118" rx="11" ry="9" fill="${PAL.furD}" transform="rotate(40 52 118)"/><ellipse cx="116" cy="118" rx="11" ry="9" fill="${PAL.furD}" transform="rotate(-40 116 118)"/>`;
+  let eyes, mouth, extra="";
+  switch(expr){
+    case "happy":
+      eyes=`<path d="M66 62 q7 -7 14 0" stroke="#3a2d22" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M88 62 q7 -7 14 0" stroke="#3a2d22" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+      mouth=`<path d="M74 80 q10 7 20 0" stroke="#3a2d22" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+      break;
+    case "thinking":
+      eyes=`<circle cx="73" cy="62" r="6" fill="#fff"/><circle cx="95" cy="62" r="6" fill="#fff"/><circle cx="74" cy="62" r="3.4" fill="#3a2d22"/><circle cx="96" cy="62" r="3.4" fill="#3a2d22"/>`;
+      mouth=`<circle cx="84" cy="78" r="2" fill="#3a2d22"/>`;
+      extra=`<path d="M118 40 q0 -10 12 -12 2 8 -6 12" stroke="${PAL.coral}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+      break;
+    case "celebrating":
+      eyes=`<path d="M66 63 q7 -10 14 -1" fill="#fff"/><path d="M88 63 q7 -10 14 -1" fill="#fff"/>`;
+      mouth=`<ellipse cx="84" cy="80" rx="11" ry="8" fill="#4b1d10"/><path d="M74 76 q10 8 20 0" stroke="#e5736b" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+      extra=`<text x="46" y="100" font-size="14" fill="${PAL.coral}">✦</text><text x="112" y="100" font-size="14" fill="${PAL.amber}">♪</text>`;
+      break;
+    case "surprised":
+      eyes=`<circle cx="73" cy="62" r="7.5" fill="#fff"/><circle cx="95" cy="62" r="7.5" fill="#fff"/><circle cx="73" cy="62" r="4.6" fill="#3a2d22"/><circle cx="95" cy="62" r="4.6" fill="#3a2d22"/>`;
+      mouth=`<ellipse cx="84" cy="80" rx="6" ry="8" fill="#4b1d10"/>`;
+      break;
+    case "sleeping":
+      eyes=`<path d="M67 64 l13 -4 l-13 -2 z" fill="#3a2d22" opacity=".8"/><path d="M90 64 l13 -4 l-13 -2 z" fill="#3a2d22" opacity=".8"/>`;
+      mouth=`<path d="M80 80 l8 0" stroke="#3a2d22" stroke-width="1.6" stroke-linecap="round"/>`;
+      extra=`<text x="116" y="54" font-size="12" fill="#94a3b8">z</text><text x="124" y="44" font-size="10" fill="#94a3b8">z</text>`;
+      break;
+  }
+  return `
+  <svg viewBox="0 0 160 170" width="60" height="64" xmlns="http://www.w3.org/2000/svg">
+    <g>
+      <path d="M70 148 C 48 150 38 140 42 122" stroke="${PAL.furD}" stroke-width="9" fill="none" stroke-linecap="round"/>
+      <ellipse cx="84" cy="118" rx="32" ry="28" fill="${PAL.fur}"/>
+      <ellipse cx="84" cy="122" rx="21" ry="17" fill="${PAL.cream}"/>
+      ${arms}
+      <circle cx="84" cy="66" r="35" fill="${PAL.fur}"/>
+      <circle cx="50" cy="44" r="8.5" fill="${PAL.furD}"/>
+      <circle cx="118" cy="44" r="8.5" fill="${PAL.furD}"/>
+      <ellipse cx="84" cy="72" rx="23" ry="19" fill="${PAL.cream}"/>
+      ${eyes}
+      <ellipse cx="84" cy="71" rx="4" ry="3" fill="#3a2d22"/>
+      ${mouth}
+      ${extra}
+    </g>
+  </svg>`;
+}
+
+/* ---------- Inject base mascots ---------- */
+document.getElementById('wrapA').innerHTML = KUTU_BASE;
+document.getElementById('wrapB').innerHTML = AULLI_BASE;
+
+/* ---------- Expressions gallery ---------- */
+const exprs = [
+  {id:'happy', nm:'Feliz'},
+  {id:'thinking', nm:'Pensando'},
+  {id:'celebrating', nm:'Celebrando'},
+  {id:'surprised', nm:'Sorprendido'},
+  {id:'sleeping', nm:'Dormido'}
+];
+exprs.forEach(e=>{
+  const elA=document.createElement('div');elA.className='expr';elA.innerHTML=`<svg viewBox="0 0 160 170" width="52" height="56">${kutuExpr(e.id).match(/<g[^>]*>[\s\S]*<\/g>/)[0]}</svg><div class="nm">${e.nm}</div>`;
+  document.getElementById('exprA').appendChild(elA);
+  const elB=document.createElement('div');elB.className='expr';elB.innerHTML=`<svg viewBox="0 0 160 170" width="52" height="56">${aulliExpr(e.id).match(/<g[^>]*>[\s\S]*<\/g>/)[0]}</svg><div class="nm">${e.nm}</div>`;
+  document.getElementById('exprB').appendChild(elB);
+});
+
+/* ---------- Mock screens ---------- */
+const screens=[
+  {id:'onb', title:'Bienvenido a tu banda', desc:'Crea tu repertorio y toca sin conexión.', btn:'Comenzar'},
+  {id:'empty', title:'No hay canciones aún', desc:'Tu setlist está en blanco… todavía.', btn:'+ Añadir canción'},
+  {id:'celebrate', title:'¡Primer setlist creado!', desc:'Tu banda ya tiene orden de batalla.', btn:'Ver setlist'},
+  {id:'error', title:'Conexión perdida', desc:'No pasa nada, seguimos en modo offline.', btn:'Reintentar'}
+];
+function mockBody(expr, tone){
+  const wrap=`<svg viewBox="0 0 160 170" width="76" height="80">`;
+  const svg = tone==='kutu' ? kutuExpr(expr) : aulliExpr(expr);
+  const inner = svg.match(/<g[^>]*>[\s\S]*<\/g>/)[0];
+  return wrap+inner+`</svg>`;
+}
+screens.forEach(s=>{
+  const mk=(tone)=>{
+    const g=s.id==='onb'?(tone==='kutu'?'happy':'celebrating')
+      :s.id==='empty'?(tone==='kutu'?'thinking':'thinking')
+      :s.id==='celebrate'?(tone==='kutu'?'celebrating':'celebrating')
+      :'surprised';
+    const d=document.createElement('div');
+    d.className='mock-screen'+(tone==='aulli'?' b':'');
+    d.innerHTML=`<div class="sc-top"></div><div class="sc-body">${mockBody(g,tone)}<p class="title">${s.title}</p><p class="desc">${s.desc}</p><span class="btn">${s.btn}</span></div>`;
+    return d;
+  };
+  document.getElementById('mockA').appendChild(mk('kutu'));
+  document.getElementById('mockB').appendChild(mk('aulli'));
+});
+
+/* ---------- Mirror buttons (flip mascot) ---------- */
+document.querySelectorAll('.mirror').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const wrap=document.getElementById(btn.dataset.mirror);
+    const g=wrap.querySelector('g');
+    const flipped=g.getAttribute('transform')==='scale(-1,1) translate(-160,0)';
+    if(flipped) g.removeAttribute('transform'); else g.setAttribute('transform','scale(-1,1) translate(-160,0)');
+  });
+});
+
+/* ---------- Theme toggle ---------- */
+const tBtn=document.getElementById('themeToggle');
+const tLbl=document.getElementById('toggleLabel');
+function setTheme(light){
+  document.body.classList.toggle('light',light);
+  tLbl.textContent = light ? 'Modo Oscuro' : 'Modo Claro';
+}
+tBtn.addEventListener('click',()=>setTheme(!document.body.classList.contains('light')));
+setTheme(false);
+
+/* ---------- Vote buttons ---------- */
+document.querySelectorAll('[data-vote]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const v=b.dataset.vote;
+    const msg=document.getElementById('voteMsg');
+    if(v==='A'){
+      msg.innerHTML='🎉 Elegido <b>Kutu</b> — ¡la mnemotecnia manda! Perfecto para cara de la marca.';
+      document.getElementById('verdictTitle').textContent='Tu veredicto: Kutu';
+    }else{
+      msg.innerHTML='🥁 Elegido <b>Aulli</b> — ¡a por la identidad latina y la pasión!';
+      document.getElementById('verdictTitle').textContent='Tu veredicto: Aulli';
+    }
+  });
+});
+
+/* ---------- Scroll reveal ---------- */
+const io=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');io.unobserve(e.target);}});
+},{threshold:.12});
+document.querySelectorAll('.fade-up').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
