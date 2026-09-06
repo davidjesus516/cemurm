@@ -4,6 +4,7 @@ import { RedirectIfAuthed, RequireAuth } from './components/auth/AuthGuards.jsx'
 import { AuthProvider } from './hooks/useAuth.jsx'
 import Home from './pages/Home.jsx'
 import Songs from './pages/Songs.jsx'
+import SongDetail from './pages/SongDetail.jsx'
 import Setlists from './pages/Setlists.jsx'
 import Auth from './pages/Auth.jsx'
 import NotFound from './pages/NotFound.jsx'
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
         element: <RequireAuth />,
         children: [
           { path: '/songs', element: <Songs /> },
+          { path: '/songs/:id', element: <SongDetail /> },
           { path: '/setlists', element: <Setlists /> },
         ],
       },

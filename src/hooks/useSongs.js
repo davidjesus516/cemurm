@@ -39,6 +39,10 @@ export function useSongs() {
     setSongsList((prev) => prev.filter((s) => s.id !== id))
   }
 
+  async function getSong(id) {
+    return songs.getSong(user.id, id)
+  }
+
   async function searchSongs(query) {
     if (!query.trim()) return refresh()
     setLoading(true)
@@ -50,5 +54,5 @@ export function useSongs() {
     }
   }
 
-  return { songs: songsList, loading, refresh, addSong, updateSong, deleteSong, searchSongs }
+  return { songs: songsList, loading, refresh, addSong, updateSong, deleteSong, getSong, searchSongs }
 }
