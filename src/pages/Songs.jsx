@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
 import SongForm from '../components/songs/SongForm.jsx'
 
@@ -87,7 +88,12 @@ export default function Songs() {
           {songs.map((song) => (
             <li key={song.id} className="flex items-center justify-between px-4 py-3">
               <div>
-                <span className="text-sm font-medium text-gray-900">{song.title}</span>
+                <Link
+                  to={`/songs/${song.id}`}
+                  className="text-sm font-medium text-gray-900 hover:text-indigo-600"
+                >
+                  {song.title}
+                </Link>
                 {song.key && <span className="ml-2 text-xs text-gray-500">{song.key}</span>}
                 {song.bpm && <span className="ml-2 text-xs text-gray-500">{song.bpm} BPM</span>}
                 {song.hasChordChart && <span className="ml-2 text-xs text-indigo-500">♫</span>}
