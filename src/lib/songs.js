@@ -2,6 +2,8 @@
 // Mirrors the future Supabase query surface so chunk C8 can swap the
 // implementation without touching the hook or UI.
 
+import { computeReadiness } from './readiness.js'
+
 const SONGS_KEY = 'cemurm.songs'
 const MAX_SONGS = 500
 
@@ -70,6 +72,15 @@ const DEMO_SONGS = [
   },
 ]
 
+// Seed demo songs with computed status on first load.
+function hydrateSeeds(songs) {
+  return songs.map((s) => {
+    if (s.status) return s // already hydrated
+    const { status } = computeReadiness(s)
+    return { ...s, status, transitionHistory: s.transitionHistory || [] }
+  })
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -77,8 +88,9 @@ function delay(ms) {
 function readAll() {
   const raw = localStorage.getItem(SONGS_KEY)
   if (!raw) {
-    localStorage.setItem(SONGS_KEY, JSON.stringify(DEMO_SONGS))
-    return [...DEMO_SONGS]
+    const seeded = hydrateSeeds(DEMO_SONGS)
+    localStorage.setItem(SONGS_KEY, JSON.stringify(seeded))
+    return [...seeded]
   }
   return JSON.parse(raw)
 }
@@ -93,11 +105,33 @@ function userSongs(userId) {
   )
 }
 
-export async function listSongs(userId) {
-  await delay(200)
-  return userSongs(userId)
+/**
+ * Record a state transition in the song's history.
+ * ponytail: inline helper, one call site — no abstraction needed.
+ */
+function recordTransition(song, from, to, by = 'owner', reason = '') {
+  song.transitionHistory = song.transitionHistory || []
+  song.transitionHistory.push({ from, to, at: new Date().toISOString(), by, reason })
 }
 
+/**
+ * List songs for a user. Supports optional filter for retired songs.
+ * Backward-compatible: listSongs(userId) returns all active songs.
+ * listSongs(userId, { retired: true }) returns only retired songs.
+ * listSongs(userId, { retired: false }) or listSongs(userId, { status: 'draft' })
+ *   returns active non-retired songs (same as default).
+ */
+export async function listSongs(userId, filter = {}) {
+  await delay(200)
+  const songs = userSongs(userId)
+  if (filter.retired) return songs.filter((s) => s.status === 'retired')
+  if (filter.status) return songs.filter((s) => s.status === filter.status)
+  return songs.filter((s) => s.status !== 'retired')
+}
+
+/**
+ * Add a new song. Computes initial status from content.
+ */
 export async function addSong(userId, { title, key, bpm, hasChordChart, body }) {
   await delay(200)
 
@@ -125,6 +159,12 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body }) 
     updatedAt: now,
     deletedAt: null,
   }
+
+  // Compute initial status
+  const { status } = computeReadiness(song)
+  song.status = status
+  song.transitionHistory = []
+
   writeAll([...songs, song])
   return song
 }
@@ -139,6 +179,10 @@ export async function getSong(userId, id) {
   return song
 }
 
+/**
+ * Update a song. After update, recompute readiness if not retired.
+ * Record lineage transitions when status changes.
+ */
 export async function updateSong(userId, id, { title, key, bpm, body }) {
   await delay(200)
 
@@ -148,18 +192,33 @@ export async function updateSong(userId, id, { title, key, bpm, body }) {
   )
   if (idx === -1) throw new Error('Song not found.')
 
+  const song = songs[idx]
+
   if (title !== undefined) {
     const trimmed = title.trim()
     if (!trimmed) throw new Error('Title is required.')
-    songs[idx].title = trimmed
+    song.title = trimmed
   }
-  if (key !== undefined) songs[idx].key = key?.trim() || ''
-  if (bpm !== undefined) songs[idx].bpm = bpm ? Number(bpm) : null
-  if (body !== undefined) songs[idx].body = body
-  songs[idx].updatedAt = new Date().toISOString()
+  if (key !== undefined) song.key = key?.trim() || ''
+  if (bpm !== undefined) song.bpm = bpm ? Number(bpm) : null
+  if (body !== undefined) song.body = body
+  song.updatedAt = new Date().toISOString()
+
+  // Recompute readiness unless retired
+  if (song.status !== 'retired') {
+    const prevStatus = song.status
+    const { status: newStatus } = computeReadiness(song)
+    song.status = newStatus
+    if (prevStatus !== newStatus) {
+      const reason = newStatus === 'ready'
+        ? 'Chart completed'
+        : `Chart incomplete: ${computeReadiness(song).reason}`
+      recordTransition(song, prevStatus, newStatus, 'owner', reason)
+    }
+  }
 
   writeAll(songs)
-  return songs[idx]
+  return song
 }
 
 export async function deleteSong(userId, id) {
@@ -184,4 +243,54 @@ export async function searchSongs(userId, query) {
   return userSongs(userId).filter((s) =>
     s.title.toLowerCase().includes(q),
   )
+}
+
+/**
+ * Retire a song → status becomes 'retired'. Leaves the active set.
+ * Retire ≠ delete (delete uses deletedAt soft-delete).
+ */
+export async function retireSong(userId, id) {
+  await delay(200)
+
+  const songs = readAll()
+  const idx = songs.findIndex(
+    (s) => s.id === id && s.userId === userId && s.deletedAt === null,
+  )
+  if (idx === -1) throw new Error('Song not found.')
+
+  const song = songs[idx]
+  if (song.status === 'retired') return song // idempotent
+
+  const prevStatus = song.status
+  song.status = 'retired'
+  song.updatedAt = new Date().toISOString()
+  recordTransition(song, prevStatus, 'retired', 'owner', 'Retired')
+
+  writeAll(songs)
+  return song
+}
+
+/**
+ * Reactivate a retired song → recompute readiness from content.
+ * Returns the song with its new status (ready or draft).
+ */
+export async function reactivateSong(userId, id) {
+  await delay(200)
+
+  const songs = readAll()
+  const idx = songs.findIndex(
+    (s) => s.id === id && s.userId === userId && s.deletedAt === null,
+  )
+  if (idx === -1) throw new Error('Song not found.')
+
+  const song = songs[idx]
+  if (song.status !== 'retired') return song // idempotent
+
+  const { status } = computeReadiness(song)
+  song.status = status
+  song.updatedAt = new Date().toISOString()
+  recordTransition(song, 'retired', status, 'owner', 'Reactivated')
+
+  writeAll(songs)
+  return song
 }
