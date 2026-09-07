@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState } from 'react'
+import { formatDuration, parseDurationInput } from '../../lib/duration.js'
 
 const inputClass =
   'w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100'
@@ -10,6 +11,7 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
     key: initial?.key || '',
     bpm: initial?.bpm ?? '',
     hasChordChart: initial?.hasChordChart || false,
+    duration: initial?.durationSeconds ? formatDuration(initial.durationSeconds) : '',
   })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -26,6 +28,9 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
     if (form.bpm !== '' && (isNaN(Number(form.bpm)) || Number(form.bpm) <= 0)) {
       next.bpm = 'BPM must be a positive number.'
     }
+    if (form.duration.trim() !== '' && parseDurationInput(form.duration) === null) {
+      next.duration = 'Duration must be mm:ss or seconds (e.g. 3:30 or 210).'
+    }
     return next
   }
 
@@ -41,6 +46,7 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
         key: form.key.trim(),
         bpm: form.bpm !== '' ? Number(form.bpm) : null,
         hasChordChart: form.hasChordChart,
+        durationSeconds: form.duration.trim() !== '' ? parseDurationInput(form.duration) : null,
       })
     } finally {
       setSubmitting(false)
@@ -90,6 +96,20 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
           />
           {errors.bpm && <p className="mt-1 text-xs text-red-600">{errors.bpm}</p>}
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="song-duration" className="block text-sm font-medium text-gray-700">Duration</label>
+        <input
+          id="song-duration"
+          name="duration"
+          value={form.duration}
+          onChange={handleChange}
+          placeholder="e.g. 3:30 or 210"
+          disabled={submitting}
+          className={`${inputClass} ${errors.duration ? 'border-red-300' : ''}`}
+        />
+        {errors.duration && <p className="mt-1 text-xs text-red-600">{errors.duration}</p>}
       </div>
 
       <label className="flex items-center gap-2 text-sm text-gray-700">

@@ -6,6 +6,7 @@ import Home from './pages/Home.jsx'
 import Songs from './pages/Songs.jsx'
 import SongDetail from './pages/SongDetail.jsx'
 import Setlists from './pages/Setlists.jsx'
+import SetlistDetail from './pages/SetlistDetail.jsx'
 import Auth from './pages/Auth.jsx'
 import NotFound from './pages/NotFound.jsx'
 
@@ -20,6 +21,7 @@ const router = createBrowserRouter([
           { path: '/songs', element: <Songs /> },
           { path: '/songs/:id', element: <SongDetail /> },
           { path: '/setlists', element: <Setlists /> },
+          { path: '/setlists/:id', element: <SetlistDetail /> },
         ],
       },
       {
