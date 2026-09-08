@@ -6,11 +6,16 @@ PWA for musicians: repertoires, setlists, live performance, offline-first. Early
 
 ## Commands
 
+Package manager is **pnpm** (v11). Scripts run identically:
+
 ```bash
-npm run dev      # Vite dev server → localhost:5173
-npm run build    # production build to dist/
-npm run lint     # ESLint (React + React Hooks plugins) — zero warnings enforced
+pnpm dev       # Vite dev server → localhost:5173
+pnpm build     # production build to dist/
+pnpm lint      # ESLint (React + React Hooks plugins) — zero warnings enforced
+pnpm install   # installs from pnpm-lock.yaml (pnpm ci equivalent: pnpm install --frozen-lockfile)
 ```
+
+Never add `package-lock.json` or run plain `npm install` — the lockfile is `pnpm-lock.yaml`.
 
 No test framework, no typecheck, no CI workflows. Don't look for them.
 
@@ -58,7 +63,8 @@ Most of these directories don't exist yet. When creating new files, follow this 
 
 ## Gotchas for agents
 
-- There is no lockfile. `npm install` will create one — that's expected, not a mistake.
+- Lockfile is `pnpm-lock.yaml` (already committed). Use `pnpm` for everything.
+- `pnpm-workspace.yaml` holds `allowBuilds` (postinstall scripts are blocked by default; approve explicitly there).
 - No `.env` files exist yet. Supabase integration is future work.
 - The `features/` directory is your product spec source of truth, not the README.
 - Tailwind config scans `src/**/*.{js,ts,jsx,tsx}` — but everything is `.js`/`.jsx` today.
