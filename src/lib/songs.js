@@ -3,6 +3,7 @@
 // implementation without touching the hook or UI.
 
 import { computeReadiness } from './readiness.js'
+import { filterSongs } from './search.js'
 
 const SONGS_KEY = 'cemurm.songs'
 const MAX_SONGS = 500
@@ -71,6 +72,68 @@ const DEMO_SONGS = [
     body: '',
     createdAt: '2026-02-01T10:00:00.000Z',
     updatedAt: '2026-02-01T10:00:00.000Z',
+    deletedAt: null,
+  },
+  // BASIC SEARCH demo seeds (chunk C7) — satisfy search-and-discovery.feature:
+  // "Amazing Grace" + "Amazing Day" → free-text "Amazing", both hold chord G →
+  // chord search "G major"; both G major → key filter badge "2 songs in G major";
+  // 80/95 BPM → tempo range 70-100. "Grace of My Mind" (D major, no G chord)
+  // is excluded by "Amazing" and by chord-G searches.
+  {
+    id: 'demo-song-4',
+    userId: 'demo-user',
+    title: 'Amazing Grace',
+    key: 'G major',
+    bpm: 80,
+    hasChordChart: true,
+    durationSeconds: 180,
+    body: `{title: Amazing Grace}
+{artist: Traditional}
+{key: G}
+
+{section: Verse 1}
+[G]Amazing [C]grace, how [D]sweet the [G]sound
+[G]That saved a [C]wretch like [D]me`,
+    createdAt: '2026-02-15T10:00:00.000Z',
+    updatedAt: '2026-02-15T10:00:00.000Z',
+    deletedAt: null,
+  },
+  {
+    id: 'demo-song-5',
+    userId: 'demo-user',
+    title: 'Amazing Day',
+    key: 'G major',
+    bpm: 95,
+    hasChordChart: true,
+    durationSeconds: 200,
+    body: `{title: Amazing Day}
+{artist: Demo}
+{key: G}
+
+{section: Chorus}
+[C]What a [F]day, what a [G]day
+[C]Sun is [F]shining, [G]let's go out and play`,
+    createdAt: '2026-02-16T10:00:00.000Z',
+    updatedAt: '2026-02-16T10:00:00.000Z',
+    deletedAt: null,
+  },
+  {
+    id: 'demo-song-6',
+    userId: 'demo-user',
+    title: 'Grace of My Mind',
+    key: 'D major',
+    bpm: 120,
+    hasChordChart: true,
+    durationSeconds: 210,
+    body: `{title: Grace of My Mind}
+{artist: Demo}
+{key: D}
+
+{section: Verse 1}
+[D]Grace of my [A]mind, won't you [Em]stay
+[D]Stay with me [A]through the [Em]night`,
+    createdAt: '2026-02-17T10:00:00.000Z',
+    updatedAt: '2026-02-17T10:00:00.000Z',
     deletedAt: null,
   },
 ]
@@ -242,12 +305,12 @@ export async function deleteSong(userId, id) {
 export async function searchSongs(userId, query) {
   await delay(200)
 
-  const q = query.trim().toLowerCase()
-  if (!q) return userSongs(userId)
+  // Active (non-retired) songs only — retired songs live behind the toggle.
+  const base = userSongs(userId).filter((s) => s.status !== 'retired')
+  if (!String(query ?? '').trim()) return base
 
-  return userSongs(userId).filter((s) =>
-    s.title.toLowerCase().includes(q),
-  )
+  // Title + chord search via the pure search module (shared with the page).
+  return filterSongs(base, { query })
 }
 
 /**

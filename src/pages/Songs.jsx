@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
 import { computeReadiness } from '../lib/readiness.js'
 import { formatDuration } from '../lib/duration.js'
+import { filterSongs, matchedChords, parseTempoRange, songMatchesKey } from '../lib/search.js'
 import SongForm from '../components/songs/SongForm.jsx'
 
 /* eslint-disable react/prop-types */
@@ -23,16 +24,33 @@ function StatusBadge({ status }) {
 
 export default function Songs() {
   const [retiredView, setRetiredView] = useState(false)
-  const { songs, loading, addSong, updateSong, deleteSong, retireSong, reactivateSong, searchSongs } = useSongs({ retired: retiredView })
+  const { songs, loading, addSong, updateSong, deleteSong, retireSong, reactivateSong } = useSongs({ retired: retiredView })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
+  const [keyFilter, setKeyFilter] = useState('')
+  const [tempo, setTempo] = useState('')
+  const [tempoRange, setTempoRange] = useState(null)
   const [error, setError] = useState('')
 
+  // ponytail: filter the full active list client-side with the pure helpers;
+  // songs.searchSongs stays as the future Supabase surface. Fine under the
+  // 500-song cap — server-side composition is chunk C8+ territory.
+  const filtersActive = Boolean(search.trim() || keyFilter || tempoRange)
+  const visible = filterSongs(songs, { query: search, key: keyFilter, tempo: tempoRange })
+  const keys = [...new Set(songs.map((s) => s.key).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  const keyCount = songs.filter((s) => songMatchesKey(s, keyFilter)).length
+
   function handleSearch(e) {
-    const q = e.target.value
-    setSearch(q)
-    searchSongs(q)
+    setSearch(e.target.value)
+  }
+
+  function handleTempo(e) {
+    const val = e.target.value
+    setTempo(val)
+    // Invalid input is ignored — keep the previous valid range (or none).
+    const range = parseTempoRange(val)
+    if (val.trim() === '' || range) setTempoRange(range)
   }
 
   async function handleAdd(payload) {
@@ -98,13 +116,37 @@ export default function Songs() {
       </div>
 
       {!retiredView && (
-        <input
-          type="text"
-          value={search}
-          onChange={handleSearch}
-          placeholder="Search by title…"
-          className="mt-3 w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={search}
+            onChange={handleSearch}
+            placeholder="Search by title or chord…"
+            className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <select
+            value={keyFilter}
+            onChange={(e) => setKeyFilter(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="">All keys</option>
+            {keys.map((k) => (
+              <option key={k} value={k}>{k}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={tempo}
+            onChange={handleTempo}
+            placeholder="Tempo range, e.g. 70-100"
+            className="w-44 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          {keyFilter && (
+            <span className="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
+              {keyCount} songs in {keyFilter}
+            </span>
+          )}
+        </div>
       )}
 
       {error && (
@@ -127,69 +169,77 @@ export default function Songs() {
 
       {loading ? (
         <p className="mt-6 text-sm text-gray-500">Loading repertoire…</p>
-      ) : songs.length === 0 ? (
+      ) : visible.length === 0 ? (
         <p className="mt-6 text-sm text-gray-500">
           {retiredView
             ? 'No retired songs.'
-            : search ? 'No songs match your search.' : 'No songs yet. Add your first song above.'}
+            : filtersActive ? 'No results — try adjusting your filters.' : 'No songs yet. Add your first song above.'}
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-gray-200 rounded-lg border bg-white shadow-sm">
-          {songs.map((song) => (
-            <li key={song.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <Link
-                  to={`/songs/${song.id}`}
-                  className="text-sm font-medium text-gray-900 hover:text-indigo-600"
-                >
-                  {song.title}
-                </Link>
-                <StatusBadge status={song.status} />
-                {song.key && <span className="ml-2 text-xs text-gray-500">{song.key}</span>}
-                {song.bpm && <span className="ml-2 text-xs text-gray-500">{song.bpm} BPM</span>}
-                {song.durationSeconds && <span className="ml-2 text-xs text-gray-500">{formatDuration(song.durationSeconds)}</span>}
-                {song.hasChordChart && <span className="ml-2 text-xs text-indigo-500">♫</span>}
-                {song.status === 'draft' && !retiredView && (
-                  <p className="mt-0.5 text-xs text-amber-600">{computeReadiness(song).reason}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {retiredView ? (
+          {visible.map((song) => {
+            const matched = matchedChords(song, search)
+            return (
+              <li key={song.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <Link
+                    to={`/songs/${song.id}`}
+                    className="text-sm font-medium text-gray-900 hover:text-indigo-600"
+                  >
+                    {song.title}
+                  </Link>
+                  <StatusBadge status={song.status} />
+                  {matched.length > 0 && (
+                    <span className="ml-2 inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                      matched chord: {matched.join(', ')}
+                    </span>
+                  )}
+                  {song.key && <span className="ml-2 text-xs text-gray-500">{song.key}</span>}
+                  {song.bpm && <span className="ml-2 text-xs text-gray-500">{song.bpm} BPM</span>}
+                  {song.durationSeconds && <span className="ml-2 text-xs text-gray-500">{formatDuration(song.durationSeconds)}</span>}
+                  {song.hasChordChart && <span className="ml-2 text-xs text-indigo-500">♫</span>}
+                  {song.status === 'draft' && !retiredView && (
+                    <p className="mt-0.5 text-xs text-amber-600">{computeReadiness(song).reason}</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {retiredView ? (
+                    <button
+                      type="button"
+                      onClick={() => handleReactivate(song)}
+                      className="text-xs font-medium text-green-600 hover:underline"
+                    >
+                      Reactivate
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(song)}
+                        className="text-xs font-medium text-indigo-600 hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRetire(song)}
+                        className="text-xs font-medium text-gray-500 hover:underline"
+                      >
+                        Retire
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
-                    onClick={() => handleReactivate(song)}
-                    className="text-xs font-medium text-green-600 hover:underline"
+                    onClick={() => handleDelete(song)}
+                    className="text-xs font-medium text-red-600 hover:underline"
                   >
-                    Reactivate
+                    Delete
                   </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(song)}
-                      className="text-xs font-medium text-indigo-600 hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRetire(song)}
-                      className="text-xs font-medium text-gray-500 hover:underline"
-                    >
-                      Retire
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleDelete(song)}
-                  className="text-xs font-medium text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
