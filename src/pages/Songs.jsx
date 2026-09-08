@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
 import { computeReadiness } from '../lib/readiness.js'
+import { formatDuration } from '../lib/duration.js'
 import SongForm from '../components/songs/SongForm.jsx'
 
 /* eslint-disable react/prop-types */
@@ -146,6 +147,7 @@ export default function Songs() {
                 <StatusBadge status={song.status} />
                 {song.key && <span className="ml-2 text-xs text-gray-500">{song.key}</span>}
                 {song.bpm && <span className="ml-2 text-xs text-gray-500">{song.bpm} BPM</span>}
+                {song.durationSeconds && <span className="ml-2 text-xs text-gray-500">{formatDuration(song.durationSeconds)}</span>}
                 {song.hasChordChart && <span className="ml-2 text-xs text-indigo-500">♫</span>}
                 {song.status === 'draft' && !retiredView && (
                   <p className="mt-0.5 text-xs text-amber-600">{computeReadiness(song).reason}</p>

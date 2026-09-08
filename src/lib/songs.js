@@ -15,6 +15,7 @@ const DEMO_SONGS = [
     key: 'Bb major',
     bpm: 144,
     hasChordChart: true,
+    durationSeconds: 210,
     body: `{title: Bohemian Rhapsody}
 {artist: Queen}
 {key: Bb}
@@ -39,6 +40,7 @@ const DEMO_SONGS = [
     key: 'C major',
     bpm: 76,
     hasChordChart: true,
+    durationSeconds: 240,
     body: `{title: Imagine}
 {artist: John Lennon}
 {key: C}
@@ -65,6 +67,7 @@ const DEMO_SONGS = [
     key: 'D minor',
     bpm: 120,
     hasChordChart: false,
+    durationSeconds: 315,
     body: '',
     createdAt: '2026-02-01T10:00:00.000Z',
     updatedAt: '2026-02-01T10:00:00.000Z',
@@ -132,7 +135,7 @@ export async function listSongs(userId, filter = {}) {
 /**
  * Add a new song. Computes initial status from content.
  */
-export async function addSong(userId, { title, key, bpm, hasChordChart, body }) {
+export async function addSong(userId, { title, key, bpm, hasChordChart, body, durationSeconds }) {
   await delay(200)
 
   const trimmed = title?.trim()
@@ -155,6 +158,7 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body }) 
     bpm: bpm ? Number(bpm) : null,
     hasChordChart: Boolean(hasChordChart),
     body: body || '',
+    durationSeconds: durationSeconds ? Number(durationSeconds) : null,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
@@ -183,7 +187,7 @@ export async function getSong(userId, id) {
  * Update a song. After update, recompute readiness if not retired.
  * Record lineage transitions when status changes.
  */
-export async function updateSong(userId, id, { title, key, bpm, body }) {
+export async function updateSong(userId, id, { title, key, bpm, body, durationSeconds }) {
   await delay(200)
 
   const songs = readAll()
@@ -201,6 +205,7 @@ export async function updateSong(userId, id, { title, key, bpm, body }) {
   }
   if (key !== undefined) song.key = key?.trim() || ''
   if (bpm !== undefined) song.bpm = bpm ? Number(bpm) : null
+  if (durationSeconds !== undefined) song.durationSeconds = durationSeconds ? Number(durationSeconds) : null
   if (body !== undefined) song.body = body
   song.updatedAt = new Date().toISOString()
 
