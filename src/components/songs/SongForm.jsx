@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { formatDuration, parseDurationInput } from '../../lib/duration.js'
 
 const inputClass =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber disabled:bg-cem-elevated'
 
 export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
   const [form, setForm] = useState({
@@ -54,23 +54,23 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
       <div>
-        <label htmlFor="song-title" className="block text-sm font-medium text-gray-700">Title *</label>
+        <label htmlFor="song-title" className="block text-sm font-medium text-cem-text">Title *</label>
         <input
           id="song-title"
           name="title"
           value={form.title}
           onChange={handleChange}
           disabled={submitting}
-          className={`${inputClass} ${errors.title ? 'border-red-300' : ''}`}
+          className={`${inputClass} ${errors.title ? 'border-cem-rose/40' : ''}`}
         />
-        {errors.title && <p className="mt-1 text-xs text-red-600">{errors.title}</p>}
+        {errors.title && <p className="mt-1 text-xs text-cem-rose">{errors.title}</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="song-key" className="block text-sm font-medium text-gray-700">Key</label>
+          <label htmlFor="song-key" className="block text-sm font-medium text-cem-text">Key</label>
           <input
             id="song-key"
             name="key"
@@ -82,7 +82,7 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
           />
         </div>
         <div>
-          <label htmlFor="song-bpm" className="block text-sm font-medium text-gray-700">BPM</label>
+          <label htmlFor="song-bpm" className="block text-sm font-medium text-cem-text">BPM</label>
           <input
             id="song-bpm"
             name="bpm"
@@ -92,14 +92,14 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
             onChange={handleChange}
             placeholder="e.g. 120"
             disabled={submitting}
-            className={`${inputClass} ${errors.bpm ? 'border-red-300' : ''}`}
+            className={`${inputClass} ${errors.bpm ? 'border-cem-rose/40' : ''}`}
           />
-          {errors.bpm && <p className="mt-1 text-xs text-red-600">{errors.bpm}</p>}
+          {errors.bpm && <p className="mt-1 text-xs text-cem-rose">{errors.bpm}</p>}
         </div>
       </div>
 
       <div>
-        <label htmlFor="song-duration" className="block text-sm font-medium text-gray-700">Duration</label>
+        <label htmlFor="song-duration" className="block text-sm font-medium text-cem-text">Duration</label>
         <input
           id="song-duration"
           name="duration"
@@ -107,19 +107,19 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
           onChange={handleChange}
           placeholder="e.g. 3:30 or 210"
           disabled={submitting}
-          className={`${inputClass} ${errors.duration ? 'border-red-300' : ''}`}
+          className={`${inputClass} ${errors.duration ? 'border-cem-rose/40' : ''}`}
         />
-        {errors.duration && <p className="mt-1 text-xs text-red-600">{errors.duration}</p>}
+        {errors.duration && <p className="mt-1 text-xs text-cem-rose">{errors.duration}</p>}
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-cem-text">
         <input
           type="checkbox"
           name="hasChordChart"
           checked={form.hasChordChart}
           onChange={handleChange}
           disabled={submitting}
-          className="rounded border-gray-300"
+          className="rounded border-cem-elevated"
         />
         Has chord chart
       </label>
@@ -128,7 +128,7 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
         >
           {submitting ? 'Saving…' : submitLabel || 'Save'}
         </button>
@@ -137,7 +137,7 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
           >
             Cancel
           </button>

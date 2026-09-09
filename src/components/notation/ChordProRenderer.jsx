@@ -26,9 +26,9 @@ function LyricLine({ line }) {
       {segments.map((segment, i) => (
         <span key={i} className="inline-flex flex-col items-start">
           {segment.chord && (
-            <span className="mb-0.5 text-sm font-bold text-indigo-600">{segment.chord}</span>
+            <span className="mb-0.5 text-sm font-bold text-cem-amber">{segment.chord}</span>
           )}
-          {segment.text && <span className="text-gray-800">{segment.text}</span>}
+          {segment.text && <span className="text-cem-text">{segment.text}</span>}
         </span>
       ))}
     </div>
@@ -39,10 +39,10 @@ export default function ChordProRenderer({ parsed }) {
   const { title, artist, key, sections = [] } = parsed
 
   return (
-    <div className="rounded-lg border bg-white p-6 shadow-sm">
-      {title && <h2 className="text-xl font-bold text-gray-900">{title}</h2>}
+    <div className="rounded-lg border border-cem-elevated bg-cem-surface p-6 shadow-sm">
+      {title && <h2 className="text-xl font-bold text-cem-text">{title}</h2>}
       {(artist || key) && (
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-cem-secondary">
           {[artist, key && `Key: ${key}`].filter(Boolean).join(' · ')}
         </p>
       )}
@@ -51,12 +51,12 @@ export default function ChordProRenderer({ parsed }) {
         {sections.map((section, i) => (
           <div key={i}>
             {section.type === 'section' && (
-              <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-500">
+              <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-cem-secondary">
                 {section.lines[0]?.text}
               </h3>
             )}
             {section.type === 'comment' && (
-              <p className="italic text-gray-500">{section.lines.map((line) => line.text).join(' ')}</p>
+              <p className="italic text-cem-secondary">{section.lines.map((line) => line.text).join(' ')}</p>
             )}
             {section.type === 'lyrics' && (
               <div className="space-y-0.5">

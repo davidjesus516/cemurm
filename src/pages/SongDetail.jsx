@@ -8,9 +8,9 @@ import ChordProRenderer from '../components/notation/ChordProRenderer.jsx'
 /* eslint-disable react/prop-types */
 
 const STATUS_STYLES = {
-  ready: 'bg-green-100 text-green-800',
-  draft: 'bg-amber-100 text-amber-800',
-  retired: 'bg-gray-100 text-gray-500',
+  ready: 'bg-cem-emerald/10 text-cem-emerald',
+  draft: 'bg-cem-amber/10 text-cem-amber',
+  retired: 'bg-cem-elevated text-cem-secondary',
 }
 
 function StatusBadge({ status }) {
@@ -24,7 +24,7 @@ function StatusBadge({ status }) {
 function TransitionLine({ t }) {
   const date = new Date(t.at).toLocaleDateString()
   return (
-    <li className="text-xs text-gray-500">
+    <li className="text-xs text-cem-secondary">
       {t.to.charAt(0).toUpperCase() + t.to.slice(1)} ← {t.from.charAt(0).toUpperCase() + t.from.slice(1)} · {date}
       {t.reason ? ` (${t.reason})` : ''}
     </li>
@@ -82,13 +82,13 @@ export default function SongDetail() {
     setSong(reactivated)
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading song…</p>
+  if (loading) return <p className="text-sm text-cem-secondary">Loading song…</p>
 
   if (error && !song) {
     return (
       <div>
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-        <Link to="/songs" className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:underline">
+        <p className="rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>
+        <Link to="/songs" className="mt-4 inline-block text-sm font-medium text-cem-amber hover:underline">
           Back to repertoire
         </Link>
       </div>
@@ -100,21 +100,21 @@ export default function SongDetail() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/songs" className="text-sm font-medium text-indigo-600 hover:underline">
+      <Link to="/songs" className="text-sm font-medium text-cem-amber hover:underline">
         ← Back to repertoire
       </Link>
 
       <div className="mt-3 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{song.title}</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-cem-text">{song.title}</h1>
+          <p className="mt-1 text-sm text-cem-secondary">
             {[song.key, song.bpm && `${song.bpm} BPM`].filter(Boolean).join(' · ') ||
               'No key or BPM set'}
           </p>
           <div className="mt-1 flex items-center gap-2">
             <StatusBadge status={song.status} />
             {song.status === 'draft' && (
-              <span className="text-xs text-amber-600">{computeReadiness(song).reason}</span>
+              <span className="text-xs text-cem-amber">{computeReadiness(song).reason}</span>
             )}
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function SongDetail() {
             <button
               type="button"
               onClick={startEditing}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-text hover:bg-cem-elevated"
             >
               Edit chart
             </button>
@@ -132,7 +132,7 @@ export default function SongDetail() {
             <button
               type="button"
               onClick={handleReactivate}
-              className="rounded-md border border-green-300 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-50"
+              className="rounded-md border border-cem-emerald/40 px-3 py-1.5 text-sm font-medium text-cem-emerald hover:bg-cem-emerald/10"
             >
               Reactivate
             </button>
@@ -140,7 +140,7 @@ export default function SongDetail() {
             <button
               type="button"
               onClick={handleRetire}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-50"
+              className="rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-secondary hover:bg-cem-elevated"
             >
               Retire
             </button>
@@ -149,8 +149,8 @@ export default function SongDetail() {
       </div>
 
       {transitions.length > 0 && (
-        <div className="mt-4 rounded-md bg-gray-50 px-3 py-2">
-          <p className="mb-1 text-xs font-medium text-gray-600">Transition history</p>
+        <div className="mt-4 rounded-md bg-cem-elevated px-3 py-2">
+          <p className="mb-1 text-xs font-medium text-cem-secondary">Transition history</p>
           <ul className="space-y-0.5">
             {[...transitions].reverse().map((t, i) => (
               <TransitionLine key={i} t={t} />
@@ -161,7 +161,7 @@ export default function SongDetail() {
 
       {editing ? (
         <form onSubmit={handleSave} className="mt-6 space-y-3">
-          <label htmlFor="song-body" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="song-body" className="block text-sm font-medium text-cem-text">
             ChordPro text
           </label>
           <textarea
@@ -170,14 +170,14 @@ export default function SongDetail() {
             onChange={(e) => setBody(e.target.value)}
             rows={12}
             placeholder={`{title: ${song.title}}\n[C]Lyric line with [G7]chords…`}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 font-mono text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-cem-rose">{error}</p>}
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+              className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
             >
               {saving ? 'Saving…' : 'Save chart'}
             </button>
@@ -185,7 +185,7 @@ export default function SongDetail() {
               type="button"
               onClick={() => { setEditing(false); setError('') }}
               disabled={saving}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
             >
               Cancel
             </button>
@@ -196,15 +196,15 @@ export default function SongDetail() {
           <ChordProRenderer parsed={parseChordPro(song.body)} />
         </div>
       ) : (
-        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-          <h2 className="text-base font-semibold text-gray-900">No chord chart yet</h2>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="mt-6 rounded-lg border border-dashed border-cem-elevated bg-cem-surface p-8 text-center">
+          <h2 className="text-base font-semibold text-cem-text">No chord chart yet</h2>
+          <p className="mt-1 text-sm text-cem-secondary">
             Paste ChordPro text to see chords rendered above the lyrics.
           </p>
           <button
             type="button"
             onClick={startEditing}
-            className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="mt-4 rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
           >
             Add ChordPro text
           </button>

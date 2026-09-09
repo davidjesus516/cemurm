@@ -42,12 +42,12 @@ export default function Setlists() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Setlists</h1>
+        <h1 className="text-2xl font-bold text-cem-text">Setlists</h1>
         {!showForm && (
           <button
             type="button"
             onClick={() => { setShowForm(true); setError('') }}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
           >
             New Setlist
           </button>
@@ -61,12 +61,12 @@ export default function Setlists() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Setlist name (e.g. Friday Gig)"
-            className="w-full max-w-sm rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full max-w-sm rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
           />
           <button
             type="submit"
             disabled={busy || !name.trim()}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
           >
             {busy ? 'Creating…' : 'Create'}
           </button>
@@ -74,7 +74,7 @@ export default function Setlists() {
             type="button"
             onClick={() => setShowForm(false)}
             disabled={busy}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
           >
             Cancel
           </button>
@@ -82,31 +82,31 @@ export default function Setlists() {
       )}
 
       {error && (
-        <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>
       )}
 
       {loading ? (
-        <p className="mt-6 text-sm text-gray-500">Loading setlists…</p>
+        <p className="mt-6 text-sm text-cem-secondary">Loading setlists…</p>
       ) : setlists.length === 0 ? (
-        <p className="mt-6 text-sm text-gray-500">No setlists yet. Create your first one above.</p>
+        <p className="mt-6 text-sm text-cem-secondary">No setlists yet. Create your first one above.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-gray-200 rounded-lg border bg-white shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
           {setlists.map((setlist) => (
             <li key={setlist.id} className="flex items-center justify-between gap-4 px-4 py-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Link
                     to={`/setlists/${setlist.id}`}
-                    className="text-sm font-medium text-gray-900 hover:text-indigo-600"
+                    className="text-sm font-medium text-cem-text hover:text-cem-amber"
                   >
                     {setlist.name}
                   </Link>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-cem-secondary">
                     {setlist.itemIds.length} song{setlist.itemIds.length === 1 ? '' : 's'} · {setlist.durationLabel}
                   </span>
                 </div>
                 {setlist.songs.length > 0 && (
-                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                  <p className="mt-0.5 truncate text-xs text-cem-secondary">
                     {setlist.songs.map((s) => s.title).join(' · ')}
                   </p>
                 )}
@@ -115,14 +115,14 @@ export default function Setlists() {
                 <button
                   type="button"
                   onClick={() => handleDuplicate(setlist)}
-                  className="text-xs font-medium text-indigo-600 hover:underline"
+                  className="text-xs font-medium text-cem-amber hover:underline"
                 >
                   Duplicate
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDelete(setlist)}
-                  className="text-xs font-medium text-red-600 hover:underline"
+                  className="text-xs font-medium text-cem-rose hover:underline"
                 >
                   Delete
                 </button>
