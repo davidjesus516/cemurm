@@ -1,7 +1,8 @@
 # CEMURM — Design System
 
-> **Status:** Proposed — pending user approval  
+> **Status:** Approved — palette, typography, and mascot concept finalized. Mascot artwork is a placeholder pending redesign (tracked in [#34](https://github.com/davidjesus516/cemurm/issues/34)).  
 > **Created:** 2026-09-06  
+> **Updated:** 2026-09-09  
 > **Supersedes:** nothing (first design system document)
 
 ---
@@ -155,6 +156,8 @@ module.exports = {
 ### 3.1 Decision
 
 **✅ APPROVED: Kutu — Ring-Tailed Lemur** (*Lemur catta*)
+
+> **⚠️ Artwork status:** the current design in `docs/mascot-concepts.html` is approved as a **placeholder only**. The concept (species, name, personality) is final; the illustration must be replaced with a final design per §3.5 — tracked in [#34](https://github.com/davidjesus516/cemurm/issues/34).
 
 Species chosen over Jovian/Indri lemur for higher cuteness factor, cultural recognition (King Julien / Penguins of Madagascar), and more expressive facial range for mascot emotions.
 
@@ -446,10 +449,11 @@ Every empty state follows the same pattern:
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Color palette | ⏳ Deferred to designer | "Slate & Ember" proposed, user's designer will finalize |
+| Color palette | ✅ Approved — "Slate & Ember" | Finalized by group decision, no longer pending designer |
 | Mascot species | ✅ Approved — Ring-tailed lemur | *Lemur catta* — King Julien recognition, highest expressiveness |
 | Mascot name | ✅ Approved — Kutu | CEMURM ≈ Lemur mnemonic |
-| Typography | ⏳ Deferred to designer | Inter proposed, user's designer will finalize |
+| Mascot artwork | ⚠️ Placeholder | Concept/name approved; current art is placeholder until final design — [#34](https://github.com/davidjesus516/cemurm/issues/34) |
+| Typography | ✅ Approved — Inter | Finalized by group decision, no longer pending designer |
 | Notification tone | ✅ Approved — Hybrid contextual | Informativo para edits, motivacional para logros |
 | Light mode | ✅ Approved — same palette, inverted | Awaiting designer review for accent adjustments |
 | Celebration sound | ❌ Undecided | Short chime? Musical note? Silent? |
