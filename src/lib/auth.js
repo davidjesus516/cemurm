@@ -1,59 +1,47 @@
-// Mock auth service.
-// Mirrors the future Supabase client surface so chunk C8 can swap the
-// implementation without touching the hook, guards, or UI.
-// Mock only: plaintext "passwords" in localStorage are fine for development.
+// Real auth service — Supabase GoTrue behind the unchanged mock surface.
+// Consumers (useAuth, AuthGuards, pages) keep working untouched: same exports,
+// same validation messages, same error.message contract. Credentials now live
+// server-side; nothing is stored in localStorage.
 
-const SESSION_KEY = 'cemurm.session'
-const USERS_KEY = 'cemurm.users'
-
-// Demo account — sign in with demo@cemurm.app / password1234
-const DEMO_USER = {
-  id: 'demo-user',
-  firstName: 'Demo',
-  lastName: 'User',
-  displayName: 'Demo User',
-  email: 'demo@cemurm.app',
-  password: 'password1234',
-}
+import { supabase } from './supabase.js'
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+// D1: one app-lifetime subscription keeps the session cache current across
+// sign-in, sign-out, and token refresh. Handle kept for teardown (HMR/tests).
+let cachedSession = null
 
-function readUsers() {
-  const raw = localStorage.getItem(USERS_KEY)
-  if (!raw) {
-    localStorage.setItem(USERS_KEY, JSON.stringify([DEMO_USER]))
-    return [DEMO_USER]
+const _unsubscribeAuth = supabase.auth
+  .onAuthStateChange((_event, session) => {
+    cachedSession = session
+  })
+  .data.subscription.unsubscribe
+
+// D3: application user shape — flat fields mapped from user_metadata.
+function mapUser(user) {
+  const metadata = user.user_metadata ?? {}
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: metadata.firstName ?? '',
+    lastName: metadata.lastName ?? '',
+    displayName: metadata.displayName || user.email,
   }
-  return JSON.parse(raw)
 }
 
-function writeUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
-
-function readSession() {
-  const raw = localStorage.getItem(SESSION_KEY)
-  if (!raw) return null
-  const session = JSON.parse(raw)
-  return session && session.user ? session : null
-}
-
-function toPublicUser(user) {
-  const { password: _password, ...publicUser } = user
-  return publicUser
-}
-
-function persistSession(user) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ user: toPublicUser(user) }))
+// D2: branch ONLY on error.code — messages/status vary by transport. Codes not
+// listed (incl. network errors without a code) fall back to the generic message.
+function toAuthError(error) {
+  const messages = {
+    user_already_exists: 'An account with this email already exists.',
+    invalid_credentials: 'Invalid email or password.',
+    '42501': 'You do not have permission to perform this action.',
+  }
+  return new Error(messages[error?.code] || 'Something went wrong. Please try again.')
 }
 
 export async function signUp({ firstName, lastName, displayName, email, password }) {
-  await delay(400)
-
+  // Same local validation and messages as the mock, kept client-side (D4).
   const normalizedEmail = email.trim().toLowerCase()
   if (!EMAIL_RE.test(normalizedEmail)) {
     throw new Error('Enter a valid email address.')
@@ -62,48 +50,55 @@ export async function signUp({ firstName, lastName, displayName, email, password
     throw new Error('Password must be at least 8 characters.')
   }
 
-  const users = readUsers()
-  if (users.some((user) => user.email === normalizedEmail)) {
-    throw new Error('An account with this email already exists.')
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: { data: { firstName, lastName, displayName } },
+    })
+    if (error) throw error
+    // D1/D4: keep the session cache in sync. With email confirmation enabled,
+    // signUp resolves with no session; a stale cached session from a previous
+    // sign-in must not survive as the current identity.
+    cachedSession = data?.session ?? null
+    // D4: session user when present, else the created user (session-less signup).
+    const supabaseUser = data?.session?.user ?? data?.user
+    return supabaseUser ? mapUser(supabaseUser) : null
+  } catch (error) {
+    throw toAuthError(error)
   }
-
-  const user = {
-    id: crypto.randomUUID(),
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
-    displayName: displayName.trim(),
-    email: normalizedEmail,
-    // Mock only — Supabase stores credentials server-side (chunk C8).
-    password,
-  }
-  writeUsers([...users, user])
-  // Registration signs the user in immediately, per the auth spec.
-  persistSession(user)
-  return toPublicUser(user)
 }
 
 export async function signIn({ email, password }) {
-  await delay(400)
-
-  const normalizedEmail = email.trim().toLowerCase()
-  const user = readUsers().find(
-    (u) => u.email === normalizedEmail && u.password === password,
-  )
-  if (!user) {
-    throw new Error('Invalid email or password.')
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+    if (error) throw error
+    return data?.session?.user ? mapUser(data.session.user) : null
+  } catch (error) {
+    throw toAuthError(error)
   }
-  persistSession(user)
-  return toPublicUser(user)
 }
 
 export async function signOut() {
-  await delay(150)
-  localStorage.removeItem(SESSION_KEY)
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+  } catch (error) {
+    throw toAuthError(error)
+  }
 }
 
-// Returns the persisted session ({ user }) or null, mirroring Supabase getSession.
+// D1: cached session when present, else the authoritative getSession read.
 export async function getSession() {
-  return readSession()
+  if (cachedSession) {
+    return cachedSession.user ? { user: mapUser(cachedSession.user) } : null
+  }
+  const { data } = await supabase.auth.getSession()
+  cachedSession = data.session
+  return data.session?.user ? { user: mapUser(data.session.user) } : null
 }
 
 export async function getCurrentUser() {
