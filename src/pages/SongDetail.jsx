@@ -25,7 +25,7 @@ function TransitionLine({ t }) {
   const date = new Date(t.at).toLocaleDateString()
   return (
     <li className="text-xs text-cem-secondary">
-      {t.to.charAt(0).toUpperCase() + t.to.slice(1)} ← {t.from.charAt(0).toUpperCase() + t.from.slice(1)} · {date}
+      {(t.to || '?').charAt(0).toUpperCase() + (t.to || '?').slice(1)} ← {(t.from || '?').charAt(0).toUpperCase() + (t.from || '?').slice(1)} · {date}
       {t.reason ? ` (${t.reason})` : ''}
     </li>
   )
