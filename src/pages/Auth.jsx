@@ -4,9 +4,9 @@ import { useAuth } from '../hooks/useAuth.jsx'
 import { EMAIL_RE } from '../lib/auth.js'
 
 const inputClass =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber disabled:bg-cem-elevated'
 
-const inputErrorClass = 'border-red-300'
+const inputErrorClass = 'border-cem-rose/40'
 
 function Auth() {
   const { signIn, signUp } = useAuth()
@@ -105,7 +105,7 @@ function Auth() {
     const hasError = Boolean(errors[name])
     return (
       <div>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700">
+        <label htmlFor={name} className="block text-sm font-medium text-cem-text">
           {label}
         </label>
         <input
@@ -119,17 +119,17 @@ function Auth() {
           aria-invalid={hasError}
           className={`${inputClass} ${hasError ? inputErrorClass : ''}`}
         />
-        {hasError && <p className="mt-1 text-xs text-red-600">{errors[name]}</p>}
+        {hasError && <p className="mt-1 text-xs text-cem-rose">{errors[name]}</p>}
       </div>
     )
   }
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900">
+      <h1 className="text-2xl font-bold text-cem-text">
         {isSignUp ? 'Create Account' : 'Sign In'}
       </h1>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-sm text-cem-secondary">
         {isSignUp
           ? 'Join CEMURM to manage your repertoire and setlists.'
           : 'Welcome back — sign in to continue.'}
@@ -138,10 +138,10 @@ function Auth() {
       <form
         noValidate
         onSubmit={handleSubmit}
-        className="mt-6 space-y-4 rounded-lg bg-white p-6 shadow"
+        className="mt-6 space-y-4 rounded-lg bg-cem-surface p-6 shadow"
       >
         {formError && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p role="alert" className="rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
             {formError}
           </p>
         )}
@@ -169,7 +169,7 @@ function Auth() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="w-full rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
         >
           {isSubmitting
             ? isSignUp
@@ -181,12 +181,12 @@ function Auth() {
         </button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-gray-600">
+      <p className="mt-4 text-center text-sm text-cem-secondary">
         {isSignUp ? 'Already have an account? ' : 'New to CEMURM? '}
         <button
           type="button"
           onClick={() => switchMode(isSignUp ? 'signin' : 'signup')}
-          className="font-medium text-indigo-600 hover:underline"
+          className="font-medium text-cem-amber hover:underline"
         >
           {isSignUp ? 'Sign in' : 'Create an account'}
         </button>

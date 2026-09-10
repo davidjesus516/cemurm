@@ -9,9 +9,9 @@ import SongForm from '../components/songs/SongForm.jsx'
 /* eslint-disable react/prop-types */
 
 const STATUS_STYLES = {
-  ready: 'bg-green-100 text-green-800',
-  draft: 'bg-amber-100 text-amber-800',
-  retired: 'bg-gray-100 text-gray-500',
+  ready: 'bg-cem-emerald/10 text-cem-emerald',
+  draft: 'bg-cem-amber/10 text-cem-amber',
+  retired: 'bg-cem-elevated text-cem-secondary',
 }
 
 function StatusBadge({ status }) {
@@ -85,12 +85,12 @@ export default function Songs() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Repertoire</h1>
+        <h1 className="text-2xl font-bold text-cem-text">Repertoire</h1>
         {!showForm && !editing && (
           <button
             type="button"
             onClick={() => { setShowForm(true); setError('') }}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
           >
             Add Song
           </button>
@@ -98,18 +98,18 @@ export default function Songs() {
       </div>
 
       {/* Active / Retired toggle */}
-      <div className="mt-4 flex gap-1 rounded-md border border-gray-200 p-0.5" style={{ width: 'fit-content' }}>
+      <div className="mt-4 flex gap-1 rounded-md border border-cem-elevated p-0.5" style={{ width: 'fit-content' }}>
         <button
           type="button"
           onClick={() => setRetiredView(false)}
-          className={`rounded px-3 py-1 text-sm font-medium ${!retiredView ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+          className={`rounded px-3 py-1 text-sm font-medium ${!retiredView ? 'bg-cem-amber text-cem-base' : 'text-cem-secondary hover:bg-cem-elevated'}`}
         >
           Active
         </button>
         <button
           type="button"
           onClick={() => setRetiredView(true)}
-          className={`rounded px-3 py-1 text-sm font-medium ${retiredView ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+          className={`rounded px-3 py-1 text-sm font-medium ${retiredView ? 'bg-cem-amber text-cem-base' : 'text-cem-secondary hover:bg-cem-elevated'}`}
         >
           Retired
         </button>
@@ -122,12 +122,12 @@ export default function Songs() {
             value={search}
             onChange={handleSearch}
             placeholder="Search by title or chord…"
-            className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
           />
           <select
             value={keyFilter}
             onChange={(e) => setKeyFilter(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
           >
             <option value="">All keys</option>
             {keys.map((k) => (
@@ -139,10 +139,10 @@ export default function Songs() {
             value={tempo}
             onChange={handleTempo}
             placeholder="Tempo range, e.g. 70-100"
-            className="w-44 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-44 rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
           />
           {keyFilter && (
-            <span className="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
+            <span className="rounded-md bg-cem-amber/10 px-2 py-1 text-xs font-medium text-cem-amber">
               {keyCount} songs in {keyFilter}
             </span>
           )}
@@ -150,33 +150,33 @@ export default function Songs() {
       )}
 
       {error && (
-        <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>
       )}
 
       {showForm && (
         <div className="mt-4">
-          <h2 className="mb-2 text-lg font-semibold text-gray-900">New Song</h2>
+          <h2 className="mb-2 text-lg font-semibold text-cem-text">New Song</h2>
           <SongForm onSubmit={handleAdd} onCancel={() => setShowForm(false)} submitLabel="Add Song" />
         </div>
       )}
 
       {editing && (
         <div className="mt-4">
-          <h2 className="mb-2 text-lg font-semibold text-gray-900">Edit Song</h2>
+          <h2 className="mb-2 text-lg font-semibold text-cem-text">Edit Song</h2>
           <SongForm initial={editing} onSubmit={handleUpdate} onCancel={() => setEditing(null)} submitLabel="Save Changes" />
         </div>
       )}
 
       {loading ? (
-        <p className="mt-6 text-sm text-gray-500">Loading repertoire…</p>
+        <p className="mt-6 text-sm text-cem-secondary">Loading repertoire…</p>
       ) : visible.length === 0 ? (
-        <p className="mt-6 text-sm text-gray-500">
+        <p className="mt-6 text-sm text-cem-secondary">
           {retiredView
             ? 'No retired songs.'
             : filtersActive ? 'No results — try adjusting your filters.' : 'No songs yet. Add your first song above.'}
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-gray-200 rounded-lg border bg-white shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
           {visible.map((song) => {
             const matched = matchedChords(song, search)
             return (
@@ -184,22 +184,22 @@ export default function Songs() {
                 <div>
                   <Link
                     to={`/songs/${song.id}`}
-                    className="text-sm font-medium text-gray-900 hover:text-indigo-600"
+                    className="text-sm font-medium text-cem-text hover:text-cem-amber"
                   >
                     {song.title}
                   </Link>
                   <StatusBadge status={song.status} />
                   {matched.length > 0 && (
-                    <span className="ml-2 inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                    <span className="ml-2 inline-block rounded-full bg-cem-amber/10 px-2 py-0.5 text-xs font-medium text-cem-amber">
                       matched chord: {matched.join(', ')}
                     </span>
                   )}
-                  {song.key && <span className="ml-2 text-xs text-gray-500">{song.key}</span>}
-                  {song.bpm && <span className="ml-2 text-xs text-gray-500">{song.bpm} BPM</span>}
-                  {song.durationSeconds && <span className="ml-2 text-xs text-gray-500">{formatDuration(song.durationSeconds)}</span>}
-                  {song.hasChordChart && <span className="ml-2 text-xs text-indigo-500">♫</span>}
+                  {song.key && <span className="ml-2 text-xs text-cem-secondary">{song.key}</span>}
+                  {song.bpm && <span className="ml-2 text-xs text-cem-secondary">{song.bpm} BPM</span>}
+                  {song.durationSeconds && <span className="ml-2 text-xs text-cem-secondary">{formatDuration(song.durationSeconds)}</span>}
+                  {song.hasChordChart && <span className="ml-2 text-xs text-cem-amber">♫</span>}
                   {song.status === 'draft' && !retiredView && (
-                    <p className="mt-0.5 text-xs text-amber-600">{computeReadiness(song).reason}</p>
+                    <p className="mt-0.5 text-xs text-cem-amber">{computeReadiness(song).reason}</p>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -207,7 +207,7 @@ export default function Songs() {
                     <button
                       type="button"
                       onClick={() => handleReactivate(song)}
-                      className="text-xs font-medium text-green-600 hover:underline"
+                      className="text-xs font-medium text-cem-emerald hover:underline"
                     >
                       Reactivate
                     </button>
@@ -216,14 +216,14 @@ export default function Songs() {
                       <button
                         type="button"
                         onClick={() => startEdit(song)}
-                        className="text-xs font-medium text-indigo-600 hover:underline"
+                        className="text-xs font-medium text-cem-amber hover:underline"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRetire(song)}
-                        className="text-xs font-medium text-gray-500 hover:underline"
+                        className="text-xs font-medium text-cem-secondary hover:underline"
                       >
                         Retire
                       </button>
@@ -232,7 +232,7 @@ export default function Songs() {
                   <button
                     type="button"
                     onClick={() => handleDelete(song)}
-                    className="text-xs font-medium text-red-600 hover:underline"
+                    className="text-xs font-medium text-cem-rose hover:underline"
                   >
                     Delete
                   </button>

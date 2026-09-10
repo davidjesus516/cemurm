@@ -8,7 +8,7 @@ const navLinks = [
 ]
 
 const linkClass = ({ isActive }) =>
-  `text-sm font-medium ${isActive ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`
+  `text-sm font-medium ${isActive ? 'text-cem-amber' : 'text-cem-secondary hover:text-cem-text'}`
 
 function AppLayout() {
   const { user, signOut } = useAuth()
@@ -20,10 +20,10 @@ function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="bg-white shadow">
+    <div className="min-h-screen flex flex-col bg-cem-base">
+      <header className="bg-cem-surface shadow">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <NavLink to="/" className="text-xl font-bold text-gray-900">
+          <NavLink to="/" className="text-xl font-bold text-cem-text">
             CEMURM
           </NavLink>
           <div className="flex items-center gap-4">
@@ -35,12 +35,12 @@ function AppLayout() {
               ))}
             </nav>
             {user ? (
-              <div className="flex items-center gap-4 border-l border-gray-200 pl-4">
-                <span className="text-sm font-medium text-gray-700">{user.displayName}</span>
+              <div className="flex items-center gap-4 border-l border-cem-elevated pl-4">
+                <span className="text-sm font-medium text-cem-text">{user.displayName}</span>
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                  className="text-sm font-medium text-cem-secondary hover:text-cem-text"
                 >
                   Log Out
                 </button>
@@ -58,8 +58,8 @@ function AppLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-white border-t">
-        <div className="max-w-7xl mx-auto px-4 py-4 text-center text-xs text-gray-400">
+      <footer className="bg-cem-surface border-t border-cem-elevated">
+        <div className="max-w-7xl mx-auto px-4 py-4 text-center text-xs text-cem-secondary">
           CEMURM &mdash; Community-Centered Musical Repertories Manager
         </div>
       </footer>
