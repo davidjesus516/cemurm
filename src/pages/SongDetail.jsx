@@ -120,13 +120,21 @@ export default function SongDetail() {
         </div>
         <div className="flex gap-2">
           {!isRetired && !editing && song.body && (
-            <button
-              type="button"
-              onClick={startEditing}
-              className="rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-text hover:bg-cem-elevated"
-            >
-              Edit chart
-            </button>
+            <>
+              <Link
+                to={`/songs/${id}/practice`}
+                className="rounded-md border border-cem-emerald/40 px-3 py-1.5 text-sm font-medium text-cem-emerald hover:bg-cem-emerald/10"
+              >
+                Practice
+              </Link>
+              <button
+                type="button"
+                onClick={startEditing}
+                className="rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-text hover:bg-cem-elevated"
+              >
+                Edit chart
+              </button>
+            </>
           )}
           {isRetired ? (
             <button

@@ -2,14 +2,14 @@
 
 ## Timeline Overview
 
-| Hito | Months | Focus |
-|------|--------|-------|
-| 1 | 1–2 | Core Viewer + Auth |
-| 2 | 3–4 | Stage Mode |
-| 3 | 5–6 | Collaboration |
-| 4 | 7–8 | Basic Community |
-| 5 | 9–10 | Integrations |
-| 6 | 11–12 | Beta Polish |
+| Hito | Months | Focus              |
+| ---- | ------ | ------------------ |
+| 1    | 1–2    | Core Viewer + Auth |
+| 2    | 3–4    | Stage Mode         |
+| 3    | 5–6    | Collaboration      |
+| 4    | 7–8    | Basic Community    |
+| 5    | 9–10   | Integrations       |
+| 6    | 11–12  | Beta Polish        |
 
 ---
 
