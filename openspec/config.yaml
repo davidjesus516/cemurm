@@ -1,0 +1,55 @@
+schema: spec-driven
+
+context: |
+  PWA for musicians: repertoires, setlists, live performance, offline-first (Vite 5 + React 18 JSX + Tailwind 3, react-router-dom 7).
+  Backend: local Supabase (supabase start, API 127.0.0.1:54321), schema v2 in supabase/migrations/0001_init.sql (48 tables).
+  Product source of truth: features/*.feature (42 Gherkin), docs/database-schema-v2.md, docs/technical-spec.md.
+  Package manager: pnpm v11 (lockfile pnpm-lock.yaml; never npm install).
+  NO test framework, NO typecheck, NO CI — strict TDD disabled, no-runner fallback.
+
+strict_tdd: false
+
+projects:
+  - path: "."
+    stack: "Vite 5 + React 18 JSX + Tailwind 3 + @supabase/supabase-js 2.116"
+    test_command: ""
+    test_framework: ""
+    coverage_command: ""
+    lint_command: "pnpm lint"
+    typecheck_command: ""
+    format_command: ""
+
+testing:
+  test_runner: false
+  unit: false
+  integration: false
+  e2e: false
+  coverage: false
+  notes: >
+    No workspace-level test command exists; package.json scripts are dev/build/preview/lint only.
+    strict_tdd: false per no-runner fallback — do NOT invent or synthesize a test runner.
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios; RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - features/*.feature is the product source of truth; delta specs must align with it
+  design:
+    - Follow docs/technical-spec.md and src/ layout (components/, pages/, hooks/, lib/, store/, utils/)
+    - JSX, not TSX; Tailwind only (no CSS modules, styled-components, or inline styles)
+  tasks:
+    - Group by phase, hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Conventional Commits; feature branches from main (CONTRIBUTING.md)
+      - pnpm only; lint must pass with zero warnings
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: "pnpm build"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
