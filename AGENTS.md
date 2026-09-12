@@ -2,7 +2,7 @@
 
 ## What this is
 
-PWA for musicians: repertoires, setlists, live performance, offline-first. Early stage — the app shell is a placeholder (`src/App.jsx`). Backend (Supabase) not yet integrated.
+PWA for musicians: repertoires, setlists, live performance, offline-first. Hito 1 (core viewer + auth) is implemented: React Router shell, ChordPro parser/renderer, song/setlist CRUD + basic search (localStorage mocks), thin practice view, and a local Supabase stack (48-table schema, RLS, GoTrue auth) wired through `src/lib/supabase.js` / `src/lib/auth.js`. Offline-first surfaces (stage mode, service worker, offline queue) are planned, not built — the `outbox` table is schema-only today.
 
 ## Commands
 
@@ -30,7 +30,7 @@ No test framework, no typecheck, no CI workflows. Don't look for them.
 ## Entry points
 
 - `src/main.jsx` — React root, mounts `<App />`.
-- `src/App.jsx` — app shell (currently placeholder).
+- `src/App.jsx` — router (routes: `/`, `/songs`, `/songs/:id`, `/songs/:id/practice`, `/setlists`, `/setlists/:id`, `/auth`, `*`) with auth guards.
 - `index.html` — Vite entry, loads `src/main.jsx`.
 
 ## Project layout
@@ -45,13 +45,16 @@ src/
 └── utils/          # Pure utility functions
 ```
 
-Most of these directories don't exist yet. When creating new files, follow this structure.
+`components/`, `pages/`, `hooks/`, `lib/` are populated; `store/` and `utils/` are not (yet). New files follow this structure.
 
 ## Specs & docs
 
 - `features/*.feature` — 42 Gherkin BDD specs defining the full product. Read these to understand what the app should do.
 - `docs/technical-spec.md` — architecture, tech choices, database schema.
+- `docs/database-schema-v2.md` — 48-table data model contract; implemented verbatim in `supabase/migrations/0001_init.sql` (+ RLS in `0002_rls_core.sql`).
 - `docs/mvp-scope.md` — milestone plan (Hito 1–6, 12-month timeline).
+- `openspec/` — archived main specs for the two completed changes: `openspec/specs/row-level-security/spec.md`, `openspec/specs/user-auth/spec.md`.
+- `docs/local-dev.md` — local Supabase stack: start/reset/stop, seed identities, `.env.local` vars.
 - `CONTRIBUTING.md` — branch/commit/PR conventions.
 
 ## Conventions
@@ -59,12 +62,12 @@ Most of these directories don't exist yet. When creating new files, follow this 
 - **Conventional Commits**: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`.
 - Feature branches from `main` (`feat/my-feature`).
 - PRs: focused on one change, reference issues, lint must pass.
-- **Proprietary license** — no open-source assumptions.
+- **License**: MIT — see `LICENSE`.
 
 ## Gotchas for agents
 
 - Lockfile is `pnpm-lock.yaml` (already committed). Use `pnpm` for everything.
 - `pnpm-workspace.yaml` holds `allowBuilds` (postinstall scripts are blocked by default; approve explicitly there).
-- No `.env` files exist yet. Supabase integration is future work.
+- `.env.local` (gitignored) supplies `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` for the local Supabase instance; `src/lib/supabase.js` throws if either is missing. Local stack config lives in `supabase/config.toml` (`supabase start`).
 - The `features/` directory is your product spec source of truth, not the README.
 - Tailwind config scans `src/**/*.{js,ts,jsx,tsx}` — but everything is `.js`/`.jsx` today.

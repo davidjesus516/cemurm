@@ -46,17 +46,18 @@ Whether you gig solo or play in a band, CEMURM keeps your repertoire in one plac
 
 CEMURM is in **active development**. During the beta period:
 
-- **Core features work**: You can create songs, build setlists, and use Stage Mode
+- **Core features work**: You can create songs, build setlists, and use the practice view (Stage Mode is a Hito 2 feature, not yet shipped)
 - **Some features are missing**: Collaboration, public library, and integrations are coming later
 - **You may encounter bugs**: That's expected! Please report everything you find
 - **Your feedback shapes the product**: We prioritize features based on beta user input
 
-### Current Beta Scope (Hito 1–2)
-- ✅ Sign up / sign in (email, Google, GitHub)
+### Current Beta Scope (Hito 1 — implemented)
+- ✅ Sign up / sign in (email/password; Google + GitHub OAuth pending)
 - ✅ Create and edit songs (ChordPro format)
 - ✅ Build and manage setlists
-- ✅ Stage Mode with transposition
-- ✅ Offline support
+- ✅ Basic practice view with transposition (thin Hito 1 slice)
+- 🕓 Stage Mode with transposition — Hito 2, not yet shipped
+- 🕓 Offline support — Hito 2, not yet shipped
 - Following hitos: Collaboration (Hito 3) and Public library (Hito 4) — not in this beta scope, coming later
 
 ## How to Give Feedback

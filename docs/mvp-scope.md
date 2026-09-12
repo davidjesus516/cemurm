@@ -87,6 +87,8 @@ Keeping them together in one hito would overload it; the split honors the depend
 
 ## Hito 1 — Core Viewer + Auth (Months 1–2)
 
+**Implementation status: complete** — email/password auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search (localStorage mocks), practice view, schema + owner-scoped RLS deployed (`supabase/migrations/`). Caveats: Google/GitHub OAuth pending; hosted Supabase not wired (local-only).
+
 ### Objectives
 - Build the foundational app shell with routing and authentication
 - Implement ChordPro parser and renderer as the primary format
@@ -94,18 +96,18 @@ Keeping them together in one hito would overload it; the split honors the depend
 - Establish the Supabase backend and database schema
 
 ### Deliverables
-- [ ] React app with Vite, Tailwind, and React Router
-- [ ] Supabase Auth integration (email/password + Google OAuth + GitHub OAuth)
-- [ ] ChordPro parser (text → structured data) and renderer (structured data → styled React components)
-- [ ] Song CRUD: create, read, update, delete songs
-- [ ] Setlist CRUD: create setlists, add/remove/reorder songs
-- [ ] Basic search: filter songs by title, artist, genre
-- [ ] Basic practice view: render a song at the performer's chosen practice key and tempo (a thin slice of the practice-mode surface; the full metronome, auto-scroll, and session-tracking analytics are deferred to a later hito)
-- [ ] Responsive layout: works on desktop, tablet, and mobile
-- [ ] Database schema deployed with RLS policies
+- [x] React app with Vite, Tailwind, and React Router
+- [x] Supabase Auth integration (email/password live; Google + GitHub OAuth pending — all external providers are disabled in `supabase/config.toml`)
+- [x] ChordPro parser (text → structured data) and renderer (structured data → styled React components)
+- [x] Song CRUD: create, read, update, delete songs (localStorage mock — `src/lib/songs.js`)
+- [x] Setlist CRUD: create setlists, add/remove/reorder songs (localStorage mock — `src/lib/setlists.js`)
+- [x] Basic search: filter songs by title, artist, genre (local filters — `src/lib/search.js`)
+- [x] Basic practice view: render a song at the performer's chosen practice key and tempo (a thin slice of the practice-mode surface; the full metronome, auto-scroll, and session-tracking analytics are deferred to a later hito)
+- [x] Responsive layout: works on desktop, tablet, and mobile
+- [x] Database schema deployed with RLS policies (48 tables, 6 enums, 34 policies — `supabase/migrations/`)
 
 ### Demo Description
-A user can sign up with email or Google, create a song by pasting ChordPro text, see it rendered with chords highlighted above lyrics, add it to a setlist, reorder songs in the setlist, and search across their library.
+A user can sign up with email (Google/GitHub OAuth pending), create a song by pasting ChordPro text, see it rendered with chords highlighted above lyrics, add it to a setlist, reorder songs in the setlist, and search across their library.
 
 ### BDD coverage
 Authentication and profile management are specified in `features/authentication-and-profiles.feature`; song and setlist CRUD are specified in `features/repertoire-mgmt.feature` and `features/setlist-creation.feature`; basic search is specified in `features/search-and-discovery.feature`; the song state model (draft/ready/retired/deleted) that underpins CRUD is specified in `features/song-lifecycle.feature`. Hito 1 covers only the state-model scenarios of that file — chart readiness (draft↔ready with the "missing lyrics / missing base key / no chord chart" validations and per-version readiness) and retire/archive/reactivate. The feature's version-history & rollback scenarios and its duplicate-detection & merge scenarios are **deferred to Hito 3** (they are collaboration-grade work — immutable version audit trails and merge lineage — outside Hito 1's "state model underpins CRUD" scope).
@@ -119,6 +121,8 @@ Hito 1's basic practice view (rendering a song at the performer's practice key/t
 ---
 
 ## Hito 2 — Stage Mode (Months 3–4)
+
+**Implementation status: not started.**
 
 ### Objectives
 - Create a performance-optimized fullscreen view for live use
@@ -149,6 +153,8 @@ A musician loads a setlist, enters Stage Mode (fullscreen), swipes through songs
 
 ## Hito 3 — Collaboration (Months 5–6)
 
+**Implementation status: not started.**
+
 ### Objectives
 - Enable real-time collaboration on setlists between band members
 - Add annotation/comment system on songs
@@ -178,6 +184,8 @@ Real-time shared setlists are specified in `features/shared-setlist-collaboratio
 
 ## Hito 4 — Basic Community (Months 7–8)
 
+**Implementation status: not started.**
+
 ### Objectives
 - Build a public library of public domain and community-contributed songs
 - Enable importing songs from URLs
@@ -206,6 +214,8 @@ A new user browses the public library, finds "Amazing Grace" in ChordPro format,
 
 ## Hito 5 — Integrations (Months 9–10)
 
+**Implementation status: not started.**
+
 ### Objectives
 - Enable Web MIDI integration for program change commands
 - Support external display output for dual-screen setups
@@ -231,6 +241,8 @@ A musician performing live connects a MIDI controller. When they switch songs in
 ---
 
 ## Hito 6 — Beta Polish (Months 11–12)
+
+**Implementation status: not started.**
 
 ### Objectives
 - Optimize performance across all devices

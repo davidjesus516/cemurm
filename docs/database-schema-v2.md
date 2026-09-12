@@ -1,14 +1,14 @@
 # CEMURM — Database Schema v2 (Proposal)
 
-Status: **DRAFT — supersedes `docs/technical-spec.md` §4 if approved.** Written against the 42-feature/656-scenario Gherkin suite (`features/*.feature`), not against the tech-spec's own §4, which covers ~5 tables and an owner-only RLS model that cannot express the org/branch/public visibility the suite demands.
+Status: **IMPLEMENTED.** Schema v2 is live: DDL ported verbatim to `supabase/migrations/0001_init.sql`, RLS implemented in `0002_rls_core.sql` (34 owner-scoped policies over 48 tables). It supersedes `docs/technical-spec.md` §4 (approved 2026-09-01, merged via PR #10). Written against the 42-feature/656-scenario Gherkin suite (`features/*.feature`), not against the tech-spec's own §4, which covers ~5 tables and an owner-only RLS model that cannot express the org/branch/public visibility the suite demands.
 
-Conventions: PostgreSQL 15 (Supabase). UUID PKs (`gen_random_uuid()`), `TIMESTAMPTZ` time columns, `jsonb` for flexible/personal data, native enums for small closed domains, FKs with `ON DELETE` rules chosen per relationship. All rich text (charts, lyrics) stored as text / object storage — no binary blobs in the DB. Object storage (Supabase Storage / R2) holds chart files and avatars; tables only store object keys. No test framework, no implementation — this is a data model contract.
+Conventions: PostgreSQL (Supabase; local stack runs 17, per `supabase/config.toml`). UUID PKs (`gen_random_uuid()`), `TIMESTAMPTZ` time columns, `jsonb` for flexible/personal data, native enums for small closed domains, FKs with `ON DELETE` rules chosen per relationship. All rich text (charts, lyrics) stored as text / object storage — no binary blobs in the DB. Object storage (Supabase Storage / R2) holds chart files and avatars; tables only store object keys. No client test framework; the DDL is implemented (see migrations), this doc is the model contract.
 
 ---
 
 ## 1. Entity inventory
 
-44 entities grouped by domain. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
+48 tables implemented in `0001_init.sql`; the inventory below counts 44 named entities. Three inventory rows are not DDL tables — `roles` (#4) is the `role` enum type, `users` (#5) is `auth.users`, and `external_connections` (#41) is designed but not ported — while seven join/detail tables required by the DDL are unnumbered in the inventory (`user_roles`, `song_tags`, `setlist_collaborators`, `event_participants`, `event_setlists`, `performance_items`, `rehearsal_items`): 41 + 7 = 48. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
 
 ### 1.1 Tenancy spine
 
@@ -115,7 +115,7 @@ Personal chord substitutions are keyed to the CONCRETE chart chord (music-theory
 
 ## 2. Proposed schema v2
 
-Postgres 15 + Supabase conventions. `uuid` PKs (except `auth.users`-backed tables), `timestamptz`, `jsonb` where the shape is per-user/per-device, native enums for closed domains. Every core row carries `org_id` + `branch_id` (nullable) — the RLS scope columns; the tech-spec's single `tenant_id` is replaced by this pair because owner-org ≠ branch-scope.
+Postgres (local stack runs 17, per `supabase/config.toml`; design written against 15) + Supabase conventions. `uuid` PKs (except `auth.users`-backed tables), `timestamptz`, `jsonb` where the shape is per-user/per-device, native enums for closed domains. Every core row carries `org_id` + `branch_id` (nullable) — the RLS scope columns; the tech-spec's single `tenant_id` is replaced by this pair because owner-org ≠ branch-scope.
 
 ```sql
 -- ══════════════════════ 2.1 TENANCY ══════════════════════
@@ -718,6 +718,8 @@ The core deliverable. Matrix uses the scope columns from §2 (`org_id`, `branch_
 
 ### 3.1 Matrix
 
+> **Implementation status (2026-09):** only the owner-scoped subset is live (`0002_rls_core.sql` — 34 policies over 48 tables, helpers `is_org_member`, `user_branch_ids`, `session_role_in`, `session_owns_setlist`). The org/branch/system matrix below is the design target for later hitos, not yet implemented.
+
 | Object type | Readable by | Writable by | Scoped by | Feature citation |
 |---|---|---|---|---|
 | `organizations` | system admins + members of the org | system admin (create/disband, archive); org owner (profile edit) | `id` | organizational-repertoire-model "Org disbanded — repertoire transfer"; authentication-and-profiles org profile scenarios |
@@ -778,7 +780,9 @@ Product-owner resolutions 2026-09-01: event ownership → §4 D3; promote/edit o
 | `rehearsals` | May a rehearsal span multiple orgs (cross-org rehearsal in mixed-group events)? rehearsal-workflow is silent; cross-org events impose their own visibility. | **A7 — Yes, event-scoped rehearsals.** `rehearsals.scope` (`org` | `event`); event-scoped rehearsals exist for mixed-group events and inherit the event's visibility matrix, never org RLS. Org-scoped rehearsals stay org/branch as today. |
 | `audience_views` | The features say audience "receives push notification for setlist update" — requires an expiring token → user binding, but export-and-sharing's QR is anonymous. Which audience rows bind to which user (if any)? | **A8 — Anonymous by default; opt-in binding for push.** Every audience row is anonymous (token + expiry). Only a viewer who opts into "notify me on update" binds the row to a user/device via a push subscription; the push token is the only identity, and opt-in is revocable. |
 
-### 3.3 RLS policy sketches
+### 3.3 RLS policy sketches — *design target, not implemented*
+
+> These three sketches illustrate the FULL org/branch/system design target. The implemented owner-scoped slice (`0002_rls_core.sql` — 34 policies, 4 helpers) covers private/owner data only; the org/branch/system rows below are future work per `openspec/specs/row-level-security/spec.md`.
 
 Three representative cases, using Supabase/Postgres policy syntax with a `is_org_member(user_id, org_id)` helper (returns user's role within an org via `org_memberships`) and `user_branch_ids(user_id)` (set of branch ids the user belongs to). Full helper SQL is out of scope — the three policies are the contract:
 

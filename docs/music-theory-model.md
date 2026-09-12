@@ -178,7 +178,7 @@ Uses:
 
 Catalog is data; recognition is exact-match on declared degrees (no automatic analysis — see §10).
 
-The progression catalog is a fixed curated seed list bundled with the client (no schema entity needed). If extensibility is desired later, it would become entity #44.
+The progression catalog is a fixed curated seed list bundled with the client (no schema entity needed). If extensibility is desired later, it would become a new schema entity (the former "#44" slot is taken: `dmca_notices` is entity #44 in schema v2).
 
 ## 7. Chord-Scale Theory (improvisation hints)
 
