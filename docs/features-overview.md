@@ -13,50 +13,50 @@ The suite's deepest domain is **Personal Preferences and Adaptations**: it owns 
 
 ## Feature map
 
-| Feature | Scenarios | Core intent | Key areas |
-|---|---|---|---|
-| Personal Preferences and Adaptations | 39 | Canonical chart, personal rendering | Transpose/capo, versions, rebase, vocal range, conflicts |
-| Authentication and User Profiles | 31 | Secure auth + profile management | Registration, sessions/tokens, org profile, offline auth |
-| Minor Accounts and Guardian Consent | 10 | Under-18 accounts with guardian consent | Guardian consent, visibility restriction, org-only participation without public exposure |
-| Notifications and Activity Feed | 29 | Stay informed in collaboration | Invites, setlist/event alerts, preferences, offline queue |
-| Export and Sharing | 23 | Multi-format export + audience sharing | PDF/ChordPro/MusicXML/ABC, QR, audience view, batch ZIP |
-| Account Data Export and Erasure | 11 | Data portability + permanent erasure | Full account export, permanent deletion, dependent-content handoff, no silent loss |
-| Analytics and Insights | 23 | Data-driven repertoire/event decisions | Personal/org analytics, performance history, engagement |
-| Search and Discovery | 22 | Find & explore repertoire | Filters, tags, recommendations, offline search |
-| Song Lifecycle | 22 | Song states: draft → ready → retired → deleted | Chart completeness, version history, rollback, retire, duplicates, merge |
-| Organizational Repertoire Model | 21 | Hierarchical shared catalog | System/org/branch levels, roles, events, access control |
-| Congregation Projection | 19 | Lyrics-only display for the audience | Slide control, transitions, high contrast, projection rights |
-| External Integrations and Import | 17 | Bring songs in, send setlists out | MusicBrainz/LRCLIB, OnSong/Planning Center, metadata-only URL, no scraping |
-| MIDI Integration | 11 | Control external gear live | Web MIDI, per-song program change, setlist MIDI maps |
-| External Display | 11 | Mirror performance to a 2nd screen | Audience-facing view, sync, transpose, offline |
-| OBS Overlay | 8 | Clean overlay for streaming | Browser Source URL, title/chords/position, privacy scope |
-| Public Library & Community | 16 | Discover + contribute shared songs | Browse, contribute, follow, reputation, reporting |
-| Community Moderation | 18 | Actor side of public-library reporting | System moderator role, queue & consolidation, keep/remove/escalate, takedown propagation, appeals, offline report intake |
-| PDF Scan Charts | 9 | Store songs as PDF scans | PDF hosting, performance rendering, offline, limits |
-| In-App Feedback | 8 | Report bugs/feedback in-app | Bug/general forms, consent, offline queue |
-| External Auto-Tagging | 9 | Enrich songs from Spotify | Album art/BPM/key suggestions, provenance |
-| Live Performance Mode | 18 | Focused on-stage presentation | Chords/lyrics, navigation, capo/transpose, crash recovery |
-| Gigs and Performance History | 18 | Single-org gig + actual-played record | Gig creation, venue reuse, planned→completed lifecycle, played/skipped record, visibility, offline |
-| Practice Mode | 20 | Personal practice surface with metronome + auto-scroll | Practice key/tempo projections, precedence, section-aware metronome, auto-scroll, session tracking, offline |
-| Service Planning | 17 | Structure the service into blocks | Blocks, musician assignment, call sheet, check-in |
-| Published Plan Freeze | 9 | Publishing freezes the executed plan | Freeze boundary, no mid-service drift, member rehearses the published version |
-| Substitutions and Coverage | 17 | Cover missing musicians | Sub requests, projection for subs, coverage status, cross-org |
-| Cross-Organization Event Collaboration | 16 | Cross-org events with privacy preserved | 3 event types, visibility matrix, orchestral concerts |
-| Rehearsal Workflow | 16 | Plan and run rehearsals | Agenda, readiness flags, timebox, outcomes, carry-over |
-| User Onboarding | 16 | Guided first-run | Walkthrough, org setup, tours, completion tracking |
-| Member Offboarding Cascade | 10 | Clean, coordinated member departure | End org access, preserve personal/public content, transfer/remove coordinated, nothing silently deleted |
-| Collaboration — Bandmate Management | 15 | Coordinate via shared repertoire/setlists | Invites, proximity codes (offline), edge cases |
-| Shared Setlist Collaboration | 15 | Real-time joint setlist planning | Conflict/locking, offline merge, ownership, version history |
-| Offline Edit Conflict Policy | 10 | Deterministic resolution of same-field offline edits | Later-write wins, superseded history, notification, SAME-FIELD vs whole-entity scope |
-| Collaborative Comments | 13 | Shared commentary attached to songs | Section-anchored comments, threading, per-version, mentions, offline queue |
-| Collections | 14 | Curate + reuse themed song sets | Thematic grouping, fork with lineage, setlist/block fill, sharing |
-| Foot Pedal HID | 13 | Hands-free pedal navigation | USB HID pairing, pedal mapping, navigation, robustness |
-| Setlist Creation | 4 | Plan gig order | Build, reorder, duplicate, duration |
-| Repertoire Management | 4 | Song library CRUD | Add/search/edit/soft-delete |
-| Music Notation File Support | 3 | Import/view notation files | ChordPro, MusicXML (OSMD), ABC (abcjs) |
-| Music Theory Model | 30 | Advanced scales, modes, degrees | Scale/mode declaration, degree view (derived), modulation, spelling, progression catalog, non-goals |
-| Offline Access | 3 | Perform without connectivity | Cached repertoire, pending-sync edits, offline proximity |
-| PWA Updates and Storage | 18 | Safe app-update + storage lifecycle for an offline-first PWA | Background update/install, update prompt, no interruption of live use, tooltips after update, offline-write safety, failure handling, storage usage, quota eviction, non-goals |
+| Feature                                | Scenarios | Core intent                                                  | Key areas                                                                                                                                                                      |
+| -------------------------------------- | --------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Personal Preferences and Adaptations   | 39        | Canonical chart, personal rendering                          | Transpose/capo, versions, rebase, vocal range, conflicts                                                                                                                       |
+| Authentication and User Profiles       | 31        | Secure auth + profile management                             | Registration, sessions/tokens, org profile, offline auth                                                                                                                       |
+| Minor Accounts and Guardian Consent    | 10        | Under-18 accounts with guardian consent                      | Guardian consent, visibility restriction, org-only participation without public exposure                                                                                       |
+| Notifications and Activity Feed        | 29        | Stay informed in collaboration                               | Invites, setlist/event alerts, preferences, offline queue                                                                                                                      |
+| Export and Sharing                     | 23        | Multi-format export + audience sharing                       | PDF/ChordPro/MusicXML/ABC, QR, audience view, batch ZIP                                                                                                                        |
+| Account Data Export and Erasure        | 11        | Data portability + permanent erasure                         | Full account export, permanent deletion, dependent-content handoff, no silent loss                                                                                             |
+| Analytics and Insights                 | 23        | Data-driven repertoire/event decisions                       | Personal/org analytics, performance history, engagement                                                                                                                        |
+| Search and Discovery                   | 22        | Find & explore repertoire                                    | Filters, tags, recommendations, offline search                                                                                                                                 |
+| Song Lifecycle                         | 22        | Song states: draft → ready → retired → deleted               | Chart completeness, version history, rollback, retire, duplicates, merge                                                                                                       |
+| Organizational Repertoire Model        | 21        | Hierarchical shared catalog                                  | System/org/branch levels, roles, events, access control                                                                                                                        |
+| Congregation Projection                | 19        | Lyrics-only display for the audience                         | Slide control, transitions, high contrast, projection rights                                                                                                                   |
+| External Integrations and Import       | 17        | Bring songs in, send setlists out                            | MusicBrainz/LRCLIB, OnSong/Planning Center, metadata-only URL, no scraping                                                                                                     |
+| MIDI Integration                       | 11        | Control external gear live                                   | Web MIDI, per-song program change, setlist MIDI maps                                                                                                                           |
+| External Display                       | 11        | Mirror performance to a 2nd screen                           | Audience-facing view, sync, transpose, offline                                                                                                                                 |
+| OBS Overlay                            | 8         | Clean overlay for streaming                                  | Browser Source URL, title/chords/position, privacy scope                                                                                                                       |
+| Public Library & Community             | 16        | Discover + contribute shared songs                           | Browse, contribute, follow, reputation, reporting                                                                                                                              |
+| Community Moderation                   | 18        | Actor side of public-library reporting                       | System moderator role, queue & consolidation, keep/remove/escalate, takedown propagation, appeals, offline report intake                                                       |
+| PDF Scan Charts                        | 9         | Store songs as PDF scans                                     | PDF hosting, performance rendering, offline, limits                                                                                                                            |
+| In-App Feedback                        | 8         | Report bugs/feedback in-app                                  | Bug/general forms, consent, offline queue                                                                                                                                      |
+| External Auto-Tagging                  | 9         | Enrich songs from Spotify                                    | Album art/BPM/key suggestions, provenance                                                                                                                                      |
+| Live Performance Mode                  | 18        | Focused on-stage presentation                                | Chords/lyrics, navigation, capo/transpose, crash recovery                                                                                                                      |
+| Gigs and Performance History           | 18        | Single-org gig + actual-played record                        | Gig creation, venue reuse, planned→completed lifecycle, played/skipped record, visibility, offline                                                                             |
+| Practice Mode                          | 20        | Personal practice surface with metronome + auto-scroll       | Practice key/tempo projections, precedence, section-aware metronome, auto-scroll, session tracking, offline                                                                    |
+| Service Planning                       | 17        | Structure the service into blocks                            | Blocks, musician assignment, call sheet, check-in                                                                                                                              |
+| Published Plan Freeze                  | 9         | Publishing freezes the executed plan                         | Freeze boundary, no mid-service drift, member rehearses the published version                                                                                                  |
+| Substitutions and Coverage             | 17        | Cover missing musicians                                      | Sub requests, projection for subs, coverage status, cross-org                                                                                                                  |
+| Cross-Organization Event Collaboration | 16        | Cross-org events with privacy preserved                      | 3 event types, visibility matrix, orchestral concerts                                                                                                                          |
+| Rehearsal Workflow                     | 16        | Plan and run rehearsals                                      | Agenda, readiness flags, timebox, outcomes, carry-over                                                                                                                         |
+| User Onboarding                        | 16        | Guided first-run                                             | Walkthrough, org setup, tours, completion tracking                                                                                                                             |
+| Member Offboarding Cascade             | 10        | Clean, coordinated member departure                          | End org access, preserve personal/public content, transfer/remove coordinated, nothing silently deleted                                                                        |
+| Collaboration — Bandmate Management    | 15        | Coordinate via shared repertoire/setlists                    | Invites, proximity codes (offline), edge cases                                                                                                                                 |
+| Shared Setlist Collaboration           | 15        | Real-time joint setlist planning                             | Conflict/locking, offline merge, ownership, version history                                                                                                                    |
+| Offline Edit Conflict Policy           | 10        | Deterministic resolution of same-field offline edits         | Later-write wins, superseded history, notification, SAME-FIELD vs whole-entity scope                                                                                           |
+| Collaborative Comments                 | 13        | Shared commentary attached to songs                          | Section-anchored comments, threading, per-version, mentions, offline queue                                                                                                     |
+| Collections                            | 14        | Curate + reuse themed song sets                              | Thematic grouping, fork with lineage, setlist/block fill, sharing                                                                                                              |
+| Foot Pedal HID                         | 13        | Hands-free pedal navigation                                  | USB HID pairing, pedal mapping, navigation, robustness                                                                                                                         |
+| Setlist Creation                       | 4         | Plan gig order                                               | Build, reorder, duplicate, duration                                                                                                                                            |
+| Repertoire Management                  | 4         | Song library CRUD                                            | Add/search/edit/soft-delete                                                                                                                                                    |
+| Music Notation File Support            | 3         | Import/view notation files                                   | ChordPro, MusicXML (OSMD), ABC (abcjs)                                                                                                                                         |
+| Music Theory Model                     | 30        | Advanced scales, modes, degrees                              | Scale/mode declaration, degree view (derived), modulation, spelling, progression catalog, non-goals                                                                            |
+| Offline Access                         | 3         | Perform without connectivity                                 | Cached repertoire, pending-sync edits, offline proximity                                                                                                                       |
+| PWA Updates and Storage                | 18        | Safe app-update + storage lifecycle for an offline-first PWA | Background update/install, update prompt, no interruption of live use, tooltips after update, offline-write safety, failure handling, storage usage, quota eviction, non-goals |
 
 ## The core domain model
 

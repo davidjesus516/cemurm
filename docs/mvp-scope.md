@@ -122,7 +122,7 @@ Hito 1's basic practice view (rendering a song at the performer's practice key/t
 
 ## Hito 2 — Stage Mode (Months 3–4)
 
-**Implementation status: not started.**
+**Implementation status: core complete.** Stage Mode (route + fullscreen UI + transpose + keyboard/touch) and offline access (service worker, IndexedDB read cache + offline write queue) are implemented against the hosted Supabase data layer. Foot pedal uses the WebHID API with default left=previous / right=next mapping persisted in `device_configs`; the settings/mapping-UI and long-press action scenarios are later milestones. Remaining: real-device HID testing (needs a physical pedal + `chrome://flags` HID) and browser-level offline QA.
 
 ### Objectives
 - Create a performance-optimized fullscreen view for live use
@@ -131,14 +131,14 @@ Hito 1's basic practice view (rendering a song at the performer's practice key/t
 - Enable offline access via Service Workers
 
 ### Deliverables
-- [ ] Stage Mode: fullscreen, high-contrast display with large text
-- [ ] Real-time transposition: transpose chords up/down by semitones
-- [ ] Touch navigation: swipe left/right to change songs in setlist
-- [ ] Keyboard navigation: arrow keys, Page Up/Down
-- [ ] USB foot pedal support (HID protocol)
-- [ ] Workbox service worker: precache app shell + cached songs
-- [ ] IndexedDB offline store for songs and setlists
-- [ ] Background sync for writes made offline
+- [x] Stage Mode: fullscreen, high-contrast display with large text
+- [x] Real-time transposition: transpose chords up/down by semitones
+- [x] Touch navigation: swipe left/right to change songs in setlist
+- [x] Keyboard navigation: arrow keys, Page Up/Down
+- [x] USB foot pedal support (HID protocol)
+- [x] Service worker: precache app shell + cached songs (SW app-shell + IndexedDB read-through)
+- [x] IndexedDB offline store for songs and setlists
+- [x] Background sync for writes made offline (client FIFO queue + drain on reconnect)
 
 ### BDD coverage
 Gig planning and the performance-record write path are specified in `features/gigs-and-performance-history.feature` (gig lifecycle, venue reuse, played/skipped record, offline completion); the on-stage presentation consuming it is specified in `features/live-performance-mode.feature`. The PWA runtime that delivers this hito's service-worker and IndexedDB deliverables — background app updates that never interrupt the stage or practice surfaces, and storage management under quota pressure — is specified in `features/pwa-updates-and-storage.feature`. Offline access to repertoire and setlists is specified in `features/offline-access.feature`; per-performer personal key/capo/version adaptation is specified in `features/personal-preferences-and-adaptations.feature`.
