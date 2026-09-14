@@ -123,13 +123,21 @@ export default function SetlistDetail() {
         {' '}· {itemIds.length} song{itemIds.length === 1 ? '' : 's'}
       </p>
 
-      <button
-        type="button"
-        onClick={() => setShowPicker((v) => !v)}
-        className="mt-4 rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
-      >
-        {showPicker ? 'Hide picker' : 'Add Song'}
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Link
+          to={`/setlists/${setlist.id}/stage`}
+          className="rounded-md border border-cem-amber px-4 py-2 text-sm font-medium text-cem-amber hover:bg-cem-amber/10"
+        >
+          ▶ Stage Mode
+        </Link>
+        <button
+          type="button"
+          onClick={() => setShowPicker((v) => !v)}
+          className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+        >
+          {showPicker ? 'Hide picker' : 'Add Song'}
+        </button>
+      </div>
 
       {showPicker && (
         <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
