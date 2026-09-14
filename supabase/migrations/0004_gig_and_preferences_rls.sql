@@ -246,8 +246,8 @@ grant usage on schema private to authenticated, service_role;
 -- practice_sessions shape (0002 lines 371–389).
 create table public.user_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  default_transpose smallint not null default 0,
-  default_capo smallint not null default 0,
+  transpose_offset smallint not null default 0,
+  capo smallint not null default 0,
   preferences jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
