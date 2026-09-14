@@ -1,364 +1,354 @@
-// Mock song store.
-// Mirrors the future Supabase query surface so chunk C8 can swap the
-// implementation without touching the hook or UI.
+// Supabase data layer for songs.
+// Replaces the localStorage mock with hosted Supabase queries.
+// Public surface: listSongs, addSong, getSong, updateSong, deleteSong,
+// searchSongs, retireSong, reactivateSong — same signatures as before.
+// Reads are read-through cached in IndexedDB (offlineCache.js); writes
+// invalidate the affected keys on success.
 
+import { supabase } from './supabase.js'
 import { computeReadiness } from './readiness.js'
 import { filterSongs } from './search.js'
+import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
 
-const SONGS_KEY = 'cemurm.songs'
-const MAX_SONGS = 500
+// ponytail: known user-facing errors re-thrown as-is; network/PostgREST
+// errors map to a safe generic message.
+const USER_ERRORS = new Set(['Title is required.', 'Song not found.'])
 
-const DEMO_SONGS = [
-  {
-    id: 'demo-song-1',
-    userId: 'demo-user',
-    title: 'Bohemian Rhapsody',
-    key: 'Bb major',
-    bpm: 144,
-    hasChordChart: true,
-    durationSeconds: 210,
-    body: `{title: Bohemian Rhapsody}
-{artist: Queen}
-{key: Bb}
-
-{section: Intro}
-[C]Is this the real [G]life? [Am]Is this just fan[F]tasy?
-[Am]Caught in a land[Bb]slide, [G]no escape from real[Am]ity
-
-{section: Chorus}
-[Gm]Mama, [F]just killed a man
-[Cm]Put a gun against his head
-[Gm]Pulled my trigger, now he's [F]dead
-[Gm]Mama, [F]life had just be[Cm]gun`,
-    createdAt: '2026-01-15T10:00:00.000Z',
-    updatedAt: '2026-01-15T10:00:00.000Z',
-    deletedAt: null,
-  },
-  {
-    id: 'demo-song-2',
-    userId: 'demo-user',
-    title: 'Imagine',
-    key: 'C major',
-    bpm: 76,
-    hasChordChart: true,
-    durationSeconds: 240,
-    body: `{title: Imagine}
-{artist: John Lennon}
-{key: C}
-
-{section: Verse 1}
-[C]Imagine there's no [Em]heaven
-[Am]It's easy if you [F]try
-[C]No hell be[Em]neath us
-[Am]Above us, only [F]sky
-
-{section: Chorus}
-[C]You may say I'm a [F]dreamer
-[Am]But I'm not the only [F]one
-[C]I hope some[F]day you'll join us
-[Am]And the world will be as [F]one`,
-    createdAt: '2026-01-20T10:00:00.000Z',
-    updatedAt: '2026-01-20T10:00:00.000Z',
-    deletedAt: null,
-  },
-  {
-    id: 'demo-song-3',
-    userId: 'demo-user',
-    title: 'Imagine Dragons',
-    key: 'D minor',
-    bpm: 120,
-    hasChordChart: false,
-    durationSeconds: 315,
-    body: '',
-    createdAt: '2026-02-01T10:00:00.000Z',
-    updatedAt: '2026-02-01T10:00:00.000Z',
-    deletedAt: null,
-  },
-  // BASIC SEARCH demo seeds (chunk C7) — satisfy search-and-discovery.feature:
-  // "Amazing Grace" + "Amazing Day" → free-text "Amazing", both hold chord G →
-  // chord search "G major"; both G major → key filter badge "2 songs in G major";
-  // 80/95 BPM → tempo range 70-100. "Grace of My Mind" (D major, no G chord)
-  // is excluded by "Amazing" and by chord-G searches.
-  {
-    id: 'demo-song-4',
-    userId: 'demo-user',
-    title: 'Amazing Grace',
-    key: 'G major',
-    bpm: 80,
-    hasChordChart: true,
-    durationSeconds: 180,
-    body: `{title: Amazing Grace}
-{artist: Traditional}
-{key: G}
-
-{section: Verse 1}
-[G]Amazing [C]grace, how [D]sweet the [G]sound
-[G]That saved a [C]wretch like [D]me`,
-    createdAt: '2026-02-15T10:00:00.000Z',
-    updatedAt: '2026-02-15T10:00:00.000Z',
-    deletedAt: null,
-  },
-  {
-    id: 'demo-song-5',
-    userId: 'demo-user',
-    title: 'Amazing Day',
-    key: 'G major',
-    bpm: 95,
-    hasChordChart: true,
-    durationSeconds: 200,
-    body: `{title: Amazing Day}
-{artist: Demo}
-{key: G}
-
-{section: Chorus}
-[C]What a [F]day, what a [G]day
-[C]Sun is [F]shining, [G]let's go out and play`,
-    createdAt: '2026-02-16T10:00:00.000Z',
-    updatedAt: '2026-02-16T10:00:00.000Z',
-    deletedAt: null,
-  },
-  {
-    id: 'demo-song-6',
-    userId: 'demo-user',
-    title: 'Grace of My Mind',
-    key: 'D major',
-    bpm: 120,
-    hasChordChart: true,
-    durationSeconds: 210,
-    body: `{title: Grace of My Mind}
-{artist: Demo}
-{key: D}
-
-{section: Verse 1}
-[D]Grace of my [A]mind, won't you [Em]stay
-[D]Stay with me [A]through the [Em]night`,
-    createdAt: '2026-02-17T10:00:00.000Z',
-    updatedAt: '2026-02-17T10:00:00.000Z',
-    deletedAt: null,
-  },
-]
-
-// Seed demo songs with computed status on first load.
-function hydrateSeeds(songs) {
-  return songs.map((s) => {
-    if (s.status) return s // already hydrated
-    const { status } = computeReadiness(s)
-    return { ...s, status, transitionHistory: s.transitionHistory || [] }
-  })
+function handleError(error) {
+  if (USER_ERRORS.has(error?.message)) throw error
+  throw new Error('Something went wrong. Please try again.')
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+async function withErrorMapping(fn) {
+  try { return await fn() } catch (e) { handleError(e) }
 }
 
-function readAll() {
-  const raw = localStorage.getItem(SONGS_KEY)
-  if (!raw) {
-    const seeded = hydrateSeeds(DEMO_SONGS)
-    localStorage.setItem(SONGS_KEY, JSON.stringify(seeded))
-    return [...seeded]
+// ponytail: no freshness TTL — every successful network read overwrites
+// the cache and offline reads serve it unconditionally, so staleness
+// self-heals on the next successful fetch. Add a TTL only if
+// stale-then-offline reads become a problem.
+async function withReadThrough(key, fn) {
+  try {
+    const data = await fn()
+    await offlineSet(key, data)
+    return data
+  } catch (e) {
+    if (USER_ERRORS.has(e?.message)) throw e
+    const cached = await offlineGet(key)
+    if (cached?.data) return cached.data
+    throw e
   }
-  return JSON.parse(raw)
 }
 
-function writeAll(songs) {
-  localStorage.setItem(SONGS_KEY, JSON.stringify(songs))
-}
-
-function userSongs(userId) {
-  return readAll().filter(
-    (s) => s.userId === userId && s.deletedAt === null,
-  )
+function invalidateSongs(userId, ids) {
+  offlineRemove(`songs:${userId}`)
+  for (const id of ids) offlineRemove(`song:${userId}:${id}`)
 }
 
 /**
- * Record a state transition in the song's history.
- * ponytail: inline helper, one call site — no abstraction needed.
+ * Flatten a raw Supabase row (with embedded chart_files + song_versions)
+ * into the shape the rest of the app expects.
+ *
+ * Selection: latest version by created_at desc → key/bpm/duration/is_ready.
+ * Chart: prefer the version's chart_file_id, fallback to newest non-deleted.
  */
-function recordTransition(song, from, to, by = 'owner', reason = '') {
-  song.transitionHistory = song.transitionHistory || []
-  song.transitionHistory.push({ from, to, at: new Date().toISOString(), by, reason })
+function flattenSong(row) {
+  const versions = (row.song_versions || [])
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  const latest = versions[0] || null
+
+  const charts = (row.chart_files || [])
+    .filter((c) => !c.soft_deleted)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  const chart = (latest?.chart_file_id)
+    ? charts.find((c) => c.id === latest.chart_file_id) || charts[0]
+    : charts[0]
+
+  const body = chart?.content || ''
+  const { status } = row.is_deleted
+    ? { status: 'retired' }
+    : computeReadiness({ key: latest?.base_key || '', body })
+
+  return {
+    id: row.id,
+    userId: row.created_by,
+    title: row.title,
+    key: latest?.base_key || '',
+    bpm: latest?.base_tempo ?? null,
+    hasChordChart: !!chart?.content,
+    body,
+    durationSeconds: latest?.duration_seconds ?? null,
+    status,
+    artist: row.artist || '',
+    genre: row.genre || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.is_deleted ? row.updated_at : null,
+    // Internal fields — used by mutations to locate the version/chart rows
+    versionId: latest?.id || null,
+    chartFileId: chart?.id || null,
+  }
+}
+
+/**
+ * Fetch one song row with nested chart_files + song_versions,
+ * flattened into the app shape. Throws 'Song not found.' when missing.
+ */
+async function fetchSongById(userId, id) {
+  const { data, error } = await supabase
+    .from('songs')
+    .select('*, chart_files(*), song_versions(*)')
+    .eq('id', id)
+    .eq('created_by', userId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) throw new Error('Song not found.')
+  return flattenSong(data)
 }
 
 /**
  * List songs for a user. Supports optional filter for retired songs.
  * Backward-compatible: listSongs(userId) returns all active songs.
  * listSongs(userId, { retired: true }) returns only retired songs.
- * listSongs(userId, { retired: false }) or listSongs(userId, { status: 'draft' })
- *   returns active non-retired songs (same as default).
+ * listSongs(userId, { status: 'draft' }) returns active non-retired songs
+ *   matching that status.
+ * ponytail: single cache key per user — a filtered read overwrites the
+ *   unfiltered cache; acceptable until offline filtered reads matter.
  */
-export async function listSongs(userId, filter = {}) {
-  await delay(200)
-  const songs = userSongs(userId)
-  if (filter.retired) return songs.filter((s) => s.status === 'retired')
-  if (filter.status) return songs.filter((s) => s.status === filter.status)
-  return songs.filter((s) => s.status !== 'retired')
+export function listSongs(userId, filter = {}) {
+  return withErrorMapping(() => withReadThrough(`songs:${userId}`, async () => {
+    const retired = filter.retired === true || filter.status === 'retired'
+    const { data, error } = await supabase
+      .from('songs')
+      .select('*, chart_files(*), song_versions(*)')
+      .eq('is_deleted', retired)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    let songs = (data || []).map(flattenSong)
+    if (filter.status && filter.status !== 'retired') {
+      songs = songs.filter((s) => s.status === filter.status)
+    }
+    return songs
+  }))
 }
 
 /**
- * Add a new song. Computes initial status from content.
+ * Add a new song. Inserts into songs + chart_files + song_versions.
+ * Computes initial status from content.
  */
+// eslint-disable-next-line no-unused-vars -- hasChordChart kept for signature parity; chart presence is derived from body
 export async function addSong(userId, { title, key, bpm, hasChordChart, body, durationSeconds }) {
-  await delay(200)
+  return withErrorMapping(async () => {
+    const trimmed = title?.trim()
+    if (!trimmed) throw new Error('Title is required.')
 
-  const trimmed = title?.trim()
-  if (!trimmed) throw new Error('Title is required.')
+    const songBody = body || ''
+    const songKey = key?.trim() || ''
+    const songBpm = bpm ? Number(bpm) : null
+    const songDuration = durationSeconds ? Number(durationSeconds) : null
 
-  const songs = readAll()
-  const active = songs.filter(
-    (s) => s.userId === userId && s.deletedAt === null,
-  )
-  if (active.length >= MAX_SONGS) {
-    throw new Error(`Repertoire cap reached (${MAX_SONGS} songs). Remove a song before adding more.`)
-  }
+    const readiness = computeReadiness({ key: songKey, body: songBody })
 
-  const now = new Date().toISOString()
-  const song = {
-    id: crypto.randomUUID(),
-    userId,
-    title: trimmed,
-    key: key?.trim() || '',
-    bpm: bpm ? Number(bpm) : null,
-    hasChordChart: Boolean(hasChordChart),
-    body: body || '',
-    durationSeconds: durationSeconds ? Number(durationSeconds) : null,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
-  }
+    // 1. Insert songs row
+    const { data: songRow, error: songErr } = await supabase
+      .from('songs')
+      .insert({ created_by: userId, title: trimmed })
+      .select()
+      .single()
+    if (songErr) throw songErr
 
-  // Compute initial status
-  const { status } = computeReadiness(song)
-  song.status = status
-  song.transitionHistory = []
+    // 2. Insert chart_files row (inline ChordPro text)
+    const { data: chartRow, error: chartErr } = await supabase
+      .from('chart_files')
+      .insert({
+        song_id: songRow.id,
+        format: 'chordpro',
+        object_key: crypto.randomUUID(), // ponytail: not null constraint, content is inline
+        content: songBody,
+        size_bytes: songBody.length,
+      })
+      .select()
+      .single()
+    if (chartErr) throw chartErr
 
-  writeAll([...songs, song])
-  return song
+    // 3. Insert song_versions row
+    const { error: verErr } = await supabase
+      .from('song_versions')
+      .insert({
+        song_id: songRow.id,
+        name: 'Original', // ponytail: not null constraint
+        number: 1,
+        chart_file_id: chartRow.id,
+        base_key: songKey,
+        base_tempo: songBpm,
+        duration_seconds: songDuration,
+        is_ready: readiness.status === 'ready',
+        owner_id: userId,
+        created_by: userId,
+      })
+    if (verErr) throw verErr
+
+    const song = await fetchSongById(userId, songRow.id)
+    // New song changes the list; the song's own entry was just written fresh.
+    invalidateSongs(userId, [])
+    return song
+  })
 }
 
-export async function getSong(userId, id) {
-  await delay(100)
-  const songs = readAll()
-  const song = songs.find(
-    (s) => s.id === id && s.userId === userId && s.deletedAt === null,
-  )
-  if (!song) throw new Error('Song not found.')
-  return song
+export function getSong(userId, id) {
+  return withErrorMapping(() =>
+    withReadThrough(`song:${userId}:${id}`, () => fetchSongById(userId, id)))
 }
 
 /**
- * Update a song. After update, recompute readiness if not retired.
- * Record lineage transitions when status changes.
+ * Update a song. Partial payload — only provided fields change.
+ * After update, recompute readiness unless retired.
  */
 export async function updateSong(userId, id, { title, key, bpm, body, durationSeconds }) {
-  await delay(200)
+  return withErrorMapping(async () => {
+    // Fetch current state (throws 'Song not found.' if missing)
+    const current = await fetchSongById(userId, id)
 
-  const songs = readAll()
-  const idx = songs.findIndex(
-    (s) => s.id === id && s.userId === userId && s.deletedAt === null,
-  )
-  if (idx === -1) throw new Error('Song not found.')
-
-  const song = songs[idx]
-
-  if (title !== undefined) {
-    const trimmed = title.trim()
-    if (!trimmed) throw new Error('Title is required.')
-    song.title = trimmed
-  }
-  if (key !== undefined) song.key = key?.trim() || ''
-  if (bpm !== undefined) song.bpm = bpm ? Number(bpm) : null
-  if (durationSeconds !== undefined) song.durationSeconds = durationSeconds ? Number(durationSeconds) : null
-  if (body !== undefined) song.body = body
-  song.updatedAt = new Date().toISOString()
-
-  // Recompute readiness unless retired
-  if (song.status !== 'retired') {
-    const prevStatus = song.status
-    const { status: newStatus } = computeReadiness(song)
-    song.status = newStatus
-    if (prevStatus !== newStatus) {
-      const reason = newStatus === 'ready'
-        ? 'Chart completed'
-        : `Chart incomplete: ${computeReadiness(song).reason}`
-      recordTransition(song, prevStatus, newStatus, 'owner', reason)
+    // Validate title
+    if (title !== undefined) {
+      const trimmed = title.trim()
+      if (!trimmed) throw new Error('Title is required.')
     }
-  }
 
-  writeAll(songs)
-  return song
-}
+    const newKey = key !== undefined ? (key?.trim() || '') : current.key
+    const newBpm = bpm !== undefined ? (bpm ? Number(bpm) : null) : current.bpm
+    const newDuration = durationSeconds !== undefined
+      ? (durationSeconds ? Number(durationSeconds) : null)
+      : current.durationSeconds
+    const newBody = body !== undefined ? body : current.body
 
-export async function deleteSong(userId, id) {
-  await delay(200)
+    // Recompute readiness (skip for retired songs)
+    const isRetired = current.status === 'retired'
+    const newStatus = isRetired
+      ? current.status
+      : computeReadiness({ key: newKey, body: newBody }).status
 
-  const songs = readAll()
-  const idx = songs.findIndex(
-    (s) => s.id === id && s.userId === userId && s.deletedAt === null,
-  )
-  if (idx === -1) throw new Error('Song not found.')
+    // 1. Update songs row (title)
+    if (title !== undefined) {
+      const { error } = await supabase
+        .from('songs')
+        .update({ title: title.trim(), updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('created_by', userId)
+      if (error) throw error
+    }
 
-  songs[idx].deletedAt = new Date().toISOString()
-  writeAll(songs)
-}
+    // 2. Update chart_files row (in-place content update)
+    if (body !== undefined && current.chartFileId) {
+      const { error } = await supabase
+        .from('chart_files')
+        .update({ content: newBody, size_bytes: newBody.length })
+        .eq('id', current.chartFileId)
+      if (error) throw error
+    }
 
-export async function searchSongs(userId, query) {
-  await delay(200)
+    // 3. Update song_versions row
+    if (current.versionId) {
+      const verPatch = {
+        base_key: newKey,
+        base_tempo: newBpm,
+        duration_seconds: newDuration,
+        // ponytail: only recompute is_ready when not retired
+        ...(isRetired ? {} : { is_ready: newStatus === 'ready' }),
+      }
+      const { error } = await supabase
+        .from('song_versions')
+        .update(verPatch)
+        .eq('id', current.versionId)
+      if (error) throw error
+    }
 
-  // Active (non-retired) songs only — retired songs live behind the toggle.
-  const base = userSongs(userId).filter((s) => s.status !== 'retired')
-  if (!String(query ?? '').trim()) return base
-
-  // Title + chord search via the pure search module (shared with the page).
-  return filterSongs(base, { query })
+    const song = await fetchSongById(userId, id)
+    invalidateSongs(userId, [id])
+    return song
+  })
 }
 
 /**
- * Retire a song → status becomes 'retired'. Leaves the active set.
- * Retire ≠ delete (delete uses deletedAt soft-delete).
+ * Soft-delete a song via is_deleted.
+ * ponytail: hard delete blocked by setlist_items FK RESTRICT;
+ * both delete and retire map to is_deleted=true.
+ */
+export async function deleteSong(userId, id) {
+  return withErrorMapping(async () => {
+    await fetchSongById(userId, id)
+
+    const { error } = await supabase
+      .from('songs')
+      .update({ is_deleted: true, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('created_by', userId)
+    if (error) throw error
+
+    invalidateSongs(userId, [id])
+  })
+}
+
+export function searchSongs(userId, query) {
+  return withErrorMapping(async () => {
+    const songs = await listSongs(userId)
+    if (!String(query ?? '').trim()) return songs
+    return filterSongs(songs, { query })
+  })
+}
+
+/**
+ * Retire a song → is_deleted becomes true. Idempotent if already retired.
  */
 export async function retireSong(userId, id) {
-  await delay(200)
+  return withErrorMapping(async () => {
+    const current = await fetchSongById(userId, id)
+    if (current.status === 'retired') return current
 
-  const songs = readAll()
-  const idx = songs.findIndex(
-    (s) => s.id === id && s.userId === userId && s.deletedAt === null,
-  )
-  if (idx === -1) throw new Error('Song not found.')
+    const { error } = await supabase
+      .from('songs')
+      .update({ is_deleted: true, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('created_by', userId)
+    if (error) throw error
 
-  const song = songs[idx]
-  if (song.status === 'retired') return song // idempotent
-
-  const prevStatus = song.status
-  song.status = 'retired'
-  song.updatedAt = new Date().toISOString()
-  recordTransition(song, prevStatus, 'retired', 'owner', 'Retired')
-
-  writeAll(songs)
-  return song
+    const song = await fetchSongById(userId, id)
+    invalidateSongs(userId, [id])
+    return song
+  })
 }
 
 /**
- * Reactivate a retired song → recompute readiness from content.
+ * Reactivate a retired song → clear is_deleted, recompute readiness.
  * Returns the song with its new status (ready or draft).
  */
 export async function reactivateSong(userId, id) {
-  await delay(200)
+  return withErrorMapping(async () => {
+    const current = await fetchSongById(userId, id)
+    if (current.status !== 'retired') return current
 
-  const songs = readAll()
-  const idx = songs.findIndex(
-    (s) => s.id === id && s.userId === userId && s.deletedAt === null,
-  )
-  if (idx === -1) throw new Error('Song not found.')
+    const readiness = computeReadiness({ key: current.key, body: current.body })
 
-  const song = songs[idx]
-  if (song.status !== 'retired') return song // idempotent
+    const { error } = await supabase
+      .from('songs')
+      .update({ is_deleted: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('created_by', userId)
+    if (error) throw error
 
-  const { status } = computeReadiness(song)
-  song.status = status
-  song.updatedAt = new Date().toISOString()
-  recordTransition(song, 'retired', status, 'owner', 'Reactivated')
+    if (current.versionId) {
+      const { error: verErr } = await supabase
+        .from('song_versions')
+        .update({ is_ready: readiness.status === 'ready' })
+        .eq('id', current.versionId)
+      if (verErr) throw verErr
+    }
 
-  writeAll(songs)
-  return song
+    const song = await fetchSongById(userId, id)
+    invalidateSongs(userId, [id])
+    return song
+  })
 }
