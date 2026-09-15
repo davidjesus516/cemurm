@@ -6,6 +6,7 @@ const navLinks = [
   { to: '/songs', label: 'Repertoire' },
   { to: '/setlists', label: 'Setlists' },
   { to: '/gigs', label: 'Gigs' },
+  { to: '/settings/storage', label: 'Storage' },
 ]
 
 const linkClass = ({ isActive }) =>

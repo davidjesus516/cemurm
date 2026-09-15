@@ -95,6 +95,40 @@ export async function offlineRemove(key) {
   }
 }
 
+// Storage screen (2b.1, D5): read every cache-meta row ({bytes, savedAt} per
+// cache name) and drop a row when a category cache is cleared/evicted.
+export async function cacheMetaList() {
+  const db = await getDb()
+  if (!db) return []
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(CACHE_META_STORE, 'readonly')
+      const keysReq = tx.objectStore(CACHE_META_STORE).getAllKeys()
+      const valsReq = tx.objectStore(CACHE_META_STORE).getAll()
+      tx.oncomplete = () =>
+        resolve(keysReq.result.map((name, i) => ({ name, ...valsReq.result[i] })))
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch {
+    return []
+  }
+}
+
+export async function cacheMetaRemove(name) {
+  const db = await getDb()
+  if (!db) return
+  try {
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(CACHE_META_STORE, 'readwrite')
+      const req = tx.objectStore(CACHE_META_STORE).delete(name)
+      req.onsuccess = () => resolve()
+      req.onerror = () => reject(req.error)
+    })
+  } catch {
+    // swallow — meta is best-effort
+  }
+}
+
 export async function offlineKeysByPrefix(prefix) {
   const db = await getDb()
   if (!db) return []

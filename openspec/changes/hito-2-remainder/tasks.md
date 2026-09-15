@@ -72,8 +72,8 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 
 ## PR#2b — Storage Screen + Eviction
 
-- [ ] 2b.1 Create `src/pages/Storage.jsx` + route: total + 4 categories (Songs/PDF/Exports/Setlists+gigs), offline-visible; clear deletes only that prefix (storage spec)
-- [ ] 2b.2 Quota warning + one-tap cleanup; evict PDF→exports→derived by age (cache-meta); never shell/active setlist/user data
+- [x] 2b.1 Create `src/pages/Storage.jsx` + route: total + 4 categories (Songs/PDF/Exports/Setlists+gigs), offline-visible; clear deletes only that prefix (storage spec)
+- [x] 2b.2 Quota warning + one-tap cleanup; evict PDF→exports→derived by age (cache-meta); never shell/active setlist/user data
 
 ## PR#3 — Preferences
 

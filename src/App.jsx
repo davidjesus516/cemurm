@@ -12,6 +12,7 @@ import GigDetail from './pages/GigDetail.jsx'
 import StageMode from './pages/StageMode.jsx'
 import Auth from './pages/Auth.jsx'
 import Practice from './pages/Practice.jsx'
+import Storage from './pages/Storage.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 const router = createBrowserRouter([
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
           { path: '/setlists/:id/stage', element: <StageMode /> },
           { path: '/gigs', element: <Gigs /> },
           { path: '/gigs/:id', element: <GigDetail /> },
+          { path: '/settings/storage', element: <Storage /> },
         ],
       },
       {
