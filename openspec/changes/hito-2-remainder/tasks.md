@@ -68,7 +68,7 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 - [x] 2a.3 RED demo: no `controllerchange` until SKIP_WAITING/next load; activate deletes only foreign-prefix caches (threat RED 1+2)
 - [x] 2a.4 `public/sw.js`: versioned caches `cemurm-{shell|songs|pdf|exports|data}-v${VERSION}`, no skipWaiting/claim, cache-meta on put/delete, UPDATE_READY/SKIP_WAITING (D3)
 - [x] 2a.5 `src/lib/updateManager.js` + PROD register in `src/main.jsx`: once/session prompt (sessionStorage), defer on `/setlists/:id/stage` (read-only) + `/songs/:id/practice` (read-only), silent offline retry
-- [ ] 2a.6 `WRITE_OPS` in `src/lib/offlineSync.js` + client `createGig`/`updateGig`/`completeGig` enqueue wrappers (moved from 1a.4): replay-safe complete via existence check; unknown op warn+drop (D6)
+- [x] 2a.6 `WRITE_OPS` in `src/lib/offlineSync.js` + client `createGig`/`updateGig`/`completeGig` enqueue wrappers (moved from 1a.4): replay-safe complete via existence check; unknown op warn+drop (D6)
 
 ## PR#2b — Storage Screen + Eviction
 

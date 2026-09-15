@@ -1,6 +1,8 @@
 // Supabase data layer for gigs — CRUD + lifecycle (PR#1a-lifecycle, hito-2-remainder).
-// Offline read-through/enqueue machinery is deferred: it lands with task 2a.6
-// (offlineSync.js WRITE_OPS owns drain-side membership anyway).
+// Offline writes (2a.6, D6): on connectivity failure createGig/updateGig/
+// completeGig enqueue into the shared outbox (FIFO per user, survives SW
+// updates via IDB v3) and persist an optimistic pendingSync copy — mirrors
+// setlists.js. Drain-side membership lives in offlineSync.js WRITE_OPS.
 //
 // RLS (0004) scopes reads by owner (direct for gigs/venues, via the gig
 // for performances/items). Org (D2a) is deny-by-default → createGig uses
@@ -12,6 +14,20 @@ let supabaseClient = null
 async function getSupabase() {
   if (!supabaseClient) supabaseClient = (await import('./supabase.js')).supabase
   return supabaseClient
+}
+
+// Offline read-through + queue (same pattern as setlists.js).
+import { offlineGet, offlineSet } from './offlineCache.js'
+import { enqueueOp } from './offlineQueue.js'
+
+// ponytail: best-effort connectivity heuristic (same as setlists.js) —
+// PostgREST network errors surface as fetch failures without a stable code.
+function isConnectivityError(e) {
+  const msg = String(e?.message || '')
+  return typeof navigator !== 'undefined' && navigator.onLine === false
+    || msg.includes('Failed to fetch')
+    || msg.includes('fetch failed')
+    || e?.code === '-1'
 }
 
 // ponytail: user-facing errors re-thrown as-is; the rest map to a generic one.
@@ -188,25 +204,50 @@ export async function createGig(userId, { name, scheduledAt, venueId, setlistId,
     const iso = scheduledAt instanceof Date ? scheduledAt.toISOString() : scheduledAt
     if (!iso) throw new Error('Scheduled date and time are required.')
 
-    const supabase = await getSupabase()
-    const orgId = await resolveOrgId(supabase)
-    const { data, error } = await supabase
-      .from('gigs')
-      .insert({
-        org_id: orgId,
-        branch_id: branchId ?? null,
-        owner_id: userId,
-        name: trimmed,
-        venue_id: venueId ?? null,
-        scheduled_at: iso,
-        setlist_id: setlistId ?? null,
-        status: 'planned',
-        shared_to_branch: !!sharedToBranch,
+    try {
+      const supabase = await getSupabase()
+      const orgId = await resolveOrgId(supabase)
+      const { data, error } = await supabase
+        .from('gigs')
+        .insert({
+          org_id: orgId,
+          branch_id: branchId ?? null,
+          owner_id: userId,
+          name: trimmed,
+          venue_id: venueId ?? null,
+          scheduled_at: iso,
+          setlist_id: setlistId ?? null,
+          status: 'planned',
+          shared_to_branch: !!sharedToBranch,
+        })
+        .select(DETAIL_SELECT)
+        .single()
+      if (error) throw error
+      return flattenGig(data)
+    } catch (e) {
+      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      await enqueueOp(userId, {
+        name: 'createGig',
+        args: [userId, { name: trimmed, scheduledAt: iso, venueId: venueId ?? null, setlistId: setlistId ?? null, branchId: branchId ?? null, sharedToBranch: !!sharedToBranch }],
       })
-      .select(DETAIL_SELECT)
-      .single()
-    if (error) throw error
-    return flattenGig(data)
+      const optimistic = {
+        id: `local-${Date.now()}`,
+        orgId: null,
+        branchId: branchId ?? null,
+        userId,
+        name: trimmed,
+        venueId: venueId ?? null,
+        scheduledAt: iso,
+        setlistId: setlistId ?? null,
+        status: 'planned',
+        sharedToBranch: !!sharedToBranch,
+        createdAt: new Date().toISOString(),
+        performance: null,
+        pendingSync: true,
+      }
+      await offlineSet(`gig:${userId}:${optimistic.id}`, optimistic)
+      return optimistic
+    }
   })
 }
 
@@ -217,6 +258,23 @@ async function resolveOrgId(supabase) {
   const orgIds = Array.isArray(data) ? data : []
   if (orgIds.length === 0) throw new Error('Organization could not be resolved.')
   return orgIds[0]
+}
+
+/**
+ * Optimistic post-write gig for an offline-queued mutation: the cached gig
+ * with the patch applied, flagged pendingSync (D4 — user-authored, never
+ * evicted). Validation already ran before the connectivity catch, so
+ * falling back to a minimal stub is safe.
+ */
+async function buildOptimisticGig(userId, id, patch, base) {
+  const optimistic = {
+    ...base,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+    pendingSync: true,
+  }
+  await offlineSet(`gig:${userId}:${id}`, optimistic)
+  return optimistic
 }
 
 /**
@@ -250,21 +308,33 @@ export async function updateGig(userId, id, patch = {}) {
       ...(patch.status !== undefined ? { status: patch.status } : {}),
     }
 
-    const current = await fetchGigById(userId, id)
-    if (!canEditGig(current.status, patch)) throw new Error('Cannot edit a completed gig.')
-    if (patch.status !== undefined && patch.status !== current.status
-        && !validTransition(current.status, patch.status)) {
-      throw new Error('Invalid gig status transition.')
-    }
+    try {
+      const current = await fetchGigById(userId, id)
+      if (!canEditGig(current.status, patch)) throw new Error('Cannot edit a completed gig.')
+      if (patch.status !== undefined && patch.status !== current.status
+          && !validTransition(current.status, patch.status)) {
+        throw new Error('Invalid gig status transition.')
+      }
 
-    const supabase = await getSupabase()
-    const { error } = await supabase
-      .from('gigs')
-      .update(update)
-      .eq('id', id)
-      .eq('owner_id', userId)
-    if (error) throw error
-    return fetchGigById(userId, id)
+      const supabase = await getSupabase()
+      const { error } = await supabase
+        .from('gigs')
+        .update(update)
+        .eq('id', id)
+        .eq('owner_id', userId)
+      if (error) throw error
+      return fetchGigById(userId, id)
+    } catch (e) {
+      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      await enqueueOp(userId, { name: 'updateGig', args: [userId, id, patch] })
+      const base = (await offlineGet(`gig:${userId}:${id}`))?.data ?? {
+        id, orgId: null, branchId: patch.branchId ?? null, userId, name: 'Gig',
+        venueId: patch.venueId ?? null, scheduledAt: new Date().toISOString(),
+        setlistId: patch.setlistId ?? null, status: 'planned', sharedToBranch: false,
+        createdAt: new Date().toISOString(), performance: null,
+      }
+      return buildOptimisticGig(userId, id, patch, base)
+    }
   })
 }
 
@@ -294,50 +364,73 @@ export async function completeGig(userId, gigId, { performedAt, items }) {
     if (!perfIso) throw new Error('Invalid performance item.')
     const rows = validateCompletion({ performedAt: perfIso, items })
 
-    const current = await fetchGigById(userId, gigId)
-    const supabase = await getSupabase()
-    const { data: existing } = await supabase
-      .from('performances')
-      .select('id')
-      .eq('gig_id', gigId)
-      .maybeSingle()
-    if (existing) {
-      // Replay/duplicate guard: status may lag, record never duplicates.
-      if (current.status !== 'completed') {
-        await supabase
-          .from('gigs')
-          .update({ status: 'completed' })
-          .eq('id', gigId)
-          .eq('owner_id', userId)
+    try {
+      const current = await fetchGigById(userId, gigId)
+      const supabase = await getSupabase()
+      const { data: existing } = await supabase
+        .from('performances')
+        .select('id')
+        .eq('gig_id', gigId)
+        .maybeSingle()
+      if (existing) {
+        // Replay/duplicate guard: status may lag, record never duplicates.
+        if (current.status !== 'completed') {
+          await supabase
+            .from('gigs')
+            .update({ status: 'completed' })
+            .eq('id', gigId)
+            .eq('owner_id', userId)
+        }
+        return fetchGigById(userId, gigId)
       }
+
+      const { data: perfRow, error: perfErr } = await supabase
+        .from('performances')
+        .insert({
+          gig_id: gigId,
+          venue_id: current.venueId,
+          performed_at: perfIso,
+        })
+        .select('id')
+        .single()
+      if (perfErr) throw perfErr
+
+      const itemRows = rows.map((r) => ({ performance_id: perfRow.id, ...r }))
+      const { error: itemsErr } = await supabase
+        .from('performance_items')
+        .insert(itemRows)
+      if (itemsErr) throw itemsErr
+
+      const { error: statusErr } = await supabase
+        .from('gigs')
+        .update({ status: 'completed' })
+        .eq('id', gigId)
+        .eq('owner_id', userId)
+      if (statusErr) throw statusErr
+
       return fetchGigById(userId, gigId)
+    } catch (e) {
+      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      // Composite op (D6): replay calls completeGig again, whose existence
+      // check guarantees exactly one performance per gig — never a duplicate.
+      await enqueueOp(userId, { name: 'completeGig', args: [userId, gigId, { performedAt: perfIso, items }] })
+      const base = (await offlineGet(`gig:${userId}:${gigId}`))?.data ?? {
+        id: gigId, orgId: null, branchId: null, userId, name: 'Gig',
+        venueId: null, scheduledAt: new Date().toISOString(), setlistId: null,
+        status: 'planned', sharedToBranch: false, createdAt: new Date().toISOString(), performance: null,
+      }
+      const optimistic = {
+        ...base,
+        status: 'completed',
+        performance: {
+          id: `local-${Date.now()}`, gigId, venueId: base.venueId, performedAt: perfIso, items: rows,
+        },
+        updatedAt: new Date().toISOString(),
+        pendingSync: true,
+      }
+      await offlineSet(`gig:${userId}:${gigId}`, optimistic)
+      return optimistic
     }
-
-    const { data: perfRow, error: perfErr } = await supabase
-      .from('performances')
-      .insert({
-        gig_id: gigId,
-        venue_id: current.venueId,
-        performed_at: perfIso,
-      })
-      .select('id')
-      .single()
-    if (perfErr) throw perfErr
-
-    const itemRows = rows.map((r) => ({ performance_id: perfRow.id, ...r }))
-    const { error: itemsErr } = await supabase
-      .from('performance_items')
-      .insert(itemRows)
-    if (itemsErr) throw itemsErr
-
-    const { error: statusErr } = await supabase
-      .from('gigs')
-      .update({ status: 'completed' })
-      .eq('id', gigId)
-      .eq('owner_id', userId)
-    if (statusErr) throw statusErr
-
-    return fetchGigById(userId, gigId)
   })
 }
 

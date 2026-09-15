@@ -5,15 +5,20 @@
 // offline-edit-conflict-policy lands.
 
 import * as setlists from './setlists.js'
+import * as gigs from './gigs.js'
 import { pendingOps, removeOps } from './offlineQueue.js'
 
-// op.name whitelist — only setlist writes are queued (see setlists.js).
+// op.name whitelist — setlist + gig writes are queued (see setlists.js /
+// gigs.js 2a.6). Unknown op names warn + drop at drain (D6).
 const WRITE_OPS = {
   createSetlist: setlists.createSetlist,
   updateSetlist: setlists.updateSetlist,
   addSongToSetlist: setlists.addSongToSetlist,
   removeSongFromSetlist: setlists.removeSongFromSetlist,
   moveSongInSetlist: setlists.moveSongInSetlist,
+  createGig: gigs.createGig,
+  updateGig: gigs.updateGig,
+  completeGig: gigs.completeGig,
 }
 
 // Last userId explicitly passed to drainPending. The 'online' listener
