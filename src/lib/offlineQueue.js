@@ -1,9 +1,14 @@
 // IDB-backed FIFO queue of pending offline writes, one key per user holding
 // an ordered array of ops. Shares the cemurm-offline DB with offlineCache.js;
-// version 2 adds the outbox store. Pure native API — no dependencies.
+// version 2 added the outbox store, version 3 adds cache-meta (hito-2-remainder
+// 2a.2, D5). Pure native API — no dependencies. The upgrade plan is imported
+// from offlineCache.js, so both modules are lockstep by construction: drift
+// between them would throw a VersionError and disable the cache.
 // ponytail: plain IndexedDB, one read-modify-write per op — no transactional
 // guarantee across the read+put pair and no multi-tab coordination; add a
 // single-writer tab / lock if concurrent drains ever matter.
+
+import { DB_VERSION, applyUpgrade } from './offlineCache.js'
 
 const DB_NAME = 'cemurm-offline'
 const STORE_NAME = 'outbox'
@@ -18,15 +23,11 @@ function getDb() {
   }
   dbPromise = new Promise((resolve) => {
     try {
-      const req = indexedDB.open(DB_NAME, 2)
-      req.onupgradeneeded = () => {
-        // kv is normally created by offlineCache's version-1 open; creating it
-        // here too keeps the shared DB consistent when this module opens first
-        // (a fresh profile would otherwise hit offlineCache's v1 open against a
-        // v2 DB, fail with VersionError, and permanently disable the cache).
-        if (req.oldVersion < 1) req.result.createObjectStore('kv')
-        if (req.oldVersion < 2) req.result.createObjectStore(STORE_NAME)
-      }
+      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      // kv/cache-meta are created here too via the shared plan when this
+      // module opens first (a fresh profile would otherwise hit a lower
+      // version open and permanently disable the cache).
+      req.onupgradeneeded = () => applyUpgrade(req.result, req.oldVersion)
       req.onsuccess = () => resolve(req.result)
       req.onerror = () => resolve(null)
     } catch {

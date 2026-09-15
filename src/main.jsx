@@ -8,6 +8,7 @@ import App from './App.jsx'
 import './index.css'
 import { startOfflineSync } from './lib/offlineSync.js'
 import { getSession } from './lib/auth.js'
+import { registerUpdateManager } from './lib/updateManager.js'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -28,11 +29,7 @@ try {
   // never break boot on sync setup failure
 }
 
-// Register service worker only in production builds (dev HMR is incompatible).
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.error('Service worker registration failed:', err)
-    })
-  })
-}
+// Register the service worker only in production builds (dev HMR is
+// incompatible). Update pipeline (D3): background install, once-per-session
+// prompt, activation on next load — never mid-session (updateManager.js).
+registerUpdateManager()
