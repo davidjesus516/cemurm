@@ -51,10 +51,10 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 
 ## PR#1b — Gigs UI
 
-- [ ] 1b.1 Create `src/components/GigCard.jsx` + `VenueAutocomplete.jsx`
-- [ ] 1b.2 Create `src/pages/Gigs.jsx`: list + create (one linked setlist)
-- [ ] 1b.3 Create `src/pages/GigDetail.jsx`: edit/confirm/cancel/reopen + setlist swap
-- [ ] 1b.4 `/gigs` (read-only) + `/gigs/:id` (read-only) routes in `src/App.jsx`, nav in `AppLayout.jsx`
+- [x] 1b.1 Create `src/components/GigCard.jsx` + `VenueAutocomplete.jsx`
+- [x] 1b.2 Create `src/pages/Gigs.jsx`: list + create (one linked setlist)
+- [x] 1b.3 Create `src/pages/GigDetail.jsx`: edit/confirm/cancel/reopen + setlist swap
+- [x] 1b.4 `/gigs` (read-only) + `/gigs/:id` (read-only) routes in `src/App.jsx`, nav in `AppLayout.jsx`
 
 ## PR#1c — Stage Completion + Played Tags
 

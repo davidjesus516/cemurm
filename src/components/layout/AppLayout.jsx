@@ -5,6 +5,7 @@ const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/songs', label: 'Repertoire' },
   { to: '/setlists', label: 'Setlists' },
+  { to: '/gigs', label: 'Gigs' },
 ]
 
 const linkClass = ({ isActive }) =>

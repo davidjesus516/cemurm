@@ -7,6 +7,8 @@ import Songs from './pages/Songs.jsx'
 import SongDetail from './pages/SongDetail.jsx'
 import Setlists from './pages/Setlists.jsx'
 import SetlistDetail from './pages/SetlistDetail.jsx'
+import Gigs from './pages/Gigs.jsx'
+import GigDetail from './pages/GigDetail.jsx'
 import StageMode from './pages/StageMode.jsx'
 import Auth from './pages/Auth.jsx'
 import Practice from './pages/Practice.jsx'
@@ -26,6 +28,8 @@ const router = createBrowserRouter([
           { path: '/setlists', element: <Setlists /> },
           { path: '/setlists/:id', element: <SetlistDetail /> },
           { path: '/setlists/:id/stage', element: <StageMode /> },
+          { path: '/gigs', element: <Gigs /> },
+          { path: '/gigs/:id', element: <GigDetail /> },
         ],
       },
       {
