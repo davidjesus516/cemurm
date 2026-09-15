@@ -204,6 +204,36 @@ export function getSong(userId, id) {
 }
 
 /**
+ * Gigs where a song was actually played, newest first: [{ gigId, gigName,
+ * performedAt }] per performance. States 'played' and 'off_setlist' (encore)
+ * both mean performed; skipped items are excluded — never tagged (spec
+ * "no tag for any skipped song"). Demand count = result length.
+ * ponytail: deliberately NOT read-through cached — it is derived from gig
+ * completions, so a fresh read avoids stale tags right after completing a
+ * gig in the same session. IDB caching lands with the PR#2a write pipeline.
+ */
+export function listPlayedAt(userId, songId) {
+  return withErrorMapping(async () => {
+    const { data, error } = await supabase
+      .from('performance_items')
+      .select('performances(gig_id, performed_at, gigs(name))')
+      .eq('song_id', songId)
+      .in('state', ['played', 'off_setlist'])
+
+    if (error) throw error
+    return (data || [])
+      .map((row) => {
+        const p = row.performances
+        return p
+          ? { gigId: p.gig_id, gigName: p.gigs?.name || 'Gig', performedAt: p.performed_at }
+          : null
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.performedAt) - new Date(a.performedAt))
+  })
+}
+
+/**
  * Update a song. Partial payload — only provided fields change.
  * After update, recompute readiness unless retired.
  */

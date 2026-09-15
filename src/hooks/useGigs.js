@@ -57,6 +57,12 @@ export function useGigs() {
     return gigs.getGig(user.id, id)
   }
 
+  async function completeGig(id, payload) {
+    const done = await gigs.completeGig(user.id, id, payload)
+    setGigsList((prev) => prev.map((g) => (g.id === id ? done : g)))
+    return done
+  }
+
   async function createVenue(payload) {
     const created = await gigs.createVenue(user.id, payload)
     setVenues((prev) =>
@@ -79,6 +85,7 @@ export function useGigs() {
     confirmGig,
     cancelGig,
     reopenGig,
+    completeGig,
     deleteGig,
     createVenue,
     refreshVenues,

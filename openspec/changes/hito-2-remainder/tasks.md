@@ -58,8 +58,8 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 
 ## PR#1c — Stage Completion + Played Tags
 
-- [ ] 1c.1 StageMode post-show "mark played" → `completeGig` writes single performance (spec post-show scenario)
-- [ ] 1c.2 Played tags + demand count in `src/lib/songs.js`/`SongDetail.jsx`; never tag skipped
+- [x] 1c.1 StageMode post-show "mark played" → `completeGig` writes single performance (spec post-show scenario)
+- [x] 1c.2 Played tags + demand count in `src/lib/songs.js`/`SongDetail.jsx`; never tag skipped
 
 ## PR#2a — SW Pipeline + IDB v3 + Queue Ops
 

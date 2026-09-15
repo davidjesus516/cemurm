@@ -55,6 +55,10 @@ export function useSongs({ retired = false } = {}) {
     return songs.getSong(user.id, id)
   }
 
+  async function getPlayedAt(id) {
+    return songs.listPlayedAt(user.id, id)
+  }
+
   async function searchSongs(query) {
     if (!query.trim()) return refresh()
     setLoading(true)
@@ -66,5 +70,5 @@ export function useSongs({ retired = false } = {}) {
     }
   }
 
-  return { songs: songsList, loading, refresh, addSong, updateSong, deleteSong, retireSong, reactivateSong, getSong, searchSongs }
+  return { songs: songsList, loading, refresh, addSong, updateSong, deleteSong, retireSong, reactivateSong, getSong, getPlayedAt, searchSongs }
 }

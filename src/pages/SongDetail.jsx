@@ -33,8 +33,9 @@ function TransitionLine({ t }) {
 
 export default function SongDetail() {
   const { id } = useParams()
-  const { getSong, updateSong, retireSong, reactivateSong } = useSongs()
+  const { getSong, getPlayedAt, updateSong, retireSong, reactivateSong } = useSongs()
   const [song, setSong] = useState(null)
+  const [playedAt, setPlayedAt] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
@@ -47,6 +48,15 @@ export default function SongDetail() {
       .then((data) => { if (!cancelled) setSong(data) })
       .catch(() => { if (!cancelled) setError('Song not found.') })
       .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  useEffect(() => {
+    let cancelled = false
+    getPlayedAt(id)
+      .then((data) => { if (!cancelled) setPlayedAt(data) })
+      .catch(() => { if (!cancelled) setPlayedAt([]) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
@@ -162,6 +172,25 @@ export default function SongDetail() {
           <ul className="space-y-0.5">
             {[...transitions].reverse().map((t, i) => (
               <TransitionLine key={i} t={t} />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {playedAt.length > 0 && (
+        <div className="mt-4 rounded-md bg-cem-elevated px-3 py-2">
+          <p className="mb-1 text-xs font-medium text-cem-secondary">
+            Played at · demand {playedAt.length}
+          </p>
+          <ul className="space-y-0.5">
+            {playedAt.map((p, i) => (
+              <li key={i} className="text-xs text-cem-text">
+                played at{' '}
+                <Link to={`/gigs/${p.gigId}`} className="font-medium text-cem-amber hover:underline">
+                  {p.gigName}
+                </Link>{' '}
+                · {new Date(p.performedAt).toLocaleDateString()}
+              </li>
             ))}
           </ul>
         </div>
