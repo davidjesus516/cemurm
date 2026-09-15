@@ -45,16 +45,16 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 - [x] 1a.1 Create `src/lib/gigs.js`: data-layer CRUD (gig/venue/performance/items via supabase client, `owner_id`/`org_id` on insert, `resolveOrgId` → `public.session_org_ids()`) + CRUD-focused `demo()`; lifecycle/offline parts deferred
 - [x] 1a.2 Create `supabase/migrations/0005_public_session_org_ids.sql` — public SECURITY DEFINER bridge to `private.session_org_ids()` (fixes the PGRST202 blocker; private schema is not exposed to PostgREST)
 - [x] 1a.3 Create `src/hooks/useGigs.js` per useSongs pattern (CRUD subset; completion wrapper returns with the lifecycle slice)
-- [ ] 1a.4 Completion chain: one `performances` + `performance_items` (played|skipped|off_setlist), no duplicates; lifecycle transitions + offline `enqueueOp`/`pendingSync` wrappers — deferred to PR#1a-lifecycle
-- [ ] 1a.5 Venue suggestion/reuse helpers (gigs venue scenarios) — deferred to PR#1a-lifecycle
-- [ ] 1a.6 Seed gig/venue/performance/user_preferences rows in `supabase/seed.sql` — deferred to PR#1a-lifecycle
+- [x] 1a.4 Completion chain: one `performances` + `performance_items` (played|skipped|off_setlist), no duplicates; lifecycle transitions (offline `enqueueOp`/`pendingSync` wrappers → PR#2a 2a.6)
+- [x] 1a.5 Venue suggestion/reuse helpers (gigs venue scenarios): `findVenueByName` + case-insensitive `createVenue` reuse
+- [x] 1a.6 Seed gig/venue/performance/user_preferences rows in `supabase/seed.sql` (incl. isolation row; live RLS chain verified)
 
 ## PR#1b — Gigs UI
 
 - [ ] 1b.1 Create `src/components/GigCard.jsx` + `VenueAutocomplete.jsx`
 - [ ] 1b.2 Create `src/pages/Gigs.jsx`: list + create (one linked setlist)
 - [ ] 1b.3 Create `src/pages/GigDetail.jsx`: edit/confirm/cancel/reopen + setlist swap
-- [ ] 1b.4 `/gigs` + `/gigs/:id` routes in `src/App.jsx`, nav in `AppLayout.jsx`
+- [ ] 1b.4 `/gigs` (read-only) + `/gigs/:id` (read-only) routes in `src/App.jsx`, nav in `AppLayout.jsx`
 
 ## PR#1c — Stage Completion + Played Tags
 
@@ -67,8 +67,8 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 - [ ] 2a.2 v3 lockstep `offlineCache.js`+`offlineQueue.js` ONE commit: additive `<1 kv → <2 outbox → <3 cache-meta` ({bytes,savedAt}), never drop stores (D5)
 - [ ] 2a.3 RED demo: no `controllerchange` until SKIP_WAITING/next load; activate deletes only foreign-prefix caches (threat RED 1+2)
 - [ ] 2a.4 `public/sw.js`: versioned caches `cemurm-{shell|songs|pdf|exports|data}-v${VERSION}`, no skipWaiting/claim, cache-meta on put/delete, UPDATE_READY/SKIP_WAITING (D3)
-- [ ] 2a.5 `src/lib/updateManager.js` + PROD register in `src/main.jsx`: once/session prompt (sessionStorage), defer on `/setlists/:id/stage` + `/songs/:id/practice`, silent offline retry
-- [ ] 2a.6 `WRITE_OPS` in `src/lib/offlineSync.js` + `createGig`/`updateGig`/`completeGig`: replay-safe complete via existence check; unknown op warn+drop (D6)
+- [ ] 2a.5 `src/lib/updateManager.js` + PROD register in `src/main.jsx`: once/session prompt (sessionStorage), defer on `/setlists/:id/stage` (read-only) + `/songs/:id/practice` (read-only), silent offline retry
+- [ ] 2a.6 `WRITE_OPS` in `src/lib/offlineSync.js` + client `createGig`/`updateGig`/`completeGig` enqueue wrappers (moved from 1a.4): replay-safe complete via existence check; unknown op warn+drop (D6)
 
 ## PR#2b — Storage Screen + Eviction
 
@@ -78,7 +78,7 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 ## PR#3 — Preferences
 
 - [ ] 3.1 Create `src/lib/preferences.js` + `src/hooks/usePreferences.js`: read-through `prefs:${userId}`, global/override/practice jsonb (D2)
-- [ ] 3.2 Create `src/pages/Settings.jsx` + `/settings` route/nav: transpose, capo, default version
+- [ ] 3.2 Create `src/pages/Settings.jsx` + `/settings` (read-only) route/nav: transpose, capo, default version
 - [ ] 3.3 `src/lib/transpose.js` capo helper "Capo N · sounds X"; initial semitones = global+override in StageMode/Practice (D7)
 - [ ] 3.4 `ChordProRenderer.jsx`: annotations (`personal_annotations`, anchor `{section,index}`) + substitution (transposed match/render); preserved across transpose
 - [ ] 3.5 Version picker → `setlist_items.version_id`; default version opens first, picker offers others (version scenarios)

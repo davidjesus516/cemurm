@@ -99,3 +99,41 @@ insert into outbox (id, user_id, device_id, entity, entity_id, operation, payloa
 -- ── scale catalog ──
 insert into scale_catalog (id, name, aliases, intervals, cardinality) values
   ('50000000-0000-0000-0000-000000000001', 'Major', array['Ionian'], '{0,2,4,5,7,9,11}', 7);
+
+-- ── gigs: venues, gigs, performances (PR#1a hito-2-remainder) ──
+-- Venues/gigs match the spec suggestions ("Café La Luna", "Parque El Retiro");
+-- gig …002 is completed WITH a performance so the RLS chain and the "played"
+-- demand data (performance_items → songs) are provable from seed rows alone.
+insert into venues (id, owner_id, name, location, type) values
+  ('60000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',
+   'Café La Luna', 'Calle Luna 3, Madrid', 'bar'),
+  ('60000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001',
+   'Parque El Retiro', 'Parque del Retiro, Madrid', 'outdoor');
+
+insert into gigs (id, org_id, branch_id, owner_id, name, venue_id, scheduled_at, setlist_id, status) values
+  ('61000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000a1',
+   '10000000-0000-0000-0000-0000000000b1', '10000000-0000-0000-0000-000000000001',
+   'Friday Gig', '60000000-0000-0000-0000-000000000001',
+   now() + interval '2 days', '30000000-0000-0000-0000-000000000001', 'planned'),
+  ('61000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-0000000000a1',
+   '10000000-0000-0000-0000-0000000000b1', '10000000-0000-0000-0000-000000000001',
+   'Church Sunday Service', '60000000-0000-0000-0000-000000000002',
+   now() - interval '7 days', '30000000-0000-0000-0000-000000000001', 'completed'),
+  ('61000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-0000000000a2',
+   null, '10000000-0000-0000-0000-000000000002',
+   'Isolation Gig', null, now() + interval '5 days', null, 'planned');
+
+insert into performances (id, gig_id, venue_id, performed_at) values
+  ('62000000-0000-0000-0000-000000000001', '61000000-0000-0000-0000-000000000002',
+   '60000000-0000-0000-0000-000000000002', now() - interval '7 days' + interval '90 minutes');
+
+-- Church Sunday Service actually played both setlist songs (version_id NULL:
+-- no song_versions rows are seeded). Demand for both songs = 1 performance.
+insert into performance_items (id, performance_id, song_id, version_id, state, position) values
+  ('63000000-0000-0000-0000-000000000001', '62000000-0000-0000-0000-000000000001',
+   '20000000-0000-0000-0000-000000000001', null, 'played', 1),
+  ('63000000-0000-0000-0000-000000000002', '62000000-0000-0000-0000-000000000001',
+   '20000000-0000-0000-0000-000000000002', null, 'played', 2);
+
+insert into user_preferences (user_id, transpose_offset, capo, preferences) values
+  ('10000000-0000-0000-0000-000000000001', 2, 1, '{}'::jsonb);
