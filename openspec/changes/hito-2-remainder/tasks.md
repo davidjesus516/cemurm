@@ -5,14 +5,15 @@
 | PR | Content | Est. | Risk |
 |----|---------|------|------|
 | #0 | 0004 RLS + user_preferences + org helper | 230 | Low |
-| #1a | gigs data + seed | 330 | Low |
+| #1a | gigs data CRUD + 0005 public wrapper | 330 | Low |
+| #1a-lifecycle | completion chain + venue reuse + offline ops + seed | 250 | Low |
 | #1b | gigs UI + routes | 380 | Low |
 | #1c | stage completion + played tags | 200 | Low |
 | #2a | SW pipeline + IDB v3 + queue ops | 380 | Low |
 | #2b | storage screen + eviction | 250 | Low |
 | #3 | preferences core | 380 | Medium (borderline) |
 
-Decision needed before apply: Yes
+Decision needed before apply: No — resolved (maintainer authorized the #1a / #1a-lifecycle split; 0005 fixes the PR#1a PGRST202 blocker)
 Chained PRs recommended: Yes
 Chain strategy: stacked-to-main
 400-line budget risk: Medium
@@ -41,11 +42,12 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 
 ## PR#1a — Gigs Data Layer
 
-- [ ] 1a.1 Create `src/lib/gigs.js`: CRUD/lifecycle + read-through/`enqueueOp`/`pendingSync` per setlists.js + `demo()`
-- [ ] 1a.2 Completion chain: one `performances` + `performance_items` (played|skipped|off_setlist), no duplicates
-- [ ] 1a.3 Venue suggestion/reuse helpers (gigs venue scenarios)
-- [ ] 1a.4 Create `src/hooks/useGigs.js` per useSongs pattern
-- [ ] 1a.5 Seed gig/venue/performance/user_preferences rows in `supabase/seed.sql`
+- [x] 1a.1 Create `src/lib/gigs.js`: data-layer CRUD (gig/venue/performance/items via supabase client, `owner_id`/`org_id` on insert, `resolveOrgId` → `public.session_org_ids()`) + CRUD-focused `demo()`; lifecycle/offline parts deferred
+- [x] 1a.2 Create `supabase/migrations/0005_public_session_org_ids.sql` — public SECURITY DEFINER bridge to `private.session_org_ids()` (fixes the PGRST202 blocker; private schema is not exposed to PostgREST)
+- [x] 1a.3 Create `src/hooks/useGigs.js` per useSongs pattern (CRUD subset; completion wrapper returns with the lifecycle slice)
+- [ ] 1a.4 Completion chain: one `performances` + `performance_items` (played|skipped|off_setlist), no duplicates; lifecycle transitions + offline `enqueueOp`/`pendingSync` wrappers — deferred to PR#1a-lifecycle
+- [ ] 1a.5 Venue suggestion/reuse helpers (gigs venue scenarios) — deferred to PR#1a-lifecycle
+- [ ] 1a.6 Seed gig/venue/performance/user_preferences rows in `supabase/seed.sql` — deferred to PR#1a-lifecycle
 
 ## PR#1b — Gigs UI
 
