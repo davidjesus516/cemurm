@@ -104,6 +104,11 @@ export default function Setlists() {
                   <span className="text-xs text-cem-secondary">
                     {setlist.itemIds.length} song{setlist.itemIds.length === 1 ? '' : 's'} · {setlist.durationLabel}
                   </span>
+                  {setlist.visibility === 'shared' && (
+                    <span className="rounded bg-cem-elevated px-1.5 py-0.5 text-xs font-medium text-cem-amber">
+                      Shared
+                    </span>
+                  )}
                 </div>
                 {setlist.songs.length > 0 && (
                   <p className="mt-0.5 truncate text-xs text-cem-secondary">
@@ -119,13 +124,15 @@ export default function Setlists() {
                 >
                   Duplicate
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(setlist)}
-                  className="text-xs font-medium text-cem-rose hover:underline"
-                >
-                  Delete
-                </button>
+                {setlist.isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(setlist)}
+                    className="text-xs font-medium text-cem-rose hover:underline"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             </li>
           ))}
