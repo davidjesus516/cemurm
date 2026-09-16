@@ -179,3 +179,82 @@ grant select, insert, update, delete on table public.profiles to service_role;
 
 grant select, insert, update, delete on table public.bandmate_links to authenticated;
 grant select, insert, update, delete on table public.invite_codes to authenticated;
+
+-- ══════════════════════ 0.4 SETLIST COLLABORATOR SELF-ACCEPT (RLS 3.1) ══════════════════════
+-- 0002 gap fix: setlist_collaborators had ONLY the owner-management UPDATE (update_owner,
+-- 0002 lines 255–261) — an invitee had no RLS path to set accepted_at, so acceptance was
+-- broken (the shared-setlist invite loop could never close). This policy lets the invitee
+-- update their OWN row (user_id = auth.uid()), design contract verbatim. Owner-management
+-- policies stay untouched. ⚠ known wrinkle (design contract accepted): the invitee can also
+-- flip can_edit on their own row — column grants are role-wide, they cannot split by row;
+-- the RLS spec 3.1 only asserts setlists-PATCH denial for view-only, which 0002 preserves.
+drop policy if exists setlist_collaborators_update_self on public.setlist_collaborators;
+create policy setlist_collaborators_update_self on public.setlist_collaborators
+  for update to authenticated
+  using ((select auth.uid()) is not null and user_id = (select auth.uid()))
+  with check ((select auth.uid()) is not null and user_id = (select auth.uid()));
+
+-- ══════════════════════ 0.5 SHARED_COMMENTS — 3-HOP EXISTS SCOPE (RLS 2.2) ══════════════════════
+-- 0002 revoked shared_comments (line 85) with zero re-opening policies. Scope = exactly the
+-- arrangement/setlist band: song → setlist_items → setlists → (owner OR accepted
+-- setlist_collaborators), nested single-relation EXISTS, NO joins (D8, 0004 shape). The hop
+-- graph stays acyclic: setlist_collaborators policies resolve the parent setlist through the
+-- private.session_owns_setlist() definer helper (0002 lines 136–141), so the chain terminates
+-- instead of re-entering setlists. INSERT additionally pins author_id to the session (songs
+-- insert shape, 0002 lines 157–160) — any scoped member may post, but never as someone else.
+alter table public.shared_comments enable row level security;
+
+-- re-declare the 0002 deny-by-default lock (grant was never re-opened) before the scoped
+-- grants (D6 order); anon stays locked out everywhere, service_role untouched
+revoke all on table public.shared_comments from anon, authenticated;
+
+drop policy if exists shared_comments_select_scoped on public.shared_comments;
+create policy shared_comments_select_scoped on public.shared_comments
+  for select to authenticated
+  using (
+    (select auth.uid()) is not null
+    and exists (
+      select 1 from public.setlist_items i
+      where i.song_id = public.shared_comments.song_id
+        and exists (
+          select 1 from public.setlists s
+          where s.id = i.setlist_id
+            and (
+              s.owner_id = (select auth.uid())
+              or exists (
+                select 1 from public.setlist_collaborators c
+                where c.setlist_id = s.id
+                  and c.user_id = (select auth.uid())
+                  and c.accepted_at is not null
+              )
+            )
+        )
+    )
+  );
+
+drop policy if exists shared_comments_insert_scoped on public.shared_comments;
+create policy shared_comments_insert_scoped on public.shared_comments
+  for insert to authenticated
+  with check (
+    (select auth.uid()) is not null
+    and public.shared_comments.author_id = (select auth.uid())
+    and exists (
+      select 1 from public.setlist_items i
+      where i.song_id = public.shared_comments.song_id
+        and exists (
+          select 1 from public.setlists s
+          where s.id = i.setlist_id
+            and (
+              s.owner_id = (select auth.uid())
+              or exists (
+                select 1 from public.setlist_collaborators c
+                where c.setlist_id = s.id
+                  and c.user_id = (select auth.uid())
+                  and c.accepted_at is not null
+              )
+            )
+        )
+    )
+  );
+
+grant select, insert on table public.shared_comments to authenticated;
