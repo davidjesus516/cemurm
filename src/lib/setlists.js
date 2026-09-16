@@ -10,10 +10,17 @@ import { listSongs } from './songs.js'
 import { formatDuration } from './duration.js'
 import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
 import { enqueueOp } from './offlineQueue.js'
+import { guardVisibility, shareTargets, guardTransfer } from './setlistCollab.js'
 
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
 // errors map to a safe generic message.
-const USER_ERRORS = new Set(['Setlist not found.', 'Setlist name is required.'])
+const USER_ERRORS = new Set([
+  'Setlist not found.',
+  'Setlist name is required.',
+  'Visibility must be private, shared, or public.',
+  'Only an accepted collaborator can take ownership.',
+  'The new owner must accept the invitation first.',
+])
 
 function handleError(error) {
   if (USER_ERRORS.has(error?.message)) throw error
@@ -57,12 +64,16 @@ function invalidateSetlists(userId, ids) {
 }
 
 /**
- * Flatten a raw Supabase setlist row (with embedded setlist_items)
- * into the shape the rest of the app expects: itemIds ordered by position,
- * plus versionIds { songId: versionId } for the 3.5 per-item picker (absent
- * key = picker default).
+ * Flatten a raw Supabase setlist row (with embedded setlist_items) into the
+ * shape the rest of the app expects: itemIds ordered by position, plus
+ * versionIds { songId: versionId } for the 3.5 per-item picker (absent key =
+ * picker default), and the collaboration surface (2.1): visibility, whether
+ * the reader owns the setlist, whether they can edit it, and the collaborator
+ * roster. Collaborator rows are RLS-capped per reader (0002 select_owner /
+ * select_self): the owner sees every row, a collaborator only their own —
+ * enough to derive `canEdit` without leaking the roster to members.
  */
-function flattenSetlist(row) {
+function flattenSetlist(row, userId) {
   const items = (row.setlist_items || [])
     .sort((a, b) => a.position - b.position)
   const itemIds = items.map((i) => i.song_id)
@@ -72,32 +83,45 @@ function flattenSetlist(row) {
     if (item.version_id) versionIds[item.song_id] = item.version_id
   }
 
+  const collaborators = (row.setlist_collaborators || []).map((c) => ({
+    userId: c.user_id,
+    canEdit: c.can_edit,
+    acceptedAt: c.accepted_at,
+  }))
+  const mine = collaborators.find((c) => c.userId === userId)
+  const isOwner = row.owner_id === userId
+
   return {
     id: row.id,
     userId: row.owner_id,
     name: row.name,
+    visibility: row.visibility,
     itemIds,
     versionIds,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    isOwner,
+    canEdit: isOwner || mine?.canEdit === true,
+    collaborators,
   }
 }
 
 /**
- * Fetch one setlist row with nested setlist_items.
+ * Fetch one setlist row with nested setlist_items and setlist_collaborators.
+ * Member read (0002 setlists_select_member — owner or accepted collaborator;
+ * the old owner_id filter would 403 collaborators on shared setlists).
  * Throws 'Setlist not found.' when missing.
  */
 async function fetchSetlistById(userId, id) {
   const { data, error } = await supabase
     .from('setlists')
-    .select('*, setlist_items(song_id, position, version_id)')
+    .select('*, setlist_items(song_id, position, version_id), setlist_collaborators(user_id, can_edit, accepted_at)')
     .eq('id', id)
-    .eq('owner_id', userId)
     .maybeSingle()
 
   if (error) throw error
   if (!data) throw new Error('Setlist not found.')
-  return flattenSetlist(data)
+  return flattenSetlist(data, userId)
 }
 
 /**
@@ -147,14 +171,15 @@ async function buildOptimisticSetlist(userId, id, { name, mutateItemIds, mutateV
 export function listSetlists(userId) {
   return withErrorMapping(() =>
     withReadThrough(`setlists:${userId}`, async () => {
+      // Member read: shared setlists appear in the list for accepted
+      // collaborators (0002 select_member); no owner_id filter.
       const { data, error } = await supabase
         .from('setlists')
-        .select('*, setlist_items(song_id, position, version_id)')
-        .eq('owner_id', userId)
+        .select('*, setlist_items(song_id, position, version_id), setlist_collaborators(user_id, can_edit, accepted_at)')
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      return (data || []).map(flattenSetlist)
+      return (data || []).map((row) => flattenSetlist(row, userId))
     }))
 }
 
@@ -176,7 +201,7 @@ export async function createSetlist(userId, { name }) {
         .single()
       if (error) throw error
 
-      const setlist = flattenSetlist(data)
+      const setlist = flattenSetlist(data, userId)
       // New setlist changes the list; its own entry was just fetched fresh.
       invalidateSetlists(userId, [])
       return setlist
@@ -441,6 +466,172 @@ export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
           return reordered
         },
       })
+    }
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2.1 — shared-setlist collaboration ops (setlists R1/R8/R9/R10). All are
+// owner-only surfaces enforced by 0002 owner-management RLS policies
+// (setlist_collaborators insert/update/delete via private.session_owns_setlist,
+// setlists UPDATE owner branch); the client guards in setlistCollab.js add
+// friendlier errors before hitting the server. Offline enqueue for collab ops
+// lands in PR#2b (2.6 — reconcile guard + idempotent replay); these are
+// online-only here.
+
+export async function setVisibility(userId, id, visibility) {
+  return withErrorMapping(async () => {
+    const guard = guardVisibility(visibility)
+    if (guard) throw new Error(guard)
+
+    const { error } = await supabase
+      .from('setlists')
+      .update({ visibility })
+      .eq('id', id)
+      .eq('owner_id', userId)
+    if (error) throw error
+
+    const setlist = await fetchSetlistById(userId, id)
+    invalidateSetlists(userId, [id])
+    return setlist
+  })
+}
+
+/** Invite bandmates onto the setlist (INSERT rows; can_edit defaults true). */
+export async function shareWithBandmates(userId, id, bandmateIds) {
+  return withErrorMapping(async () => {
+    const setlist = await fetchSetlistById(userId, id)
+    const targets = shareTargets(userId, bandmateIds, setlist.collaborators)
+    if (targets.length === 0) return setlist
+
+    const { error } = await supabase
+      .from('setlist_collaborators')
+      .insert(targets.map((targetId) => ({ setlist_id: id, user_id: targetId })))
+    if (error) throw error
+
+    const fresh = await fetchSetlistById(userId, id)
+    invalidateSetlists(userId, [id])
+    return fresh
+  })
+}
+
+/** Owner flips a collaborator's can_edit (view-only vs edit, setlists R8). */
+export async function setCollaboratorPermission(userId, setlistId, collaboratorId, canEdit) {
+  return withErrorMapping(async () => {
+    const { error } = await supabase
+      .from('setlist_collaborators')
+      .update({ can_edit: canEdit })
+      .eq('setlist_id', setlistId)
+      .eq('user_id', collaboratorId)
+    if (error) throw error
+
+    const fresh = await fetchSetlistById(userId, setlistId)
+    invalidateSetlists(userId, [setlistId])
+    return fresh
+  })
+}
+
+/** Owner removes a collaborator — 0002 delete_owner revokes their access. */
+export async function removeCollaborator(userId, setlistId, collaboratorId) {
+  return withErrorMapping(async () => {
+    const { error } = await supabase
+      .from('setlist_collaborators')
+      .delete()
+      .eq('setlist_id', setlistId)
+      .eq('user_id', collaboratorId)
+    if (error) throw error
+
+    const fresh = await fetchSetlistById(userId, setlistId)
+    invalidateSetlists(userId, [setlistId])
+    return fresh
+  })
+}
+
+/**
+ * Transfer ownership to an accepted collaborator (setlists R9): the new
+ * owner gains ownership controls, the former owner keeps edit access.
+ * No transaction spans PostgREST calls, so the steps are ordered so the
+ * session never loses its update right: (1) drop the new owner's collaborator
+ * row, (2) add the former owner as an accepted can_edit collaborator, and
+ * only then (3) flip setlists.owner_id. A mid-failure leaves the old owner
+ * still owning — recoverable by re-running.
+ */
+export async function transferOwnership(userId, setlistId, newOwnerId) {
+  return withErrorMapping(async () => {
+    await fetchSetlistById(userId, setlistId)
+
+    // Roster check — owner reads every collaborator row (RLS select_owner).
+    const { data: collabs, error: collabsError } = await supabase
+      .from('setlist_collaborators')
+      .select('user_id, accepted_at')
+      .eq('setlist_id', setlistId)
+    if (collabsError) throw collabsError
+    const guard = guardTransfer(collabs || [], newOwnerId)
+    if (guard) throw new Error(guard)
+
+    const { error: removeErr } = await supabase
+      .from('setlist_collaborators')
+      .delete()
+      .eq('setlist_id', setlistId)
+      .eq('user_id', newOwnerId)
+    if (removeErr) throw removeErr
+
+    const { error: keepErr } = await supabase
+      .from('setlist_collaborators')
+      .insert({
+        setlist_id: setlistId,
+        user_id: userId,
+        can_edit: true,
+        accepted_at: new Date().toISOString(),
+      })
+    if (keepErr) throw keepErr
+
+    const { error: flipErr } = await supabase
+      .from('setlists')
+      .update({ owner_id: newOwnerId })
+      .eq('id', setlistId)
+      .eq('owner_id', userId)
+    if (flipErr) throw flipErr
+
+    const fresh = await fetchSetlistById(userId, setlistId)
+    invalidateSetlists(userId, [setlistId])
+    return fresh
+  })
+}
+
+/**
+ * Resolve the collaborator roster with display names (owner surface). No FK
+ * from setlist_collaborators to profiles — second round trip, bandmates.js
+ * precedent. Non-owners read only their own row under RLS select_self.
+ */
+export async function listCollaborators(userId, setlistId) {
+  const { data, error } = await supabase
+    .from('setlist_collaborators')
+    .select('*')
+    .eq('setlist_id', setlistId)
+  if (error) throw error
+
+  const rows = data || []
+  const ids = [...new Set(rows.map((row) => row.user_id))]
+  let byId = new Map()
+  if (ids.length) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, display_name')
+      .in('id', ids)
+    if (profilesError) throw profilesError
+    byId = new Map((profiles || []).map((profile) => [profile.id, profile]))
+  }
+
+  return rows.map((row) => {
+    const profile = byId.get(row.user_id)
+    return {
+      userId: row.user_id,
+      canEdit: row.can_edit,
+      pending: !row.accepted_at,
+      acceptedAt: row.accepted_at,
+      username: profile?.username || null,
+      displayName: profile?.display_name || null,
     }
   })
 }
