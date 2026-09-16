@@ -53,9 +53,9 @@ function invalidateSongs(userId, ids) {
  * Chart: prefer the version's chart_file_id, fallback to newest non-deleted.
  */
 function flattenSong(row) {
-  const versions = (row.song_versions || [])
+  const versionRows = (row.song_versions || [])
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-  const latest = versions[0] || null
+  const latest = versionRows[0] || null
 
   const charts = (row.chart_files || [])
     .filter((c) => !c.soft_deleted)
@@ -69,6 +69,20 @@ function flattenSong(row) {
   const { status } = row.is_deleted
     ? { status: 'retired' }
     : computeReadiness({ key: latest?.base_key || '', body })
+
+  // 3.5: expose every version for the picker — no extra network (song_versions
+  // + chart_files are already embedded). Body = the version's own chart, ''
+  // when it has none (picker default stays the latest chart).
+  const versions = versionRows.map((v) => ({
+    id: v.id,
+    name: v.name,
+    number: v.number,
+    key: v.base_key || '',
+    bpm: v.base_tempo ?? null,
+    durationSeconds: v.duration_seconds ?? null,
+    isReady: v.is_ready,
+    body: (v.chart_file_id ? charts.find((c) => c.id === v.chart_file_id) : null)?.content || '',
+  }))
 
   return {
     id: row.id,
@@ -88,6 +102,7 @@ function flattenSong(row) {
     // Internal fields — used by mutations to locate the version/chart rows
     versionId: latest?.id || null,
     chartFileId: chart?.id || null,
+    versions,
   }
 }
 

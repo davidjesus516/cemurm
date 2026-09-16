@@ -48,6 +48,7 @@ export default function SongDetail() {
   const [body, setBody] = useState('')
   const [saving, setSaving] = useState(false)
   const [annotations, setAnnotations] = useState([])
+  const [versionId, setVersionId] = useState('')
   const [semitones, setSemitones] = useState(0)
 
   useEffect(() => {
@@ -77,7 +78,26 @@ export default function SongDetail() {
     return () => { cancelled = true }
   }, [user?.id, id])
 
-  const parsed = useMemo(() => (song?.body ? parseChordPro(song.body) : null), [song?.body])
+  const versions = useMemo(() => song?.versions || [], [song?.versions])
+
+  // 3.5: the personal default version opens first; the picker offers the
+  // others (spec: personal preference, repertoire still lists all versions).
+  useEffect(() => {
+    if (!versions.length) return undefined
+    setVersionId((current) => (
+      current && versions.some((v) => v.id === current)
+        ? current
+        : (prefs.defaultVersion && versions.some((v) => v.id === prefs.defaultVersion)
+            ? prefs.defaultVersion
+            : versions[0].id)
+    ))
+    return undefined
+  }, [versions, prefs.defaultVersion])
+
+  const openVersion = song ? versions.find((v) => v.id === versionId) || versions[0] : null
+  const openBody = openVersion?.body || ''
+
+  const parsed = useMemo(() => (openBody ? parseChordPro(openBody) : null), [openBody])
 
   const displayKey = useMemo(() => {
     if (!parsed) return ''
@@ -152,8 +172,8 @@ export default function SongDetail() {
         <div>
           <h1 className="text-2xl font-bold text-cem-text">{song.title}</h1>
           <p className="mt-1 text-sm text-cem-secondary">
-            {[song.key, song.bpm && `${song.bpm} BPM`].filter(Boolean).join(' · ') ||
-              'No key or BPM set'}
+            {[openVersion?.key || '', openVersion?.bpm && `${openVersion.bpm} BPM`]
+              .filter(Boolean).join(' · ') || 'No key or BPM set'}
           </p>
           <div className="mt-1 flex items-center gap-2">
             <StatusBadge status={song.status} />
@@ -199,6 +219,25 @@ export default function SongDetail() {
           )}
         </div>
       </div>
+
+      {versions.length > 1 && (
+        <div className="mt-3 flex items-center gap-2">
+          <label htmlFor="song-version" className="text-sm font-medium text-cem-text">Version</label>
+          <select
+            id="song-version"
+            value={versionId || ''}
+            onChange={(e) => setVersionId(e.target.value)}
+            className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-1.5 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
+          >
+            {versions.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name || `Version ${v.number || ''}`}
+                {prefs.defaultVersion === v.id ? ' (default)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {transitions.length > 0 && (
         <div className="mt-4 rounded-md bg-cem-elevated px-3 py-2">

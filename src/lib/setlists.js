@@ -58,18 +58,26 @@ function invalidateSetlists(userId, ids) {
 
 /**
  * Flatten a raw Supabase setlist row (with embedded setlist_items)
- * into the shape the rest of the app expects: itemIds ordered by position.
+ * into the shape the rest of the app expects: itemIds ordered by position,
+ * plus versionIds { songId: versionId } for the 3.5 per-item picker (absent
+ * key = picker default).
  */
 function flattenSetlist(row) {
-  const itemIds = (row.setlist_items || [])
+  const items = (row.setlist_items || [])
     .sort((a, b) => a.position - b.position)
-    .map((i) => i.song_id)
+  const itemIds = items.map((i) => i.song_id)
+
+  const versionIds = {}
+  for (const item of items) {
+    if (item.version_id) versionIds[item.song_id] = item.version_id
+  }
 
   return {
     id: row.id,
     userId: row.owner_id,
     name: row.name,
     itemIds,
+    versionIds,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -82,7 +90,7 @@ function flattenSetlist(row) {
 async function fetchSetlistById(userId, id) {
   const { data, error } = await supabase
     .from('setlists')
-    .select('*, setlist_items(song_id, position)')
+    .select('*, setlist_items(song_id, position, version_id)')
     .eq('id', id)
     .eq('owner_id', userId)
     .maybeSingle()
@@ -99,7 +107,7 @@ async function fetchSetlistById(userId, id) {
  * reload shows the pending version. Validation already ran before the
  * connectivity catch fired, so falling back to a minimal stub is safe.
  */
-async function buildOptimisticSetlist(userId, id, { name, mutateItemIds }) {
+async function buildOptimisticSetlist(userId, id, { name, mutateItemIds, mutateVersions }) {
   let base = null
   const cached = await offlineGet(`setlist:${userId}:${id}`)
   if (cached?.data) {
@@ -117,6 +125,7 @@ async function buildOptimisticSetlist(userId, id, { name, mutateItemIds }) {
     userId,
     name: name ?? 'Setlist',
     itemIds: [],
+    versionIds: {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -125,6 +134,9 @@ async function buildOptimisticSetlist(userId, id, { name, mutateItemIds }) {
     ...current,
     name: name !== undefined ? name : current.name,
     itemIds: mutateItemIds(current.itemIds),
+    versionIds: mutateVersions
+      ? mutateVersions(current.versionIds || {})
+      : (current.versionIds || {}),
     updatedAt: new Date().toISOString(),
     pendingSync: true,
   }
@@ -137,7 +149,7 @@ export function listSetlists(userId) {
     withReadThrough(`setlists:${userId}`, async () => {
       const { data, error } = await supabase
         .from('setlists')
-        .select('*, setlist_items(song_id, position)')
+        .select('*, setlist_items(song_id, position, version_id)')
         .eq('owner_id', userId)
         .order('created_at', { ascending: true })
 
@@ -160,7 +172,7 @@ export async function createSetlist(userId, { name }) {
       const { data, error } = await supabase
         .from('setlists')
         .insert({ owner_id: userId, name: trimmed })
-        .select('*, setlist_items(song_id, position)')
+        .select('*, setlist_items(song_id, position, version_id)')
         .single()
       if (error) throw error
 
@@ -307,6 +319,39 @@ export async function addSongToSetlist(userId, setlistId, songId) {
       await enqueueOp(userId, { name: 'addSongToSetlist', args: [userId, setlistId, songId] })
       return buildOptimisticSetlist(userId, setlistId, {
         mutateItemIds: (itemIds) => (itemIds.includes(songId) ? itemIds : [...itemIds, songId]),
+      })
+    }
+  })
+}
+
+/**
+ * 3.5: choose the version for a setlist item (version scenarios: record the
+ * chosen version, label visible to bandmates). null reverts to the picker
+ * default. Mirrors addSongToSetlist: online update + refetch; offline
+ * enqueueOp (WRITE_OPS, replay-safe — upsert by setlist+song) + optimistic
+ * versionIds update in the read-through cache.
+ */
+export async function setSongVersion(userId, setlistId, songId, versionId) {
+  return withErrorMapping(async () => {
+    try {
+      await fetchSetlistById(userId, setlistId)
+
+      const { error } = await supabase
+        .from('setlist_items')
+        .update({ version_id: versionId || null })
+        .eq('setlist_id', setlistId)
+        .eq('song_id', songId)
+      if (error) throw error
+
+      const setlist = await fetchSetlistById(userId, setlistId)
+      invalidateSetlists(userId, [setlistId])
+      return setlist
+    } catch (e) {
+      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      await enqueueOp(userId, { name: 'setSongVersion', args: [userId, setlistId, songId, versionId] })
+      return buildOptimisticSetlist(userId, setlistId, {
+        mutateItemIds: (itemIds) => itemIds,
+        mutateVersions: (versionIds) => ({ ...versionIds, [songId]: versionId || undefined }),
       })
     }
   })

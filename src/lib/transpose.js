@@ -65,6 +65,22 @@ export function preferFlatForKey(key) {
 }
 
 /**
+ * Smallest-shift distance from base to target key (3.6): G→D is −5 (perfect
+ * fourth down), C→D is +2. Unparseable keys → 0.
+ */
+export function semitonesBetween(baseKey, targetKey) {
+  const base = String(baseKey || '').match(/^([A-G][#b]?)/)
+  const target = String(targetKey || '').match(/^([A-G][#b]?)/)
+  if (!base || !target) return 0
+  const bi = noteIndex(base[1])
+  const ti = noteIndex(target[1])
+  if (!bi || !ti) return 0
+  let diff = (ti.index - bi.index + 12) % 12
+  if (diff > 6) diff -= 12
+  return diff
+}
+
+/**
  * Initial view semitones (D7): per-song override REPLACES the global offset
  * for that song (spec per-song override scenario: "explicit per-song
  * preference wins"). Seeds StageMode/Practice; fallback to global, else 0.
@@ -135,7 +151,12 @@ export function demo() {
   assert(initialSemitones(undefined, 2), 2, 'override without global')
   assert(initialSemitones(undefined, undefined), 0, 'no prefs → 0')
 
+  // 3.6 practice key: shortest-shift distance (G→D = −5, C→D = +2).
+  assert(semitonesBetween('G', 'D'), -5, 'G→D practice key is a fourth down')
+  assert(semitonesBetween('C', 'D'), 2, 'C→D is a whole step up')
+  assert(semitonesBetween('Bb', 'F'), -5, 'flat keys shortest path Bb→F')
+  assert(semitonesBetween('C', 'C'), 0, 'same key → 0')
   assert(preferFlatForKey('Bb major'), true, 'flat key prefers flats')
 
-  console.log('transpose demo OK: 24 asserts (notes, keys, parsed, capo, initial semitones, preferFlatForKey)')
+  console.log('transpose demo OK: 28 asserts (notes, keys, parsed, capo, initial semitones, semitonesBetween)')
 }

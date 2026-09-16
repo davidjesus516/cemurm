@@ -4,7 +4,7 @@ import { useSongs } from '../hooks/useSongs.js'
 import { usePreferences } from '../hooks/usePreferences.js'
 import { useAuth } from '../hooks/useAuth.jsx'
 import { parseChordPro } from '../lib/chordpro/parser.js'
-import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
+import { capoLabel, initialSemitones, semitonesBetween, transposeParsed, transposeKey } from '../lib/transpose.js'
 import { listAnnotations } from '../lib/annotations.js'
 import ChordProRenderer from '../components/notation/ChordProRenderer.jsx'
 
@@ -48,20 +48,35 @@ export default function Practice() {
     return semitones ? transposeKey(parsed.key, semitones) : parsed.key
   }, [parsed, semitones])
 
+  // 3.6: the practice-key/tempo pref drives the practice surface (metronome
+  // and auto-scroll consume these values); the stage key is unchanged — 
+  // StageMode never reads practice prefs (spec: Juan practices in D, stage G).
+  const practicePref = useMemo(() => (song ? prefs.practice?.[song.id] : null), [song, prefs.practice])
+
   const displayBpm = useMemo(() => {
-    if (!song?.bpm) return null
-    return Math.max(20, song.bpm + tempoOffset)
-  }, [song?.bpm, tempoOffset])
+    const baseline = practicePref?.tempo ?? song?.bpm
+    if (!baseline) return null
+    return Math.max(20, Number(baseline) + tempoOffset)
+  }, [practicePref?.tempo, song?.bpm, tempoOffset])
+
+  // Reset the manual tempo offset when the baseline changes (pref or song).
+  useEffect(() => {
+    setTempoOffset(0)
+  }, [practicePref?.tempo, song?.bpm])
 
   const transposed = useMemo(() => {
     if (!parsed) return null
     return transposeParsed(parsed, semitones)
   }, [parsed, semitones])
 
-  // D7: initial semitones = global transpose offset + this song's override
-  // (3.6 layers the practice-key pref on top). Re-seeded when the song or
+  // D7 + 3.6: baseline semitones = practice-key shift when set (G→D = −5),
+  // else global offset + this song's override. Re-seeded when the song or
   // its prefs load; manual +/- adjustments stay put until then.
-  const baseline = song ? initialSemitones(prefs.transpose, prefs.overrides[song.id]) : 0
+  const baseline = song
+    ? (practicePref?.key
+        ? semitonesBetween(parsed?.key, practicePref.key)
+        : initialSemitones(prefs.transpose, prefs.overrides[song.id]))
+    : 0
   useEffect(() => {
     setSemitones(baseline)
   }, [baseline])
@@ -173,10 +188,15 @@ export default function Practice() {
           </div>
         )}
 
-        {semitones !== 0 && (
+        {(semitones !== 0 || practicePref) && (
           <span className="ml-auto text-xs text-cem-secondary">
-            {semitones > 0 ? `+${semitones}` : semitones} semitones from original
+            {practicePref?.key ? `Practice ${practicePref.key} · ` : ''}
+            {practicePref?.tempo ? `${practicePref.tempo} BPM · ` : ''}
+            {semitones !== 0 && `${semitones > 0 ? '+' : ''}${semitones} semitones from original`}
           </span>
+        )}
+        {prefs.capo > 0 && displayKey && (
+          <span className="text-xs text-cem-secondary">{capoLabel(displayKey, prefs.capo)}</span>
         )}
       </div>
 

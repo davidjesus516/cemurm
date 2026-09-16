@@ -96,6 +96,12 @@ export function useSetlists() {
     return updated
   }
 
+  async function setSongVersion(setlistId, songId, versionId) {
+    const updated = await setlistStore.setSongVersion(user.id, setlistId, songId, versionId)
+    setSetlists((prev) => prev.map((s) => (s.id === setlistId ? updated : s)))
+    return updated
+  }
+
   async function getSetlist(id) {
     return setlistStore.getSetlist(user.id, id)
   }
@@ -111,6 +117,7 @@ export function useSetlists() {
     addSong,
     removeSong,
     moveSong,
+    setSongVersion,
     getSetlist,
   }
 }

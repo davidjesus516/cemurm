@@ -16,6 +16,7 @@ const WRITE_OPS = {
   addSongToSetlist: setlists.addSongToSetlist,
   removeSongFromSetlist: setlists.removeSongFromSetlist,
   moveSongInSetlist: setlists.moveSongInSetlist,
+  setSongVersion: setlists.setSongVersion,
   createGig: gigs.createGig,
   updateGig: gigs.updateGig,
   completeGig: gigs.completeGig,

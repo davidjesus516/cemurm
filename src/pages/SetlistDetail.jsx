@@ -6,7 +6,7 @@ import { formatDuration } from '../lib/duration.js'
 
 export default function SetlistDetail() {
   const { id } = useParams()
-  const { setlists, loading, updateSetlist, addSong, removeSong, moveSong } = useSetlists()
+  const { setlists, loading, updateSetlist, addSong, removeSong, moveSong, setSongVersion } = useSetlists()
   const { songs: availableSongs, loading: songsLoading } = useSongs()
   const [error, setError] = useState('')
   const [editingName, setEditingName] = useState(false)
@@ -187,6 +187,30 @@ export default function SetlistDetail() {
                         {[song.key, song.durationSeconds && formatDuration(song.durationSeconds)]
                           .filter(Boolean).join(' · ')}
                       </span>
+                    )}
+                    {song && setlist.versionIds?.[songId] && (
+                      <span className="ml-2 text-xs font-medium text-cem-amber">
+                        {song.versions.find((v) => v.id === setlist.versionIds[songId])?.name || ''}
+                      </span>
+                    )}
+                    {/* 3.5: record the chosen version on the setlist item ('' = picker default) */}
+                    {song?.versions?.length > 1 && (
+                      <select
+                        value={setlist.versionIds?.[songId] || ''}
+                        onChange={(e) =>
+                          setSongVersion(setlist.id, songId, e.target.value || null)
+                            .catch((err) => setError(err.message))
+                        }
+                        title="Version (Default = the picker default)"
+                        className="mt-1 block rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none"
+                      >
+                        <option value="">Default (latest)</option>
+                        {song.versions.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name || `Version ${v.number || ''}`}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   </div>
                 </div>
