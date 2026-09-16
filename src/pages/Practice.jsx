@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
+import { usePreferences } from '../hooks/usePreferences.js'
 import { parseChordPro } from '../lib/chordpro/parser.js'
-import { transposeParsed, transposeKey } from '../lib/transpose.js'
+import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
 import ChordProRenderer from '../components/notation/ChordProRenderer.jsx'
 
 export default function Practice() {
   const { id } = useParams()
   const { getSong } = useSongs()
+  const { prefs } = usePreferences()
   const [song, setSong] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -44,6 +46,14 @@ export default function Practice() {
     return transposeParsed(parsed, semitones)
   }, [parsed, semitones])
 
+  // D7: initial semitones = global transpose offset + this song's override
+  // (3.6 layers the practice-key pref on top). Re-seeded when the song or
+  // its prefs load; manual +/- adjustments stay put until then.
+  const baseline = song ? initialSemitones(prefs.transpose, prefs.overrides[song.id]) : 0
+  useEffect(() => {
+    setSemitones(baseline)
+  }, [baseline])
+
   if (loading) return <p className="text-sm text-cem-secondary">Loading…</p>
 
   if (error || !song) {
@@ -70,7 +80,7 @@ export default function Practice() {
 
   function transposeUp() { setSemitones((s) => s + 1) }
   function transposeDown() { setSemitones((s) => s - 1) }
-  function resetKey() { setSemitones(0) }
+  function resetKey() { setSemitones(baseline) }
   function tempoUp() { setTempoOffset((o) => o + 5) }
   function tempoDown() { setTempoOffset((o) => o - 5) }
   function resetTempo() { setTempoOffset(0) }
@@ -105,7 +115,7 @@ export default function Practice() {
           >
             +
           </button>
-          {semitones !== 0 && (
+          {semitones !== baseline && (
             <button
               type="button"
               onClick={resetKey}

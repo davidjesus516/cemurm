@@ -48,6 +48,26 @@ export function transposeKey(key, semitones) {
 }
 
 /**
+ * Capo display (D7): "Capo N · sounds X" — X is the rendered key shifted by
+ * the capo frets. Capo is a physical fret int, display-only: chord shapes
+ * stay put; the sounding key for the band is X (scenario: rendered C + capo 2
+ * → "Capo 2 · sounds D"). Empty string when no capo is set.
+ */
+export function capoLabel(renderedKey, capo) {
+  if (!renderedKey || !capo) return ''
+  return `Capo ${capo} · sounds ${transposeKey(renderedKey, capo)}`
+}
+
+/**
+ * Initial view semitones (D7): global transpose offset + per-song override —
+ * the override beats the global offset for that song only (spec per-song
+ * override scenario). Seeds StageMode/Practice; undefined/null sides are 0.
+ */
+export function initialSemitones(globalOffset, songOverride) {
+  return Number(globalOffset ?? 0) + Number(songOverride ?? 0)
+}
+
+/**
  * Transpose a parsed ChordPro object by N semitones.
  * Returns a new object — does not mutate the input.
  */
@@ -97,5 +117,15 @@ export function demo() {
   assert(t.sections[0].lines[0].chords[1].chord, 'C', 'second chord transposed')
   assert(parsed.sections[0].lines[0].chords[0].chord, 'C', 'original not mutated')
 
-  console.log('transpose demo OK')
+  // D7 capo display + initial semitones (3.3).
+  assert(capoLabel('C', 2), 'Capo 2 · sounds D', 'capo 2 over rendered C sounds D')
+  assert(capoLabel('Am', 3), 'Capo 3 · sounds Cm', 'minor key capo label')
+  assert(capoLabel('C', 0), '', 'no capo → no label')
+  assert(capoLabel('', 2), '', 'no rendered key → no label')
+  assert(initialSemitones(2, 0), 2, 'global offset alone')
+  assert(initialSemitones(2, -1), 1, 'override beats global')
+  assert(initialSemitones(0, -1), -1, 'override alone')
+  assert(initialSemitones(undefined, undefined), 0, 'no prefs → 0')
+
+  console.log('transpose demo OK: 21 asserts (notes, keys, parsed, capo, initial semitones)')
 }

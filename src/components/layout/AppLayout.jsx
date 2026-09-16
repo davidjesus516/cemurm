@@ -6,6 +6,7 @@ const navLinks = [
   { to: '/songs', label: 'Repertoire' },
   { to: '/setlists', label: 'Setlists' },
   { to: '/gigs', label: 'Gigs' },
+  { to: '/settings', label: 'Settings' },
   { to: '/settings/storage', label: 'Storage' },
 ]
 
@@ -31,7 +32,7 @@ function AppLayout() {
           <div className="flex items-center gap-4">
             <nav className="flex gap-4">
               {navLinks.map((link) => (
-                <NavLink key={link.to} to={link.to} end={link.to === '/'} className={linkClass}>
+                <NavLink key={link.to} to={link.to} end={link.to === '/' || link.to === '/settings'} className={linkClass}>
                   {link.label}
                 </NavLink>
               ))}

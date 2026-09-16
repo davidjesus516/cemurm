@@ -4,8 +4,9 @@ import { useSetlists } from '../hooks/useSetlists.js'
 import { useFootPedal } from '../hooks/useFootPedal.js'
 import { useGigs } from '../hooks/useGigs.js'
 import { useSongs } from '../hooks/useSongs.js'
+import { usePreferences } from '../hooks/usePreferences.js'
 import { parseChordPro } from '../lib/chordpro/parser.js'
-import { transposeParsed, transposeKey } from '../lib/transpose.js'
+import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
 
 const SWIPE_THRESHOLD = 48
 
@@ -15,6 +16,7 @@ export default function StageMode() {
   const { setlists, loading } = useSetlists()
   const { gigs: allGigs, completeGig } = useGigs()
   const { songs: repertoire } = useSongs()
+  const { prefs } = usePreferences()
 
   const [index, setIndex] = useState(0)
   const [semitones, setSemitones] = useState(0)
@@ -122,6 +124,13 @@ export default function StageMode() {
   }
 
   const song = songs[index]
+
+  // D7: initial semitones = global transpose offset + this song's override —
+  // re-seeded when the current song (or its prefs) change; manual +/- stays put.
+  const baseline = song ? initialSemitones(prefs.transpose, prefs.overrides[song.id]) : 0
+  useEffect(() => {
+    setSemitones(baseline)
+  }, [baseline])
 
   const parsed = useMemo(() => (song?.body ? parseChordPro(song.body) : null), [song?.body])
   const transposed = useMemo(
