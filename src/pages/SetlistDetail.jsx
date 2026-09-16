@@ -5,6 +5,8 @@ import { useSetlists } from '../hooks/useSetlists.js'
 import { useSongs } from '../hooks/useSongs.js'
 import { useBandmates } from '../hooks/useBandmates.js'
 import * as setlistStore from '../lib/setlists.js'
+import { describeActivity } from '../lib/setlistCollab.js'
+import { getProfile } from '../lib/profiles.js'
 import { formatDuration } from '../lib/duration.js'
 
 export default function SetlistDetail() {
@@ -24,6 +26,24 @@ export default function SetlistDetail() {
   const [collabs, setCollabs] = useState([])
   const [selected, setSelected] = useState([])
   const [transferTo, setTransferTo] = useState('')
+  // 2.3 activity feed (R11): client-derived, newest first, broadcast-only.
+  const [showActivity, setShowActivity] = useState(false)
+  const [feed, setFeed] = useState([])
+  const [myName, setMyName] = useState('Someone')
+
+  useEffect(() => {
+    if (!user) return
+    getProfile(user.id)
+      .then((profile) => setMyName(profile?.displayName || profile?.username || 'Someone'))
+      .catch(() => {})
+  }, [user])
+
+  useEffect(() => {
+    if (!showActivity || !id) return undefined
+    return setlistStore.subscribeActivity(id, (payload) => {
+      setFeed((prev) => [payload, ...prev])
+    })
+  }, [showActivity, id])
 
   const loadCollabs = useCallback(async () => {
     if (!user || !id) return
@@ -61,6 +81,18 @@ export default function SetlistDetail() {
   const shareOptions = bandmates.filter((b) => !collabs.some((c) => c.userId === b.userId))
   const acceptedCollabs = collabs.filter((c) => !c.pending)
 
+  // Emit a feed event and show it locally in the same step (Realtime never
+  // echoes a broadcast back to its sender).
+  function emitActivity(action) {
+    setFeed((prev) => [setlistStore.broadcastActivity(setlist.id, action, myName), ...prev])
+  }
+
+  function handleMove(fromIndex, toIndex) {
+    moveSong(setlist.id, fromIndex, toIndex)
+      .then(() => emitActivity('reorder'))
+      .catch((err) => setError(err.message))
+  }
+
   function toggleTarget(bandmateId) {
     setSelected((prev) => (prev.includes(bandmateId)
       ? prev.filter((x) => x !== bandmateId)
@@ -90,6 +122,7 @@ export default function SetlistDetail() {
       setSelected([])
       await refresh()
       await loadCollabs()
+      emitActivity('share')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -138,6 +171,7 @@ export default function SetlistDetail() {
       setTransferTo('')
       await refresh()
       await loadCollabs()
+      emitActivity('transfer-ownership')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -283,7 +317,37 @@ export default function SetlistDetail() {
             {showPicker ? 'Hide picker' : 'Add Song'}
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setShowActivity((v) => !v)}
+          className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated"
+        >
+          {showActivity ? 'Hide activity' : 'Activity'}
+        </button>
       </div>
+
+      {showActivity && (
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-cem-text">Activity</h2>
+          {feed.length === 0 ? (
+            <p className="mt-2 text-xs text-cem-secondary">No activity recorded yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-1">
+              {feed.map((event) => (
+                <li
+                  key={`${event.ts}-${event.action}-${event.actor}`}
+                  className="flex items-baseline justify-between gap-3 text-sm text-cem-text"
+                >
+                  <span>{describeActivity(event)}</span>
+                  <span className="shrink-0 text-xs text-cem-secondary">
+                    {new Date(event.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {setlist.canEdit && showPicker && (
         <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
@@ -471,7 +535,7 @@ export default function SetlistDetail() {
                   <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => moveSong(setlist.id, index, 0).catch((err) => setError(err.message))}
+                      onClick={() => handleMove(index, 0)}
                       disabled={index === 0}
                       title="Move to top"
                       className="rounded border border-cem-elevated px-2 py-0.5 text-xs text-cem-secondary hover:bg-cem-elevated disabled:opacity-40"
@@ -480,7 +544,7 @@ export default function SetlistDetail() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => moveSong(setlist.id, index, index - 1).catch((err) => setError(err.message))}
+                      onClick={() => handleMove(index, index - 1)}
                       disabled={index === 0}
                       title="Move up"
                       className="rounded border border-cem-elevated px-2 py-0.5 text-xs text-cem-secondary hover:bg-cem-elevated disabled:opacity-40"
@@ -489,7 +553,7 @@ export default function SetlistDetail() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => moveSong(setlist.id, index, index + 1).catch((err) => setError(err.message))}
+                      onClick={() => handleMove(index, index + 1)}
                       disabled={index === itemIds.length - 1}
                       title="Move down"
                       className="rounded border border-cem-elevated px-2 py-0.5 text-xs text-cem-secondary hover:bg-cem-elevated disabled:opacity-40"

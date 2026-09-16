@@ -636,6 +636,42 @@ export async function listCollaborators(userId, setlistId) {
   })
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 2.3 — activity feed (setlists R11, design D6): client-derived from Supabase
+// Realtime broadcast events, no setlist_activity table. Payload carries
+// { action, actor, ts } only. A one-shot sender channel is used per emission
+// (subscribe → send → remove); Realtime does not deliver a broadcast back to
+// its own sender, so the emitting client appends its own event locally.
+
+const ACTIVITY_EVENT = 'setlist-activity'
+const activityTopic = (setlistId) => `setlist-activity:${setlistId}`
+
+/** Subscribe to a setlist's activity broadcasts. Returns an unsubscribe fn. */
+export function subscribeActivity(setlistId, onActivity) {
+  const channel = supabase
+    .channel(activityTopic(setlistId))
+    .on('broadcast', { event: ACTIVITY_EVENT }, ({ payload }) => onActivity(payload))
+    .subscribe()
+  return () => supabase.removeChannel(channel)
+}
+
+/**
+ * Broadcast one activity event and return its payload so the caller can
+ * prepend it locally (the sender's own channel never receives it back).
+ */
+export function broadcastActivity(setlistId, action, actorName) {
+  const payload = { action, actor: actorName, ts: Date.now() }
+  const channel = supabase.channel(activityTopic(setlistId))
+  let sent = false
+  channel.subscribe((status) => {
+    if (sent || status !== 'SUBSCRIBED') return
+    sent = true
+    channel.send({ type: 'broadcast', event: ACTIVITY_EVENT, payload })
+      .then(() => supabase.removeChannel(channel))
+  })
+  return payload
+}
+
 /**
  * Resolve setlist durations by joining with the songs store.
  * Returns { totalSeconds, formatted } (mm:ss, unknown durations omitted).
