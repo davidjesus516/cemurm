@@ -59,12 +59,12 @@ export function capoLabel(renderedKey, capo) {
 }
 
 /**
- * Initial view semitones (D7): global transpose offset + per-song override —
- * the override beats the global offset for that song only (spec per-song
- * override scenario). Seeds StageMode/Practice; undefined/null sides are 0.
+ * Initial view semitones (D7): per-song override REPLACES the global offset
+ * for that song (spec per-song override scenario: "explicit per-song
+ * preference wins"). Seeds StageMode/Practice; fallback to global, else 0.
  */
 export function initialSemitones(globalOffset, songOverride) {
-  return Number(globalOffset ?? 0) + Number(songOverride ?? 0)
+  return Number(songOverride ?? globalOffset ?? 0)
 }
 
 /**
@@ -122,9 +122,11 @@ export function demo() {
   assert(capoLabel('Am', 3), 'Capo 3 · sounds Cm', 'minor key capo label')
   assert(capoLabel('C', 0), '', 'no capo → no label')
   assert(capoLabel('', 2), '', 'no rendered key → no label')
-  assert(initialSemitones(2, 0), 2, 'global offset alone')
-  assert(initialSemitones(2, -1), 1, 'override beats global')
+  assert(initialSemitones(2, undefined), 2, 'global offset alone')
+  assert(initialSemitones(2, -1), -1, 'override replaces global')
+  assert(initialSemitones(2, 0), 0, 'explicit override 0 wins over global')
   assert(initialSemitones(0, -1), -1, 'override alone')
+  assert(initialSemitones(undefined, 2), 2, 'override without global')
   assert(initialSemitones(undefined, undefined), 0, 'no prefs → 0')
 
   console.log('transpose demo OK: 21 asserts (notes, keys, parsed, capo, initial semitones)')
