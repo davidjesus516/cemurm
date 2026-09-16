@@ -6,6 +6,7 @@
 
 import * as setlists from './setlists.js'
 import * as gigs from './gigs.js'
+import * as bandmates from './bandmates.js'
 import { pendingOps, removeOps } from './offlineQueue.js'
 
 // op.name whitelist — setlist + gig writes are queued (see setlists.js /
@@ -20,6 +21,10 @@ const WRITE_OPS = {
   createGig: gigs.createGig,
   updateGig: gigs.updateGig,
   completeGig: gigs.completeGig,
+  // Hito 3 bandmates (1.3): respondInvite is idempotent — a revoked invite
+  // drops silently on replay instead of erroring the drain (R6).
+  inviteBandmate: bandmates.inviteBandmate,
+  respondInvite: bandmates.respondInvite,
 }
 
 // Last userId explicitly passed to drainPending. The 'online' listener
