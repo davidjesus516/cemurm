@@ -258,3 +258,48 @@ create policy shared_comments_insert_scoped on public.shared_comments
   );
 
 grant select, insert on table public.shared_comments to authenticated;
+
+-- ══════════════════════ 0.6 UPDATED_AT TRIGGERS + REALTIME PUBLICATION (RLS 4.1) ══════════════════════
+-- Design data flow (design.md line 27): "write → setlist_items → bump setlists.updated_at
+-- (trigger) → postgres_changes → members refetch". Two triggers, one per direction:
+--  · setlists_bump_updated_at — BEFORE UPDATE on setlists, keeps updated_at fresh on direct
+--    owner edits (rename/visibility) without a client write ordering contract.
+--  · setlist_items_bump_setlists_updated_at — AFTER INSERT/UPDATE/DELETE on setlist_items,
+--    propagates item edits to the parent row so the PR#2b reconcile guard has a truthful
+--    server-`updated_at` to compare pre-replay. SECURITY DEFINER + locked search_path +
+--    fully-qualified refs (0002 line 55): the definer write bypasses RLS, so any
+--    item-editing member (owner or can_edit, per the item policies) bumps the parent without
+--    tripping the setlists WITH CHECK on the way. Trigger-only entry — execute revoked.
+create function public.touch_setlists_updated_at() returns trigger
+  language plpgsql set search_path = '' as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+create trigger setlists_bump_updated_at
+  before update on public.setlists
+  for each row execute function public.touch_setlists_updated_at();
+
+create function public.bump_setlists_updated_at() returns trigger
+  language plpgsql security definer set search_path = '' as $$
+begin
+  update public.setlists set updated_at = now()
+  where id = coalesce(new.setlist_id, old.setlist_id);
+  return null;
+end $$;
+
+revoke all on function public.touch_setlists_updated_at() from public, anon, authenticated;
+revoke all on function public.bump_setlists_updated_at() from public, anon, authenticated;
+
+create trigger setlist_items_bump_setlists_updated_at
+  after insert or update or delete on public.setlist_items
+  for each row execute function public.bump_setlists_updated_at();
+
+-- Realtime publication (D3, RLS 4.1): postgres_changes subscriptions deliver only rows the
+-- subscriber's RLS policies can read, so publishing the setlist trio lets a collaborator
+-- receive live changes while a non-member receives nothing. All three tables are RLS-enabled
+-- (0002 DO-loop + re-declared above/here); no non-RLS table is added to the publication.
+alter publication supabase_realtime add table public.setlists;
+alter publication supabase_realtime add table public.setlist_items;
+alter publication supabase_realtime add table public.setlist_collaborators;
