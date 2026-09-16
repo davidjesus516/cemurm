@@ -24,7 +24,22 @@ values
    crypt('password1234', gen_salt('bf')), now(),
    '', '', '', '', '', '+34910000002', '', '', '',
    '{"provider":"email","providers":["email"]}',
-   '{"firstName":"Isolation","lastName":"User","displayName":"Isolation User"}', now(), now());
+   '{"firstName":"Isolation","lastName":"User","displayName":"Isolation User"}', now(), now()),
+  ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'outsider@cemurm.app',
+   crypt('password1234', gen_salt('bf')), now(),
+   '', '', '', '', '', '+34910000003', '', '', '',
+   '{"provider":"email","providers":["email"]}',
+   '{"firstName":"Outsider","lastName":"User","displayName":"Outsider User"}', now(), now());
+
+-- ── profiles (0006 trigger auto-creates a row on every auth.users insert above;
+--    usernames give the PR#0 RLS walk deterministic search/identity targets) ──
+update profiles set username = 'demo', display_name = 'Demo User', instrument = 'guitar'
+  where id = '10000000-0000-0000-0000-000000000001';
+update profiles set username = 'isolation', display_name = 'Isolation User'
+  where id = '10000000-0000-0000-0000-000000000002';
+update profiles set username = 'outsider', display_name = 'Outsider User'
+  where id = '10000000-0000-0000-0000-000000000003';
 
 -- ── tenancy: orgs, branch, memberships ──
 insert into organizations (id, name, org_type, status) values
@@ -62,6 +77,17 @@ insert into setlists (id, org_id, branch_id, owner_id, name, visibility) values
 insert into setlist_collaborators (setlist_id, user_id, can_edit, accepted_at) values
   ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002',
    false, now());
+
+-- ── band: demo ↔ isolation active pair (0006 pair-scope RLS walk target) ──
+insert into bandmate_links (user_id, bandmate_id, status, accepted_at) values
+  ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002',
+   'active', now());
+
+-- PENDING collaborator for outsider (accepted_at NULL): the RLS 3.1 self-accept walk step
+-- (outsider accepts before gaining setlist visibility; comment-42501 probe runs pre-accept).
+insert into setlist_collaborators (setlist_id, user_id, can_edit) values
+  ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003',
+   false);
 
 insert into setlist_items (id, setlist_id, song_id, position, agreed_key) values
   ('30000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001',
