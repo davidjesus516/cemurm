@@ -80,6 +80,6 @@ PR#3 contingency: if >400, split annotation rendering into #3b. No `size:excepti
 - [x] 3.1 Create `src/lib/preferences.js` + `src/hooks/usePreferences.js`: read-through `prefs:${userId}`, global/override/practice jsonb (D2) — read-only surface; mutation UI later
 - [x] 3.2 Create `src/pages/Settings.jsx` + `/settings` (read-only) route/nav: transpose, capo, default version
 - [x] 3.3 `src/lib/transpose.js` capo helper "Capo N · sounds X"; initial semitones = global+override in StageMode/Practice (D7) — (wired: Stage/Practice initial; boundary: capo/sounds display on charts → 3b renderer)
-- [ ] 3.4 `ChordProRenderer.jsx`: annotations (`personal_annotations`, anchor `{section,index}`) + substitution (transposed match/render); preserved across transpose
+- [x] 3.4 `ChordProRenderer.jsx`: annotations (`personal_annotations`, anchor `{section,index}`) + substitution (transposed match/render); preserved across transpose
 - [ ] 3.5 Version picker → `setlist_items.version_id`; default version opens first, picker offers others (version scenarios)
 - [ ] 3.6 Practice key/tempo drive metronome/auto-scroll; stage key unchanged (practice scenarios)

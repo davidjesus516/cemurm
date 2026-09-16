@@ -1,5 +1,8 @@
 /* eslint-disable react/prop-types */
 
+import { useMemo } from 'react'
+import { applySubstitution, buildSubstitutionMap, noteForLine } from '../../lib/annotations.js'
+
 // Build render segments from a parsed lyric line: each chord anchors the text
 // that follows it (up to the next chord), so the chord renders above its lyric.
 function toSegments({ text, chords }) {
@@ -17,7 +20,7 @@ function toSegments({ text, chords }) {
   return segments
 }
 
-function LyricLine({ line }) {
+function LyricLine({ line, substitutions, semitones, baseKey }) {
   const segments = toSegments(line)
   if (!segments.length) return <div className="h-3" />
 
@@ -26,7 +29,9 @@ function LyricLine({ line }) {
       {segments.map((segment, i) => (
         <span key={i} className="inline-flex flex-col items-start">
           {segment.chord && (
-            <span className="mb-0.5 text-sm font-bold text-cem-amber">{segment.chord}</span>
+            <span className="mb-0.5 text-sm font-bold text-cem-amber">
+              {applySubstitution(segment.chord, semitones, substitutions, baseKey)}
+            </span>
           )}
           {segment.text && <span className="text-cem-text">{segment.text}</span>}
         </span>
@@ -35,8 +40,16 @@ function LyricLine({ line }) {
   )
 }
 
-export default function ChordProRenderer({ parsed }) {
+// 3.4: personal annotations overlay (author view only). Tracks the current
+// {section} header name and each lyric line's 0-based index within it, so
+// notes anchor {section, index} resolve per the 0001 schema comment.
+export default function ChordProRenderer({ parsed, annotations = [], semitones = 0, baseKey = '' }) {
   const { title, artist, key, sections = [] } = parsed
+
+  const substitutions = useMemo(() => buildSubstitutionMap(annotations), [annotations])
+
+  let sectionName = ''
+  let lineInSection = 0
 
   return (
     <div className="rounded-lg border border-cem-elevated bg-cem-surface p-6 shadow-sm">
@@ -48,23 +61,43 @@ export default function ChordProRenderer({ parsed }) {
       )}
 
       <div className="mt-4 space-y-3">
-        {sections.map((section, i) => (
-          <div key={i}>
-            {section.type === 'section' && (
-              <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-cem-secondary">
-                {section.lines[0]?.text}
-              </h3>
-            )}
-            {section.type === 'comment' && (
-              <p className="italic text-cem-secondary">{section.lines.map((line) => line.text).join(' ')}</p>
-            )}
-            {section.type === 'lyrics' && (
-              <div className="space-y-0.5">
-                {section.lines.map((line, j) => <LyricLine key={j} line={line} />)}
-              </div>
-            )}
-          </div>
-        ))}
+        {sections.map((section, i) => {
+          if (section.type === 'section') {
+            sectionName = section.lines[0]?.text || ''
+            lineInSection = 0
+          }
+          return (
+            <div key={i}>
+              {section.type === 'section' && (
+                <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-cem-secondary">
+                  {section.lines[0]?.text}
+                </h3>
+              )}
+              {section.type === 'comment' && (
+                <p className="italic text-cem-secondary">{section.lines.map((line) => line.text).join(' ')}</p>
+              )}
+              {section.type === 'lyrics' && (
+                <div className="space-y-0.5">
+                  {section.lines.map((line, j) => {
+                    const note = noteForLine(annotations, sectionName, lineInSection)
+                    lineInSection += 1
+                    return (
+                      <div key={j}>
+                        <LyricLine
+                          line={line}
+                          substitutions={substitutions}
+                          semitones={semitones}
+                          baseKey={baseKey}
+                        />
+                        {note && <p className="text-xs italic text-cem-secondary">— {note}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

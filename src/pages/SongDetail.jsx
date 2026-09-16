@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
+import { usePreferences } from '../hooks/usePreferences.js'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { parseChordPro } from '../lib/chordpro/parser.js'
+import { capoLabel, initialSemitones, transposeKey, transposeParsed } from '../lib/transpose.js'
+import { listAnnotations } from '../lib/annotations.js'
 import { computeReadiness } from '../lib/readiness.js'
 import ChordProRenderer from '../components/notation/ChordProRenderer.jsx'
 
@@ -33,6 +37,8 @@ function TransitionLine({ t }) {
 
 export default function SongDetail() {
   const { id } = useParams()
+  const { user } = useAuth()
+  const { prefs } = usePreferences()
   const { getSong, getPlayedAt, updateSong, retireSong, reactivateSong } = useSongs()
   const [song, setSong] = useState(null)
   const [playedAt, setPlayedAt] = useState([])
@@ -41,6 +47,8 @@ export default function SongDetail() {
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState('')
   const [saving, setSaving] = useState(false)
+  const [annotations, setAnnotations] = useState([])
+  const [semitones, setSemitones] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -60,6 +68,32 @@ export default function SongDetail() {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  // 3.4: render the author's personal annotations (self-scoped) on this view.
+  useEffect(() => {
+    let cancelled = false
+    if (!user?.id || !id) return undefined
+    listAnnotations(user.id, id).then((rows) => { if (!cancelled) setAnnotations(rows) })
+    return () => { cancelled = true }
+  }, [user?.id, id])
+
+  const parsed = useMemo(() => (song?.body ? parseChordPro(song.body) : null), [song?.body])
+
+  const displayKey = useMemo(() => {
+    if (!parsed) return ''
+    return semitones ? transposeKey(parsed.key, semitones) : parsed.key
+  }, [parsed, semitones])
+
+  // 3b renderer boundary: chart surfaces seed the global offset + override.
+  const baseline = song ? initialSemitones(prefs.transpose, prefs.overrides[song.id]) : 0
+  useEffect(() => {
+    setSemitones(baseline)
+  }, [baseline])
+
+  const transposed = useMemo(() => {
+    if (!parsed) return null
+    return transposeParsed(parsed, semitones)
+  }, [parsed, semitones])
 
   function startEditing() {
     setBody(song?.body || '')
@@ -228,9 +262,21 @@ export default function SongDetail() {
             </button>
           </div>
         </form>
-      ) : song.body ? (
+      ) : parsed ? (
         <div className="mt-6">
-          <ChordProRenderer parsed={parseChordPro(song.body)} />
+          {(semitones !== 0 || prefs.capo > 0) && (
+            <p className="mb-2 text-xs text-cem-secondary">
+              {semitones !== 0 && `${displayKey} · ${semitones > 0 ? '+' : ''}${semitones} semitones`}
+              {semitones !== 0 && prefs.capo > 0 ? ' · ' : ''}
+              {prefs.capo > 0 ? capoLabel(displayKey, prefs.capo) : ''}
+            </p>
+          )}
+          <ChordProRenderer
+            parsed={transposed}
+            annotations={annotations}
+            semitones={semitones}
+            baseKey={parsed?.key}
+          />
         </div>
       ) : (
         <div className="mt-6 rounded-lg border border-dashed border-cem-elevated bg-cem-surface p-8 text-center">

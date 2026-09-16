@@ -28,7 +28,7 @@ function transposeNote(noteName, semitones, preferFlat) {
 // Match chord root: optional flat/sharp, then note letter
 const CHORD_RE = /^([A-G][#b]?)(.*)/
 
-function transposeChord(chord, semitones, preferFlat) {
+export function transposeChord(chord, semitones, preferFlat) {
   const m = chord.match(CHORD_RE)
   if (!m) return chord
   const newRoot = transposeNote(m[1], semitones, preferFlat)
@@ -56,6 +56,12 @@ export function transposeKey(key, semitones) {
 export function capoLabel(renderedKey, capo) {
   if (!renderedKey || !capo) return ''
   return `Capo ${capo} · sounds ${transposeKey(renderedKey, capo)}`
+}
+
+// Flat preference for a key's root — mirrors transposeParsed's check, so
+// annotations.js can reverse-lookup tokens enharmonically consistently.
+export function preferFlatForKey(key) {
+  return FLAT_KEYS.has(String(key || '').split(/\s+/)[0])
 }
 
 /**
@@ -129,5 +135,7 @@ export function demo() {
   assert(initialSemitones(undefined, 2), 2, 'override without global')
   assert(initialSemitones(undefined, undefined), 0, 'no prefs → 0')
 
-  console.log('transpose demo OK: 21 asserts (notes, keys, parsed, capo, initial semitones)')
+  assert(preferFlatForKey('Bb major'), true, 'flat key prefers flats')
+
+  console.log('transpose demo OK: 24 asserts (notes, keys, parsed, capo, initial semitones, preferFlatForKey)')
 }

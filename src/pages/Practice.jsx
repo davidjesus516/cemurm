@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
 import { usePreferences } from '../hooks/usePreferences.js'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { parseChordPro } from '../lib/chordpro/parser.js'
 import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
+import { listAnnotations } from '../lib/annotations.js'
 import ChordProRenderer from '../components/notation/ChordProRenderer.jsx'
 
 export default function Practice() {
   const { id } = useParams()
+  const { user } = useAuth()
   const { getSong } = useSongs()
   const { prefs } = usePreferences()
   const [song, setSong] = useState(null)
@@ -15,6 +18,7 @@ export default function Practice() {
   const [error, setError] = useState('')
   const [semitones, setSemitones] = useState(0)
   const [tempoOffset, setTempoOffset] = useState(0)
+  const [annotations, setAnnotations] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -25,6 +29,14 @@ export default function Practice() {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  // 3.4: render the author's personal annotations (self-scoped) on this view.
+  useEffect(() => {
+    let cancelled = false
+    if (!user?.id || !id) return undefined
+    listAnnotations(user.id, id).then((rows) => { if (!cancelled) setAnnotations(rows) })
+    return () => { cancelled = true }
+  }, [user?.id, id])
 
   const parsed = useMemo(() => {
     if (!song?.body) return null
@@ -170,7 +182,12 @@ export default function Practice() {
 
       {/* Song rendered */}
       <div className="mt-4">
-        <ChordProRenderer parsed={transposed} />
+        <ChordProRenderer
+          parsed={transposed}
+          annotations={annotations}
+          semitones={semitones}
+          baseKey={parsed?.key}
+        />
       </div>
     </div>
   )
