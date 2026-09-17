@@ -672,6 +672,44 @@ export function broadcastActivity(setlistId, action, actorName) {
   return payload
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 2.4 — realtime (setlists R2, design D6 data flow): subscribe to
+// postgres_changes on the three tables published in 0006 (0.6) so any
+// collaborator's write reaches members within 2 seconds. setlist_items
+// carries the item edits (filter setlist_id=eq), setlist_collaborators the
+// invite/accept/permission/removal and ownership-transfer roster changes,
+// setlists the visibility/name/owner updates. The parent updated_at bump
+// trigger makes an item edit ALSO fire a setlists event, so consumers
+// coalesce bursts (useSharedSetlist debounces its refetch). Returns an
+// unsubscribe fn that removes the channel — teardown on unmount.
+
+/**
+ * Subscribe to live changes of one setlist across the published tables.
+ * `onChange` receives the raw postgres_changes payload ({table, eventType,
+ * new, old}). RLS caps delivery: a non-member subscriber receives nothing.
+ */
+export function subscribeSetlistRealtime(setlistId, onChange) {
+  const channel = supabase
+    .channel(`setlist:${setlistId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'setlist_items', filter: `setlist_id=eq.${setlistId}` },
+      onChange,
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'setlist_collaborators', filter: `setlist_id=eq.${setlistId}` },
+      onChange,
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'setlists', filter: `id=eq.${setlistId}` },
+      onChange,
+    )
+    .subscribe()
+  return () => supabase.removeChannel(channel)
+}
+
 /**
  * Resolve setlist durations by joining with the songs store.
  * Returns { totalSeconds, formatted } (mm:ss, unknown durations omitted).

@@ -36,6 +36,24 @@ export function useSetlists() {
     refresh()
   }, [refresh])
 
+  // Realtime refetch (2.4, R2): same reads as refresh() but without the
+  // loading flip — a remote edit must appear in place, not flash the whole
+  // detail page through its loading state. Failures keep the last good
+  // state (the page is already showing data; a blip must not blank it).
+  const refreshSilent = useCallback(async () => {
+    if (!user) return
+    try {
+      const [data, songData] = await Promise.all([
+        setlistStore.listSetlists(user.id),
+        songs.listSongs(user.id),
+      ])
+      setAllSongs(songData)
+      setSetlists(data)
+    } catch {
+      // keep the last good state; the next event or refresh() retries
+    }
+  }, [user])
+
   const enriched = useMemo(() => {
     const byId = new Map(allSongs.map((s) => [s.id, s]))
     return setlists.map((setlist) => {
@@ -110,6 +128,7 @@ export function useSetlists() {
     setlists: enriched,
     loading,
     refresh,
+    refreshSilent,
     createSetlist,
     deleteSetlist,
     duplicateSetlist,

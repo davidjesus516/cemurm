@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth.jsx'
 import { useSetlists } from '../hooks/useSetlists.js'
 import { useSongs } from '../hooks/useSongs.js'
 import { useBandmates } from '../hooks/useBandmates.js'
+import { useSharedSetlist } from '../hooks/useSharedSetlist.js'
 import * as setlistStore from '../lib/setlists.js'
 import { describeActivity } from '../lib/setlistCollab.js'
 import { getProfile } from '../lib/profiles.js'
@@ -12,7 +13,7 @@ import { formatDuration } from '../lib/duration.js'
 export default function SetlistDetail() {
   const { id } = useParams()
   const { user } = useAuth()
-  const { setlists, loading, refresh, updateSetlist, addSong, removeSong, moveSong, setSongVersion } = useSetlists()
+  const { setlists, loading, refresh, refreshSilent, updateSetlist, addSong, removeSong, moveSong, setSongVersion } = useSetlists()
   const { songs: availableSongs, loading: songsLoading } = useSongs()
   const { active: bandmates } = useBandmates()
   const [error, setError] = useState('')
@@ -57,6 +58,11 @@ export default function SetlistDetail() {
   useEffect(() => {
     loadCollabs()
   }, [loadCollabs])
+
+  // 2.4 realtime (R2): live member edits land via postgres_changes → silent
+  // refetch (<2s). The hook borrows THIS page's setlists refresh so remote
+  // changes update the copy being rendered. 2.5's lock surface returns here.
+  useSharedSetlist(id, { onRemoteChange: refreshSilent })
 
   // Derived: the hook already enriches each setlist with resolved songs + duration.
   const setlist = setlists.find((s) => s.id === id)
