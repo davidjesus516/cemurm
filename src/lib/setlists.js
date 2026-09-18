@@ -710,6 +710,45 @@ export function subscribeSetlistRealtime(setlistId, onChange) {
   return () => supabase.removeChannel(channel)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 2.5 — client advisory lock (R3, D4): broadcast {userId, songId} pairs over
+// the setlist's lock channel. Realtime does not reliably echo a broadcast
+// back to its sender (2.3 experience), so the holder also applies its own
+// lock locally; receivers merge via applyLock (setlistCollab.js). ONE
+// persistent channel per setlist preserves acquire→release ordering —
+// per-event one-shot channels could reorder two sends and strand a lock.
+
+const LOCK_EVENT = 'edit-lock'
+const lockTopic = (setlistId) => `setlist-lock:${setlistId}`
+
+/**
+ * Open a setlist's lock channel for receive + send. Returns { send, close }:
+ * send() queues until the channel joins, then pushes in order; close()
+ * removes the channel (teardown on unmount).
+ */
+export function openLockChannel(setlistId, onLock) {
+  const channel = supabase.channel(lockTopic(setlistId))
+  let sendQueue = []
+  channel
+    .on('broadcast', { event: LOCK_EVENT }, ({ payload }) => onLock?.(payload))
+    .subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return
+      for (const queued of sendQueue) {
+        channel.send({ type: 'broadcast', event: LOCK_EVENT, payload: queued }).catch(() => {})
+      }
+      sendQueue = null
+    })
+  return {
+    send(payload) {
+      if (sendQueue) sendQueue.push(payload)
+      else channel.send({ type: 'broadcast', event: LOCK_EVENT, payload }).catch(() => {})
+    },
+    close() {
+      supabase.removeChannel(channel)
+    },
+  }
+}
+
 /**
  * Resolve setlist durations by joining with the songs store.
  * Returns { totalSeconds, formatted } (mm:ss, unknown durations omitted).

@@ -61,8 +61,9 @@ export default function SetlistDetail() {
 
   // 2.4 realtime (R2): live member edits land via postgres_changes → silent
   // refetch (<2s). The hook borrows THIS page's setlists refresh so remote
-  // changes update the copy being rendered. 2.5's lock surface returns here.
-  useSharedSetlist(id, { onRemoteChange: refreshSilent })
+  // changes update the copy being rendered. 2.5 adds advisory locks + the
+  // conflict toast (R3).
+  const collab = useSharedSetlist(id, { actorName: myName, onRemoteChange: refreshSilent })
 
   // Derived: the hook already enriches each setlist with resolved songs + duration.
   const setlist = setlists.find((s) => s.id === id)
@@ -231,6 +232,29 @@ export default function SetlistDetail() {
 
       {notice && (
         <p className="mt-3 rounded-md bg-cem-amber/10 px-3 py-2 text-sm text-cem-amber">{notice}</p>
+      )}
+
+      {/* 2.5 conflict toast (R3): a write landed on the song I am editing. */}
+      {collab.conflict && (
+        <div className="mt-3 rounded-md border border-cem-rose bg-cem-rose/10 px-3 py-2 text-sm text-cem-text">
+          <p className="font-medium text-cem-rose">This song changed on the server while you were editing it.</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={collab.keepMyChanges}
+              className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated"
+            >
+              Keep my changes
+            </button>
+            <button
+              type="button"
+              onClick={collab.acceptServerVersion}
+              className="rounded-md bg-cem-rose px-3 py-1 text-xs font-medium text-cem-base hover:bg-cem-rose/90"
+            >
+              Accept server version
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="mt-3 flex items-center justify-between gap-4">
@@ -499,6 +523,8 @@ export default function SetlistDetail() {
         <ol className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
           {itemIds.map((songId, index) => {
             const song = setlist.songs.find((s) => s.id === songId)
+            const lock = collab.locks[songId]
+            const lockedByOther = lock && lock.userId !== user.id
             return (
               <li key={songId} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -520,12 +546,19 @@ export default function SetlistDetail() {
                     {song?.versions?.length > 1 && (
                       <select
                         value={setlist.versionIds?.[songId] || ''}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          // 2.5: the change commits the edit — release the lock
+                          // BEFORE the write so my own realtime event (which
+                          // carries no actor) cannot fire a self-conflict toast.
+                          collab.releaseLock(songId)
                           setSongVersion(setlist.id, songId, e.target.value || null)
                             .catch((err) => setError(err.message))
-                        }
-                        title="Version (Default = the picker default)"
-                        className="mt-1 block rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none"
+                        }}
+                        onFocus={() => { if (setlist.canEdit) collab.acquireLock(songId) }}
+                        onBlur={() => { if (setlist.canEdit) collab.releaseLock(songId) }}
+                        disabled={lockedByOther}
+                        title={lockedByOther ? `Being edited by ${lock.actor || 'another member'}` : 'Version (Default = the picker default)'}
+                        className="mt-1 block rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none disabled:opacity-60"
                       >
                         <option value="">Default (latest)</option>
                         {song.versions.map((v) => (
@@ -537,7 +570,7 @@ export default function SetlistDetail() {
                     )}
                   </div>
                 </div>
-                {setlist.canEdit && (
+                {setlist.canEdit && !lockedByOther && (
                   <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
@@ -574,6 +607,11 @@ export default function SetlistDetail() {
                       Remove
                     </button>
                   </div>
+                )}
+                {setlist.canEdit && lockedByOther && (
+                  <p className="shrink-0 text-xs text-cem-amber">
+                    {song?.title || 'This song'} is being edited by {lock.actor || 'a bandmate'}
+                  </p>
                 )}
               </li>
             )

@@ -1,10 +1,10 @@
-// Pure guards + activity labels for shared-setlist collaboration (Hito 3
-// PR#2a, tasks 2.1/2.3). Zero imports, so this module is bare-node safe and
-// the demo runs under node directly (setlists.js is not: it statically
-// imports songs.js → supabase.js, which evaluates import.meta.env at module
-// scope — undefined in bare node). The network ops that wrap these guards
-// live in setlists.js (2.1); the broadcast helpers and feed panel are the
-// 2.3 surface.
+// Pure guards + activity labels + lock rules for shared-setlist
+// collaboration (Hito 3 PR#2a tasks 2.1/2.3 and PR#2b task 2.5). Zero
+// imports, so this module is bare-node safe and the demo runs under node
+// directly (setlists.js is not: it statically imports songs.js → supabase.js,
+// which evaluates import.meta.env at module scope — undefined in bare node).
+// The network ops that wrap these guards live in setlists.js; the realtime /
+// broadcast / lock helpers and feed panel are the 2.3–2.5 surfaces.
 
 /**
  * Visibility values the spec allows: 'private' | 'shared' | 'public'
@@ -57,6 +57,41 @@ export function describeActivity(event) {
   return label ? label(event.actor) : `${event.actor} ${event.action}`
 }
 
+// ── 2.5 client advisory lock (spec R3, design D4) ───────────────────────────
+// Pure lock-state transitions for the broadcast advisory lock. Payloads
+// carry {userId, songId, locked, ts} (+ actor for the "being edited by"
+// notice). Locks are ephemeral — no DB row — and die when the holder
+// releases (save/cancel/unmount) or when its heartbeat stops and it ages
+// past LOCK_TTL_MS (a crashed tab must not block co-editors forever).
+
+export const LOCK_TTL_MS = 30000
+
+/** True when a lock is missing or stale enough to be overwritten/released. */
+export function isLockStale(lock, now = Date.now()) {
+  return !lock || now - (lock.ts || 0) > LOCK_TTL_MS
+}
+
+/**
+ * Next lock record ({ [songId]: {userId, actor, ts} }) from a broadcast
+ * payload. Releases only remove the holder's own lock (or a stale one) — a
+ * late unlock from a previous holder must not clear the current holder's
+ * lock. Acquisitions never steal an ACTIVE foreign lock.
+ */
+export function applyLock(locks, payload) {
+  const next = { ...(locks || {}) }
+  const songId = payload.songId
+  const now = Date.now()
+  if (payload.locked === false) {
+    const held = next[songId]
+    if (held && (held.userId === payload.userId || isLockStale(held, now))) delete next[songId]
+    return next
+  }
+  const held = next[songId]
+  if (held && held.userId !== payload.userId && !isLockStale(held, now)) return next
+  next[songId] = { userId: payload.userId, actor: payload.actor || null, ts: payload.ts || now }
+  return next
+}
+
 // Self-check: node -e "import('./src/lib/setlistCollab.js').then(m => m.demo())"
 export function demo() {
   const assert = (actual, expected, label) => {
@@ -88,5 +123,34 @@ export function demo() {
   assert(describeActivity({ actor: 'Julian', action: 'share', ts: 't' }), 'Julian shared with the band', 'share label')
   assert(describeActivity({ actor: 'X', action: 'mystery', ts: 't' }), 'X mystery', 'unknown action falls back to actor + action')
 
-  console.log('setlistCollab demo OK: 11 asserts (visibility, share targets, transfer guard, feed labels)')
+  // 2.5 advisory lock transitions (R3)
+  const noLocks = {}
+  const t0 = Date.now()
+  const aLock = applyLock(noLocks, { userId: 'a', songId: 's1', locked: true, ts: t0 })
+  assert(aLock.s1?.userId, 'a', 'acquire stores the holder')
+  assert(isLockStale(null), true, 'missing lock is stale')
+  assert(isLockStale({ ts: Date.now() }), false, 'fresh lock is not stale')
+  assert(
+    JSON.stringify(applyLock(aLock, { userId: 'b', songId: 's1', locked: true, ts: t0 + 1000 })),
+    JSON.stringify(aLock),
+    'active foreign lock is not stolen',
+  )
+  assert(
+    JSON.stringify(applyLock(aLock, { userId: 'b', songId: 's1', locked: false, ts: t0 + 1000 })),
+    JSON.stringify(aLock),
+    'non-holder unlock is ignored',
+  )
+  assert(
+    JSON.stringify(applyLock(aLock, { userId: 'a', songId: 's1', locked: false, ts: t0 + 1000 })),
+    JSON.stringify(noLocks),
+    'holder unlock clears the lock',
+  )
+  const staleLock = { s1: { userId: 'a', actor: null, ts: t0 - LOCK_TTL_MS - 5000 } }
+  assert(
+    applyLock(staleLock, { userId: 'b', songId: 's1', locked: true, ts: Date.now() }).s1.userId,
+    'b',
+    'stale lock is overwritable by a new holder',
+  )
+
+  console.log('setlistCollab demo OK: 18 asserts (visibility, share targets, transfer guard, feed labels, advisory locks)')
 }
