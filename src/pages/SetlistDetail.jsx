@@ -6,6 +6,7 @@ import { useSongs } from '../hooks/useSongs.js'
 import { useBandmates } from '../hooks/useBandmates.js'
 import { useSharedSetlist } from '../hooks/useSharedSetlist.js'
 import * as setlistStore from '../lib/setlists.js'
+import { syncNotices, clearSyncNotices } from '../lib/offlineSync.js'
 import { describeActivity } from '../lib/setlistCollab.js'
 import { getProfile } from '../lib/profiles.js'
 import { formatDuration } from '../lib/duration.js'
@@ -45,6 +46,28 @@ export default function SetlistDetail() {
       setFeed((prev) => [payload, ...prev])
     })
   }, [showActivity, id])
+
+  // 2.6 (R7): drain-time notices ("removed before your sync") are persisted by
+  // offlineSync.js — surface them on mount, on reconnect, and when a drain
+  // finishes, then consume them so each is shown exactly once.
+  useEffect(() => {
+    if (!user) return undefined
+    let stale = false
+    const showNotices = async () => {
+      const lines = await syncNotices(user.id)
+      if (stale || lines.length === 0) return
+      await clearSyncNotices(user.id)
+      setNotice(lines.join(' '))
+    }
+    showNotices()
+    window.addEventListener('online', showNotices)
+    window.addEventListener('cemurm:sync-done', showNotices)
+    return () => {
+      stale = true
+      window.removeEventListener('online', showNotices)
+      window.removeEventListener('cemurm:sync-done', showNotices)
+    }
+  }, [user])
 
   const loadCollabs = useCallback(async () => {
     if (!user || !id) return
