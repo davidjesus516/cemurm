@@ -40,10 +40,26 @@ function LyricLine({ line, substitutions, semitones, baseKey }) {
   )
 }
 
+// DOM id for a rendered section block — the scroll target of "jump to the
+// anchored section" (shared comments 3.4). Depends on the section name only:
+// transposeParsed keeps section blocks 1:1, so the id survives transposition.
+export function sectionAnchorId(sectionName) {
+  return `section-${encodeURIComponent(sectionName || '')}`
+}
+
 // 3.4: personal annotations overlay (author view only). Tracks the current
 // {section} header name and each lyric line's 0-based index within it, so
 // notes anchor {section, index} resolve per the 0001 schema comment.
-export default function ChordProRenderer({ parsed, annotations = [], semitones = 0, baseKey = '' }) {
+// `onSectionComment` wires the optional per-section comment composer (shared
+// comments 3.4) — absent for callers that render annotations only.
+export default function ChordProRenderer({
+  parsed,
+  annotations = [],
+  semitones = 0,
+  baseKey = '',
+  onSectionComment,
+  highlightSection,
+}) {
   const { title, artist, key, sections = [] } = parsed
 
   const substitutions = useMemo(() => buildSubstitutionMap(annotations), [annotations])
@@ -66,11 +82,24 @@ export default function ChordProRenderer({ parsed, annotations = [], semitones =
             sectionName = section.lines[0]?.text || ''
             lineInSection = 0
           }
+          const isSection = section.type === 'section'
           return (
             <div key={i}>
-              {section.type === 'section' && (
-                <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-cem-secondary">
-                  {section.lines[0]?.text}
+              {isSection && (
+                <h3
+                  id={sectionAnchorId(sectionName)}
+                  className={`mb-1 text-xs font-bold uppercase tracking-wider ${highlightSection === sectionName ? 'text-cem-amber' : 'text-cem-secondary'}`}
+                >
+                  {sectionName}
+                  {onSectionComment && (
+                    <button
+                      type="button"
+                      onClick={() => onSectionComment(sectionName)}
+                      className="ml-2 rounded border border-cem-elevated px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-cem-secondary hover:bg-cem-elevated"
+                    >
+                      Comment
+                    </button>
+                  )}
                 </h3>
               )}
               {section.type === 'comment' && (

@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
 import { usePreferences } from '../hooks/usePreferences.js'
 import { useAuth } from '../hooks/useAuth.jsx'
+import { useComments } from '../hooks/useComments.js'
 import { parseChordPro } from '../lib/chordpro/parser.js'
 import { capoLabel, initialSemitones, transposeKey, transposeParsed } from '../lib/transpose.js'
 import { listAnnotations } from '../lib/annotations.js'
+import { buildCommentTree, formatAnchor } from '../lib/comments.js'
 import { computeReadiness } from '../lib/readiness.js'
-import ChordProRenderer from '../components/notation/ChordProRenderer.jsx'
+import ChordProRenderer, { sectionAnchorId } from '../components/notation/ChordProRenderer.jsx'
 
 /* eslint-disable react/prop-types */
 
@@ -35,6 +37,154 @@ function TransitionLine({ t }) {
   )
 }
 
+// 3.4: one thread node — a root comment (or a reply under it). Roots render
+// Reply/Resolve; the author gets Edit/Delete; resolved roots collapse by
+// default (spec R7). Body/actions/mine are derived from the row; anchors jump
+// to the section (spec R2). Personal annotations never appear here — the
+// renderer overlays those separately, so the two surfaces stay apart.
+function CommentCard({ comment, userId, isRoot, onReply, onResolve, onDelete, onSaveEdit, onJump }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const mine = comment.authorId === userId
+  const author = comment.authorName || (mine ? 'You' : 'Band member')
+  const edited = comment.updatedAt && comment.updatedAt !== comment.createdAt
+
+  function startEdit() {
+    setDraft(comment.body)
+    setEditing(true)
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const saved = await onSaveEdit(comment, draft)
+      if (saved) setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inner = (
+    <>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-sm font-semibold text-cem-text">{author}</span>
+        <span className="text-xs text-cem-secondary">
+          {new Date(comment.createdAt).toLocaleString()}
+          {edited ? ' · edited' : ''}
+        </span>
+        {comment.pendingSync && (
+          <span className="rounded bg-cem-amber/10 px-1.5 py-0.5 text-[10px] font-medium text-cem-amber">pending sync</span>
+        )}
+        {comment.resolved && <span className="text-xs font-medium text-cem-emerald">Resolved</span>}
+      </div>
+
+      {comment.anchor?.section && (
+        <button
+          type="button"
+          onClick={() => onJump(comment.anchor)}
+          className="mt-1 text-xs font-medium text-cem-amber hover:underline"
+        >
+          {formatAnchor(comment.anchor)}
+        </button>
+      )}
+
+      {editing ? (
+        <form onSubmit={saveEdit} className="mt-2 space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={2}
+            className="w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving || !draft.trim()}
+              className="rounded-md bg-cem-amber px-3 py-1 text-xs font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <p className="mt-1 whitespace-pre-wrap text-sm text-cem-text">{comment.body}</p>
+      )}
+
+      {!editing && (
+        <div className="mt-2 flex flex-wrap gap-3 text-xs font-medium">
+          {isRoot && !comment.resolved && (
+            <button type="button" onClick={() => onReply(comment)} className="text-cem-amber hover:underline">
+              Reply
+            </button>
+          )}
+          {isRoot && !comment.resolved && (
+            <button type="button" onClick={() => onResolve(comment)} className="text-cem-emerald hover:underline">
+              Resolve
+            </button>
+          )}
+          {mine && !comment.deleted && (
+            <button type="button" onClick={startEdit} className="text-cem-secondary hover:underline">
+              Edit
+            </button>
+          )}
+          {mine && !comment.deleted && (
+            <button type="button" onClick={() => onDelete(comment)} className="text-cem-rose hover:underline">
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+
+      {isRoot && comment.replies.length > 0 && (
+        <ul className="mt-2 space-y-2 border-l border-cem-elevated pl-3">
+          {comment.replies.map((reply) => (
+            <CommentCard
+              key={reply.id}
+              comment={reply}
+              userId={userId}
+              isRoot={false}
+              onReply={onReply}
+              onResolve={onResolve}
+              onDelete={onDelete}
+              onSaveEdit={onSaveEdit}
+              onJump={onJump}
+            />
+          ))}
+        </ul>
+      )}
+    </>
+  )
+
+  // Resolved roots collapse by default; expanding shows the thread under it.
+  if (isRoot && comment.resolved) {
+    return (
+      <li>
+        <details className="rounded-md bg-cem-surface px-3 py-2" open={false}>
+          <summary className="cursor-pointer text-xs font-medium text-cem-secondary">
+            Resolved · {author}: {comment.body.slice(0, 80)}{comment.body.length > 80 ? '…' : ''}
+          </summary>
+          <div className="mt-2">{inner}</div>
+        </details>
+      </li>
+    )
+  }
+  return (
+    <li className={isRoot ? 'rounded-md bg-cem-surface px-3 py-2' : 'px-2 py-1'}>
+      {inner}
+    </li>
+  )
+}
+
 export default function SongDetail() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -50,6 +200,13 @@ export default function SongDetail() {
   const [annotations, setAnnotations] = useState([])
   const [versionId, setVersionId] = useState('')
   const [semitones, setSemitones] = useState(0)
+  const comments = useComments(id)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [commentAnchor, setCommentAnchor] = useState(null)
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [commentError, setCommentError] = useState('')
+  const [sending, setSending] = useState(false)
+  const [highlightSection, setHighlightSection] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -79,6 +236,14 @@ export default function SongDetail() {
   }, [user?.id, id])
 
   const versions = useMemo(() => song?.versions || [], [song?.versions])
+
+  // 3.4: the band-visible thread for the OPEN version — buildCommentTree
+  // filters other-version pins (version_id isolation) and deleted rows, and
+  // shapes roots + replies oldest-first.
+  const commentTree = useMemo(
+    () => buildCommentTree(comments.rows, versionId || null),
+    [comments.rows, versionId],
+  )
 
   // 3.5: the personal default version opens first; the picker offers the
   // others (spec: personal preference, repertoire still lists all versions).
@@ -144,6 +309,84 @@ export default function SongDetail() {
   async function handleReactivate() {
     const reactivated = await reactivateSong(id)
     setSong(reactivated)
+  }
+
+  // ── 3.4 shared-comments panel ────────────────────────────────────────────
+
+  /** Clicking a section's Comment chip anchors the post to {section, index 0}. */
+  function anchorToSection(sectionName) {
+    setCommentAnchor({ section: sectionName, index: 0 })
+    setCommentError('')
+    document.getElementById('comments-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  /** Jump to the anchored section (spec R2) with a brief highlight. */
+  function jumpToComment(anchor) {
+    if (!anchor?.section) return
+    document.getElementById(sectionAnchorId(anchor.section))?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightSection(anchor.section)
+    window.setTimeout(() => {
+      setHighlightSection((current) => (current === anchor.section ? null : current))
+    }, 2500)
+  }
+
+  function startReply(comment) {
+    setReplyingTo(comment)
+    setCommentDraft('')
+    setCommentError('')
+    document.getElementById('comments-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  async function submitComment(e) {
+    e.preventDefault()
+    const body = commentDraft.trim()
+    if (!body) return
+    setSending(true)
+    try {
+      // version_id pins the post to the OPEN version (spec R3); null = song-level.
+      await comments.post(
+        { songId: id, versionId: openVersion?.id || null, anchor: commentAnchor, body },
+        replyingTo?.id || null,
+      )
+      setCommentDraft('')
+      setCommentAnchor(null)
+      setReplyingTo(null)
+      setCommentError('')
+    } catch (err) {
+      setCommentError(err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  /** Edit save — returns true when applied so the card closes. */
+  async function saveEdit(comment, body) {
+    try {
+      await comments.edit(comment, body)
+      return true
+    } catch (err) {
+      setCommentError(err.message)
+      return false
+    }
+  }
+
+  /** Resolve a thread (any scoped member, spec R7). */
+  async function handleResolve(comment) {
+    try {
+      await comments.resolve(comment)
+    } catch (err) {
+      setCommentError(err.message)
+    }
+  }
+
+  /** Soft-delete the author's own comment (spec R8). */
+  async function handleDelete(comment) {
+    if (!window.confirm('Delete your comment? It will disappear for everyone.')) return
+    try {
+      await comments.remove(comment)
+    } catch (err) {
+      setCommentError(err.message)
+    }
   }
 
   if (loading) return <p className="text-sm text-cem-secondary">Loading song…</p>
@@ -315,6 +558,8 @@ export default function SongDetail() {
             annotations={annotations}
             semitones={semitones}
             baseKey={parsed?.key}
+            onSectionComment={anchorToSection}
+            highlightSection={highlightSection}
           />
         </div>
       ) : (
@@ -332,6 +577,92 @@ export default function SongDetail() {
           </button>
         </div>
       )}
+
+      <div id="comments-panel" className="mt-6 rounded-lg border border-cem-elevated bg-cem-surface p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold text-cem-text">Band comments</h2>
+          {comments.pendingCount > 0 && (
+            <span className="text-xs text-cem-amber">{comments.pendingCount} pending sync</span>
+          )}
+        </div>
+
+        {commentError && (
+          <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" role="alert">
+            {commentError}
+          </p>
+        )}
+
+        <form onSubmit={submitComment} className="mt-3 space-y-2">
+          {commentAnchor && (
+            <p className="text-xs text-cem-secondary">
+              Anchored to{' '}
+              <button
+                type="button"
+                onClick={() => jumpToComment(commentAnchor)}
+                className="font-medium text-cem-amber hover:underline"
+              >
+                {formatAnchor(commentAnchor)}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCommentAnchor(null)}
+                className="ml-2 text-cem-secondary hover:text-cem-text"
+                aria-label="Clear anchor"
+              >
+                ✕
+              </button>
+            </p>
+          )}
+          {replyingTo && (
+            <p className="text-xs text-cem-secondary">
+              Replying to {replyingTo.authorName || 'you'}{' '}
+              <button
+                type="button"
+                onClick={() => setReplyingTo(null)}
+                className="font-medium text-cem-amber hover:underline"
+              >
+                cancel
+              </button>
+            </p>
+          )}
+          <textarea
+            value={commentDraft}
+            onChange={(e) => setCommentDraft(e.target.value)}
+            rows={2}
+            placeholder="Comment for the band — e.g. slow the intro in the chorus…"
+            className="w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
+          />
+          <button
+            type="submit"
+            disabled={sending || !commentDraft.trim()}
+            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
+          >
+            {sending ? 'Posting…' : 'Post comment'}
+          </button>
+        </form>
+
+        {comments.loading ? (
+          <p className="mt-4 text-sm text-cem-secondary">Loading comments…</p>
+        ) : commentTree.length === 0 ? (
+          <p className="mt-4 text-sm text-cem-secondary">No comments yet — start the thread.</p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {commentTree.map((root) => (
+              <CommentCard
+                key={root.id}
+                comment={root}
+                userId={user?.id}
+                isRoot
+                onReply={startReply}
+                onResolve={handleResolve}
+                onDelete={handleDelete}
+                onSaveEdit={saveEdit}
+                onJump={jumpToComment}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }
