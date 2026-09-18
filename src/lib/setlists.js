@@ -20,7 +20,6 @@ const USER_ERRORS = new Set([
   'Visibility must be private, shared, or public.',
   'Only an accepted collaborator can take ownership.',
   'The new owner must accept the invitation first.',
-  'Reordering a shared setlist requires an internet connection.',
 ])
 
 function handleError(error) {
@@ -126,21 +125,6 @@ async function fetchSetlistById(userId, id) {
 }
 
 /**
- * Cached setlist for offline work, falling back to a network read. The
- * connectivity catch paths below use this so they can still validate against
- * a roster/visibility they already know.
- */
-async function readBaseSetlist(userId, id) {
-  const cached = await offlineGet(`setlist:${userId}:${id}`)
-  if (cached?.data) return cached.data
-  try {
-    return await fetchSetlistById(userId, id)
-  } catch {
-    return null
-  }
-}
-
-/**
  * Build the optimistic post-write setlist for an offline-queued mutation:
  * the currently cached/fetched setlist with the mutation applied, flagged
  * pendingSync, and written back to the read-through cache so an offline
@@ -148,7 +132,17 @@ async function readBaseSetlist(userId, id) {
  * connectivity catch fired, so falling back to a minimal stub is safe.
  */
 async function buildOptimisticSetlist(userId, id, { name, mutateItemIds, mutateVersions }) {
-  const base = await readBaseSetlist(userId, id)
+  let base = null
+  const cached = await offlineGet(`setlist:${userId}:${id}`)
+  if (cached?.data) {
+    base = cached.data
+  } else {
+    try {
+      base = await fetchSetlistById(userId, id)
+    } catch {
+      base = null
+    }
+  }
 
   const fallback = {
     id,
@@ -172,48 +166,6 @@ async function buildOptimisticSetlist(userId, id, { name, mutateItemIds, mutateV
   }
   await offlineSet(`setlist:${userId}:${id}`, optimistic)
   return optimistic
-}
-
-/**
- * Optimistic setlist for an offline-queued COLLABORATION op (2.6, R5/R6):
- * the queued 2.1 mutations (visibility, share, permission, removal, transfer)
- * have no server-assigned id to wait for, so the cached setlist plus `patch`
- * is the whole optimistic state. `patch` is a field object or a function of
- * the base (roster edits need the current array). Persisted like item ops so
- * an offline reload shows the pending roster.
- */
-async function buildOptimisticCollab(userId, id, patch) {
-  const base = await readBaseSetlist(userId, id)
-  const fallback = {
-    id,
-    userId,
-    name: 'Setlist',
-    visibility: 'private',
-    itemIds: [],
-    versionIds: {},
-    createdAt: new Date().toISOString(),
-    isOwner: true,
-    canEdit: true,
-    collaborators: [],
-  }
-  const current = base ?? fallback
-  const optimistic = {
-    ...current,
-    ...(typeof patch === 'function' ? patch(current) : patch),
-    updatedAt: new Date().toISOString(),
-    pendingSync: true,
-  }
-  await offlineSet(`setlist:${userId}:${id}`, optimistic)
-  return optimistic
-}
-
-/**
- * Fresh server read for the 2.6 drain-time reconcile (offlineSync.js). The
- * cached getSetlist path would serve the CACHE after a failed read, and a
- * stale copy is exactly what must not decide whether to drop a queued op.
- */
-export function fetchServerSetlist(userId, id) {
-  return withErrorMapping(() => fetchSetlistById(userId, id))
 }
 
 export function listSetlists(userId) {
@@ -500,14 +452,6 @@ export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
       return freshSetlist
     } catch (e) {
       if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
-      // D7 (task constraint): a reorder replays against STALE indices, so it is
-      // online-only once a setlist is shared — queuing it would silently
-      // corrupt the order (the S8 merge policy defers to change 3). Queue only
-      // when private visibility is PROVEN by the fresh read or the cache.
-      const base = await readBaseSetlist(userId, setlistId)
-      if (base?.visibility !== 'private') {
-        throw new Error('Reordering a shared setlist requires an internet connection.')
-      }
       await enqueueOp(userId, { name: 'moveSongInSetlist', args: [userId, setlistId, fromIndex, toIndex] })
       return buildOptimisticSetlist(userId, setlistId, {
         // Same clamp + splice semantics as the online path above.
@@ -531,119 +475,75 @@ export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
 // owner-only surfaces enforced by 0002 owner-management RLS policies
 // (setlist_collaborators insert/update/delete via private.session_owns_setlist,
 // setlists UPDATE owner branch); the client guards in setlistCollab.js add
-// friendlier errors before hitting the server.
-// 2.6 (R5/R6): each op also queues on a connectivity failure and returns the
-// optimistic setlist, so a bandmate edit made offline survives to the next
-// drain. Enqueued args are already-validated values (e.g. share targets are
-// filtered), which is what makes the replay idempotent — the op re-runs its
-// own guards against the server roster at drain time.
+// friendlier errors before hitting the server. Offline enqueue for collab ops
+// lands in PR#2b (2.6 — reconcile guard + idempotent replay); these are
+// online-only here.
 
 export async function setVisibility(userId, id, visibility) {
   return withErrorMapping(async () => {
     const guard = guardVisibility(visibility)
     if (guard) throw new Error(guard)
 
-    try {
-      const { error } = await supabase
-        .from('setlists')
-        .update({ visibility })
-        .eq('id', id)
-        .eq('owner_id', userId)
-      if (error) throw error
+    const { error } = await supabase
+      .from('setlists')
+      .update({ visibility })
+      .eq('id', id)
+      .eq('owner_id', userId)
+    if (error) throw error
 
-      const setlist = await fetchSetlistById(userId, id)
-      invalidateSetlists(userId, [id])
-      return setlist
-    } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
-      await enqueueOp(userId, { name: 'setVisibility', args: [userId, id, visibility] })
-      return buildOptimisticCollab(userId, id, { visibility })
-    }
+    const setlist = await fetchSetlistById(userId, id)
+    invalidateSetlists(userId, [id])
+    return setlist
   })
 }
 
 /** Invite bandmates onto the setlist (INSERT rows; can_edit defaults true). */
 export async function shareWithBandmates(userId, id, bandmateIds) {
   return withErrorMapping(async () => {
-    try {
-      const setlist = await fetchSetlistById(userId, id)
-      const targets = shareTargets(userId, bandmateIds, setlist.collaborators)
-      if (targets.length === 0) return setlist
+    const setlist = await fetchSetlistById(userId, id)
+    const targets = shareTargets(userId, bandmateIds, setlist.collaborators)
+    if (targets.length === 0) return setlist
 
-      const { error } = await supabase
-        .from('setlist_collaborators')
-        .insert(targets.map((targetId) => ({ setlist_id: id, user_id: targetId })))
-      if (error) throw error
+    const { error } = await supabase
+      .from('setlist_collaborators')
+      .insert(targets.map((targetId) => ({ setlist_id: id, user_id: targetId })))
+    if (error) throw error
 
-      const fresh = await fetchSetlistById(userId, id)
-      invalidateSetlists(userId, [id])
-      return fresh
-    } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
-      const base = await readBaseSetlist(userId, id)
-      const targets = shareTargets(userId, bandmateIds, base?.collaborators)
-      if (targets.length === 0) return base
-      await enqueueOp(userId, { name: 'shareWithBandmates', args: [userId, id, targets] })
-      return buildOptimisticCollab(userId, id, (current) => ({
-        collaborators: [
-          ...(current.collaborators || []),
-          ...targets.map((targetId) => ({ userId: targetId, canEdit: true, acceptedAt: null })),
-        ],
-      }))
-    }
+    const fresh = await fetchSetlistById(userId, id)
+    invalidateSetlists(userId, [id])
+    return fresh
   })
 }
 
 /** Owner flips a collaborator's can_edit (view-only vs edit, setlists R8). */
 export async function setCollaboratorPermission(userId, setlistId, collaboratorId, canEdit) {
   return withErrorMapping(async () => {
-    try {
-      const { error } = await supabase
-        .from('setlist_collaborators')
-        .update({ can_edit: canEdit })
-        .eq('setlist_id', setlistId)
-        .eq('user_id', collaboratorId)
-      if (error) throw error
+    const { error } = await supabase
+      .from('setlist_collaborators')
+      .update({ can_edit: canEdit })
+      .eq('setlist_id', setlistId)
+      .eq('user_id', collaboratorId)
+    if (error) throw error
 
-      const fresh = await fetchSetlistById(userId, setlistId)
-      invalidateSetlists(userId, [setlistId])
-      return fresh
-    } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
-      await enqueueOp(userId, {
-        name: 'setCollaboratorPermission',
-        args: [userId, setlistId, collaboratorId, canEdit],
-      })
-      return buildOptimisticCollab(userId, setlistId, (current) => ({
-        collaborators: (current.collaborators || []).map((c) => (
-          c.userId === collaboratorId ? { ...c, canEdit } : c
-        )),
-      }))
-    }
+    const fresh = await fetchSetlistById(userId, setlistId)
+    invalidateSetlists(userId, [setlistId])
+    return fresh
   })
 }
 
 /** Owner removes a collaborator — 0002 delete_owner revokes their access. */
 export async function removeCollaborator(userId, setlistId, collaboratorId) {
   return withErrorMapping(async () => {
-    try {
-      const { error } = await supabase
-        .from('setlist_collaborators')
-        .delete()
-        .eq('setlist_id', setlistId)
-        .eq('user_id', collaboratorId)
-      if (error) throw error
+    const { error } = await supabase
+      .from('setlist_collaborators')
+      .delete()
+      .eq('setlist_id', setlistId)
+      .eq('user_id', collaboratorId)
+    if (error) throw error
 
-      const fresh = await fetchSetlistById(userId, setlistId)
-      invalidateSetlists(userId, [setlistId])
-      return fresh
-    } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
-      await enqueueOp(userId, { name: 'removeCollaborator', args: [userId, setlistId, collaboratorId] })
-      return buildOptimisticCollab(userId, setlistId, (current) => ({
-        collaborators: (current.collaborators || []).filter((c) => c.userId !== collaboratorId),
-      }))
-    }
+    const fresh = await fetchSetlistById(userId, setlistId)
+    invalidateSetlists(userId, [setlistId])
+    return fresh
   })
 }
 
@@ -658,65 +558,44 @@ export async function removeCollaborator(userId, setlistId, collaboratorId) {
  */
 export async function transferOwnership(userId, setlistId, newOwnerId) {
   return withErrorMapping(async () => {
-    try {
-      const current = await fetchSetlistById(userId, setlistId)
-      // Replay-safe (2.6, R6): a retried transfer finds the flip already
-      // applied — the caller no longer owns the setlist and newOwnerId does.
-      // Return as-is; re-running the guard would now reject, because the
-      // caller is a collaborator rather than the accepted candidate.
-      if (current.userId === newOwnerId && !current.isOwner) return current
+    await fetchSetlistById(userId, setlistId)
 
-      // Roster check — owner reads every collaborator row (RLS select_owner).
-      const { data: collabs, error: collabsError } = await supabase
-        .from('setlist_collaborators')
-        .select('user_id, accepted_at')
-        .eq('setlist_id', setlistId)
-      if (collabsError) throw collabsError
-      const guard = guardTransfer(collabs || [], newOwnerId)
-      if (guard) throw new Error(guard)
+    // Roster check — owner reads every collaborator row (RLS select_owner).
+    const { data: collabs, error: collabsError } = await supabase
+      .from('setlist_collaborators')
+      .select('user_id, accepted_at')
+      .eq('setlist_id', setlistId)
+    if (collabsError) throw collabsError
+    const guard = guardTransfer(collabs || [], newOwnerId)
+    if (guard) throw new Error(guard)
 
-      const { error: removeErr } = await supabase
-        .from('setlist_collaborators')
-        .delete()
-        .eq('setlist_id', setlistId)
-        .eq('user_id', newOwnerId)
-      if (removeErr) throw removeErr
+    const { error: removeErr } = await supabase
+      .from('setlist_collaborators')
+      .delete()
+      .eq('setlist_id', setlistId)
+      .eq('user_id', newOwnerId)
+    if (removeErr) throw removeErr
 
-      const { error: keepErr } = await supabase
-        .from('setlist_collaborators')
-        .insert({
-          setlist_id: setlistId,
-          user_id: userId,
-          can_edit: true,
-          accepted_at: new Date().toISOString(),
-        })
-      if (keepErr) throw keepErr
+    const { error: keepErr } = await supabase
+      .from('setlist_collaborators')
+      .insert({
+        setlist_id: setlistId,
+        user_id: userId,
+        can_edit: true,
+        accepted_at: new Date().toISOString(),
+      })
+    if (keepErr) throw keepErr
 
-      const { error: flipErr } = await supabase
-        .from('setlists')
-        .update({ owner_id: newOwnerId })
-        .eq('id', setlistId)
-        .eq('owner_id', userId)
-      if (flipErr) throw flipErr
+    const { error: flipErr } = await supabase
+      .from('setlists')
+      .update({ owner_id: newOwnerId })
+      .eq('id', setlistId)
+      .eq('owner_id', userId)
+    if (flipErr) throw flipErr
 
-      const fresh = await fetchSetlistById(userId, setlistId)
-      invalidateSetlists(userId, [setlistId])
-      return fresh
-    } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
-      const base = await readBaseSetlist(userId, setlistId)
-      if (base?.userId === newOwnerId && !base.isOwner) return base
-      await enqueueOp(userId, { name: 'transferOwnership', args: [userId, setlistId, newOwnerId] })
-      return buildOptimisticCollab(userId, setlistId, (current) => ({
-        userId: newOwnerId,
-        isOwner: false,
-        canEdit: true,
-        collaborators: [
-          ...(current.collaborators || []).filter((c) => c.userId !== newOwnerId && c.userId !== userId),
-          { userId, canEdit: true, acceptedAt: new Date().toISOString() },
-        ],
-      }))
-    }
+    const fresh = await fetchSetlistById(userId, setlistId)
+    invalidateSetlists(userId, [setlistId])
+    return fresh
   })
 }
 
