@@ -7,6 +7,7 @@
 import * as setlists from './setlists.js'
 import * as gigs from './gigs.js'
 import * as bandmates from './bandmates.js'
+import * as comments from './comments.js'
 import { listSongs } from './songs.js'
 import { pendingOps, removeOps } from './offlineQueue.js'
 import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
@@ -38,6 +39,14 @@ const WRITE_OPS = {
   // drops silently on replay instead of erroring the drain (R6).
   inviteBandmate: bandmates.inviteBandmate,
   respondInvite: bandmates.respondInvite,
+  // 3.2 (R11): comment ops are replay-safe — post re-runs the scoped RLS
+  // insert (resolving to its server id), edit/delete re-run their author_id
+  // filter and resolve its id filter, so an already-applied op no-ops at the
+  // row level instead of erroring the drain.
+  postComment: comments.postComment,
+  editComment: comments.editComment,
+  deleteComment: comments.deleteComment,
+  resolveComment: comments.resolveComment,
 }
 
 // 2.6 (R6/R7): an item add/remove carries no server state of its own, so it is
