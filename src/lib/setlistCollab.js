@@ -1,10 +1,11 @@
-// Pure guards + activity labels + lock rules for shared-setlist
-// collaboration (Hito 3 PR#2a tasks 2.1/2.3 and PR#2b task 2.5). Zero
+// Pure guards + activity labels + lock/reconcile rules for shared-setlist
+// collaboration (Hito 3 PR#2a tasks 2.1/2.3 and PR#2b tasks 2.5/2.6). Zero
 // imports, so this module is bare-node safe and the demo runs under node
 // directly (setlists.js is not: it statically imports songs.js → supabase.js,
 // which evaluates import.meta.env at module scope — undefined in bare node).
 // The network ops that wrap these guards live in setlists.js; the realtime /
-// broadcast / lock helpers and feed panel are the 2.3–2.5 surfaces.
+// broadcast / lock helpers, feed panel, and drain loop are the 2.3–2.6
+// surfaces.
 
 /**
  * Visibility values the spec allows: 'private' | 'shared' | 'public'
@@ -92,6 +93,44 @@ export function applyLock(locks, payload) {
   return next
 }
 
+// ── 2.6 offline reconcile (design D6, spec R6/R7) ───────────────────────────
+// Pure decision for the drain loop (offlineSync.js): may a queued setlist-item
+// op replay against the CURRENT server setlist, and what should the user be
+// told when it must not? `server` is the flattened setlist ({itemIds,
+// updatedAt}) read fresh at drain time — the cached copy would hide exactly
+// the online change that decides this.
+//  · add: song already present → the op would no-op → drop. Absent AND the
+//    server changed since the op was queued → an online write superseded it →
+//    drop + notice (R7: "removed before your sync"). Absent AND server
+//    untouched → my add is the newest write → replay (R6 merge).
+//  · remove: already absent → outcome achieved → drop silently. Still
+//    present → replay (removal is by song_id, position-independent; unrelated
+//    online adds merge).
+// Reorder/version ops are not reconciled: reorder replays against stale
+// indices (D7 keeps it online-only once a setlist is shared) and a version
+// write targets one item, so neither has a merge to preserve.
+
+/**
+ * Decide replay vs drop for one queued op. Returns { drop, notice? }.
+ * notice: true means the caller must surface the "removed before your sync"
+ * message (the actor name is unknowable — postgres_changes carries none, D5).
+ */
+export function reconcileSetlistOp(op, server) {
+  const songId = op.args?.[2]
+  const queuedAt = op.queuedAt || 0
+  const present = (server?.itemIds || []).includes(songId)
+  const serverNewer = !!server?.updatedAt && new Date(server.updatedAt).getTime() > queuedAt
+  if (op.name === 'addSongToSetlist') {
+    if (present) return { drop: true }
+    if (serverNewer) return { drop: true, notice: true }
+    return { drop: false }
+  }
+  if (op.name === 'removeSongFromSetlist') {
+    return { drop: !present }
+  }
+  return { drop: false }
+}
+
 // Self-check: node -e "import('./src/lib/setlistCollab.js').then(m => m.demo())"
 export function demo() {
   const assert = (actual, expected, label) => {
@@ -152,5 +191,21 @@ export function demo() {
     'stale lock is overwritable by a new holder',
   )
 
-  console.log('setlistCollab demo OK: 18 asserts (visibility, share targets, transfer guard, feed labels, advisory locks)')
+  // 2.6 offline reconcile (D6/R6/R7)
+  const server = { itemIds: ['a', 'b'], updatedAt: new Date(Date.now() + 10000).toISOString() }
+  const addQueuedBefore = { name: 'addSongToSetlist', args: ['u', 'sl', 'm'], queuedAt: Date.now() }
+  const addQueuedAfter = { name: 'addSongToSetlist', args: ['u', 'sl', 'm'], queuedAt: Date.now() + 20000 }
+  const addPresent = { name: 'addSongToSetlist', args: ['u', 'sl', 'a'], queuedAt: Date.now() }
+  const removePresent = { name: 'removeSongFromSetlist', args: ['u', 'sl', 'a'], queuedAt: Date.now() }
+  const removeAbsent = { name: 'removeSongFromSetlist', args: ['u', 'sl', 'm'], queuedAt: Date.now() }
+  assert(reconcileSetlistOp(addQueuedBefore, server).drop, true, 'R7: add superseded by online change drops')
+  assert(reconcileSetlistOp(addQueuedBefore, server).notice, true, 'R7: drop carries the removed notice')
+  assert(reconcileSetlistOp(addQueuedAfter, server).drop, false, 'add with untouched server replays')
+  assert(reconcileSetlistOp(addPresent, server).drop, true, 'add of a present song drops as no-op')
+  assert(reconcileSetlistOp(addPresent, server).notice, undefined, 'no-op add needs no notice')
+  assert(reconcileSetlistOp(removePresent, server).drop, false, 'remove of a present song replays')
+  assert(reconcileSetlistOp(removeAbsent, server).drop, true, 'remove of an absent song drops silently')
+  assert(reconcileSetlistOp(removeAbsent, server).notice, undefined, 'absent remove carries no notice')
+
+  console.log('setlistCollab demo OK: 26 asserts (visibility, share targets, transfer guard, feed labels, advisory locks, reconcile)')
 }
