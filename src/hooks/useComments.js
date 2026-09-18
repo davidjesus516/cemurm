@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './useAuth.jsx'
 import * as comments from '../lib/comments.js'
 
@@ -14,6 +14,15 @@ export function useComments(songId) {
   const { user } = useAuth()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
+  const songIdRef = useRef(songId)
+
+  // Keep the latest song id for stale-response guards below (SongDetail stays
+  // mounted across /songs/:id navigation) and drop the previous song's rows so
+  // the old thread never flashes on the new song.
+  useEffect(() => {
+    songIdRef.current = songId
+    setRows([])
+  }, [songId])
 
   // Merge the server read with locally-pending rows: a failed refresh must
   // not hide queued comments, and a drained post must not leave a duplicate
@@ -33,9 +42,13 @@ export function useComments(songId) {
 
   const refresh = useCallback(async () => {
     if (!user || !songId) return
+    const target = songId
     setLoading(true)
     try {
-      const fetched = await comments.listComments(user.id, songId)
+      const fetched = await comments.listComments(user.id, target)
+      // A slow response for a PREVIOUS song must not merge into the current
+      // song's thread.
+      if (target !== songIdRef.current) return
       setRows((prev) => merge(prev, fetched))
     } finally {
       setLoading(false)
