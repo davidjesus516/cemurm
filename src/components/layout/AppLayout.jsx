@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.jsx'
+import { useNotifications } from '../../hooks/useNotifications.js'
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -7,12 +8,29 @@ const navLinks = [
   { to: '/setlists', label: 'Setlists' },
   { to: '/gigs', label: 'Gigs' },
   { to: '/bandmates', label: 'Bandmates' },
+  { to: '/notifications', label: 'Notifications' },
   { to: '/settings', label: 'Settings' },
   { to: '/settings/storage', label: 'Storage' },
 ]
 
 const linkClass = ({ isActive }) =>
   `text-sm font-medium ${isActive ? 'text-cem-amber' : 'text-cem-secondary hover:text-cem-text'}`
+
+/**
+ * Unread badge on the Notifications nav link (Feed7, task 2.5). Rendered
+ * only when authed; hidden at 0; capped at "99+". Its useNotifications
+ * instance converges with the feed page via the realtime echo of read_at
+ * UPDATEs.
+ */
+function UnreadBadge() {
+  const { unreadCount } = useNotifications()
+  if (!unreadCount) return null
+  return (
+    <span className="rounded-full bg-cem-amber px-1.5 py-0.5 text-[10px] font-bold leading-none text-cem-base">
+      {unreadCount > 99 ? '99+' : unreadCount}
+    </span>
+  )
+}
 
 function AppLayout() {
   const { user, signOut } = useAuth()
@@ -34,7 +52,10 @@ function AppLayout() {
             <nav className="flex gap-4">
               {navLinks.map((link) => (
                 <NavLink key={link.to} to={link.to} end={link.to === '/' || link.to === '/settings'} className={linkClass}>
-                  {link.label}
+                  <span className="flex items-center gap-1.5">
+                    {link.label}
+                    {link.to === '/notifications' && user && <UnreadBadge />}
+                  </span>
                 </NavLink>
               ))}
             </nav>
