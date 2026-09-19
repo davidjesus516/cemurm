@@ -56,12 +56,14 @@ src/
 - `openspec/` — archived main specs for the two completed changes: `openspec/specs/row-level-security/spec.md`, `openspec/specs/user-auth/spec.md`.
 - `docs/local-dev.md` — local Supabase stack: start/reset/stop, seed identities, `.env.local` vars.
 - `CONTRIBUTING.md` — branch/commit/PR conventions.
+- `docs/gh-stack-workflow.md` — chained-PR workflow with `gh stack` (use when a change splits into dependent PRs).
 
 ## Conventions
 
 - **Conventional Commits**: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`.
 - Feature branches from `main` (`feat/my-feature`).
 - PRs: focused on one change, reference issues, lint must pass.
+- Chained PRs: use `gh stack` (local commands verified; remote ops still early — see `docs/gh-stack-workflow.md`).
 - **License**: MIT — see `LICENSE`.
 
 ## Gotchas for agents

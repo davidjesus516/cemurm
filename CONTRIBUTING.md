@@ -53,6 +53,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 ### Pull Request Guidelines
 
 - Keep PRs focused on a single change
+- For changes that split into multiple dependent PRs (Hito-scale work, ~400 lines per PR), use the `gh stack` chained-PR workflow: see [docs/gh-stack-workflow.md](docs/gh-stack-workflow.md)
 - Include a clear description of what changed and why
 - Reference related issues (e.g., "Closes #42")
 - Ensure `npm run lint` passes
