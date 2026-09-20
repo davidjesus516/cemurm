@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.jsx'
 import { useNotifications } from '../../hooks/useNotifications.js'
+import FeedbackForm from '../FeedbackForm.jsx'
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -40,6 +42,7 @@ function UnreadBadge() {
 function AppLayout() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   async function handleSignOut() {
     await signOut()
@@ -64,6 +67,13 @@ function AppLayout() {
                 </NavLink>
               ))}
             </nav>
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              className="text-sm font-medium text-cem-secondary hover:text-cem-text"
+            >
+              Feedback
+            </button>
             {user ? (
               <div className="flex items-center gap-4 border-l border-cem-elevated pl-4">
                 <span className="text-sm font-medium text-cem-text">{user.displayName}</span>
@@ -93,6 +103,8 @@ function AppLayout() {
           CEMURM &mdash; Community-Centered Musical Repertories Manager
         </div>
       </footer>
+
+      {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
     </div>
   )
 }
