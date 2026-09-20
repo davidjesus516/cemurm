@@ -322,6 +322,44 @@ export async function updateServiceStatus(id, status) {
   })
 }
 
+/**
+ * Freeze the current plan into a new published version (publish_plan RPC).
+ * Leader-only; flips draft→published on first publish, supersedes the previous
+ * version, logs the change and notifies every assignee. Returns version_number.
+ */
+export async function publishPlan(serviceId, reason = '') {
+  return withErrorMapping(async () => {
+    const { data, error } = await supabase
+      .rpc('publish_plan', { p_service_id: serviceId, p_reason: reason })
+    if (error) throw error
+    return data
+  })
+}
+
+/**
+ * Latest published/executed snapshot for the plan (get_published_plan RPC).
+ * Members AND leaders: `snapshot` is what members execute; the live `draft`
+ * and `draft_changed` flag power the leader's "Changed after publish" state.
+ */
+export async function getPublishedPlan(serviceId) {
+  return withErrorMapping(async () => {
+    const { data, error } = await supabase
+      .rpc('get_published_plan', { p_service_id: serviceId })
+    if (error) throw error
+    return data
+  })
+}
+
+/** Leader-only version history (list_plan_versions RPC), newest first. */
+export async function listPlanVersions(serviceId) {
+  return withErrorMapping(async () => {
+    const { data, error } = await supabase
+      .rpc('list_plan_versions', { p_service_id: serviceId })
+    if (error) throw error
+    return data || []
+  })
+}
+
 /** Run the plan validator; returns the warnings array (render as-is). */
 export async function validateServicePlan(serviceId) {
   return withErrorMapping(async () => {
