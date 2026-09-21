@@ -8,6 +8,7 @@ import * as setlists from './setlists.js'
 import * as gigs from './gigs.js'
 import * as bandmates from './bandmates.js'
 import * as comments from './comments.js'
+import * as substitutions from './substitutions.js'
 import { listSongs } from './songs.js'
 import { pendingOps, removeOps } from './offlineQueue.js'
 import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
@@ -47,6 +48,18 @@ const WRITE_OPS = {
   editComment: comments.editComment,
   deleteComment: comments.deleteComment,
   resolveComment: comments.resolveComment,
+  // Hito 5 #81 (substitutions, scenario 17): an offline-accepted
+  // substitution. First-wins makes a replay that finds the position already
+  // covered a SUPERSEDED outcome, not a drain-stopping failure — the drain
+  // drops it with a notice below.
+  respondSubstitution: substitutions.respondSubstitution,
+}
+
+// Ops whose replay rejection is a designed supersession (first-wins): when
+// the server rejects with a matching message, the queued intent is stale —
+// drop the op with a notice and keep draining, instead of stopping the queue.
+const SUPERSEDED_ERRORS = {
+  respondSubstitution: /Position already covered\./,
 }
 
 // 2.6 (R6/R7): an item add/remove carries no server state of its own, so it is
@@ -158,6 +171,17 @@ export async function drainPending(userId) {
         await removeOps(target, new Set([op.seq]))
         drained += 1
       } catch (e) {
+        // A superseded first-wins accept is not an error for the queue: the
+        // position was covered by someone else before the sync, so the queued
+        // intent is moot. Drop it with a notice and keep draining. Every other
+        // rejection stops the queue to preserve order.
+        const superseded = SUPERSEDED_ERRORS[op.name]?.test(String(e?.message || ''))
+        if (superseded) {
+          notices.push('A substitution you accepted was already covered before your sync.')
+          await removeOps(target, new Set([op.seq]))
+          drained += 1
+          continue
+        }
         // Still offline or server rejected — stop and keep the rest in order.
         console.warn(`offline sync: op ${op.name} failed, retrying on next reconnect`, e?.message || e)
         break
