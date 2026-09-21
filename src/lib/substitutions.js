@@ -191,13 +191,14 @@ export function flattenRequest(json) {
   }
 }
 
-/** Map the substitution_context JSON to { service, blocks, event }. */
+/** Map the substitution_context JSON to { service, blocks, event, instrument }. */
 export function flattenContext(json) {
   if (!json) return null
   return {
     service: json.service || null,
     blocks: json.blocks || [],
     event: json.event || null,
+    instrument: json.instrument || '',
   }
 }
 
@@ -289,8 +290,9 @@ export function demo() {
   assert(flat.coveredBy.user_id, 'u2', 'covered_by nested')
   assert(flattenRequest(null), null, 'null request → null')
 
-  assert(flattenContext({ service: { id: 'sv1', name: 'Sunday' }, blocks: [], event: null }).event, null, 'no event → null')
+  assert(flattenContext({ service: { id: 'sv1', name: 'Sunday' }, blocks: [], event: null, instrument: 'trumpet' }).instrument, 'trumpet', 'context instrument')
+  assert(flattenContext({ service: { id: 'sv1', name: 'Sunday' }, blocks: [], event: null, instrument: 'trumpet' }).event, null, 'no event → null')
   assert(flattenContext(null), null, 'null context → null')
 
-  console.log('substitutions demo OK: 17 asserts (instrument offsets, render offset, normalizers)')
+  console.log('substitutions demo OK: 18 asserts (instrument offsets, render offset, normalizers)')
 }

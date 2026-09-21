@@ -770,7 +770,8 @@ begin
   return jsonb_build_object(
     'service', jsonb_build_object('id', v_service.id, 'name', v_service.name),
     'blocks', v_blocks,
-    'event', v_event);
+    'event', v_event,
+    'instrument', coalesce((select pr.instrument from public.profiles pr where pr.id = v_actor), ''));
 end $$;
 
 -- ══════════════ 4. COVERAGE WARNING (validate extension) ══════════════
