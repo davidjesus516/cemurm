@@ -257,14 +257,16 @@ Offline-aware accept button. Notification deep-links land here/assignment page.
   al JSON del RPC — el client NO lee profiles.instrument por col-grant 0006);
   render por bloque/song con renderSemitones + annotations + event setlist;
   lint/build verdes.
-- [ ] T6 ServiceDetail integration
 - [x] T6 ServiceDetail integration — `src/pages/ServiceDetail.jsx`: panel del líder
   (list_substitution_requests: Send request / responses / Overrule / status
   chips), call-sheet del miembro (Mark unavailable / I'm back / covered by /
   substituting link) + sección "Substitution offers" para candidates (Accept
   offline-aware / Decline); `substitution_context` extendido con
   request_id/request_status/covered_name por bloque; lint/build verdes, smoke
-  32/32 tras el cambio de RPC.
-- [ ] T7 validación + push + PR
+  32/32 tras el cambio de RPC. Commit `d8fb65b`.
+- [x] T7 validación + push + PR — smoke 32/32 (reset limpio tras último cambio
+  de RPC), demo node 18 asserts, lint 0 warnings, build green; rama
+  `feat/hito5-substitutions` pusheada; **PR #147** (base main, Closes #81,
+  size:exception: ~2467 líneas vs main) — https://github.com/davidjesus516/cemurm/pull/147
 
 (verificación evidence-only: cada T se marca solo con artefacto/outcome observado)
