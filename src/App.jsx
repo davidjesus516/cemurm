@@ -22,6 +22,7 @@ import Rehearsals from './pages/Rehearsals.jsx'
 import RehearsalDetail from './pages/RehearsalDetail.jsx'
 import Notifications from './pages/Notifications.jsx'
 import StageMode from './pages/StageMode.jsx'
+import Overlay from './pages/Overlay.jsx'
 import Auth from './pages/Auth.jsx'
 import Practice from './pages/Practice.jsx'
 import PublicLibrary from './pages/PublicLibrary.jsx'
@@ -75,6 +76,14 @@ const router = createBrowserRouter([
       },
       { path: '*', element: <NotFound /> },
     ],
+  },
+  // Public overlay URL for the OBS Browser Source (Hito 5 #66). Deliberately
+  // OUTSIDE AppLayout and the auth guards: the CEF source gets no nav chrome
+  // and no JWT — access is gated by the unguessable session uuid + the
+  // active/inactive status via the anon-visible overlay_state RPC.
+  {
+    path: '/overlay/:sessionId',
+    element: <Overlay />,
   },
 ])
 
