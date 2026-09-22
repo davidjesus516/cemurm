@@ -18,6 +18,16 @@ import {
   updateBlock,
   deleteBlock,
 } from '../lib/services.js'
+import {
+  getSubstitutionContext,
+  listSubstitutionRequests,
+  markUnavailable,
+  reclaimAssignment,
+  sendSubstitutionRequest,
+  overruleSubstitution,
+  respondSubstitution,
+  respondSubstitutionOfflineAware,
+} from '../lib/substitutions.js'
 import { ServiceStatusBadge, formatServiceWhen } from './Services.jsx'
 
 const btn = 'rounded-md px-3 py-1.5 text-sm font-medium'
@@ -370,6 +380,9 @@ export default function ServiceDetail() {
   const [addError, setAddError] = useState('')
   const [setlists, setSetlists] = useState([])
   const [songs, setSongs] = useState([])
+  const [subRequests, setSubRequests] = useState([])
+  const [myContext, setMyContext] = useState(null)
+  const [subError, setSubError] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -380,6 +393,22 @@ export default function ServiceDetail() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // Substitution state: leader sees every service request (list RPC is
+  // leader-only — members get [] silently); members see their own coverage
+  // context (context RPC raises for pure leaders without blocks — caught).
+  const reloadSubs = useCallback(() => {
+    if (!user) return Promise.resolve()
+    return Promise.allSettled([listSubstitutionRequests(id), getSubstitutionContext(id)])
+      .then(([listRes, ctxRes]) => {
+        setSubRequests(listRes.status === 'fulfilled' ? listRes.value : [])
+        setMyContext(ctxRes.status === 'fulfilled' ? ctxRes.value : null)
+        return null
+      })
+      .catch(() => null)
+  }, [user, id])
+
+  useEffect(() => { reloadSubs() }, [reloadSubs])
 
   // Picker pools (setlist picker + song swap); failures degrade the pickers
   // only — the service read above is the page's error surface.
@@ -450,6 +479,59 @@ export default function ServiceDetail() {
     } catch (err) { setAddError(err.message) } finally { setAddingBusy(false) }
   }
 
+  async function handleMarkUnavailable(assignment) {
+    setSheetError('')
+    try {
+      await markUnavailable(assignment.id)
+      await Promise.all([load(), reloadSubs()])
+    } catch (err) { setSheetError(err.message) }
+  }
+
+  async function handleReclaim(assignment) {
+    if (!window.confirm(`Reclaim your ${assignment.part} part? The substitute is released and the request closes.`)) return
+    setSheetError('')
+    try {
+      await reclaimAssignment(assignment.id)
+      await Promise.all([load(), reloadSubs()])
+    } catch (err) { setSheetError(err.message) }
+  }
+
+  // Candidate accept is offline-aware (BDD scenario 17): offline queues the
+  // accept in the outbox; the sync drain replays it and drops a superseded
+  // first-wins accept with a notice.
+  async function handleAccept(requestId) {
+    setSheetError('')
+    try {
+      await respondSubstitutionOfflineAware(user.id, requestId)
+      await Promise.all([load(), reloadSubs()])
+    } catch (err) { setSheetError(err.message) }
+  }
+
+  async function handleDecline(requestId) {
+    setSheetError('')
+    try {
+      await respondSubstitution(requestId, false)
+      await Promise.all([load(), reloadSubs()])
+    } catch (err) { setSheetError(err.message) }
+  }
+
+  async function handleSend(requestId) {
+    setSubError('')
+    try {
+      await sendSubstitutionRequest(requestId)
+      await reloadSubs()
+    } catch (err) { setSubError(err.message) }
+  }
+
+  async function handleOverrule(requestId, userId) {
+    if (!window.confirm('Overrule the substitution and assign this member directly?')) return
+    setSubError('')
+    try {
+      await overruleSubstitution(requestId, userId)
+      await Promise.all([load(), reloadSubs()])
+    } catch (err) { setSubError(err.message) }
+  }
+
   if (loading) return <p className="text-sm text-cem-secondary">Loading service…</p>
 
   if (!data) {
@@ -467,6 +549,7 @@ export default function ServiceDetail() {
   const leaderEditable = isLeader && !completed
   const myAssignments = data.assignments.filter((a) => a.userId === user?.id)
   const unresolved = warnings.some((w) => w.kind === 'uncovered')
+  const memberName = (userId) => members.find((m) => m.id === userId)?.name
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -530,6 +613,90 @@ export default function ServiceDetail() {
         )}
       </section>
 
+      {isLeader && (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold text-cem-text">Substitution requests</h2>
+          {subError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{subError}</p>}
+          {subRequests.length === 0 ? (
+            <p className="mt-2 text-sm text-cem-secondary">No substitution requests for this service yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {subRequests.map((req) => {
+                const active = req.status === 'open' || req.status === 'covered'
+                const accepted = req.responses.find((r) => r.status === 'accepted')
+                return (
+                  <li key={req.id}
+                    className={`rounded-lg border p-4 shadow-sm ${active ? 'border-cem-elevated bg-cem-surface' : 'border-cem-elevated bg-cem-base'}`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-cem-text">{req.part}</span>
+                      <span className="rounded bg-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary">{req.original_name || 'member'}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                        req.status === 'covered'
+                          ? 'bg-cem-emerald/10 text-cem-emerald'
+                          : req.status === 'open'
+                            ? 'bg-cem-amber/10 text-cem-amber'
+                            : 'bg-cem-elevated text-cem-secondary'
+                      }`}>
+                        {req.status}{req.scope === 'event' ? ' · event' : ''}
+                      </span>
+                    </div>
+
+                    {req.status === 'open' && req.responses.length === 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <p className="text-xs text-cem-secondary">Request created — candidates have not been asked yet.</p>
+                        {!completed && (
+                          <button type="button" onClick={() => handleSend(req.id)} className={primaryShort}>
+                            Send request
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {req.responses.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {req.responses.map((r) => (
+                          <li key={r.user_id} className="flex items-center gap-2 text-xs text-cem-text">
+                            <span>{r.name || memberName(r.user_id) || `Member ${r.user_id.slice(0, 8)}`}</span>
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                              r.status === 'accepted'
+                                ? 'bg-cem-emerald/10 text-cem-emerald'
+                                : r.status === 'declined'
+                                  ? 'bg-cem-elevated text-cem-secondary'
+                                  : 'bg-cem-amber/10 text-cem-amber'
+                            }`}>{r.status}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {req.status === 'covered' && (
+                      <p className="mt-2 text-xs font-medium text-cem-emerald">
+                        Covered{accepted ? ` by ${accepted.name}` : ''}.
+                      </p>
+                    )}
+
+                    {active && !completed && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <select
+                          value=""
+                          onChange={(e) => { if (e.target.value) handleOverrule(req.id, e.target.value) }}
+                          className={`${miniInputClass} w-auto`}
+                        >
+                          <option value="">Overrule — assign directly…</option>
+                          {req.candidates.map((cid) => (
+                            <option key={cid} value={cid}>{memberName(cid) || `Member ${cid.slice(0, 8)}`}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => setShowCallSheet((o) => !o)} className={outlinedBtn}>
           {showCallSheet ? 'Hide' : 'Show'} my call sheet
@@ -579,6 +746,54 @@ export default function ServiceDetail() {
                         ))}
                       </ul>
                     )}
+                    {(() => {
+                      const ctx = myContext?.blocks?.find((b) => b.assignment_id === a.id)
+                      if (!ctx) return null
+                      if (ctx.role === 'substitute') {
+                        return (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded bg-cem-amber/10 px-1.5 py-0.5 text-xs font-medium text-cem-amber">
+                              You are substituting {a.part}
+                            </span>
+                            <Link to={`/assignment/${service.id}`} className="text-xs font-medium text-cem-amber hover:underline">
+                              View your assignment
+                            </Link>
+                          </div>
+                        )
+                      }
+                      if (ctx.role === 'original') {
+                        if (ctx.request_status === 'open') {
+                          return (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-medium text-cem-amber">Unavailable — coverage requested, awaiting confirmation.</span>
+                              {!completed && (
+                                <button type="button" onClick={() => handleReclaim(a)} className={miniBtnClass}>I&apos;m back</button>
+                              )}
+                            </div>
+                          )
+                        }
+                        if (ctx.request_status === 'covered') {
+                          return (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-medium text-cem-emerald">Covered by {ctx.covered_name || 'a substitute'}.</span>
+                              {!completed && (
+                                <button type="button" onClick={() => handleReclaim(a)} className={miniBtnClass}>I&apos;m back</button>
+                              )}
+                            </div>
+                          )
+                        }
+                        if (!completed) {
+                          return (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <button type="button" onClick={() => handleMarkUnavailable(a)} className={miniBtnClass}>
+                                Mark unavailable — request a substitute
+                              </button>
+                            </div>
+                          )
+                        }
+                      }
+                      return null
+                    })()}
                   </li>
                 )
               })}
@@ -587,6 +802,34 @@ export default function ServiceDetail() {
           {sheetError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{sheetError}</p>}
         </section>
       )}
+
+      {/* Member-side substitution offers: open requests this user is a
+          candidate on (context role 'candidate' — no own assignment row). */}
+      {(() => {
+        const offers = (myContext?.blocks || [])
+          .filter((b) => b.role === 'candidate' && b.request_status === 'open' && b.request_id)
+        if (!offers.length) return null
+        return (
+          <section className="mt-3">
+            <h2 className="text-lg font-semibold text-cem-text">Substitution offers</h2>
+            <ul className="mt-2 space-y-2">
+              {offers.map((b) => (
+                <li key={b.id} className="rounded-lg border border-cem-amber/40 bg-cem-surface p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-cem-text">{b.name}</span>
+                    <span className="rounded bg-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary">{b.part}</span>
+                    <span className="text-xs text-cem-secondary">You are on the shortlist.</span>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={() => handleAccept(b.request_id)} className={miniBtnClass}>Accept</button>
+                    <button type="button" onClick={() => handleDecline(b.request_id)} className={miniBtnClass}>Decline</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })()}
 
       {showLog && (
         <section className="mt-3">

@@ -709,6 +709,35 @@ begin
         'part', v_blk.part,
         'role', v_blk.role,
         'assignment_id', v_blk.assignment_id,
+        -- member-side coverage state: the caller's own open/covered request for
+        -- this block's original assignment, or the open request they are a
+        -- candidate on (candidate role) — lets ServiceDetail render status and
+        -- actions without leaking the leader's full request view.
+        'request_id', coalesce(
+          (select rq2.id from public.substitution_requests rq2
+            where rq2.assignment_id = v_blk.assignment_id
+              and rq2.status in ('open', 'covered')
+            order by rq2.created_at desc limit 1),
+          (select rq3.id from public.substitution_requests rq3
+            join public.service_assignments a5 on a5.id = rq3.assignment_id
+            join unnest(rq3.candidates) as c on true
+            where a5.block_id = v_blk.id and rq3.status = 'open' and c = v_actor
+            order by rq3.created_at desc limit 1)),
+        'request_status', coalesce(
+          (select rq2.status from public.substitution_requests rq2
+            where rq2.assignment_id = v_blk.assignment_id
+              and rq2.status in ('open', 'covered')
+            order by rq2.created_at desc limit 1),
+          (select rq3.status from public.substitution_requests rq3
+            join public.service_assignments a5 on a5.id = rq3.assignment_id
+            join unnest(rq3.candidates) as c on true
+            where a5.block_id = v_blk.id and rq3.status = 'open' and c = v_actor
+            order by rq3.created_at desc limit 1)),
+        'covered_name', (select private.display_name_for(sa.user_id)
+          from public.service_assignments sa
+          where sa.service_id = p_service_id and sa.block_id = v_blk.id
+            and sa.part = v_blk.part and sa.is_substitute
+          limit 1),
         'songs', coalesce((
           select jsonb_agg(jsonb_build_object(
             'song_id', si.song_id,
