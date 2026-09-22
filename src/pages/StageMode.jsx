@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSetlists } from '../hooks/useSetlists.js'
 import { useFootPedal } from '../hooks/useFootPedal.js'
+import { useMidi } from '../hooks/useMidi.js'
 import { useGigs } from '../hooks/useGigs.js'
 import { useSongs } from '../hooks/useSongs.js'
 import { usePreferences } from '../hooks/usePreferences.js'
 import { parseChordPro } from '../lib/chordpro/parser.js'
 import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
+import { loadMidiSettings } from '../lib/midi.js'
 
 const SWIPE_THRESHOLD = 48
 
@@ -124,6 +126,28 @@ export default function StageMode() {
   }
 
   const song = songs[index]
+
+  // MIDI program change (Hito 5 #56): a configured output device sends the
+  // current song's mapped Program Change (0-127). First render is skipped so
+  // OPENING stage mode does not fire a patch; every later song change — next
+  // AND back — re-sends. Mapping comes from setlist.midiPrograms (the DB
+  // column), so transpose/capo state never alters it, and an unmapped song
+  // simply sends nothing. autoConnect only re-uses an already-granted
+  // permission: no prompt mid-performance.
+  const { sendProgram: midiSendProgram } = useMidi({ autoConnect: loadMidiSettings().permissionGranted })
+  const prevSongIdRef = useRef(null)
+  useEffect(() => {
+    if (!setlist || !song) return
+    if (prevSongIdRef.current === null) {
+      prevSongIdRef.current = song.id
+      return
+    }
+    if (prevSongIdRef.current === song.id) return
+    prevSongIdRef.current = song.id
+    const program = setlist.midiPrograms?.[song.id]
+    if (program === undefined || program === null) return
+    midiSendProgram(program)
+  }, [setlist, song, midiSendProgram])
 
   // D7: initial semitones = global transpose offset + this song's override —
   // re-seeded when the current song (or its prefs) change; manual +/- stays put.
