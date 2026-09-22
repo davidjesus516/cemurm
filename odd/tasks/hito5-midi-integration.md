@@ -80,6 +80,17 @@ setlists + Stage Mode (Hito 1/2/4 surfaces, already shipped).
   policy`. Smoke: el caso pending-collaborator (USING false) se asserta por
   valor intacto, no por error; y el assert debe correr bajo postgres (el
   outsider ni siquiera ve la fila por RLS de lectura).
+- **T2 find**: en node 26 `typeof localStorage !== 'undefined'` es true (con
+  warning) — el getter del demo usa el guard de parse, no la ausencia del
+  objeto; el assert de defaults sigue pasando.
+- **T6 design**: el input de programa usa drafts locales por item
+  (`midiDrafts`) para no ser clobbered por refrescos realtime/shared; commit
+  en blur/Enter con el MISMO patrón de collab lock del version select. El
+  hook `useSetlists` expone `setMidiProgram` como `setSongVersion`.
+- **Lint fix**: en StageMode, `midi.sendProgram` dentro del efecto con dep
+  parcial viola exhaustive-deps → destructuring `const { sendProgram:
+  midiSendProgram } = useMidi(...)` mantiene la dep estable (useCallback del
+  hook).
 
 ## Tasks
 
@@ -150,10 +161,26 @@ para revisión manual del usuario).
 
 - [x] T0 branch `feat/hito5-midi` desde `feat/hito5-substitutions` (1143afa)
 - [x] T1 migración 0024 + smoke (8/8 PASS: columna `midi_program` del contrato
-  0001; CHECK 0–127; owner write/clear; denies collaborator/pending)
-- [ ] T2 lib MIDI
-- [ ] T3 hook useMidi
-- [ ] T4 data layer setlists + offline
-- [ ] T5 StageMode dispatch
-- [ ] T6 Settings + SetlistDetail UI
-- [ ] T7 validación + push + PR #148
+  0001; CHECK 0–127; owner write/clear; denies collaborator/pending) — commit `3fe4286`
+- [x] T2 lib `src/lib/midi.js` — helpers puros + demo node (todos los asserts)
+- [x] T3 hook `src/hooks/useMidi.js` — permiso/dispositivos/envío, autoConnect
+  sin re-prompt
+- [x] T4 data layer: selects `midi_program`, `midiPrograms` en flatten,
+  duplicado copia mappings, `setMidiProgram` + WRITE_OPS offline
+- [x] T5 `StageMode` dispatch — send por cambio de canción (skip first, next+back)
+- [x] T6 UI — Settings (S1/S2/S3) + SetlistDetail editor (S8/S9)
+- [x] T7 validación final + mirror + push + PR #148
+
+## T7 validation record
+
+- Smoke 0024: **8/8 PASS** (reset limpio tras corrigir 0024 a constraint-only).
+- Demo `src/lib/midi.js`: **todos los asserts OK** (support/node, normalize,
+  bytes, settings guard, labels, send/spy).
+- `pnpm lint`: **0 warnings** (fix exhaustive-deps vía destructuring).
+- `pnpm build`: **green**.
+- Forecast rama vs `feat/hito5-substitutions` (1143afa): **~843 líneas
+  (835 insertions + 8 deletions)** → **size:exception** documentado (práctica
+  de la cadena #143–#147).
+- Nota revisión visual/Web MIDI real: desktop browser no conectado; hardware
+  MIDI queda para revisión manual del usuario (data layer + mensajes cubiertos
+  por smoke/demo/lint/build).
