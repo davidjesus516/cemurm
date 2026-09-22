@@ -93,8 +93,12 @@ Table `public.overlay_sessions` — deny-by-default surface:
 
 | task | check | evidence |
 | --- | --- | --- |
-| T1 | smoke 0025 | (fill after run) |
-| T2–T4 | lint/build/smoke | (fill after run) |
-| T5 | docs round | (fill) |
+| T1 | smoke 0025 | **20/20 PASS** (fresh `supabase db reset`, docker exec psql); commit `775c44b` |
+| T2 | lint/build; contract readback | `e1dff6a`; `pnpm lint` 0 warnings; contract matches 0025 (lib readback) |
+| T3 | lint/build; page/route readback | `9eff6f5`; `pnpm build` green; route top-level public `/overlay/:sessionId` (no AppLayout chrome) |
+| T4 | lint/build; StageMode readback | `def75f4`; push effect keyed on song.id skip-first (MIDI mirror); save-default-disabled restore; panel default closed |
+| T5 | docs round | schema §1.9 + §2.10.2 updated (deviation note); this doc closed |
 
-Branch head / PR: (fill)
+Branch head: `def75f4` (docs commit follows) → PR #149 (base `main`, Closes #66, no labels — chain pattern).
+
+Verified remaining: overlay client contract vs 0025 (columns, RPC name/signature, anon-only EXECUTE), parent re-ran `pnpm lint` (0/0) after writer delivery.
