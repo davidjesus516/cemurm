@@ -13,6 +13,8 @@ import { buildCommentTree, formatAnchor } from '../lib/comments.js'
 import { computeReadiness } from '../lib/readiness.js'
 import { approvePublicSharing, getConsentStatus } from '../lib/minors.js'
 import ChordProRenderer, { sectionAnchorId } from '../components/notation/ChordProRenderer.jsx'
+import { useSpotifyEnrichment } from '../hooks/useSpotifyEnrichment.js'
+import EnrichmentPanel from '../components/songs/EnrichmentPanel.jsx'
 
 /* eslint-disable react/prop-types */
 
@@ -209,6 +211,12 @@ export default function SongDetail() {
   const [semitones, setSemitones] = useState(0)
   const [degreeView, setDegreeView] = useState(false)
   const comments = useComments(id)
+  // Hito 5 #69: Spotify enrichment state machine — gates on online + the
+  // connection row; applied values refresh the local song via onSongUpdated.
+  const enrichment = useSpotifyEnrichment({
+    song,
+    onSongUpdated: (updated) => setSong(updated),
+  })
   // S4.2 T2: catalog state backs the contribution actions + published badge.
   const library = usePublicLibrary()
   const [publishOpen, setPublishOpen] = useState(false)
@@ -587,6 +595,16 @@ export default function SongDetail() {
           <p className="mt-1 text-sm text-cem-secondary">
             {[openVersion?.key || '', openVersion?.bpm && `${openVersion.bpm} BPM`]
               .filter(Boolean).join(' · ') || 'No key or BPM set'}
+            {/* Hito 5 #69: BPM provenance badge — spotify means enrichment
+                filled it (scenario 4); declared key stays untouched. */}
+            {openVersion?.metadata?.provenance?.bpm?.source === 'spotify' && (
+              <span
+                className="ml-1.5 rounded bg-cem-emerald/10 px-1.5 py-0.5 align-middle text-[10px] font-medium text-cem-emerald"
+                title="Auto-filled from Spotify via enrichment"
+              >
+                Auto-filled
+              </span>
+            )}
           </p>
           <div className="mt-1 flex items-center gap-2">
             <StatusBadge status={song.status} />
@@ -814,6 +832,11 @@ export default function SongDetail() {
           </button>
         </div>
       )}
+
+      {/* Hito 5 #69: Spotify enrichment — preview, apply/discard, provenance.
+          Declared key for the conflict check = the OPEN version's base key;
+          the panel itself never writes it. */}
+      <EnrichmentPanel song={song} enrichment={enrichment} declaredKey={openVersion?.key || ''} />
 
       <div id="comments-panel" className="mt-6 rounded-lg border border-cem-elevated bg-cem-surface p-4">
         <div className="flex items-baseline justify-between gap-2">
