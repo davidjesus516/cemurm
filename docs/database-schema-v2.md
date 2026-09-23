@@ -8,7 +8,7 @@ Conventions: PostgreSQL (Supabase; local stack runs 17, per `supabase/config.tom
 
 ## 1. Entity inventory
 
-48 tables implemented in `0001_init.sql`; the inventory below counts 44 named entities. Three inventory rows are not DDL tables — `roles` (#4) is the `role` enum type, `users` (#5) is `auth.users`, and `external_connections` (#41) is designed but not ported — while seven join/detail tables required by the DDL are unnumbered in the inventory (`user_roles`, `song_tags`, `setlist_collaborators`, `event_participants`, `event_setlists`, `performance_items`, `rehearsal_items`): 41 + 7 = 48. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
+48 tables implemented in `0001_init.sql`; the inventory below counts 44 named entities. Two inventory rows are not DDL tables — `roles` (#4) is the `role` enum type and `users` (#5) is `auth.users` — while seven join/detail tables required by the DDL are unnumbered in the inventory (`user_roles`, `song_tags`, `setlist_collaborators`, `event_participants`, `event_setlists`, `performance_items`, `rehearsal_items`): 41 + 7 = 48. `external_connections` (#41) was designed but not ported in 0001 (hence the 44-named/41-DDL split above); it ships in migration **0026** as the minimal user-scope port for #69 external auto-tagging (one row per `(user_id, provider)`, status 'connected'|'revoked', no delete surface — see the §3 note). Post-0001 migrations bring the live schema to 51 tables: 48 from 0001 + `substitution_responses` (0023), `overlay_sessions` (0025), `external_connections` (0026). "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
 
 ### 1.1 Tenancy spine
 
@@ -715,6 +715,24 @@ CREATE TABLE scale_catalog (              -- entity #43: extensible scale/mode c
 );
 ```
 
+```sql
+-- entity #41, implemented in migration 0026 (minimal user-scope port for #69).
+-- Status 'connected'|'revoked' IS the lifecycle: disconnect flips status (row
+-- persists), reconnect upserts back to 'connected' via the unique(user_id,
+-- provider) constraint. RLS: owner-scope read/insert/update; NO delete grant —
+-- revocation is a status flip, never a row deletion (YAGNI delete). Full
+-- OAuth connect UX lands with #78; connection here is implicit on first
+-- enrichment.
+CREATE TABLE external_connections (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE cascade,
+  provider   text NOT NULL,               -- 'spotify' (others land with #78)
+  status     text NOT NULL DEFAULT 'connected',  -- 'connected' | 'revoked'
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, provider)
+);
+```
+
 ### 2.10 Realtime layer touchpoints (no over-design)
 
 Three places the future realtime layer plugs in — schema already carries the ids/payloads it needs, nothing more:
@@ -773,6 +791,16 @@ The core deliverable. Matrix uses the scope columns from §2 (`org_id`, `branch_
 | `midi_maps` | setlist scope, owner/collaborators | setlist editor; maps duplicate with the setlist, never alter via transpose | setlist scope | midi-integration "mapping is saved with the setlist"; "duplicate carries the same MIDI mappings" |
 | `outbox` | owning user/device only (client-owned) | owning user's client; server edge re-validates RLS on replay | `user_id` + `device_id` | offline-access; pwa-updates-and-storage queue-survival contract |
 | `external_connections` | owner user | owner user; disconnect revokes future enrichment | `user_id` | external-integrations revoke; external-autotagging "Disconnect from Spotify" |
+| `external_enrichments` | owner user action rows (creator reads all states); applied values ALSO readable by the song owner | creator only (insert suggestions → update state transitions; no delete) | `applied_by` (action creator) + song owner branch via `songs.created_by` | external-autotagging "Apply BPM and album art from the suggestion", "Auto-detected key is a suggestion", "Enrichment adds provenance" |
+
+> **Note on `external_enrichments` (Hito 5, migration 0026):** no column carries the
+> owner link for the read/update model — as implemented (0026), `applied_by` is the
+> owner link for EVERY state: suggested rows are "created by" the enriching user and
+> applied rows record who applied. The insert policy admits only `state='suggested'`
+> with `source='spotify'` and `applied_by = auth.uid()`; updates run only by the row
+> creator (suggested → applied|discarded, app-enforced order). The 0001 DDL is
+> preserved verbatim — no `owner_id` column was added (documented deviation denial:
+> `applied_by` carries all states).
 | `audience_views` | anyone with the expiring token (QR/embed link) — no auth required | setlist owner generates/revokes | token + expiry; push binding only via opt-in (A8) | export-and-sharing audience QR, 7-day link expiry; A8 |
 | `scale_catalog` | all users (rendered key contexts) | system director (org-level admin per organizational-repertoire-model conventions) | system | music-theory "catalog is extensible data… added by the system director" |
 
