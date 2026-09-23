@@ -39,6 +39,22 @@ VITE_SUPABASE_ANON_KEY=<anon key from supabase status>
 
 `src/lib/supabase.js` throws if either variable is missing.
 
+## Spotify enrichment provider (mock vs real API)
+
+Song enrichment (Hito 5 #69) runs against the **Spotify Web API** — or a deterministic **mock** when no Spotify credentials are configured.
+
+- **Mock (default, no credentials):** `src/lib/spotify.js` derives a plausible match from the song title+artist — album-art URL is a fake `i.scdn.co`-style path (the UI shows a placeholder instead of fetching it), BPM 60–179, key 0–11, mode major. Titles containing `unconfident` (case-insensitive) or missing artist → "No confident match". Records land in `external_enrichments`; the connection row lands in `external_connections` (migration 0026), created implicitly on the first enrichment.
+- **Real API (with credentials):** add to `.env.local`:
+
+  ```env
+  VITE_SPOTIFY_CLIENT_ID=<client id>
+  VITE_SPOTIFY_CLIENT_SECRET=<client secret>
+  ```
+
+  When both are present, `searchSpotifyMatch` switches to the real client-credentials flow: `POST https://accounts.spotify.com/api/token` → `GET /v1/search?type=track&q=<title> <artist>&limit=5` (first result scoring ≥ 0.7) → `GET /v1/audio-features/{id}` for tempo + key + mode. Any failure resolves to "unavailable" — the provider never throws.
+
+The real OAuth connect UX (user-authorized scopes, per-user tokens) lands with #78 — today the connection is implicit on first enrichment, and disconnect only revokes future suggestions (already-applied metadata stays on the songs).
+
 ## Run / stop
 
 ```bash
