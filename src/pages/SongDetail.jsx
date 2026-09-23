@@ -11,7 +11,7 @@ import { listAnnotations } from '../lib/annotations.js'
 import { resolveDegree } from '../lib/degreeResolver.js'
 import { buildCommentTree, formatAnchor } from '../lib/comments.js'
 import { computeReadiness } from '../lib/readiness.js'
-import { approvePublicSharing, getConsentStatus } from '../lib/minors.js'
+import { getConsentStatus } from '../lib/minors.js'
 import ChordProRenderer, { sectionAnchorId } from '../components/notation/ChordProRenderer.jsx'
 import PdfChartViewer from '../components/songs/PdfChartViewer.jsx'
 import { useSpotifyEnrichment } from '../hooks/useSpotifyEnrichment.js'
@@ -249,7 +249,7 @@ export default function SongDetail() {
   // (migration 0017). The route gate guarantees an ACTIVE consent; the only
   // open question is guardian approval of public sharing.
   const [consentStatus, setConsentStatus] = useState(null)
-  const [approvingSharing, setApprovingSharing] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
   const [commentAnchor, setCommentAnchor] = useState(null)
   const [replyingTo, setReplyingTo] = useState(null)
@@ -530,26 +530,6 @@ export default function SongDetail() {
     }
   }
 
-  // Hito 4: guardian approval of public sharing — called from the inline
-  // "Approve public sharing" action when the minor's ACTIVE consent hasn't
-  // been approved yet. The RPC records the approval; we re-read the ledger
-  // so the publish button unlocks immediately.
-  async function handleApproveSharing() {
-    if (!user) return
-    if (!window.confirm('Approve public sharing of this contribution? Your guardian can revoke this later via the emailed link.')) return
-    setApprovingSharing(true)
-    setContributionError('')
-    try {
-      await approvePublicSharing(user.id)
-      const row = await getConsentStatus(user.id)
-      setConsentStatus(row)
-    } catch (err) {
-      setContributionError(err.message)
-    } finally {
-      setApprovingSharing(false)
-    }
-  }
-
   // Minor publish gate: disabled (helper text) unless an ACTIVE consent with
   // public-sharing approval exists. The server stays the authority — this is
   // UX so minors see the reason before the RPC rejects them.
@@ -557,6 +537,28 @@ export default function SongDetail() {
     !isMinor || (consentStatus?.status === 'active' && consentStatus?.publicSharingApproved)
   const sharingNeedsApproval =
     consentStatus?.status === 'active' && !consentStatus?.publicSharingApproved
+
+  // H10 (0020): approval is the GUARDIAN's act, never the minor's — the
+  // self-approval RPC is gone. Instead of an approve button, the minor gets a
+  // shareable capability link (origin + /guardian-approve?user&email&token)
+  // the guardian opens WITHOUT logging in; the anon RPC flips the approval
+  // flag and this page re-reads the ledger on next render/mount.
+  const guardianLink =
+    sharingNeedsApproval && consentStatus?.sharingApprovalToken && user?.id
+      ? `${window.location.origin}/guardian-approve?user=${user.id}&email=${encodeURIComponent(consentStatus.guardianEmail || '')}&token=${consentStatus.sharingApprovalToken}`
+      : ''
+
+  async function copyGuardianLink() {
+    if (!guardianLink) return
+    try {
+      await navigator.clipboard.writeText(guardianLink)
+      setLinkCopied(true)
+      window.setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      // Clipboard unavailable (insecure context / permission denied) — the
+      // link stays visible on screen for manual copy.
+    }
+  }
 
   // ── 3.4 shared-comments panel ────────────────────────────────────────────
 
@@ -785,24 +787,50 @@ export default function SongDetail() {
                   Guardian approval required for public sharing
                 </span>
                 {sharingNeedsApproval && (
-                  <button
-                    type="button"
-                    onClick={handleApproveSharing}
-                    disabled={approvingSharing}
-                    className="rounded-md border border-cem-amber/40 px-3 py-1 text-xs font-medium text-cem-amber hover:bg-cem-amber/10 disabled:opacity-50"
-                  >
-                    {approvingSharing ? 'Approving…' : 'Approve public sharing'}
-                  </button>
+                  guardianLink ? (
+                    <span className="flex flex-col items-end gap-1">
+                      <span className="max-w-xs text-right text-xs text-cem-secondary">
+                        Send this link to your guardian — only they can open it to
+                        approve public sharing of your contributions.
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <code
+                          className="max-w-[13rem] truncate rounded bg-cem-elevated px-1.5 py-1 text-[10px] text-cem-secondary"
+                          title={guardianLink}
+                        >
+                          {guardianLink}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={copyGuardianLink}
+                          className="rounded-md border border-cem-amber/40 px-3 py-1 text-xs font-medium text-cem-amber hover:bg-cem-amber/10"
+                        >
+                          {linkCopied ? 'Copied' : 'Copy link'}
+                        </button>
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-cem-secondary">
+                      Guardian approval link unavailable — reload the page to retry.
+                    </span>
+                  )
                 )}
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={openPublish}
-                className="rounded-md border border-cem-amber/40 px-3 py-1.5 text-sm font-medium text-cem-amber hover:bg-cem-amber/10"
-              >
-                Contribute to library
-              </button>
+              <span className="flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  onClick={openPublish}
+                  className="rounded-md border border-cem-amber/40 px-3 py-1.5 text-sm font-medium text-cem-amber hover:bg-cem-amber/10"
+                >
+                  Contribute to library
+                </button>
+                {isMinor && consentStatus?.status === 'active' && consentStatus?.publicSharingApproved && (
+                  <span className="text-xs text-cem-emerald">
+                    Guardian approved for public sharing
+                  </span>
+                )}
+              </span>
             )
           )))}
           {isRetired ? (
