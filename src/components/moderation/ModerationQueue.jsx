@@ -14,7 +14,7 @@ const REASON_LABELS = {
   wrong_metadata: 'Wrong metadata',
 }
 
-export default function ModerationQueue({ queue, loading, error, onDecide, deciding }) {
+export default function ModerationQueue({ queue, loading, error, onDecide, deciding, isMod, isSystemAdmin, onAppeal, appealing }) {
   const [selectedCase, setSelectedCase] = useState(null)
 
   if (loading) {
@@ -30,7 +30,7 @@ export default function ModerationQueue({ queue, loading, error, onDecide, decid
   if (queue.length === 0) {
     return (
       <p className="text-sm text-cem-secondary">
-        No pending reports. The public library is clean.
+        No cases waiting for a decision. The public library is clean.
       </p>
     )
   }
@@ -43,6 +43,10 @@ export default function ModerationQueue({ queue, loading, error, onDecide, decid
           caseData={caseData}
           onDecide={onDecide}
           deciding={deciding}
+          isMod={isMod}
+          isSystemAdmin={isSystemAdmin}
+          onAppeal={onAppeal}
+          appealing={appealing}
           onBack={() => setSelectedCase(null)}
         />
       )
@@ -52,7 +56,7 @@ export default function ModerationQueue({ queue, loading, error, onDecide, decid
   return (
     <div className="space-y-3">
       <p className="text-sm text-cem-secondary">
-        {queue.length} pending {queue.length === 1 ? 'case' : 'cases'}
+        {queue.length} open {queue.length === 1 ? 'case' : 'cases'} waiting for a decision
       </p>
 
       <ul className="divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
@@ -68,8 +72,18 @@ export default function ModerationQueue({ queue, loading, error, onDecide, decid
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-medium text-cem-text">
-                    {entry?.title || 'Unknown entry'}
+                    {entry?.title || 'Entry no longer in the public library'}
                   </span>
+                  {item.appeal_of && (
+                    <span className="rounded-full bg-cem-elevated px-2 py-0.5 text-xs font-medium text-cem-secondary">
+                      Appeal
+                    </span>
+                  )}
+                  {item.decision === 'escalate' && (
+                    <span className="rounded-full bg-cem-amber/10 px-2 py-0.5 text-xs font-medium text-cem-amber">
+                      Escalated
+                    </span>
+                  )}
                   <span className="rounded-full bg-cem-rose/10 px-2 py-0.5 text-xs font-medium text-cem-rose">
                     {totalReports} {totalReports === 1 ? 'report' : 'reports'}
                   </span>

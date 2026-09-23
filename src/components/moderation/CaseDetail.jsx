@@ -18,7 +18,7 @@ const DECISION_LABELS = {
   escalate: 'Escalate',
 }
 
-export default function CaseDetail({ caseData, onDecide, deciding, onBack, onAppeal, appealing, isMod }) {
+export default function CaseDetail({ caseData, onDecide, deciding, onBack, onAppeal, appealing, isMod, isSystemAdmin = false, appealExists = false }) {
   const [notes, setNotes] = useState('')
   const [appealReason, setAppealReason] = useState('')
   const [showAppealForm, setShowAppealForm] = useState(false)
@@ -28,6 +28,11 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
   const entry = caseData.entry
   const isDecided = caseData.decision !== null
   const isAppeal = caseData.appeal_of !== null
+  const isEscalated = caseData.decision === 'escalate'
+  // Who may decide RIGHT NOW (mirrors 0020 decide_moderation_case so no dead
+  // buttons render): moderators on null-decision cases (incl. appeals);
+  // ONLY a system_admin on escalated rows (and only forward: keep/remove).
+  const canDecide = isEscalated ? isSystemAdmin : (isMod && !isDecided)
 
   async function handleDecide(decision) {
     if (!window.confirm(`Are you sure you want to "${DECISION_LABELS[decision]}" this entry?`)) return
@@ -64,12 +69,22 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
         onClick={onBack}
         className="text-sm font-medium text-cem-amber hover:underline"
       >
-        ← Back to queue
+        ← Back
       </button>
+
+      {/* Action feedback lives HERE (top level) so it stays visible in every
+          mode — the decision section hides for contributors and swaps away
+          after an appeal is filed. */}
+      {actionError && (
+        <p className="mt-3 text-sm text-cem-rose" role="alert">{actionError}</p>
+      )}
+      {actionSuccess && (
+        <p className="mt-3 text-sm text-cem-emerald">{actionSuccess}</p>
+      )}
 
       <div className="mt-3">
         <h2 className="text-lg font-semibold text-cem-text">
-          {entry?.title || 'Unknown entry'}
+          {entry?.title || 'Entry no longer in the public library'}
         </h2>
         <p className="mt-1 text-sm text-cem-secondary">
           {entry?.contributor_name && `Contributed by ${entry.contributor_name}`}
@@ -110,10 +125,16 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
         </div>
       </div>
 
-      {/* Decision section (moderators only, only for non-decided cases) */}
-      {isMod && !isDecided && (
+      {/* Decision section — rendered only when the viewer can actually decide
+          (moderators on open cases, system_admin on escalated cases) */}
+      {canDecide && (
         <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4">
           <h3 className="text-sm font-semibold text-cem-text">Decision</h3>
+          {isEscalated && (
+            <p className="mt-1 text-xs text-cem-amber">
+              This case was escalated — only a system admin can resolve it.
+            </p>
+          )}
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -121,13 +142,6 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
             placeholder="Notes (optional) — reason for your decision…"
             className="mt-2 w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber"
           />
-
-          {actionError && (
-            <p className="mt-2 text-sm text-cem-rose" role="alert">{actionError}</p>
-          )}
-          {actionSuccess && (
-            <p className="mt-2 text-sm text-cem-emerald">{actionSuccess}</p>
-          )}
 
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -146,14 +160,18 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
             >
               {deciding === caseData.id ? 'Deciding…' : 'Remove'}
             </button>
-            <button
-              type="button"
-              onClick={() => handleDecide('escalate')}
-              disabled={Boolean(deciding)}
-              className="rounded-md border border-cem-amber/40 px-4 py-2 text-sm font-medium text-cem-amber hover:bg-cem-amber/10 disabled:opacity-60"
-            >
-              {deciding === caseData.id ? 'Deciding…' : 'Escalate'}
-            </button>
+            {/* Re-escalating an escalated case is closed server-side — never
+                show that button there (dead button for everyone else anyway). */}
+            {!isEscalated && (
+              <button
+                type="button"
+                onClick={() => handleDecide('escalate')}
+                disabled={Boolean(deciding)}
+                className="rounded-md border border-cem-amber/40 px-4 py-2 text-sm font-medium text-cem-amber hover:bg-cem-amber/10 disabled:opacity-60"
+              >
+                {deciding === caseData.id ? 'Deciding…' : 'Escalate'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -182,7 +200,7 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
       )}
 
       {/* Appeal section (contributors can appeal removed entries) */}
-      {!isMod && isDecided && caseData.decision === 'remove' && !isAppeal && (
+      {!isMod && isDecided && caseData.decision === 'remove' && !isAppeal && !appealExists && (
         <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4">
           <h3 className="text-sm font-semibold text-cem-text">Appeal</h3>
           <p className="mt-1 text-sm text-cem-secondary">
@@ -228,17 +246,21 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
         </div>
       )}
 
-      {/* Appeal already filed */}
-      {!isMod && isDecided && caseData.decision === 'remove' && !isAppeal && caseData.notes && (
+      {/* Appeal already filed — derived from an ACTUAL appeal row on this
+          case (the previous `notes` heuristic misfired on moderator decision
+          notes and could not see a real appeal at all). */}
+      {!isMod && isDecided && caseData.decision === 'remove' && !isAppeal && appealExists && (
         <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4">
           <h3 className="text-sm font-semibold text-cem-text">Appeal</h3>
           <p className="mt-1 text-sm text-cem-secondary">
-            You have already filed an appeal for this case.
+            You have already filed an appeal for this case. A different
+            moderator will review it — an unsuccessful appeal is final at the
+            in-app level.
           </p>
         </div>
       )}
 
-      {/* Appeal decision (moderators reviewing an appeal) */}
+      {/* Appeal decision (moderators/system admin reviewing an appeal) */}
       {isMod && isAppeal && !isDecided && (
         <div className="mt-4 rounded-lg border border-cem-amber/20 bg-cem-amber/5 p-4">
           <h3 className="text-sm font-semibold text-cem-amber">Appeal review</h3>

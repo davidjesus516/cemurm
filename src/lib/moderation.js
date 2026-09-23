@@ -83,11 +83,20 @@ export function reportPublicSong(publicSongId, reason) {
 // ── MODERATION QUEUE ──────────────────────────────────────────────────────────
 
 /**
- * Get the moderation queue: open cases (decision IS NULL) grouped by entry.
+ * Get the moderation queue for a reviewer. By default: every OPEN case
+ * (decision IS NULL) — which INCLUDES open appeals (`appeal_of` set): a
+ * moderator decides appeals per the feature, and hiding them behind
+ * `.is('appeal_of', null)` made them invisible to everyone.
+ * Options:
+ *  - includeEscalated: also return `decision = 'escalate'` rows — decidable
+ *    ONLY by a system_admin (0020 decide_moderation_case).
+ *  - escalatedOnly: return ONLY escalated rows (a pure system_admin who is
+ *    not a community moderator may decide escalated cases and nothing else,
+ *    so they must not be shown dead decision buttons on open cases).
  * Returns an array of cases with entry details and report info.
  */
-export async function getModerationQueue() {
-  const { data: cases, error } = await supabase
+export async function getModerationQueue({ includeEscalated = false, escalatedOnly = false } = {}) {
+  let query = supabase
     .from('moderation_cases')
     .select(`
       id,
@@ -101,9 +110,14 @@ export async function getModerationQueue() {
       notes,
       created_at
     `)
-    .is('decision', null)
-    .is('appeal_of', null)
-    .order('created_at', { ascending: true })
+  if (escalatedOnly) {
+    query = query.eq('decision', 'escalate')
+  } else if (includeEscalated) {
+    query = query.or('decision.is.null,decision.eq.escalate')
+  } else {
+    query = query.is('decision', null)
+  }
+  const { data: cases, error } = await query.order('created_at', { ascending: true })
   if (error) throw error
 
   if (!cases || cases.length === 0) return []
@@ -180,6 +194,76 @@ export async function isModerator(userId) {
     .limit(1)
   if (error) return false
   return data && data.length > 0
+}
+
+/**
+ * Check if a user holds the system_admin role — the only role that may
+ * decide ESCALATED moderation cases (0020 decide_moderation_case). Read via
+ * the user_roles self-select policy (0015 user_roles_select_self), the same
+ * client pattern as isModerator: `private.session_has_system_role` is not an
+ * option client-side — the `private` schema is not exposed to PostgREST
+ * (supabase/config.toml db.schemas = ["public", "graphql_public"]).
+ */
+export async function isSystemAdmin(userId) {
+  if (!userId) return false
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'system_admin')
+    .limit(1)
+  if (error) return false
+  return data && data.length > 0
+}
+
+/**
+ * The signed-in contributor's OWN moderation cases — originals AND appeal
+ * rows (RLS moderation_cases_select_contributor, 0020 §6: case rows whose
+ * entry the session owns). This is the contributor's path to a decided case
+ * and its appeal form.
+ *
+ * Honest by construction: reports are NEVER fetched here (reporter
+ * confidentiality — RLS only returns a contributor their own report rows, so
+ * any "report list" would be a partial claim), and entry details come from
+ * the catalog view, which exposes LIVE entries only — a removed/withdrawn
+ * entry renders with entry: null instead of a fabricated title.
+ */
+export async function getMyModerationCases() {
+  const { data: cases, error } = await supabase
+    .from('moderation_cases')
+    .select(`
+      id,
+      public_song_id,
+      reason_counts,
+      grounds,
+      decision,
+      decider_id,
+      appeal_of,
+      decided_at,
+      notes,
+      created_at
+    `)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  if (!cases || cases.length === 0) return []
+
+  const songIds = [...new Set(cases.map((c) => c.public_song_id))]
+  const { data: entries, error: entriesError } = await supabase
+    .from('public_library_entries')
+    .select('id, title, artist, genre, contributor_id, contributor_name, license')
+    .in('id', songIds)
+  if (entriesError) throw entriesError
+
+  const entryMap = {}
+  for (const entry of entries || []) {
+    entryMap[entry.id] = entry
+  }
+
+  return cases.map((c) => ({
+    ...c,
+    entry: entryMap[c.public_song_id] || null,
+    reports: [],
+  }))
 }
 
 // ── DECISIONS ─────────────────────────────────────────────────────────────────
