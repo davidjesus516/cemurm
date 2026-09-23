@@ -61,7 +61,13 @@ Docs and diagrams only — **no source code, no migrations, no behavior changes.
 ## Delivery
 
 - ask-on-risk (default); forecast well under 400 authored changed lines → single docs PR, no chain question. Running count from work-unit commits: 73b8e8e (159+/119-), 8dc58bd (diagrams, generated HTML).
-- RDD: **global on** per `gentle-ai review mode status`. Docs-only passive change → structural readback is the proportional check; run `review assess` on the accumulated commits for the record after close.
+- RDD: **global on** per `gentle-ai review mode status`. Docs-only passive change → structural readback is the proportional check. Recorded for the slice: `gentle-ai review assess --base-ref 894845a --committed-only` → **medium** (`executable_change` on AGENTS.md), review_due slice_budget_reached; preflight STATUS returned exact START with `--consent=relay`. The OpenCode V2 review transport is **unavailable on this runtime** (contract: do not start a review on V2; matches prior `immutable_review_transport_unsupported` record) — no START executed, no PASS invented, review outcome left as available-preflight/unexecuted. Delivery follows ordinary repo policy (local branch, no push).
+
+## Review record (slice close, 2026-09-23)
+
+- `gentle-ai review assess --cwd . --base-ref 894845a --committed-only --json` → `risk: medium` (reason `executable_change` AGENTS.md), `review_due: true` (slice_budget_reached), candidate kind base-diff.
+- `gentle-ai review status ... --next-transition=true --base-ref=894845a --committed-only=true` → `action: start`, exact START command with `--consent=relay`, lineage `review-ca327407d71aa080`, target `sha256:3f878852…`.
+- Not executed: runtime is OpenCode V2, whose review transport is declared unavailable; the native review lifecycle contract forbids starting a review on V2. Assessment + preflight statuses are the typed record; there is no approved/delivered authority. If a conformant runtime becomes available, the candidate is the accumulated `894845a..HEAD` slice on `docs/current-state-sync`.
 
 ## Progress
 
