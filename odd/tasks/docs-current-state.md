@@ -61,7 +61,7 @@ Docs and diagrams only — **no source code, no migrations, no behavior changes.
 ## Delivery
 
 - ask-on-risk (default); forecast well under 400 authored changed lines → single docs PR, no chain question. Running count from work-unit commits: 73b8e8e (159+/119-), 8dc58bd (diagrams, generated HTML).
-- RDD: **global on** per `gentle-ai review mode status`. Docs-only passive change → structural readback is the proportional check. Recorded for the slice: `gentle-ai review assess --base-ref 894845a --committed-only` → **medium** (`executable_change` on AGENTS.md), review_due slice_budget_reached; preflight STATUS returned exact START with `--consent=relay`. The OpenCode V2 review transport is **unavailable on this runtime** (contract: do not start a review on V2; matches prior `immutable_review_transport_unsupported` record) — no START executed, no PASS invented, review outcome left as available-preflight/unexecuted. Delivery follows ordinary repo policy (local branch, no push).
+- RDD: **global on** per `gentle-ai review mode status`. Docs-only passive change → structural readback is the proportional check. Recorded for the slice: `gentle-ai review assess --base-ref 894845a --committed-only` → **medium** (`executable_change` on AGENTS.md), review_due slice_budget_reached; preflight STATUS returned exact START with `--consent=relay`. The OpenCode V2 review transport is **unavailable on this runtime** (contract: do not start a review on V2; matches prior `immutable_review_transport_unsupported` record) — no START executed, no PASS invented, review outcome left as available-preflight/unexecuted. Delivery: pushed `docs/current-state-sync` → **PR #158** → `main` (ordinary repo policy; CI lint+build runs on the PR).
 
 ## Review record (slice close, 2026-09-23)
 
@@ -76,3 +76,4 @@ Docs and diagrams only — **no source code, no migrations, no behavior changes.
   - `73b8e8e` docs: sync status-bearing docs to current state (5 files).
   - `8dc58bd` docs: add archify architecture and hito roadmap diagrams (2 HTML).
 - Archify correction note: first worker run authored the roadmap from the *stale* mvp-scope statuses (Hito 3–6 "not started"). Corrected the candidate JSON with real statuses and re-delivered (`cf5a2cea…` spec).
+- 2026-09-23 (delivery): user approved the PR → `git push -u origin docs/current-state-sync`, opened **PR #158** (base `main`, docs-only, `Closes #157`) after creating tracking issue **#157** (branch-pr skill reconciled with repo reality: CI has no issue/label gates; repo convention references issues in body, no PR labels used). PR title: `docs: sync status-bearing docs to current state (Hito 1-4 shipped, Hito 5 in progress)`.
