@@ -4,19 +4,19 @@
 
 CEMURM lets individual musicians and bands organize their song libraries, create setlists for gigs, and share arrangements with bandmates — all from a responsive web app that works offline on any device.
 
-**Current status (2026-09): Hito 1 (core viewer + auth) implemented.** Local Supabase stack (PostgreSQL schema + RLS + GoTrue auth) with real sign in and ChordPro parsing/rendering; song/setlist management and search are functional but still localStorage-backed. Stage Mode, offline service worker, and hosted deployment are planned, not yet shipped.
+**Current status (2026-09-23): Hito 1–4 implemented, Hito 5 in progress.** Auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search, the practice view, Stage Mode, offline-first (service worker + IndexedDB), band collaboration, the public library, org repertoire, and services/rehearsals are shipped against hosted Supabase (PostgreSQL + RLS). Hito 5 — integrations (MIDI, external display, OBS overlay, plan freeze) — is under development on feature branches; Hito 6 (beta polish) is planned.
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18+ / Vite / Tailwind CSS |
-| Backend | Supabase (local: PostgreSQL + Auth; Storage/Realtime planned) |
+| Backend | Supabase — hosted project (`kspnacfcietqikbufcka.supabase.co`: PostgreSQL + GoTrue auth + RLS); local stack (`supabase start`, same migrations) for dev/reset |
 | File Storage | Cloudflare R2 (planned) |
 | Music Notation | ChordPro (custom JS parser — live); MusicXML (OSMD), ABC (abcjs) planned |
-| Offline | Workbox Service Workers (planned) |
+| Offline | Service worker (`public/sw.js`) + IndexedDB read cache, offline write queue, background-sync drain — shipped (Hito 2) |
 | APIs | LRCLIB, MusicBrainz, Spotify (planned) |
-| Deployment | Local-only today (`supabase start` + Vite); Vercel/R2 hosting planned |
+| Deployment | Data layer live on hosted Supabase; frontend still local dev (Vite, no CI/deploy); Vercel/R2 hosting planned |
 
 ## Quick Start
 
@@ -50,6 +50,11 @@ Other scripts: `pnpm build` (production build to `dist/`), `pnpm lint` (ESLint, 
 - [MVP Scope & Milestones](docs/mvp-scope.md)
 - [Copyright Policy](docs/copyright-policy.md)
 - [Product Brief for Beta Users](docs/product-brief.md)
+- [Features Overview](docs/features-overview.md)
+- [Music Theory Model](docs/music-theory-model.md)
+- [UX Spec](docs/ux-spec.md)
+- [Design System](docs/design-system.md)
+- [Wireframes](docs/wireframes.md)
 
 ## License
 
