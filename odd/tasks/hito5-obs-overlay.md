@@ -99,6 +99,6 @@ Table `public.overlay_sessions` — deny-by-default surface:
 | T4 | lint/build; StageMode readback | `def75f4`; push effect keyed on song.id skip-first (MIDI mirror); save-default-disabled restore; panel default closed |
 | T5 | docs round | schema §1.9 + §2.10.2 updated (deviation note); this doc closed |
 
-Branch head: `def75f4` (docs commit follows) → PR #149 (base `main`, Closes #66, no labels — chain pattern).
+Branch head: `d777714` (docs commit) → **PR #155** (GitHub assigned the next free number, not #149) — base `main`, Closes #66, no labels — chain pattern.
 
 Verified remaining: overlay client contract vs 0025 (columns, RPC name/signature, anon-only EXECUTE), parent re-ran `pnpm lint` (0/0) after writer delivery.
