@@ -153,7 +153,7 @@ A musician loads a setlist, enters Stage Mode (fullscreen), swipes through songs
 
 ## Hito 3 — Collaboration (Months 5–6)
 
-**Implementation status: not started.**
+**Implementation status: complete** — band collaboration (shared setlists, bandmates, comments) and notifications shipped and archived: `openspec/changes/archive/2026-09-18-hito-3-band-collaboration/`, `openspec/changes/archive/2026-09-19-hito-3-notifications/`. Still outstanding from the Hito 3 feature list: MusicXML/ABC notation (`music-notation`), thematic collections, and the full practice-mode surface (metronome, auto-scroll, session tracking).
 
 ### Objectives
 - Enable real-time collaboration on setlists between band members
@@ -184,7 +184,7 @@ Real-time shared setlists are specified in `features/shared-setlist-collaboratio
 
 ## Hito 4 — Basic Community (Months 7–8)
 
-**Implementation status: not started.**
+**Implementation status: complete** — public library (S4.1, PRs #125–#127), contributions/profiles/follows (S4.2, PRs #131, #136), community moderation (#138), org repertoire (#139), music theory (#137), minors & guardian consent, service planning, and rehearsal workflow are merged on main (migrations through `0019_rehearsal_workflow.sql`). Caveats: the URL-importer deliverable (MusicBrainz/LRCLIB metadata fetch) is not shipped — it rides the Hito 5 integrations surface.
 
 ### Objectives
 - Build a public library of public domain and community-contributed songs
@@ -214,7 +214,7 @@ A new user browses the public library, finds "Amazing Grace" in ChordPro format,
 
 ## Hito 5 — Integrations (Months 9–10)
 
-**Implementation status: not started.**
+**Implementation status: in progress** — feature branches exist (`feat/hito5-plan-freeze` is furthest along — PR 3/10 of its chain, NOT merged to main; also `feat/hito5-midi`, `feat/hito5-obs`, `feat/hito5-external-display`, `feat/hito5-in-app-feedback`, `feat/hito5-congregation-projection`, `feat/hito5-spotify-enrichment`). Migrations 0021+ exist only on those branches, not on main. Nothing from Hito 5 is merged to main yet.
 
 ### Objectives
 - Enable Web MIDI integration for program change commands
@@ -292,9 +292,19 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 |------|----|--------|--------|
 | 2026-09-14 | #82 | Hito 1 core: Supabase GoTrue auth behind unchanged auth surface | Merged |
 | 2026-09-14 | #87 | Hito 2: Stage Mode (fullscreen, transpose, touch/keyboard/foot-pedal navigation) + offline-first (service worker, IndexedDB read-through cache + write queue) + data layer on hosted Supabase with RLS | Merged |
+| 2026-09-18 | — | Hito 3: band collaboration (shared setlists, bandmates, comments) — archived `openspec/changes/archive/2026-09-18-hito-3-band-collaboration/` | Merged (archived) |
+| 2026-09-19 | — | Hito 3: notifications — archived `openspec/changes/archive/2026-09-19-hito-3-notifications/` | Merged (archived) |
+| 2026-09-19 | #131, #136 | Hito 4: S4.2 contributions, profiles, follows | Merged |
+| 2026-09-20 | #125–#127 | Hito 4: S4.1 public library (browse/contribute + seed catalog) | Merged |
+| 2026-09-20 | #137, #138, #139 | Hito 4: music theory, community moderation, org repertoire | Merged |
+| 2026-09-20 | branch | Hito 4: minors & guardian consent, service planning, rehearsal workflow (merged via branches) | Merged |
+| — | 3/10 chain | Hito 5: `feat/hito5-plan-freeze` in progress (PR 3/10, not merged) | In progress |
 
-### Planned vs. implemented (as of 2026-09-14)
+### Planned vs. implemented (as of 2026-09-23)
 
-- **Hito 1 — Core Viewer + Auth: complete.** Song/setlist CRUD and search run against hosted Supabase (no longer localStorage mocks); owner-scoped RLS covers auth, songs, setlists, and chart content. Remaining caveats: Google/GitHub OAuth providers disabled in `supabase/config.toml`.
-- **Hito 2 — Stage Mode: core complete.** 8/8 deliverables shipped in #87. Remaining caveats: real-device HID testing requires a physical foot pedal + `chrome://flags` HID; browser-level offline QA (DevTools network toggle) and PWA background-update UX are follow-up work under `pwa-updates-and-storage`.
-- **Hito 3–6: not started.** Next milestone is Hito 3 — Collaboration (shared setlists, Realtime sync, annotations, MusicXML/ABC notation, collections).
+- **Hito 1 — Core Viewer + Auth: complete.** Song/setlist CRUD and search run against hosted Supabase (no localStorage mocks); owner-scoped RLS covers auth, songs, setlists, and chart content. Remaining caveats: Google/GitHub OAuth providers disabled in `supabase/config.toml`.
+- **Hito 2 — Stage Mode: core complete.** Stage Mode and offline access shipped in #87 (8/8 deliverables; `public/sw.js` + IndexedDB cache/queue live). Remaining caveats: real-device HID testing requires a physical foot pedal + `chrome://flags` HID; browser-level offline QA and PWA background-update UX are follow-up work under `pwa-updates-and-storage`.
+- **Hito 3 — Collaboration: complete.** Band collaboration (shared setlists, bandmates, comments) and notifications shipped and archived (`openspec/changes/archive/2026-09-18-hito-3-band-collaboration/`, `2026-09-19-hito-3-notifications/`). Outstanding from the original feature list: MusicXML/ABC notation, thematic collections, and the full practice-mode surface.
+- **Hito 4 — Basic Community: complete.** Public library (S4.1 #125–#127), contributions/profiles/follows (S4.2 #131/#136), music theory (#137), community moderation (#138), org repertoire (#139), minors & guardian consent, service planning, and rehearsal workflow are merged on main (migrations through `0019_rehearsal_workflow.sql`). The URL-importer deliverable is not shipped — it rides Hito 5's integrations surface.
+- **Hito 5 — Integrations: in progress.** Feature branches exist (plan-freeze furthest along, PR 3/10 of chain, not merged); migrations 0021+ are branch-only. Next milestone is merging the plan-freeze chain, then MIDI/external-display/OBS.
+- **Hito 6 — Beta Polish: not started.** Planned for months 11–12.

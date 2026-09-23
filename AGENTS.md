@@ -2,7 +2,7 @@
 
 ## What this is
 
-PWA for musicians: repertoires, setlists, live performance, offline-first. Hito 1 (core viewer + auth) is implemented: React Router shell, ChordPro parser/renderer, song/setlist CRUD + basic search (localStorage mocks), thin practice view, and a local Supabase stack (48-table schema, RLS, GoTrue auth) wired through `src/lib/supabase.js` / `src/lib/auth.js`. Offline-first surfaces (stage mode, service worker, offline queue) are planned, not built — the `outbox` table is schema-only today.
+PWA for musicians: repertoires, setlists, live performance, offline-first. Hito 1–4 are implemented (Hito 5 in progress): React Router shell, ChordPro parser/renderer, song/setlist CRUD + search, thin practice view, Stage Mode, offline-first via `public/sw.js` + IndexedDB (read cache, offline write queue, drain on reconnect), band collaboration (shared setlists, bandmates, comments, notifications), public library (contributions, profiles, follows, moderation), org repertoire, and services/rehearsals — all against hosted Supabase (48-table schema, RLS, GoTrue auth) wired through `src/lib/supabase.js` / `src/lib/auth.js`. Hito 5 (MIDI, external display, OBS overlay, plan freeze) is under development on feature branches; Hito 6 (beta polish) is planned.
 
 ## Commands
 
@@ -30,30 +30,29 @@ No test framework, no typecheck, no CI workflows. Don't look for them.
 ## Entry points
 
 - `src/main.jsx` — React root, mounts `<App />`.
-- `src/App.jsx` — router (routes: `/`, `/songs`, `/songs/:id`, `/songs/:id/practice`, `/setlists`, `/setlists/:id`, `/auth`, `*`) with auth guards.
+- `src/App.jsx` — router; the authed tree is wrapped by `RequireAuth` + `RequireGuardianConsent` gates. Routes: `/`, `/songs`, `/songs/:id`, `/songs/:id/practice`, `/library`, `/moderation`, `/profile/:userId`, `/setlists`, `/setlists/:id`, `/setlists/:id/stage`, `/gigs`, `/gigs/:id`, `/bandmates`, `/organizations`, `/services`, `/services/:id`, `/rehearsals`, `/rehearsals/:id`, `/notifications`, `/settings`, `/settings/storage`, `/auth`, `*`.
 - `index.html` — Vite entry, loads `src/main.jsx`.
 
 ## Project layout
 
 ```
 src/
-├── components/     # Reusable UI components
-├── pages/          # Route-level components
-├── hooks/          # Custom React hooks
-├── lib/            # Utilities, API clients, parsers
-├── store/          # Zustand state stores
-└── utils/          # Pure utility functions
+├── components/     # Reusable UI components (auth/, gigs/, layout/, moderation/, notation/, songs/)
+├── pages/          # Route-level components (24 pages today)
+├── hooks/          # Custom React hooks (14 hooks today)
+├── lib/            # Utilities, API clients, parsers (31 modules today, incl. chordpro/, offline layer)
+└── utils/          # Pure utility functions (relativeTime.js today)
 ```
 
-`components/`, `pages/`, `hooks/`, `lib/` are populated; `store/` and `utils/` are not (yet). New files follow this structure.
+`components/`, `pages/`, `hooks/`, `lib/`, and `utils/` are populated. `src/store/` does not exist (no Zustand — state lives in React context and hooks). New files follow this structure.
 
 ## Specs & docs
 
 - `features/*.feature` — 42 Gherkin BDD specs defining the full product. Read these to understand what the app should do.
 - `docs/technical-spec.md` — architecture, tech choices, database schema.
-- `docs/database-schema-v2.md` — 48-table data model contract; implemented verbatim in `supabase/migrations/0001_init.sql` (+ RLS in `0002_rls_core.sql`).
-- `docs/mvp-scope.md` — milestone plan (Hito 1–6, 12-month timeline).
-- `openspec/` — archived main specs for the two completed changes: `openspec/specs/row-level-security/spec.md`, `openspec/specs/user-auth/spec.md`.
+- `docs/database-schema-v2.md` — 48-table data model contract; implemented verbatim in `supabase/migrations/0001_init.sql` (+ RLS in `0002_rls_core.sql`, extended through `0019_rehearsal_workflow.sql` on main).
+- `docs/mvp-scope.md` — milestone plan (Hito 1–6, 12-month timeline); Hito 1–4 shipped, Hito 5 in progress.
+- `openspec/` — archived specs and change records for shipped work: specs under `openspec/specs/` (row-level-security, user-auth, gigs, personal-preferences, pwa-updates-storage, shared-setlist-collaboration, collaboration-bandmates, collaborative-comments, notifications); archived change dirs under `openspec/changes/archive/` (2026-09-11 rls-and-offline-first, 2026-09-15 hito-2-remainder, 2026-09-18 hito-3-band-collaboration, 2026-09-19 hito-3-notifications).
 - `docs/local-dev.md` — local Supabase stack: start/reset/stop, seed identities, `.env.local` vars.
 - `CONTRIBUTING.md` — branch/commit/PR conventions.
 
