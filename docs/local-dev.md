@@ -55,6 +55,15 @@ Song enrichment (Hito 5 #69) runs against the **Spotify Web API** — or a deter
 
 The real OAuth connect UX (user-authorized scopes, per-user tokens) lands with #78 — today the connection is implicit on first enrichment, and disconnect only revokes future suggestions (already-applied metadata stays on the songs).
 
+## PDF scan charts
+
+PDF scans (Hito 5 #76) upload to the **`charts` Storage bucket** — created by migration 0027 as PRIVATE (`public = false`) with owner-folder RLS on `storage.objects`; object keys are `${auth.uid()}/${uuid}.pdf`, so each user can only see/write their own folder.
+
+- Uploads go through local Supabase Storage: `supabase.storage.from('charts').upload(...)`; the browser never talks to the bucket directly.
+- Reads use **signed URLs** (`createSignedUrl`, 1-hour default) — the bucket stays private by design (no public URL ever).
+- Local upload cap: `supabase/config.toml` `file_size_limit = "50MiB"` (hard server cap). The app additionally enforces the 10 MB product limit before any upload (see `src/lib/pdfCharts.js`).
+- Offline: PDF scans are cached in the browser Cache API under the `pdf` category (`cemurm-pdf-v1`); the Storage screen shows/clears them under "PDF scans".
+
 ## Run / stop
 
 ```bash

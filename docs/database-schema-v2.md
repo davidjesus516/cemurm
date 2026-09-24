@@ -293,6 +293,23 @@ CREATE TABLE external_enrichments (
 );
 ```
 
+> **Note on PDF scan charts (Hito 5, migration 0027):** `chart_files` columns are
+> UNCHANGED — `'pdf'` was already in the `chart_format` enum, and a PDF scan is a
+> row with `format = 'pdf'`, `content = NULL` (object stays in Storage) and
+> `object_key` = the Storage path (`${auth.uid()}/${uuid}.pdf`). The Storage
+> surface lives in a **private `charts` bucket** (migration 0027): owner-folder
+> RLS on `storage.objects` (first path segment = `auth.uid()::text` is the
+> boundary) and **signed URLs only** — `public` may NEVER be flipped (tech-spec
+> R2 direction). Replace = NEW `chart_files` row + NEW `song_versions` row with
+> the next number (append-only; the previous scan is preserved for the version
+> picker). Size limits: PRODUCT cap **10 MB** enforced app-side
+> (`validatePdfFile`, before any upload/write) and the stack
+> `file_size_limit = "50MiB"` (`supabase/config.toml`) as the hard server cap —
+> no DB size constraint by design (server-side trigger validation deferred,
+> documented limitation). PDF readiness = key present + non-empty scan
+> (`size_bytes > 0`); "legible" is defined as that non-empty scan — visual
+> legibility of the scan is human QA, stated as a limitation.
+
 ### 2.4 Setlists, items, collections
 
 ```sql
