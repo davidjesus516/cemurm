@@ -252,6 +252,11 @@ const isPdf = chart?.format === 'pdf'
     status,
     artist: row.artist || '',
     genre: row.genre || '',
+    // #78 import contract (0028): declared metadata / import lineage surface.
+    source: row.source || '',
+    year: row.year ?? null,
+    license: row.license || 'CC-BY-4.0',
+    licenseConfirmed: Boolean(row.license_confirmed),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.is_deleted ? row.updated_at : null,
@@ -348,6 +353,13 @@ export function listSongs(userId, filter = {}) {
  * rejected, nothing else changes), upload to the private charts bucket, then
  * chart_files (format pdf, content NULL, object_key = storage path) + version
  * number 1. Stepless: the ChordPro path below is unchanged.
+ *
+ * #78 (import pipeline): pass `meta` to land the IMPORT contract on insert —
+ *   meta.artist/genre/year/source/license/licenseConfirmed → set on the songs
+ *   row (license falls back to the column default 'CC-BY-4.0' when omitted);
+ *   meta.versionName/changeNote/importMeta → version row name/change_note and
+ *   metadata.import. ALL existing call sites behave identically when meta is
+ *   omitted.
  */
 /**
  * @param {string} userId
@@ -355,7 +367,7 @@ export function listSongs(userId, filter = {}) {
  * @returns {Promise<Song>}
  */
 // eslint-disable-next-line no-unused-vars -- hasChordChart kept for signature parity; chart presence is derived from body
-export async function addSong(userId, { title, key, bpm, hasChordChart, body, durationSeconds, pdfFile }) {
+export async function addSong(userId, { title, key, bpm, hasChordChart, body, durationSeconds, pdfFile, meta }) {
   return withErrorMapping(async () => {
     const trimmed = title?.trim()
     if (!trimmed) throw new Error('Title is required.')
@@ -383,10 +395,19 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
       ? computeReadiness({ key: songKey, body: '', hasPdfChart: true, sizeBytes: pdfSize })
       : computeReadiness({ key: songKey, body: songBody })
 
-    // 1. Insert songs row
+    // 1. Insert songs row (#78: import metadata lands here when meta present)
+    const songPatch = { created_by: userId, title: trimmed }
+    if (meta) {
+      if (meta.artist !== undefined) songPatch.artist = meta.artist
+      if (meta.genre !== undefined) songPatch.genre = meta.genre
+      if (meta.year !== undefined) songPatch.year = meta.year
+      if (meta.source !== undefined) songPatch.source = meta.source
+      if (meta.license !== undefined) songPatch.license = meta.license
+      if (meta.licenseConfirmed !== undefined) songPatch.license_confirmed = meta.licenseConfirmed
+    }
     const { data: songRow, error: songErr } = await supabase
       .from('songs')
-      .insert({ created_by: userId, title: trimmed })
+      .insert(songPatch)
       .select()
       .single()
     if (songErr) throw songErr
@@ -413,21 +434,27 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
       .single()
     if (chartErr) throw chartErr
 
-    // 3. Insert song_versions row
+    // 3. Insert song_versions row (#78: import lineage — name/change_note/
+    // metadata.import ride the version row when meta provides them)
+    const verPatch = {
+      song_id: songRow.id,
+      name: meta?.versionName || 'Original', // ponytail: not null constraint
+      number: 1,
+      chart_file_id: chartRow.id,
+      base_key: songKey,
+      base_tempo: songBpm,
+      duration_seconds: songDuration,
+      is_ready: readiness.status === 'ready',
+      owner_id: userId,
+      created_by: userId,
+    }
+    if (meta) {
+      if (meta.changeNote !== undefined) verPatch.change_note = meta.changeNote
+      if (meta.importMeta) verPatch.metadata = { import: meta.importMeta }
+    }
     const { error: verErr } = await supabase
       .from('song_versions')
-      .insert({
-        song_id: songRow.id,
-        name: 'Original', // ponytail: not null constraint
-        number: 1,
-        chart_file_id: chartRow.id,
-        base_key: songKey,
-        base_tempo: songBpm,
-        duration_seconds: songDuration,
-        is_ready: readiness.status === 'ready',
-        owner_id: userId,
-        created_by: userId,
-      })
+      .insert(verPatch)
     if (verErr) throw verErr
 
     const song = await fetchSongById(userId, songRow.id)
@@ -570,15 +597,20 @@ export function listPlayedAt(userId, songId) {
  * calls with 'spotify' so the SAME updateSong writes source:'spotify'
  * provenance for the applied BPM; album art is merged separately
  * (enrichments.saveAlbumArt), and the key never lands in base_key.
+ *
+ * #78 (import pipeline): artist/genre/year are additive — when provided they
+ * land on the songs row and record provenance.artist/genre/year = { source,
+ * at } in the version metadata exactly like key/bpm (the conflict-resolution
+ * path calls with 'import' so the chosen value keeps its provenance).
  */
 /**
  * @param {string} userId
  * @param {string} id
  * @param {SongInput} input
- * @param {'manual' | 'spotify'} provenanceSource
+ * @param {'manual' | 'spotify' | 'musicbrainz' | 'import'} provenanceSource
  * @returns {Promise<Song>}
  */
-export async function updateSong(userId, id, { title, key, bpm, body, durationSeconds }, provenanceSource = 'manual') {
+export async function updateSong(userId, id, { title, key, bpm, body, durationSeconds, artist, genre, year }, provenanceSource = 'manual') {
   return withErrorMapping(async () => {
     // Fetch current state (throws 'Song not found.' if missing)
     const current = await fetchSongById(userId, id)
@@ -609,11 +641,16 @@ export async function updateSong(userId, id, { title, key, bpm, body, durationSe
           sizeBytes: current.sizeBytes,
         }).status
 
-    // 1. Update songs row (title)
-    if (title !== undefined) {
+    // 1. Update songs row (title / import metadata #78: artist, genre, year)
+    const songFields = {}
+    if (title !== undefined) songFields.title = title.trim()
+    if (artist !== undefined) songFields.artist = artist
+    if (genre !== undefined) songFields.genre = genre
+    if (year !== undefined) songFields.year = year
+    if (Object.keys(songFields).length > 0) {
       const { error } = await supabase
         .from('songs')
-        .update({ title: title.trim(), updated_at: new Date().toISOString() })
+        .update({ ...songFields, updated_at: new Date().toISOString() })
         .eq('id', id)
         .eq('created_by', userId)
       if (error) throw error
@@ -637,15 +674,20 @@ export async function updateSong(userId, id, { title, key, bpm, body, durationSe
         // ponytail: only recompute is_ready when not retired
         ...(isRetired ? {} : { is_ready: newStatus === 'ready' }),
       }
-      // #69 provenance: key/bpm edits through this path record their source
-      // (manual by default; enrichment apply passes 'spotify') on the version
-      // metadata, merged alongside existing entries (album art, manual flags).
-      if (key !== undefined || bpm !== undefined) {
+      // #69/#78 provenance: key/bpm/artist/genre/year edits through this path
+      // record their source (manual by default; enrichment apply passes
+      // 'spotify'; import conflict resolution passes 'import') on the version
+      // metadata, merged alongside existing entries (album art, lyrics, flags).
+      if (key !== undefined || bpm !== undefined || artist !== undefined
+          || genre !== undefined || year !== undefined) {
         const metadata = { ...(current.metadata || {}) }
         const provenance = { ...(metadata.provenance || {}) }
         const at = new Date().toISOString()
         if (key !== undefined) provenance.key = { source: provenanceSource, at }
         if (bpm !== undefined) provenance.bpm = { source: provenanceSource, at }
+        if (artist !== undefined) provenance.artist = { source: provenanceSource, at }
+        if (genre !== undefined) provenance.genre = { source: provenanceSource, at }
+        if (year !== undefined) provenance.year = { source: provenanceSource, at }
         metadata.provenance = provenance
         verPatch.metadata = metadata
       }
