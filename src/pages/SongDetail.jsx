@@ -13,8 +13,10 @@ import { buildCommentTree, formatAnchor } from '../lib/comments.js'
 import { computeReadiness } from '../lib/readiness.js'
 import { approvePublicSharing, getConsentStatus } from '../lib/minors.js'
 import ChordProRenderer, { sectionAnchorId } from '../components/notation/ChordProRenderer.jsx'
+import PdfChartViewer from '../components/songs/PdfChartViewer.jsx'
 import { useSpotifyEnrichment } from '../hooks/useSpotifyEnrichment.js'
 import EnrichmentPanel from '../components/songs/EnrichmentPanel.jsx'
+import { PDF_SIZE_MESSAGE, PDF_TYPE_MESSAGE, validatePdfFile } from '../lib/pdfCharts.js'
 
 /* eslint-disable react/prop-types */
 
@@ -198,7 +200,7 @@ export default function SongDetail() {
   const { id } = useParams()
   const { user } = useAuth()
   const { prefs } = usePreferences()
-  const { getSong, getPlayedAt, updateSong, retireSong, reactivateSong } = useSongs()
+  const { getSong, getPlayedAt, updateSong, retireSong, reactivateSong, replacePdfScan } = useSongs()
   const [song, setSong] = useState(null)
   const [playedAt, setPlayedAt] = useState([])
   const [loading, setLoading] = useState(true)
@@ -206,6 +208,11 @@ export default function SongDetail() {
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState('')
   const [saving, setSaving] = useState(false)
+  // Hito 5 #76: PDF scan replace state (version append + success note).
+  const [replacing, setReplacing] = useState(false)
+  const [replaceNote, setReplaceNote] = useState('')
+  const [replaceError, setReplaceError] = useState('')
+  const replaceInputRef = useRef(null)
   const [annotations, setAnnotations] = useState([])
   const [versionId, setVersionId] = useState('')
   const [semitones, setSemitones] = useState(0)
@@ -314,6 +321,11 @@ export default function SongDetail() {
 
   const openVersion = song ? versions.find((v) => v.id === versionId) || versions[0] : null
   const openBody = openVersion?.body || ''
+  // Hito 5 #76: the OPEN version's format decides the chart surface — PDF scans
+  // render in PdfChartViewer, ChordPro renders (as before). isPdfSong = latest
+  // version is a scan (song-level; drives header actions like Replace scan).
+  const openIsPdf = openVersion?.format === 'pdf'
+  const isPdfSong = song?.isPdf === true
 
   const parsed = useMemo(() => (openBody ? parseChordPro(openBody) : null), [openBody])
 
@@ -399,6 +411,40 @@ export default function SongDetail() {
   async function handleReactivate() {
     const reactivated = await reactivateSong(id)
     setSong(reactivated)
+  }
+
+  // Hito 5 #76: replace the current scan — replacePdfScan validates + uploads a
+  // NEW object and appends a new version (number = max + 1); the previous scan
+  // stays in version history. Success note per the feature spec, and the picker
+  // jumps to the corrected version so the user sees the result immediately.
+  async function handleReplaceScan(e) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+
+    const check = validatePdfFile(file)
+    if (!check.ok) {
+      setReplaceError(check.reason === 'size' ? PDF_SIZE_MESSAGE : PDF_TYPE_MESSAGE)
+      return
+    }
+
+    setReplacing(true)
+    setReplaceError('')
+    setReplaceNote('')
+    try {
+      const updated = await replacePdfScan(id, file)
+      const newNumber = updated.versions.reduce((m, v) => Math.max(m, v.number || 0), 0)
+      const newVersion = updated.versions.find((v) => v.number === newNumber)
+      setSong(updated)
+      if (newVersion) setVersionId(newVersion.id)
+      setReplaceNote(
+        `Corrected scan saved as v${newNumber} — previous scan preserved in version history.`,
+      )
+    } catch (err) {
+      setReplaceError(err.message)
+    } finally {
+      setReplacing(false)
+    }
   }
 
   // ── S4.2 T2 contribution actions ─────────────────────────────────────────
@@ -605,6 +651,16 @@ export default function SongDetail() {
                 Auto-filled
               </span>
             )}
+            {/* Hito 5 #76: PDF scans carry no chord data — transposing a scan
+                means replacing it with a new scan (scenario 7 mirror). */}
+            {openIsPdf && (
+              <span
+                className="ml-1.5 rounded bg-cem-elevated px-1.5 py-0.5 align-middle text-[10px] font-medium text-cem-secondary"
+                title="PDF scans carry no chord data — change key with a new scan"
+              >
+                PDF scan — needs a new scan to change key
+              </span>
+            )}
           </p>
           <div className="mt-1 flex items-center gap-2">
             <StatusBadge status={song.status} />
@@ -619,7 +675,7 @@ export default function SongDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          {!isRetired && !editing && song.body && (
+          {!isRetired && !editing && !isPdfSong && song.body && (
             <>
               <Link
                 to={`/songs/${id}/practice`}
@@ -715,6 +771,9 @@ export default function SongDetail() {
             {versions.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.name || `Version ${v.number || ''}`}
+                {/* Hito 5 #76: per-version format badge so PDF scans are
+                    distinguishable from ChordPro in the history picker. */}
+                {' · '}{v.format === 'pdf' ? 'PDF scan' : 'ChordPro'}
                 {prefs.defaultVersion === v.id ? ' (default)' : ''}
               </option>
             ))}
@@ -752,7 +811,42 @@ export default function SongDetail() {
         </div>
       )}
 
-      {editing ? (
+      {openIsPdf ? (
+        <div className="mt-6">
+          {/* Hito 5 #76: replace action — append-only version flow; the
+              previous scan stays in version history (native iframe renderer,
+              no pdf.js). */}
+          {!isRetired && (
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs text-cem-secondary">
+                PDF scans are not editable as text — replace to upload a corrected scan.
+              </p>
+              <button
+                type="button"
+                onClick={() => replaceInputRef.current?.click()}
+                disabled={replacing}
+                className="rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-50"
+              >
+                {replacing ? 'Replacing…' : 'Replace scan'}
+              </button>
+              <input
+                ref={replaceInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={handleReplaceScan}
+                className="hidden"
+              />
+            </div>
+          )}
+          {replaceError && <p className="mb-2 text-sm text-cem-rose" role="alert">{replaceError}</p>}
+          {replaceNote && <p className="mb-2 text-sm text-cem-emerald">{replaceNote}</p>}
+          <PdfChartViewer
+            title={song.title}
+            objectPath={openVersion?.objectKey || song?.objectKey || ''}
+            sizeBytes={openVersion?.sizeBytes ?? song?.sizeBytes ?? 0}
+          />
+        </div>
+      ) : editing ? (
         <form onSubmit={handleSave} className="mt-6 space-y-3">
           <label htmlFor="song-body" className="block text-sm font-medium text-cem-text">
             ChordPro text

@@ -229,6 +229,7 @@ const isPdf = chart?.format === 'pdf'
       // #76: per-version chart identity (pdf scan vs chordpro text).
       format: vChart?.format || 'chordpro',
       objectKey: vChart?.object_key || '',
+      sizeBytes: vChart?.size_bytes ?? 0,
     }
   })
 
