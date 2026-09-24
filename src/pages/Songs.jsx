@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSongs } from '../hooks/useSongs.js'
+import { useSongImports } from '../hooks/useSongImports.js'
 import { computeReadiness } from '../lib/readiness.js'
 import { formatDuration } from '../lib/duration.js'
 import { filterSongs, matchedChords, parseTempoRange, songMatchesKey } from '../lib/search.js'
 import SongForm from '../components/songs/SongForm.jsx'
+import ImportQueue from '../components/import/ImportQueue.jsx'
 
 /* eslint-disable react/prop-types */
 
@@ -24,7 +26,7 @@ function StatusBadge({ status }) {
 
 export default function Songs() {
   const [retiredView, setRetiredView] = useState(false)
-  const { songs, loading, addSong, updateSong, deleteSong, retireSong, reactivateSong } = useSongs({ retired: retiredView })
+  const { songs, loading, addSong, updateSong, deleteSong, retireSong, reactivateSong, refresh } = useSongs({ retired: retiredView })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
@@ -32,6 +34,12 @@ export default function Songs() {
   const [tempo, setTempo] = useState('')
   const [tempoRange, setTempoRange] = useState(null)
   const [error, setError] = useState('')
+
+  // Hito 5 #78: import review queue + URL import handoff (dialog lands in T7).
+  const importRef = useRef(null)
+  const [showImport, setShowImport] = useState(false)
+  const [showUrlImport, setShowUrlImport] = useState(false)
+  const imports = useSongImports({ onImported: refresh })
 
   // ponytail: filter the full active list client-side with the pure helpers;
   // songs.searchSongs stays as the future Supabase surface. Fine under the
@@ -86,16 +94,69 @@ export default function Songs() {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-cem-text">Repertoire</h1>
-        {!showForm && !editing && (
+        <div className="flex items-center gap-2">
+          {!showForm && !editing && (
+            <button
+              type="button"
+              onClick={() => { setShowForm(true); setError('') }}
+              className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            >
+              Add Song
+            </button>
+          )}
+          <input
+            ref={importRef}
+            type="file"
+            multiple
+            accept=".chordpro,.cho,.onsong,.txt,.crd"
+            className="hidden"
+            onChange={(e) => {
+              imports.addFiles(e.target.files)
+              setShowImport(true)
+              setError('')
+              e.target.value = ''
+            }}
+          />
           <button
             type="button"
-            onClick={() => { setShowForm(true); setError('') }}
-            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            onClick={() => importRef.current?.click()}
+            className="rounded-md bg-cem-surface px-4 py-2 text-sm font-medium text-cem-text ring-1 ring-cem-elevated hover:bg-cem-elevated"
           >
-            Add Song
+            Import files…
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => { setShowUrlImport(true); setError('') }}
+            className="rounded-md bg-cem-surface px-4 py-2 text-sm font-medium text-cem-text ring-1 ring-cem-elevated hover:bg-cem-elevated"
+          >
+            Import from URL
+          </button>
+        </div>
       </div>
+
+      {imports.error && (
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{imports.error}</p>
+      )}
+
+      {showImport && (
+        <ImportQueue
+          entries={imports.entries}
+          onApprove={imports.approve}
+          onDiscard={imports.discard}
+          onDecision={imports.setDecision}
+          onConflictChange={imports.setConflict}
+          onLicenseChange={imports.setLicense}
+          onConfirmLicense={imports.confirmLicense}
+          onAddFiles={imports.addFiles}
+        />
+      )}
+
+      {/* T7 placeholder — the URL metadata dialog replaces this block. */}
+      {showUrlImport && (
+        <div className="mt-4 rounded-lg border border-dashed border-cem-elevated bg-cem-surface p-6 text-center">
+          <p className="text-sm text-cem-secondary">URL import: paste a link to prefill title and artist. The metadata dialog arrives with the next step.</p>
+        </div>
+      )}
 
       {/* Active / Retired toggle */}
       <div className="mt-4 flex gap-1 rounded-md border border-cem-elevated p-0.5" style={{ width: 'fit-content' }}>
