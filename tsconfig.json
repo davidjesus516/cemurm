@@ -1,0 +1,27 @@
+{
+  // JSDoc + checkJs type baseline (odd/tasks/ts-checkjs-baseline.md).
+  //
+  // NOTE (deliberate deviation): global checkJs is OFF. With
+  // checkJs:true + include:["src/lib"] tsc type-checks ALL ~31 modules in
+  // src/lib at once (~760 errors, ~530 of them in out-of-scope files such as
+  // gigs.js, rehearsals.js, services.js, comments.js, bandmates.js,
+  // announcements.js, search.js, offlineCache.js, readiness.js, duration.js,
+  // chordpro/parser.js). The ODD scopes the baseline to exactly four domain
+  // libs, so they opt in individually with the canonical per-file
+  // `// @ts-check` pragma — identical checking semantics for the opt-in
+  // files, exact checked surface. The remaining libs stay unchecked until a
+  // later pass; do NOT flip checkJs on globally before then.
+  "compilerOptions": {
+    "allowJs": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src/lib"]
+}
