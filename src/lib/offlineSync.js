@@ -8,6 +8,7 @@ import * as setlists from './setlists.js'
 import * as gigs from './gigs.js'
 import * as bandmates from './bandmates.js'
 import * as comments from './comments.js'
+import * as feedback from './feedback.js'
 import { listSongs } from './songs.js'
 import { pendingOps, removeOps } from './offlineQueue.js'
 import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
@@ -47,6 +48,9 @@ const WRITE_OPS = {
   editComment: comments.editComment,
   deleteComment: comments.deleteComment,
   resolveComment: comments.resolveComment,
+  // Hito 5 feedback: the offline path replays the SAME self-scoped insert —
+  // RLS still binds user_id to the session at replay time (0020).
+  submitFeedback: feedback.submitFeedback,
 }
 
 // 2.6 (R6/R7): an item add/remove carries no server state of its own, so it is
