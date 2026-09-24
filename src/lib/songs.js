@@ -1,3 +1,4 @@
+// @ts-check
 // Supabase data layer for songs.
 // Replaces the localStorage mock with hosted Supabase queries.
 // Public surface: listSongs, addSong, getSong, updateSong, deleteSong,
@@ -10,36 +11,148 @@ import { computeReadiness } from './readiness.js'
 import { filterSongs } from './search.js'
 import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
 
+/**
+ * @typedef {'ready' | 'draft' | 'retired'} SongStatus
+ */
+
+/**
+ * Raw Supabase row shapes (select '*, chart_files(*), song_versions(*)').
+ * @typedef {object} RawChartRow
+ * @property {string} id
+ * @property {string} content
+ * @property {boolean} soft_deleted
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {object} RawVersionRow
+ * @property {string} id
+ * @property {string} name
+ * @property {number} number
+ * @property {string} base_key
+ * @property {number | null} base_tempo
+ * @property {number | null} duration_seconds
+ * @property {boolean} is_ready
+ * @property {string | null} chart_file_id
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {object} RawSongRow
+ * @property {string} id
+ * @property {string} created_by
+ * @property {string} title
+ * @property {string | null} artist
+ * @property {string | null} genre
+ * @property {string} created_at
+ * @property {string} updated_at
+ * @property {boolean} is_deleted
+ * @property {string | null} org_id
+ * @property {string | null} branch_id
+ * @property {string | null} source_org_id
+ * @property {RawVersionRow[]} song_versions
+ * @property {RawChartRow[]} chart_files
+ */
+
+/**
+ * App-facing song shapes (flattened down from the raw embed).
+ * @typedef {object} SongVersion
+ * @property {string} id
+ * @property {string} name
+ * @property {number} number
+ * @property {string} key
+ * @property {number | null} bpm
+ * @property {number | null} durationSeconds
+ * @property {boolean} isReady
+ * @property {string} body
+ */
+
+/**
+ * @typedef {object} Song
+ * @property {string} id
+ * @property {string} userId
+ * @property {string} title
+ * @property {string} key
+ * @property {number | null} bpm
+ * @property {boolean} hasChordChart
+ * @property {string} body
+ * @property {number | null} durationSeconds
+ * @property {SongStatus} status
+ * @property {string} artist
+ * @property {string} genre
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ * @property {string | null} deletedAt
+ * @property {string | null} orgId
+ * @property {string | null} branchId
+ * @property {string | null} sourceOrgId
+ * @property {string | null} versionId
+ * @property {string | null} chartFileId
+ * @property {SongVersion[]} versions
+ */
+
+/**
+ * Mutation payload — every field optional, only provided fields change.
+ * @typedef {object} SongInput
+ * @property {string | undefined} [title]
+ * @property {string | undefined} [key]
+ * @property {number | string | undefined} [bpm]
+ * @property {boolean | undefined} [hasChordChart]
+ * @property {string | undefined} [body]
+ * @property {number | undefined} [durationSeconds]
+ */
+
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
 // errors map to a safe generic message.
 const USER_ERRORS = new Set(['Title is required.', 'Song not found.'])
 
+/**
+ * Re-throws known user-facing errors; maps everything else to a generic
+ * message so callers never see PostgREST internals. Never returns.
+ * @param {Error} error
+ * @returns {never}
+ */
 function handleError(error) {
   if (USER_ERRORS.has(error?.message)) throw error
   throw new Error('Something went wrong. Please try again.')
 }
 
+/**
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withErrorMapping(fn) {
-  try { return await fn() } catch (e) { handleError(e) }
+  try { return await fn() } catch (e) { handleError(/** @type {Error} */ (e)) }
 }
 
 // ponytail: no freshness TTL — every successful network read overwrites
 // the cache and offline reads serve it unconditionally, so staleness
 // self-heals on the next successful fetch. Add a TTL only if
 // stale-then-offline reads become a problem.
+/**
+ * @template T
+ * @param {string} key
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withReadThrough(key, fn) {
   try {
     const data = await fn()
     await offlineSet(key, data)
     return data
   } catch (e) {
-    if (USER_ERRORS.has(e?.message)) throw e
+    if (USER_ERRORS.has(/** @type {Error} */ (e)?.message)) throw e
     const cached = await offlineGet(key)
     if (cached?.data) return cached.data
     throw e
   }
 }
 
+/**
+ * @param {string} userId
+ * @param {string[]} ids
+ */
 export function invalidateSongs(userId, ids) {
   offlineRemove(`songs:${userId}`)
   for (const id of ids) offlineRemove(`song:${userId}:${id}`)
@@ -52,23 +165,31 @@ export function invalidateSongs(userId, ids) {
  * Selection: latest version by created_at desc → key/bpm/duration/is_ready.
  * Chart: prefer the version's chart_file_id, fallback to newest non-deleted.
  */
+/**
+ * @param {RawSongRow} row
+ * @returns {Song}
+ */
 function flattenSong(row) {
   const versionRows = (row.song_versions || [])
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   const latest = versionRows[0] || null
 
   const charts = (row.chart_files || [])
     .filter((c) => !c.soft_deleted)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   const chart = (latest?.chart_file_id)
     ? charts.find((c) => c.id === latest.chart_file_id) || charts[0]
     : charts[0]
 
   const body = chart?.content || ''
-  const { status } = row.is_deleted
-    ? { status: 'retired' }
-    : computeReadiness({ key: latest?.base_key || '', body })
+  // computeReadiness lives in an unchecked module, so its inferred status
+  // widens to string; the runtime contract is exactly 'ready' | 'draft'.
+  const { status } = /** @type {{ status: SongStatus, reason: string | null }} */ (
+    row.is_deleted
+      ? { status: 'retired' }
+      : computeReadiness({ key: latest?.base_key || '', body })
+  )
 
   // 3.5: expose every version for the picker — no extra network (song_versions
   // + chart_files are already embedded). Body = the version's own chart, ''
@@ -116,6 +237,11 @@ function flattenSong(row) {
  * Fetch one song row with nested chart_files + song_versions,
  * flattened into the app shape. Throws 'Song not found.' when missing.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Song>}
+ */
 async function fetchSongById(userId, id) {
   const { data, error } = await supabase
     .from('songs')
@@ -138,6 +264,11 @@ async function fetchSongById(userId, id) {
  * ponytail: single cache key per user — a filtered read overwrites the
  *   unfiltered cache; acceptable until offline filtered reads matter.
  */
+/**
+ * @param {string} userId
+ * @param {{ retired?: boolean, status?: string }} [filter]
+ * @returns {Promise<Song[]>}
+ */
 export function listSongs(userId, filter = {}) {
   return withErrorMapping(() => withReadThrough(`songs:${userId}`, async () => {
     const retired = filter.retired === true || filter.status === 'retired'
@@ -148,6 +279,7 @@ export function listSongs(userId, filter = {}) {
       .order('created_at', { ascending: true })
 
     if (error) throw error
+    /** @type {Song[]} */
     let songs = (data || []).map(flattenSong)
     if (filter.status && filter.status !== 'retired') {
       songs = songs.filter((s) => s.status === filter.status)
@@ -159,6 +291,11 @@ export function listSongs(userId, filter = {}) {
 /**
  * Add a new song. Inserts into songs + chart_files + song_versions.
  * Computes initial status from content.
+ */
+/**
+ * @param {string} userId
+ * @param {SongInput} input
+ * @returns {Promise<Song>}
  */
 // eslint-disable-next-line no-unused-vars -- hasChordChart kept for signature parity; chart presence is derived from body
 export async function addSong(userId, { title, key, bpm, hasChordChart, body, durationSeconds }) {
@@ -219,6 +356,11 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Song>}
+ */
 export function getSong(userId, id) {
   return withErrorMapping(() =>
     withReadThrough(`song:${userId}:${id}`, () => fetchSongById(userId, id)))
@@ -233,6 +375,16 @@ export function getSong(userId, id) {
  * completions, so a fresh read avoids stale tags right after completing a
  * gig in the same session. IDB caching lands with the PR#2a write pipeline.
  */
+/**
+ * @typedef {{ gig_id: string, performed_at: string, gigs: { name?: string } | null }} PlayedAtRow
+ * @typedef {{ gigId: string, gigName: string, performedAt: string }} PlayedAt
+ */
+
+/**
+ * @param {string} userId
+ * @param {string} songId
+ * @returns {Promise<PlayedAt[]>}
+ */
 export function listPlayedAt(userId, songId) {
   return withErrorMapping(async () => {
     const { data, error } = await supabase
@@ -242,21 +394,32 @@ export function listPlayedAt(userId, songId) {
       .in('state', ['played', 'off_setlist'])
 
     if (error) throw error
-    return (data || [])
+    // The untyped Supabase client types the performances embed as an array,
+    // but PostgREST returns the to-one row as an object — correct it here.
+    const played = (data || [])
       .map((row) => {
-        const p = row.performances
+        const p = /** @type {PlayedAtRow | null | undefined} */ (
+          /** @type {unknown} */ (row.performances)
+        )
         return p
           ? { gigId: p.gig_id, gigName: p.gigs?.name || 'Gig', performedAt: p.performed_at }
           : null
       })
       .filter(Boolean)
-      .sort((a, b) => new Date(b.performedAt) - new Date(a.performedAt))
+    return /** @type {PlayedAt[]} */ (played)
+      .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime())
   })
 }
 
 /**
  * Update a song. Partial payload — only provided fields change.
  * After update, recompute readiness unless retired.
+ */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @param {SongInput} input
+ * @returns {Promise<Song>}
  */
 export async function updateSong(userId, id, { title, key, bpm, body, durationSeconds }) {
   return withErrorMapping(async () => {
@@ -328,6 +491,11 @@ export async function updateSong(userId, id, { title, key, bpm, body, durationSe
  * ponytail: hard delete blocked by setlist_items FK RESTRICT;
  * both delete and retire map to is_deleted=true.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
 export async function deleteSong(userId, id) {
   return withErrorMapping(async () => {
     await fetchSongById(userId, id)
@@ -343,6 +511,11 @@ export async function deleteSong(userId, id) {
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} query
+ * @returns {Promise<Song[]>}
+ */
 export function searchSongs(userId, query) {
   return withErrorMapping(async () => {
     const songs = await listSongs(userId)
@@ -353,6 +526,11 @@ export function searchSongs(userId, query) {
 
 /**
  * Retire a song → is_deleted becomes true. Idempotent if already retired.
+ */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Song>}
  */
 export async function retireSong(userId, id) {
   return withErrorMapping(async () => {
@@ -375,6 +553,11 @@ export async function retireSong(userId, id) {
 /**
  * Reactivate a retired song → clear is_deleted, recompute readiness.
  * Returns the song with its new status (ready or draft).
+ */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Song>}
  */
 export async function reactivateSong(userId, id) {
   return withErrorMapping(async () => {
