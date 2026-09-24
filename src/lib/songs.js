@@ -2,7 +2,8 @@
 // Supabase data layer for songs.
 // Replaces the localStorage mock with hosted Supabase queries.
 // Public surface: listSongs, addSong, getSong, updateSong, deleteSong,
-// searchSongs, retireSong, reactivateSong — same signatures as before.
+// searchSongs, retireSong, reactivateSong, replacePdfScan, maybeCachePdf —
+// same signatures as before (+ #76 pdf scan flows).
 // Reads are read-through cached in IndexedDB (offlineCache.js); writes
 // invalidate the affected keys on success.
 
@@ -10,6 +11,13 @@ import { supabase } from './supabase.js'
 import { computeReadiness } from './readiness.js'
 import { filterSongs } from './search.js'
 import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
+import {
+  ensurePdfCached,
+  PDF_SIZE_MESSAGE,
+  PDF_TYPE_MESSAGE,
+  uploadPdf,
+  validatePdfFile,
+} from './pdfCharts.js'
 
 /**
  * @typedef {'ready' | 'draft' | 'retired'} SongStatus
@@ -104,7 +112,12 @@ import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
 
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
 // errors map to a safe generic message.
-const USER_ERRORS = new Set(['Title is required.', 'Song not found.'])
+const USER_ERRORS = new Set([
+  'Title is required.',
+  'Song not found.',
+  PDF_SIZE_MESSAGE,
+  PDF_TYPE_MESSAGE,
+])
 
 /**
  * Re-throws known user-facing errors; maps everything else to a generic
@@ -183,29 +196,41 @@ function flattenSong(row) {
     : charts[0]
 
   const body = chart?.content || ''
-  // computeReadiness lives in an unchecked module, so its inferred status
-  // widens to string; the runtime contract is exactly 'ready' | 'draft'.
+const isPdf = chart?.format === 'pdf'
   const { status } = /** @type {{ status: SongStatus, reason: string | null }} */ (
     row.is_deleted
       ? { status: 'retired' }
-      : computeReadiness({ key: latest?.base_key || '', body })
+      : computeReadiness({
+          key: latest?.base_key || '',
+          body,
+          hasPdfChart: isPdf,
+          sizeBytes: chart?.size_bytes ?? 0,
+        })
   )
 
   // 3.5: expose every version for the picker — no extra network (song_versions
   // + chart_files are already embedded). Body = the version's own chart, ''
-  // when it has none (picker default stays the latest chart).
-  const versions = versionRows.map((v) => ({
-    id: v.id,
-    name: v.name,
-    number: v.number,
-    key: v.base_key || '',
-    bpm: v.base_tempo ?? null,
-    durationSeconds: v.duration_seconds ?? null,
-    isReady: v.is_ready,
-    // #69: version metadata flows through (album-art/provenance jsonb home).
-    metadata: v.metadata || {},
-    body: (v.chart_file_id ? charts.find((c) => c.id === v.chart_file_id) : null)?.content || '',
-  }))
+  // when it has none (picker default stays the latest chart). #76: each
+  // version resolves its own chart's format/object_key so the picker can
+  // render ChordPro vs PDF per version.
+  const versions = versionRows.map((v) => {
+    const vChart = v.chart_file_id ? charts.find((c) => c.id === v.chart_file_id) : null
+    return {
+      id: v.id,
+      name: v.name,
+      number: v.number,
+      key: v.base_key || '',
+      bpm: v.base_tempo ?? null,
+      durationSeconds: v.duration_seconds ?? null,
+      isReady: v.is_ready,
+      // #69: version metadata flows through (album-art/provenance jsonb home).
+      metadata: v.metadata || {},
+      body: vChart?.content || '',
+      // #76: per-version chart identity (pdf scan vs chordpro text).
+      format: vChart?.format || 'chordpro',
+      objectKey: vChart?.object_key || '',
+    }
+  })
 
   return {
     id: row.id,
@@ -217,6 +242,11 @@ function flattenSong(row) {
     metadata: latest?.metadata || {},
     hasChordChart: !!chart?.content,
     body,
+    // #76: pdf chart surface — format/objectKey/sizeBytes/isPdf (scan = chart).
+    format: chart?.format || 'chordpro',
+    objectKey: chart?.object_key || '',
+    sizeBytes: chart?.size_bytes ?? 0,
+    isPdf,
     durationSeconds: latest?.duration_seconds ?? null,
     status,
     artist: row.artist || '',
@@ -256,7 +286,23 @@ async function fetchSongById(userId, id) {
 
   if (error) throw error
   if (!data) throw new Error('Song not found.')
-  return flattenSong(data)
+
+  const song = flattenSong(data)
+  // #76: best-effort offline pdf cache after a successful read — fire and
+  // forget, never blocks or throws (ensurePdfCached is fully guarded). Runs
+  // for every fetch (get/add/replace), so a previously-cached scan renders
+  // offline in stage mode.
+  maybeCachePdf(song)
+  return song
+}
+
+/**
+ * #76: fire-and-forget offline cache of a PDF scan's blob (scenario 5).
+ * No-op for chordpro songs; silent failure when offline/caching unavailable.
+ */
+export function maybeCachePdf(song) {
+  if (!song?.isPdf || !song.objectKey) return
+  void ensurePdfCached(song.objectKey)
 }
 
 /**
@@ -295,6 +341,12 @@ export function listSongs(userId, filter = {}) {
 /**
  * Add a new song. Inserts into songs + chart_files + song_versions.
  * Computes initial status from content.
+ *
+ * #76 (PDF scans): pass `pdfFile` to create the song with a PDF scan as its
+ * chart — validate BEFORE anything is written (acceptance #8: oversized
+ * rejected, nothing else changes), upload to the private charts bucket, then
+ * chart_files (format pdf, content NULL, object_key = storage path) + version
+ * number 1. Stepless: the ChordPro path below is unchanged.
  */
 /**
  * @param {string} userId
@@ -302,7 +354,7 @@ export function listSongs(userId, filter = {}) {
  * @returns {Promise<Song>}
  */
 // eslint-disable-next-line no-unused-vars -- hasChordChart kept for signature parity; chart presence is derived from body
-export async function addSong(userId, { title, key, bpm, hasChordChart, body, durationSeconds }) {
+export async function addSong(userId, { title, key, bpm, hasChordChart, body, durationSeconds, pdfFile }) {
   return withErrorMapping(async () => {
     const trimmed = title?.trim()
     if (!trimmed) throw new Error('Title is required.')
@@ -312,7 +364,23 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
     const songBpm = bpm ? Number(bpm) : null
     const songDuration = durationSeconds ? Number(durationSeconds) : null
 
-    const readiness = computeReadiness({ key: songKey, body: songBody })
+    // #76: PDF branch — validate + upload FIRST; nothing is written on
+    // rejection and an upload failure leaves the existing song untouched.
+    let pdfPath = null
+    let pdfSize = 0
+    if (pdfFile) {
+      const check = validatePdfFile(pdfFile)
+      if (!check.ok) {
+        throw new Error(check.reason === 'size' ? PDF_SIZE_MESSAGE : PDF_TYPE_MESSAGE)
+      }
+      const uploaded = await uploadPdf(userId, pdfFile)
+      pdfPath = uploaded.path
+      pdfSize = check.sizeBytes
+    }
+
+    const readiness = pdfPath
+      ? computeReadiness({ key: songKey, body: '', hasPdfChart: true, sizeBytes: pdfSize })
+      : computeReadiness({ key: songKey, body: songBody })
 
     // 1. Insert songs row
     const { data: songRow, error: songErr } = await supabase
@@ -322,16 +390,24 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
       .single()
     if (songErr) throw songErr
 
-    // 2. Insert chart_files row (inline ChordPro text)
+    // 2. Insert chart_files row (inline ChordPro text, or pdf object row)
     const { data: chartRow, error: chartErr } = await supabase
       .from('chart_files')
-      .insert({
-        song_id: songRow.id,
-        format: 'chordpro',
-        object_key: crypto.randomUUID(), // ponytail: not null constraint, content is inline
-        content: songBody,
-        size_bytes: songBody.length,
-      })
+      .insert(pdfPath
+        ? {
+            song_id: songRow.id,
+            format: 'pdf',
+            object_key: pdfPath,
+            content: null,
+            size_bytes: pdfSize,
+          }
+        : {
+            song_id: songRow.id,
+            format: 'chordpro',
+            object_key: crypto.randomUUID(), // ponytail: not null constraint, content is inline
+            content: songBody,
+            size_bytes: songBody.length,
+          })
       .select()
       .single()
     if (chartErr) throw chartErr
@@ -357,6 +433,73 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
     // New song changes the list; the song's own entry was just written fresh.
     invalidateSongs(userId, [])
     return song
+  })
+}
+
+/**
+/**
+ * #76: replace a PDF scan — append-only version flow (scenario 3).
+ * Validates + uploads a NEW object, inserts a NEW chart_files row and a NEW
+ * song_versions row with number = max(existing)+1, copying base_key/base_tempo
+ * from the current latest version. The PREVIOUS chart row and version are NOT
+ * touched (previous scan preserved in version history — the picker still shows
+ * v1 with its chart). Returns the refetched song.
+ */
+export async function replacePdfScan(userId, songId, file) {
+  return withErrorMapping(async () => {
+    const current = await fetchSongById(userId, songId)
+    if (!current.isPdf) {
+      throw new Error('Only PDF scans can be replaced this way.')
+    }
+
+    const check = validatePdfFile(file)
+    if (!check.ok) {
+      throw new Error(check.reason === 'size' ? PDF_SIZE_MESSAGE : PDF_TYPE_MESSAGE)
+    }
+    const { path } = await uploadPdf(userId, file)
+
+    // 1. New chart_files row for the corrected scan (old row untouched).
+    const { data: chartRow, error: chartErr } = await supabase
+      .from('chart_files')
+      .insert({
+        song_id: songId,
+        format: 'pdf',
+        object_key: path,
+        content: null,
+        size_bytes: check.sizeBytes,
+      })
+      .select()
+      .single()
+    if (chartErr) throw chartErr
+
+    // 2. New song_versions row — number = max existing + 1, key/tempo copied
+    // from the current latest version, readiness recomputed per version.
+    const latestNumber = current.versions.reduce((m, v) => Math.max(m, v.number || 0), 0)
+    const newReadiness = computeReadiness({
+      key: current.key,
+      body: '',
+      hasPdfChart: true,
+      sizeBytes: check.sizeBytes,
+    })
+    const { error: verErr } = await supabase
+      .from('song_versions')
+      .insert({
+        song_id: songId,
+        name: 'Corrected scan',
+        number: latestNumber + 1,
+        chart_file_id: chartRow.id,
+        base_key: current.key || null,
+        base_tempo: current.bpm,
+        duration_seconds: current.durationSeconds,
+        is_ready: newReadiness.status === 'ready',
+        owner_id: userId,
+        created_by: userId,
+      })
+    if (verErr) throw verErr
+
+    invalidateSongs(userId, [songId])
+    // fetchSongById re-caches the new scan blob (maybeCachePdf inside).
+    return fetchSongById(userId, songId)
   })
 }
 
@@ -452,11 +595,18 @@ export async function updateSong(userId, id, { title, key, bpm, body, durationSe
       : current.durationSeconds
     const newBody = body !== undefined ? body : current.body
 
-    // Recompute readiness (skip for retired songs)
+    // Recompute readiness (skip for retired songs). #76: pass the pdf shape
+    // so a PDF song's readiness recomputes via the scan branch (key + scan),
+    // never the chordpro branch (its body is '').
     const isRetired = current.status === 'retired'
     const newStatus = isRetired
       ? current.status
-      : computeReadiness({ key: newKey, body: newBody }).status
+      : computeReadiness({
+          key: newKey,
+          body: newBody,
+          hasPdfChart: current.isPdf,
+          sizeBytes: current.sizeBytes,
+        }).status
 
     // 1. Update songs row (title)
     if (title !== undefined) {
@@ -589,7 +739,12 @@ export async function reactivateSong(userId, id) {
     const current = await fetchSongById(userId, id)
     if (current.status !== 'retired') return current
 
-    const readiness = computeReadiness({ key: current.key, body: current.body })
+    const readiness = computeReadiness({
+      key: current.key,
+      body: current.body,
+      hasPdfChart: current.isPdf,
+      sizeBytes: current.sizeBytes,
+    })
 
     const { error } = await supabase
       .from('songs')

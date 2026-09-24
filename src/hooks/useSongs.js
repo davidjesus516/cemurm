@@ -55,6 +55,14 @@ export function useSongs({ retired = false } = {}) {
     return songs.getSong(user.id, id)
   }
 
+  // Hito 5 #76: replace a PDF scan — appends a new version; the previous
+  // scan stays in version history.
+  async function replacePdfScan(id, file) {
+    const updated = await songs.replacePdfScan(user.id, id, file)
+    setSongsList((prev) => prev.map((s) => (s.id === id ? updated : s)))
+    return updated
+  }
+
   async function getPlayedAt(id) {
     return songs.listPlayedAt(user.id, id)
   }
@@ -70,5 +78,5 @@ export function useSongs({ retired = false } = {}) {
     }
   }
 
-  return { songs: songsList, loading, refresh, addSong, updateSong, deleteSong, retireSong, reactivateSong, getSong, getPlayedAt, searchSongs }
+  return { songs: songsList, loading, refresh, addSong, updateSong, deleteSong, retireSong, reactivateSong, getSong, getPlayedAt, searchSongs, replacePdfScan }
 }

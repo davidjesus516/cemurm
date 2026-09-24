@@ -9,9 +9,12 @@ import { parseChordPro } from './chordpro/parser.js'
  *
  * Readiness rules (BDD order of precedence):
  *   1. No key → "Not ready: missing base key"
- *   2. No body or no chord line → "Not ready: no chord chart"
- *   3. No lyric text → "Not ready: missing lyrics section"
- *   4. All present → ready
+ *   2. PDF scan (hasPdfChart, Hito 5 #76): the scan IS the chart — ready when
+ *      a non-empty scan exists (sizeBytes > 0). "Legible" = non-empty scan;
+ *      visual legibility of the scan is human QA (documented limitation).
+ *   3. (ChordPro) No body or no chord line → "Not ready: no chord chart"
+ *   4. (ChordPro) No lyric text → "Not ready: missing lyrics section"
+ *   5. All present → ready
  *
  * NOTE (Hito 1): readiness is computed from the single current chart (body + key).
  * Versioned readiness is Hito 3 — no version table here.
@@ -19,6 +22,12 @@ import { parseChordPro } from './chordpro/parser.js'
 export function computeReadiness(song) {
   if (!song || !song.key || !song.key.trim()) {
     return { status: 'draft', reason: 'Not ready: missing base key' }
+  }
+
+  if (song.hasPdfChart) {
+    return (song.sizeBytes ?? 0) > 0
+      ? { status: 'ready', reason: null }
+      : { status: 'draft', reason: 'Not ready: no PDF scan' }
   }
 
   if (!song.body || !song.body.trim()) {
@@ -85,6 +94,31 @@ export function demo() {
   // 5. null song
   const missing = computeReadiness(null)
   assert(missing.status === 'draft', 'null song should be draft')
+
+  // ── Hito 5 #76: PDF scan branch ─────────────────────────────────────────
+  // 6. PDF with key + non-empty scan → ready ("legible" = non-empty scan)
+  const pdfReady = computeReadiness({
+    key: 'G major',
+    body: '',
+    hasPdfChart: true,
+    sizeBytes: 1024,
+  })
+  assert(pdfReady.status === 'ready', 'pdf with key + scan should be ready')
+  assert(pdfReady.reason === null, 'pdf ready reason should be null')
+
+  // 7. PDF without key → draft (missing base key wins)
+  const pdfNoKey = computeReadiness({ key: '', body: '', hasPdfChart: true, sizeBytes: 1024 })
+  assert(pdfNoKey.status === 'draft', 'pdf without key should be draft')
+  assert(pdfNoKey.reason === 'Not ready: missing base key', 'pdf no-key reason')
+
+  // 8. PDF with key but empty scan → draft
+  const pdfEmpty = computeReadiness({ key: 'C major', body: '', hasPdfChart: true, sizeBytes: 0 })
+  assert(pdfEmpty.status === 'draft', 'pdf with empty scan should be draft')
+  assert(pdfEmpty.reason === 'Not ready: no PDF scan', 'pdf empty-scan reason')
+
+  // 9. ChordPro path untouched by the pdf flag
+  const chordProWithPdfFlag = computeReadiness({ key: 'A major', body: '[C][G][Am]', hasPdfChart: false })
+  assert(chordProWithPdfFlag.reason === 'Not ready: missing lyrics section', 'chordpro path unchanged')
 
   console.log('readiness demo OK')
 }
