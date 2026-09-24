@@ -8,6 +8,9 @@ import { listSongs } from '../lib/songs.js'
 import {
   getService,
   updateServiceStatus,
+  publishPlan,
+  getPublishedPlan,
+  listPlanVersions,
   validateServicePlan,
   assignMusician,
   unassignMusician,
@@ -53,6 +56,102 @@ function callTimeAt(service, block, assignment) {
   const start = blockStartAt(service, block)
   if (!start) return null
   return new Date(start.getTime() - (assignment.callLeadMinutes ?? 15) * 60000)
+}
+
+// ── Published-plan snapshot helpers (0021 plan freeze) ────────────────────
+// The published snapshot is a frozen jsonb (private.build_plan_snapshot shape).
+// These helpers (a) render it through the SAME card shape the live plan uses,
+// and (b) compute per-block "changed after publish" flags by canonical
+// comparison — never hand-maintained view state.
+
+/** Snapshot block → canonical compare key (songs by song_id + agreed key). */
+function snapshotBlockCompareKey(b) {
+  return JSON.stringify({
+    name: b.name,
+    timeBudget: b.time_budget,
+    startOffsetMinutes: b.start_offset_minutes,
+    songs: (b.songs || []).map((s) => [s.song_id, s.agreed_key]),
+  })
+}
+
+/** Live block → canonical compare key (same fields as the snapshot side). */
+function blockCompareKey(block) {
+  return JSON.stringify({
+    name: block.name,
+    timeBudget: block.timeBudget,
+    startOffsetMinutes: block.startOffsetMinutes,
+    songs: (block.setlist?.items || []).map((s) => [s.id, s.agreedKey]),
+  })
+}
+
+/** Snapshot assignments → canonical compare key (user + part + substitute). */
+function snapshotAssignCompareKey(b) {
+  return JSON.stringify(
+    (b.assignments || []).map((a) => [a.user_id, a.part, !!a.is_substitute]).sort(),
+  )
+}
+
+/** Live assignments → canonical compare key (same fields as the snapshot side). */
+function assignCompareKey(assignments) {
+  return JSON.stringify(
+    (assignments || []).map((a) => [a.userId, a.part, !!a.isSubstitute]).sort(),
+  )
+}
+
+/**
+ * Block ids whose live content differs from the published snapshot (leader's
+ * "Changed after publish" flags). Structural compare on name/time/songs/keys
+ * and assignments; added AND removed blocks are both flagged.
+ */
+function changedBlockIds(published, blocks, assignmentsByBlock) {
+  const ids = new Set()
+  if (!published?.published) return ids
+  const snapByBlock = new Map((published.snapshot?.blocks || []).map((b) => [b.block_id, b]))
+  for (const block of blocks) {
+    const snap = snapByBlock.get(block.id)
+    if (!snap) { ids.add(block.id); continue }
+    if (snapshotBlockCompareKey(snap) !== blockCompareKey(block)) { ids.add(block.id); continue }
+    if (snapshotAssignCompareKey(snap) !== assignCompareKey(assignmentsByBlock[block.id])) {
+      ids.add(block.id)
+    }
+  }
+  // Snapshot blocks removed after publish → still flagged (they changed).
+  for (const b of published.snapshot?.blocks || []) {
+    if (!blocks.some((bl) => bl.id === b.block_id)) ids.add(b.block_id)
+  }
+  return ids
+}
+
+/** Published snapshot → BlockCard-compatible blocks (setlist items from songs). */
+function snapshotToBlocks(snapshot) {
+  return (snapshot?.blocks || []).map((b) => ({
+    id: b.block_id,
+    name: b.name,
+    timeBudget: b.time_budget,
+    startOffsetMinutes: b.start_offset_minutes,
+    position: b.position,
+    setlistId: null,
+    setlist: b.songs && b.songs.length > 0
+      ? { id: `snap-${b.block_id}`, items: b.songs.map((s) => ({ id: s.song_id, title: s.title, agreedKey: s.agreed_key })) }
+      : null,
+  }))
+}
+
+/** Snapshot assignments → per-block assignment rows (names resolved locally). */
+function snapshotAssignmentsByBlock(snapshot, membersById) {
+  const map = {}
+  for (const b of snapshot?.blocks || []) {
+    map[b.block_id] = (b.assignments || []).map((a) => ({
+      id: `snap-${a.user_id}-${b.block_id}`,
+      blockId: b.block_id,
+      userId: a.user_id,
+      memberName: membersById.get(a.user_id)?.name || null,
+      part: a.part,
+      isSubstitute: !!a.is_substitute,
+      checkinAt: null,
+    }))
+  }
+  return map
 }
 
 /** Leader swap picker per song — listSongs picker + confirm → swap_block_song. */
@@ -174,7 +273,7 @@ function AssignForm({ serviceId, blockId, members, onDone }) {
 }
 
 /** One service block: meta, setlist + songs, assignments, leader controls. */
-function BlockCard({ block, service, assignments, members, setlists, songs, isLeader, completed, busy, index, total, onMove, onChanged }) {
+function BlockCard({ block, service, assignments, members, setlists, songs, isLeader, completed, busy, index, total, onMove, onChanged, changedPublish }) {
   const [editOpen, setEditOpen] = useState(false)
   const [draft, setDraft] = useState({ name: '', timeBudget: '', startOffsetMinutes: '', setlistId: '' })
   const [error, setError] = useState('')
@@ -236,7 +335,14 @@ function BlockCard({ block, service, assignments, members, setlists, songs, isLe
     <li className="rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-cem-text">{block.name}</h3>
+          <h3 className="text-base font-semibold text-cem-text">
+            {block.name}
+            {changedPublish && (
+              <span className="ml-2 inline-block rounded bg-cem-amber/10 px-1.5 py-0.5 text-xs font-medium text-cem-amber">
+                changed after publish
+              </span>
+            )}
+          </h3>
           <p className="mt-1 text-xs text-cem-secondary">
             {block.timeBudget ? `${block.timeBudget} min budget` : 'No time budget'}
             {' · '}starts {block.startOffsetMinutes > 0 ? `+${block.startOffsetMinutes} min` : 'on time'}
@@ -370,11 +476,23 @@ export default function ServiceDetail() {
   const [addError, setAddError] = useState('')
   const [setlists, setSetlists] = useState([])
   const [songs, setSongs] = useState([])
+  const [published, setPublished] = useState(null)
+  const [publishOpen, setPublishOpen] = useState(false)
+  const [publishReason, setPublishReason] = useState('')
+  const [publishBusy, setPublishBusy] = useState(false)
+  const [publishError, setPublishError] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
+  const [history, setHistory] = useState([])
+  const [historyBusy, setHistoryBusy] = useState(false)
+  const [historyError, setHistoryError] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
-    return getService(id)
-      .then((result) => { setData(result); setTopError('') })
+    return Promise.all([
+      getService(id),
+      getPublishedPlan(id).catch(() => null),
+    ])
+      .then(([result, publishedData]) => { setData(result); setPublished(publishedData); setTopError('') })
       .catch((err) => { setTopError(err.message) })
       .finally(() => setLoading(false))
   }, [id])
@@ -399,6 +517,30 @@ export default function ServiceDetail() {
       await updateServiceStatus(service.id, status)
       await load()
     } catch (err) { setTopError(err.message) }
+  }
+
+  /** Leader publishes/re-publishes the frozen snapshot with an optional reason. */
+  async function handlePublish(e) {
+    e.preventDefault()
+    setPublishError('')
+    setPublishBusy(true)
+    try {
+      await publishPlan(service.id, publishReason)
+      setPublishOpen(false)
+      setPublishReason('')
+      await load()
+    } catch (err) { setPublishError(err.message) } finally { setPublishBusy(false) }
+  }
+
+  /** Leader version-history toggle; loads the RPC list on first open. */
+  async function handleShowHistory() {
+    if (showHistory) { setShowHistory(false); return }
+    setHistoryError('')
+    setHistoryBusy(true)
+    try {
+      setHistory(await listPlanVersions(service.id))
+      setShowHistory(true)
+    } catch (err) { setHistoryError(err.message) } finally { setHistoryBusy(false) }
   }
 
   async function handleValidate() {
@@ -468,6 +610,22 @@ export default function ServiceDetail() {
   const myAssignments = data.assignments.filter((a) => a.userId === user?.id)
   const unresolved = warnings.some((w) => w.kind === 'uncovered')
 
+  // Published-freeze surfaces: members read the frozen snapshot (never the
+  // draft); leaders keep the live editor plus changed-flags and versions.
+  const membersById = new Map((members || []).map((m) => [m.id, m]))
+  const versionedRead = !isLeader && !!published?.published
+  const displayBlocks = versionedRead ? snapshotToBlocks(published.snapshot) : blocks
+  const displayAssignmentsByBlock = versionedRead
+    ? snapshotAssignmentsByBlock(published.snapshot, membersById)
+    : assignmentsByBlock
+  const changedIds = leaderEditable ? changedBlockIds(published, blocks, assignmentsByBlock) : new Set()
+  // The call sheet only references PUBLISHED blocks for members: a block added
+  // to the draft after publish has no published songs/keys and must not leak.
+  const sheetAssignments = versionedRead
+    ? myAssignments.filter((a) => displayBlocks.some((b) => b.id === a.blockId))
+    : myAssignments
+  const publishLabel = service.status === 'published' ? 'Re-publish' : 'Publish'
+
   return (
     <div className="mx-auto max-w-3xl">
       <Link to="/services" className="text-sm font-medium text-cem-amber hover:underline">← Back to services</Link>
@@ -487,20 +645,57 @@ export default function ServiceDetail() {
             {service.startsAt ? ` · ${formatServiceWhen(service.startsAt)}` : ''}
           </p>
           <div className="mt-1"><ServiceStatusBadge status={service.status} /></div>
+          {published?.published && (
+            <p className="mt-1 text-sm text-cem-secondary">
+              {completed ? 'Executed version' : 'Published version'} {published.version_number}
+              {published.reason ? ` — "${published.reason}"` : ''}
+              {' · '}{formatServiceWhen(published.published_at)}
+            </p>
+          )}
         </div>
         {leaderEditable && (
           <div className="flex flex-wrap justify-end gap-2">
-            {service.status === 'draft' && (
-              <button type="button"
-                onClick={() => runStatus('published', `Publish "${service.name}"? Members will see the plan.`)}
-                className={primaryShort}>Publish</button>
-            )}
+            <button type="button"
+              onClick={() => { setPublishOpen((o) => !o); setPublishError(''); setPublishReason('') }}
+              className={primaryShort}>
+              {publishOpen ? 'Cancel' : publishLabel}
+            </button>
             <button type="button"
               onClick={() => runStatus('completed', `Mark "${service.name}" as completed? The plan becomes read-only.`)}
               className={outlinedBtn}>Mark completed</button>
           </div>
         )}
       </div>
+
+      {publishOpen && leaderEditable && (
+        <form onSubmit={handlePublish} className="mt-3 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+          <p className="text-xs text-cem-secondary">
+            Publishing freezes the current plan as version {(published?.version_number ?? 0) + 1} —
+            members execute exactly this snapshot; previous versions stay in history.
+          </p>
+          <input value={publishReason} onChange={(e) => setPublishReason(e.target.value)}
+            placeholder="Reason for this publish (optional)" className={miniInputClass} />
+          <div className="flex items-center gap-2">
+            <button type="submit" disabled={publishBusy} className={miniBtnClass}>
+              {publishBusy ? 'Publishing…' : (service.status === 'published' ? 'Re-publish plan' : 'Publish plan')}
+            </button>
+            {publishError && <p className="text-xs text-cem-rose">{publishError}</p>}
+          </div>
+        </form>
+      )}
+
+      {leaderEditable && published?.published && published.draft_changed && (
+        <div className="mt-3 rounded-md border border-cem-amber/40 bg-cem-amber/10 px-3 py-2 text-sm text-cem-text">
+          <span className="font-medium text-cem-amber">Changed after publish.</span>{' '}
+          Members still execute version {published.version_number}. Re-publish to apply these edits.
+        </div>
+      )}
+
+      {versionedRead && published?.draft_changed && (
+        <p className="mt-3 rounded-md bg-cem-elevated px-3 py-2 text-sm text-cem-secondary">
+          The plan was changed after the last publish — members still execute the published version.
+        </p>
+      )}
 
       <section className="mt-6">
         <div className="flex items-center justify-between gap-4">
@@ -537,17 +732,22 @@ export default function ServiceDetail() {
         <button type="button" onClick={() => setShowLog((o) => !o)} className={outlinedBtn}>
           {showLog ? 'Hide' : 'Show'} change log ({changeLog.length})
         </button>
+        {isLeader && (
+          <button type="button" onClick={handleShowHistory} className={outlinedBtn}>
+            {showHistory ? 'Hide' : 'Show'} version history ({history.length})
+          </button>
+        )}
       </div>
 
       {showCallSheet && (
         <section className="mt-3">
           <h2 className="text-lg font-semibold text-cem-text">My call sheet</h2>
-          {myAssignments.length === 0 ? (
+          {sheetAssignments.length === 0 ? (
             <p className="mt-2 text-sm text-cem-secondary">You have no assignments in this service.</p>
           ) : (
             <ul className="mt-2 space-y-2">
-              {myAssignments.map((a) => {
-                const block = blocks.find((b) => b.id === a.blockId)
+              {sheetAssignments.map((a) => {
+                const block = displayBlocks.find((b) => b.id === a.blockId)
                 const start = blockStartAt(service, block)
                 const call = callTimeAt(service, block, a)
                 return (
@@ -610,6 +810,38 @@ export default function ServiceDetail() {
         </section>
       )}
 
+      {showHistory && (
+        <section className="mt-3">
+          <h2 className="text-lg font-semibold text-cem-text">Version history</h2>
+          {historyError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{historyError}</p>}
+          {historyBusy ? (
+            <p className="mt-2 text-sm text-cem-secondary">Loading…</p>
+          ) : history.length === 0 ? (
+            <p className="mt-2 text-sm text-cem-secondary">No versions published yet.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+              {history.map((row) => (
+                <li key={`${row.version_number}`} className="px-4 py-2.5">
+                  <p className="text-sm text-cem-text">
+                    <span className="font-medium">Version {row.version_number}</span>
+                    {' — '}
+                    <span className={row.status === 'published' ? '' : 'text-cem-secondary'}>
+                      {row.status === 'published' ? 'Current published version'
+                        : row.status === 'executed' ? 'Executed at the service'
+                          : 'Superseded — not executed'}
+                    </span>
+                    {row.reason ? ` — "${row.reason}"` : ''}
+                  </p>
+                  <p className="mt-0.5 text-xs text-cem-secondary">
+                    {row.published_by_name || 'Someone'} · {formatServiceWhen(row.published_at)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       <section className="mt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-cem-text">Blocks</h2>
@@ -620,16 +852,18 @@ export default function ServiceDetail() {
           )}
         </div>
         {reorderError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{reorderError}</p>}
-        {blocks.length === 0 ? (
-          <p className="mt-2 text-sm text-cem-secondary">No blocks yet.</p>
+        {displayBlocks.length === 0 ? (
+          <p className="mt-2 text-sm text-cem-secondary">
+            {versionedRead ? 'No blocks in the published version.' : 'No blocks yet.'}
+          </p>
         ) : (
           <ul className="mt-2 space-y-3">
-            {blocks.map((block, index) => (
+            {displayBlocks.map((block, index) => (
               <BlockCard
                 key={block.id}
                 block={block}
                 service={service}
-                assignments={assignmentsByBlock[block.id] || []}
+                assignments={displayAssignmentsByBlock[block.id] || []}
                 members={members}
                 setlists={setlists}
                 songs={songs}
@@ -637,9 +871,10 @@ export default function ServiceDetail() {
                 completed={completed}
                 busy={busy}
                 index={index}
-                total={blocks.length}
+                total={displayBlocks.length}
                 onMove={(direction) => moveBlock(index, direction)}
                 onChanged={load}
+                changedPublish={leaderEditable && changedIds.has(block.id)}
               />
             ))}
           </ul>
