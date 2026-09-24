@@ -74,3 +74,5 @@ Out of scope (do NOT touch): `pages/`, `components/`, `hooks/`, other `src/lib/`
 - 4 child PRs (each targets its immediate parent branch) + draft no-merge tracker PR → `main`. Review diffs show exactly one work unit each.
 - Merge cascade after all reviews pass: PR #4 → PR #3 → PR #2 → PR #1 → tracker → `main`. Only the tracker merges to main.
 - Push + PR creation: authorized by user 2026-09-24 ("Push + open all PRs"). Merge remains a user decision.
+- PRs opened: #160 (infra→tracker), #161 (transpose→pr1), #162 (setlists→pr2), #163 (songs+annotations→pr3) — all `type:chore`, all checks green (lint-and-build + GitGuardian).
+- **Tracker PR deferred**: GitHub refuses a PR with zero commits between base and head (`feat/ts-checkjs-baseline` == `main`). Create the draft tracker PR → `main` right after PR #160 merges into the tracker branch.
