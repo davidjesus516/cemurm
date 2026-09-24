@@ -1,3 +1,4 @@
+// @ts-check
 // Personal annotations data layer (3.4, D7): reads personal_annotations
 // (self-scoped RLS, 0002) and resolves anchors / substitutions into render
 // values for ChordProRenderer. Pure helpers are node-testable; listAnnotations
@@ -6,8 +7,14 @@
 
 import { transposeChord, preferFlatForKey } from './transpose.js'
 
+/**
+ * @typedef {{ section?: string, index?: number, chord?: string }} AnnotationAnchor
+ * @typedef {{ kind: 'note' | 'chord_substitution', anchor?: AnnotationAnchor, value: string }} Annotation
+ */
+
 // ponytail: lazy import — supabase.js reads import.meta.env at eval time,
 // which is undefined in bare node (this module's demo runs there).
+/** @type {typeof import('./supabase.js').supabase | null} */
 let supabaseClient = null
 async function supabase() {
   if (!supabaseClient) supabaseClient = (await import('./supabase.js')).supabase
@@ -19,6 +26,12 @@ async function supabase() {
  * (0001 comment: structural anchor; index = 0-based lyric line within the
  * {section} block — stable under transpose because transposeParsed keeps the
  * section/line structure 1:1).
+ */
+/**
+ * @param {Annotation[] | null | undefined} annotations
+ * @param {string} sectionName
+ * @param {number} lineIndex
+ * @returns {string | null}
  */
 export function noteForLine(annotations, sectionName, lineIndex) {
   if (!annotations?.length) return null
@@ -35,7 +48,12 @@ export function noteForLine(annotations, sectionName, lineIndex) {
  * anchors are concrete-key chord tokens (0001 comment). The renderer matches
  * via the reverse-transposed token so substitutions survive transposition.
  */
+/**
+ * @param {Annotation[] | null | undefined} annotations
+ * @returns {Record<string, string>}
+ */
 export function buildSubstitutionMap(annotations) {
+  /** @type {Record<string, string>} */
   const map = {}
   for (const a of annotations || []) {
     if (a.kind !== 'chord_substitution') continue
@@ -54,6 +72,13 @@ export function buildSubstitutionMap(annotations) {
  * keeps the original chord). Consistent flat preference keeps Bb-chart
  * round-trips enharmonically stable.
  */
+/**
+ * @param {string} token
+ * @param {number} semitones
+ * @param {Record<string, string>} substitutions
+ * @param {string} baseKey
+ * @returns {string}
+ */
 export function applySubstitution(token, semitones, substitutions, baseKey) {
   if (!token || !substitutions || !Object.keys(substitutions).length) return token
   const preferFlat = preferFlatForKey(baseKey)
@@ -66,6 +91,11 @@ export function applySubstitution(token, semitones, substitutions, baseKey) {
  * Read the author's personal annotations for a song (author-only, invisible
  * to others — RLS 0002 self policies). Returns [{ anchor, kind, value }];
  * never throws: offline or no rows → [].
+ */
+/**
+ * @param {string} userId
+ * @param {string} songId
+ * @returns {Promise<Annotation[]>}
  */
 export async function listAnnotations(userId, songId) {
   try {
@@ -83,12 +113,18 @@ export async function listAnnotations(userId, songId) {
 
 // Self-check: node -e "import('./src/lib/annotations.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assert = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`annotations demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
     }
   }
 
+  /** @type {Annotation[]} */
   const annotations = [
     { kind: 'note', anchor: { section: 'Chorus', index: 2 }, value: 'breath here' },
     { kind: 'chord_substitution', anchor: { chord: 'Bm' }, value: 'Dmaj7' },
