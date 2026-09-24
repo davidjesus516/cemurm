@@ -230,6 +230,9 @@ export default function StageMode() {
   // snapshot pushes the CHART AS RESOLVED by the stage (song.body) — transpose
   // and capo are personal performance state and never reach the overlay.
   // Snapshot shape: { song_index, song_total, song_title, song_key, chart_body }.
+  // #76: PDF-chart songs push chart_body: '' — chords are not extractable from
+  // a scan, so the overlay honestly shows title only (chords mode falls back
+  // to the title; see overlay page).
   const buildSnapshot = useCallback(
     () => ({
       song_index: index,
@@ -434,24 +437,33 @@ export default function StageMode() {
           >
             📺 Stream
           </button>
-          <button
-            type="button"
-            onClick={() => setSemitones((s) => s - 1)}
-            disabled={song?.isPdf}
-            className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10 disabled:opacity-40"
-            aria-label="Transpose down"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            onClick={() => setSemitones((s) => s + 1)}
-            disabled={song?.isPdf}
-            className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10 disabled:opacity-40"
-            aria-label="Transpose up"
-          >
-            +
-          </button>
+          {/* #76: PDF scans carry no chord data — transpose controls are HIDDEN
+              for them (scenario 4 + 7); the note replaces them (a new scan is
+              the only way to change key). */}
+          {song?.isPdf ? (
+            <span className="max-w-48 text-right text-[10px] leading-tight text-white/50">
+              PDF scans need a new scan to change key
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setSemitones((s) => s - 1)}
+                className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
+                aria-label="Transpose down"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setSemitones((s) => s + 1)}
+                className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
+                aria-label="Transpose up"
+              >
+                +
+              </button>
+            </>
+          )}
         </div>
       </header>
 

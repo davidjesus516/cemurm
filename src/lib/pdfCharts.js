@@ -34,14 +34,19 @@ export function validatePdfFile(file) {
   return { ok: true, sizeBytes }
 }
 
-/** Object key: `${userId}/${uuid}.pdf` — the first path segment IS the RLS
- *  boundary (owner folder), the uuid suffix keeps the key unguessable. */
+/** Object key: `${userId}/${uuid}-<base>.pdf` — the first path segment IS the
+ *  RLS boundary (owner folder), the uuid suffix keeps the key unguessable, and
+ *  a sanitized base name keeps objects human-readable (extension dropped — the
+ *  official suffix is always exactly '.pdf'). */
 export function buildPdfObjectKey(userId, fileName) {
   const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID)
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  const safeName = String(fileName || 'scan').replace(/[^a-zA-Z0-9._-]/g, '-').slice(-40)
-  return `${userId}/${uuid}-${safeName}.pdf`
+  const safeBase = String(fileName || 'scan')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .slice(-40)
+  return `${userId}/${uuid}-${safeBase}.pdf`
 }
 
 /** Upload to the private 'charts' bucket; returns { path }. Throws on error —

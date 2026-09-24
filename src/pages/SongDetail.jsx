@@ -658,7 +658,7 @@ export default function SongDetail() {
                 className="ml-1.5 rounded bg-cem-elevated px-1.5 py-0.5 align-middle text-[10px] font-medium text-cem-secondary"
                 title="PDF scans carry no chord data — change key with a new scan"
               >
-                PDF scan — needs a new scan to change key
+                PDF scans need a new scan to change key
               </span>
             )}
           </p>

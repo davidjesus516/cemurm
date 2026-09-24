@@ -64,6 +64,14 @@ PDF scans (Hito 5 #76) upload to the **`charts` Storage bucket** — created by 
 - Local upload cap: `supabase/config.toml` `file_size_limit = "50MiB"` (hard server cap). The app additionally enforces the 10 MB product limit before any upload (see `src/lib/pdfCharts.js`).
 - Offline: PDF scans are cached in the browser Cache API under the `pdf` category (`cemurm-pdf-v1`); the Storage screen shows/clears them under "PDF scans".
 
+### App-side flow
+
+- **Create:** the song form's chart-source toggle selects *PDF scan* (no upload on save — just the file). `addSong` (in `src/lib/songs.js`) validates first (10 MB / type) and only then uploads + writes: `chart_files` row (`format = 'pdf'`), `song_versions` v1 ("Original").
+- **View:** `PdfChartViewer` renders the scan with the browser's NATIVE PDF viewer (`<iframe>` + signed URL) — no PDF library. Zoom toolbar applies CSS `transform: scale()` (75%–200% + −/+); "Open in new tab" / "Download" are always available (fallback when the browser lacks inline PDF rendering). Text editing is impossible for scans by design; the key shown is the declared key.
+- **Replace:** SongDetail's *Replace scan* uploads a new object and appends v{n+1} ("Corrected scan"); the previous scan and version stay in history (version picker shows "v1 · PDF scan", "v2 · PDF scan").
+- **Stage mode:** full-screen viewer via the same component; transpose controls are hidden for PDF songs ("PDF scans need a new scan to change key"). Offline: the scan blob cached under `pdf` renders from `blob:` (objectURL) without network — cache by opening the song online beforehand.
+- **No env vars** — Storage auth is server-side (migrations use the service role; the browser talks to the bucket through the anon key + storage RLS, never a public URL).
+
 ## Run / stop
 
 ```bash
