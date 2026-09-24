@@ -7,8 +7,25 @@ import { useSongs } from '../hooks/useSongs.js'
 import { usePreferences } from '../hooks/usePreferences.js'
 import { parseChordPro } from '../lib/chordpro/parser.js'
 import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
+import ExternalDisplayView from '../components/external/ExternalDisplayView.jsx'
+import {
+  DISPLAY_URL,
+  clearActive,
+  createChannel,
+  hasSecondScreen,
+  loadSettings,
+  markActive,
+  persistSettings,
+  postClose,
+  postState,
+  saveLastState,
+  wasActive,
+} from '../lib/externalDisplay.js'
 
 const SWIPE_THRESHOLD = 48
+const HEARTBEAT_STALE_MS = 8000
+const DISPLAY_POLL_MS = 3000
+const RECONNECT_POLL_MS = 5000
 
 export default function StageMode() {
   const { id } = useParams()
@@ -31,6 +48,15 @@ export default function StageMode() {
   const [gigId, setGigId] = useState('')
   const [completing, setCompleting] = useState(false)
   const [completeError, setCompleteError] = useState('')
+  // External display (Hito 5 — features/external-display.feature)
+  const [settings, setSettings] = useState(() => loadSettings(id))
+  const [display, setDisplay] = useState('off') // off | popup | preview | disconnected
+  const [displayMenuOpen, setDisplayMenuOpen] = useState(false)
+  const [reconnectOffer, setReconnectOffer] = useState(false)
+  const [restartPrompt, setRestartPrompt] = useState(false)
+  const popupRef = useRef(null)
+  const channelRef = useRef(null)
+  const lastHeartbeatRef = useRef(0)
 
   const setlist = setlists.find((s) => s.id === id)
   const songs = setlist?.songs ?? []
@@ -142,6 +168,118 @@ export default function StageMode() {
     return semitones ? transposeKey(parsed.key, semitones) : parsed.key
   }, [parsed, semitones])
 
+  // Clean state sent to the external display: the transposed chart only —
+  // canonical chart on disk never mutates (scenario: personal transpose).
+  const displayState = useMemo(
+    () =>
+      song
+        ? {
+            songId: song.id,
+            title: song.title,
+            sections: transposed?.sections ?? [],
+            key: displayKey,
+            mode: settings.mode,
+          }
+        : null,
+    [song, transposed, displayKey, settings.mode],
+  )
+
+  // Channel lifecycle (single instance per StageMode mount).
+  useEffect(() => {
+    const channel = createChannel()
+    channelRef.current = channel
+    const onMessage = (event) => {
+      const msg = event.data || {}
+      if (msg.kind === 'heartbeat') lastHeartbeatRef.current = msg.ts
+      else if (msg.kind === 'close') {
+        lastHeartbeatRef.current = 0
+        setDisplay((d) => (d === 'popup' ? 'disconnected' : d))
+      }
+    }
+    channel?.addEventListener('message', onMessage)
+    return () => {
+      channel?.removeEventListener('message', onMessage)
+      channel?.close()
+      channelRef.current = null
+    }
+  }, [])
+
+  // Push every song/transpose/mode change + persist for restart recovery.
+  useEffect(() => {
+    if (display !== 'popup' || !displayState) return
+    postState(channelRef.current, displayState)
+    saveLastState(id, displayState)
+  }, [display, displayState, id])
+
+  // Popup liveness: heartbeats stop → show disconnected, offer re-open.
+  useEffect(() => {
+    if (display !== 'popup') return
+    const timer = window.setInterval(() => {
+      if (Date.now() - lastHeartbeatRef.current > HEARTBEAT_STALE_MS) {
+        setDisplay('disconnected')
+        setReconnectOffer(hasSecondScreen())
+      }
+    }, DISPLAY_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [display])
+
+  // Reconnect offer: poll screen.isExtended while disconnected.
+  useEffect(() => {
+    if (display !== 'disconnected') {
+      setReconnectOffer(false)
+      return
+    }
+    const timer = window.setInterval(() => {
+      if (hasSecondScreen()) {
+        setReconnectOffer(true)
+        window.clearInterval(timer)
+      }
+    }, RECONNECT_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [display])
+
+  // Restart recovery: a previous stage session had the display active.
+  useEffect(() => {
+    if (wasActive(id)) setRestartPrompt(true)
+  }, [id])
+
+  function doOpenDisplay() {
+    if (!hasSecondScreen()) {
+      setDisplay('preview')
+      setDisplayMenuOpen(false)
+      return
+    }
+    const popup = window.open(
+      `${DISPLAY_URL}?setlist=${encodeURIComponent(id)}`,
+      'cemurm-ed',
+      'popup=yes,width=980,height=640',
+    )
+    popupRef.current = popup
+    markActive(id)
+    lastHeartbeatRef.current = Date.now()
+    setDisplay('popup')
+    setDisplayMenuOpen(false)
+  }
+
+  function doCloseDisplay() {
+    postClose(channelRef.current)
+    try {
+      popupRef.current?.close()
+    } catch {
+      // popup may already be gone
+    }
+    popupRef.current = null
+    clearActive(id)
+    setDisplay('off')
+    setReconnectOffer(false)
+    setDisplayMenuOpen(false)
+  }
+
+  function doSetMode(mode) {
+    setSettings({ mode })
+    persistSettings(id, { mode })
+  }
+
   if (loading) return <p className="text-sm text-cem-secondary">Loading setlist…</p>
 
   if (!setlist || !song) {
@@ -214,6 +352,91 @@ export default function StageMode() {
           >
             +
           </button>
+          <div className="relative ml-2">
+            <button
+              type="button"
+              onClick={() => setDisplayMenuOpen((v) => !v)}
+              className={`rounded border px-3 py-1 text-sm font-medium hover:bg-white/10 ${
+                display === 'popup' ? 'border-cem-amber/50 text-cem-amber' : 'border-white/20'
+              }`}
+              aria-label="Display output menu"
+            >
+              🖥 Display
+            </button>
+            {displayMenuOpen && (
+              <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-lg border border-white/10 bg-cem-surface p-3 text-cem-text shadow-xl">
+                <p className="text-sm font-semibold text-white">External display</p>
+                <p className="mt-1 text-xs text-cem-secondary">
+                  {display === 'popup' && 'Active on the second screen.'}
+                  {display === 'preview' && 'External display preview — only one display detected.'}
+                  {display === 'disconnected' &&
+                    (reconnectOffer
+                      ? 'Disconnected — second screen detected, you can re-open it.'
+                      : 'Disconnected — will offer re-open when the second screen is detected.')}
+                  {display === 'off' && 'Off. Mirror a clean view to a second screen or preview.'}
+                </p>
+
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-cem-secondary">Display mode</p>
+                  <div className="mt-1 flex gap-1">
+                    {['lyrics', 'chords'].map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => doSetMode(mode)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium capitalize ${
+                          settings.mode === mode
+                            ? 'bg-cem-amber text-cem-base'
+                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  {display === 'off' && (
+                    <button
+                      type="button"
+                      onClick={doOpenDisplay}
+                      className="flex-1 rounded bg-cem-amber px-3 py-1.5 text-sm font-semibold text-cem-base"
+                    >
+                      Open external display
+                    </button>
+                  )}
+                  {display === 'popup' && (
+                    <button
+                      type="button"
+                      onClick={doCloseDisplay}
+                      className="flex-1 rounded border border-white/20 px-3 py-1.5 text-sm font-medium hover:bg-white/10"
+                    >
+                      Close external display
+                    </button>
+                  )}
+                  {display === 'disconnected' && reconnectOffer && (
+                    <button
+                      type="button"
+                      onClick={doOpenDisplay}
+                      className="flex-1 rounded bg-cem-amber px-3 py-1.5 text-sm font-semibold text-cem-base"
+                    >
+                      Re-open external display
+                    </button>
+                  )}
+                  {display === 'preview' && (
+                    <button
+                      type="button"
+                      onClick={() => setDisplay('off')}
+                      className="flex-1 rounded border border-white/20 px-3 py-1.5 text-sm font-medium hover:bg-white/10"
+                    >
+                      Close preview
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -444,6 +667,53 @@ export default function StageMode() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* External display preview (no second screen connected) */}
+      {display === 'preview' && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between border-b border-white/10 bg-cem-surface px-4 py-2">
+            <span className="text-sm font-semibold text-cem-text">
+              External display preview
+            </span>
+            <button
+              type="button"
+              onClick={() => setDisplay('off')}
+              className="rounded border border-cem-elevated px-3 py-1 text-sm text-cem-text hover:bg-white/10"
+            >
+              Close
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ExternalDisplayView state={displayState} />
+          </div>
+        </div>
+      )}
+
+      {/* Restart recovery: re-launch the display on second screen with one tap */}
+      {restartPrompt && (
+        <div className="fixed bottom-4 right-4 z-50 rounded-lg border border-white/10 bg-cem-surface px-4 py-3 text-cem-text shadow-xl">
+          <p className="text-sm">External display was active — re-launch it?</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRestartPrompt(false)
+                doOpenDisplay()
+              }}
+              className="rounded bg-cem-amber px-3 py-1 text-sm font-semibold text-cem-base"
+            >
+              Re-launch
+            </button>
+            <button
+              type="button"
+              onClick={() => setRestartPrompt(false)}
+              className="rounded border border-cem-elevated px-3 py-1 text-sm text-cem-text hover:bg-white/10"
+            >
+              Not now
+            </button>
+          </div>
         </div>
       )}
     </div>

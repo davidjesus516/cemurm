@@ -21,6 +21,7 @@ import Rehearsals from './pages/Rehearsals.jsx'
 import RehearsalDetail from './pages/RehearsalDetail.jsx'
 import Notifications from './pages/Notifications.jsx'
 import StageMode from './pages/StageMode.jsx'
+import ExternalDisplay from './pages/ExternalDisplay.jsx'
 import Auth from './pages/Auth.jsx'
 import Practice from './pages/Practice.jsx'
 import PublicLibrary from './pages/PublicLibrary.jsx'
@@ -71,6 +72,7 @@ const router = createBrowserRouter([
         element: <RedirectIfAuthed />,
         children: [{ path: '/auth', element: <Auth /> }],
       },
+      { path: '/external-display', element: <ExternalDisplay /> },
       { path: '*', element: <NotFound /> },
     ],
   },
