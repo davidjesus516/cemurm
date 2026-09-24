@@ -1,3 +1,4 @@
+// @ts-check
 // Supabase data layer for setlists.
 // Replaces the localStorage mock with hosted Supabase queries.
 // Duration is computed on read (join with the songs store), never stored —
@@ -12,6 +13,63 @@ import { offlineGet, offlineSet, offlineRemove } from './offlineCache.js'
 import { enqueueOp } from './offlineQueue.js'
 import { guardVisibility, shareTargets, guardTransfer } from './setlistCollab.js'
 
+/**
+ * @typedef {'private' | 'shared' | 'public'} SetlistVisibility
+ */
+
+/**
+ * Raw Supabase row shapes (select with embedded items + collaborators).
+ * @typedef {object} RawSetlistItemRow
+ * @property {string} song_id
+ * @property {number} position
+ * @property {string | null} version_id
+ */
+
+/**
+ * @typedef {object} RawSetlistCollaboratorRow
+ * @property {string} user_id
+ * @property {boolean} can_edit
+ * @property {string | null} accepted_at
+ */
+
+/**
+ * @typedef {object} RawSetlistRow
+ * @property {string} id
+ * @property {string} owner_id
+ * @property {string} name
+ * @property {SetlistVisibility} visibility
+ * @property {string} created_at
+ * @property {string} updated_at
+ * @property {RawSetlistItemRow[]} setlist_items
+ * @property {RawSetlistCollaboratorRow[]} setlist_collaborators
+ */
+
+/**
+ * Flattened app shape (flattenSetlist). Offline optimistic stubs reuse it
+ * and may set pendingSync; the minimal stubs knowingly skip the collab
+ * surface (canEdit/visibility/roster are unknown while offline).
+ * @typedef {object} Setlist
+ * @property {string} id
+ * @property {string} userId
+ * @property {string} name
+ * @property {SetlistVisibility} visibility
+ * @property {string[]} itemIds
+ * @property {Record<string, string>} versionIds
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ * @property {boolean} isOwner
+ * @property {boolean} canEdit
+ * @property {SetlistCollaborator[]} collaborators
+ * @property {boolean} [pendingSync]
+ */
+
+/**
+ * @typedef {object} SetlistCollaborator
+ * @property {string} userId
+ * @property {boolean} canEdit
+ * @property {string | null} acceptedAt
+ */
+
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
 // errors map to a safe generic message.
 const USER_ERRORS = new Set([
@@ -23,42 +81,68 @@ const USER_ERRORS = new Set([
   'Reordering a shared setlist requires an internet connection.',
 ])
 
+/**
+ * @param {Error} error
+ * @returns {never}
+ */
 function handleError(error) {
   if (USER_ERRORS.has(error?.message)) throw error
   throw new Error('Something went wrong. Please try again.')
 }
 
+/**
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withErrorMapping(fn) {
-  try { return await fn() } catch (e) { handleError(e) }
+  try { return await fn() } catch (e) { handleError(/** @type {Error} */ (e)) }
 }
 
 // ponytail: best-effort connectivity heuristic — PostgREST network errors
 // surface as fetch failures without a stable code; refine if a code appears.
+/**
+ * Best-effort connectivity heuristic — PostgREST network errors surface as
+ * fetch failures without a stable code; refine if a code appears.
+ * @param {unknown} e
+ * @returns {boolean}
+ */
 function isConnectivityError(e) {
-  const msg = String(e?.message || '')
+  const err = /** @type {{ message?: string, code?: string } | null | undefined} */ (e)
+  const msg = String(err?.message || '')
   return typeof navigator !== 'undefined' && navigator.onLine === false
     || msg.includes('Failed to fetch')
     || msg.includes('fetch failed')
-    || e?.code === '-1'
+    || err?.code === '-1'
 }
 
 // ponytail: no freshness TTL — cache is overwritten on every successful
 // network read, and served unconditionally when offline; staleness
 // self-heals on the next successful fetch. Add a TTL only if a
 // stale-then-offline read becomes a problem.
+/**
+ * @template T
+ * @param {string} key
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withReadThrough(key, fn) {
   try {
     const data = await fn()
     await offlineSet(key, data)
     return data
   } catch (e) {
-    if (USER_ERRORS.has(e?.message)) throw e
+    if (USER_ERRORS.has(/** @type {Error} */ (e)?.message)) throw e
     const cached = await offlineGet(key)
     if (cached?.data) return cached.data
     throw e
   }
 }
 
+/**
+ * @param {string} userId
+ * @param {string[]} ids
+ */
 function invalidateSetlists(userId, ids) {
   offlineRemove(`setlists:${userId}`)
   for (const id of ids) offlineRemove(`setlist:${userId}:${id}`)
@@ -74,11 +158,17 @@ function invalidateSetlists(userId, ids) {
  * select_self): the owner sees every row, a collaborator only their own —
  * enough to derive `canEdit` without leaking the roster to members.
  */
+/**
+ * @param {RawSetlistRow} row
+ * @param {string} userId
+ * @returns {Setlist}
+ */
 function flattenSetlist(row, userId) {
   const items = (row.setlist_items || [])
     .sort((a, b) => a.position - b.position)
   const itemIds = items.map((i) => i.song_id)
 
+  /** @type {Record<string, string>} */
   const versionIds = {}
   for (const item of items) {
     if (item.version_id) versionIds[item.song_id] = item.version_id
@@ -113,6 +203,11 @@ function flattenSetlist(row, userId) {
  * the old owner_id filter would 403 collaborators on shared setlists).
  * Throws 'Setlist not found.' when missing.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Setlist>}
+ */
 async function fetchSetlistById(userId, id) {
   const { data, error } = await supabase
     .from('setlists')
@@ -129,6 +224,11 @@ async function fetchSetlistById(userId, id) {
  * Cached setlist for offline work, falling back to a network read. The
  * connectivity catch paths below use this so they can still validate against
  * a roster/visibility they already know.
+ */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Setlist | null>}
  */
 async function readBaseSetlist(userId, id) {
   const cached = await offlineGet(`setlist:${userId}:${id}`)
@@ -147,10 +247,22 @@ async function readBaseSetlist(userId, id) {
  * reload shows the pending version. Validation already ran before the
  * connectivity catch fired, so falling back to a minimal stub is safe.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @param {{
+ *   name?: string,
+ *   mutateItemIds: (itemIds: string[]) => string[],
+ *   mutateVersions?: (versionIds: Record<string, string>) => Record<string, string>,
+ * }} opts
+ * @returns {Promise<Setlist>}
+ */
 async function buildOptimisticSetlist(userId, id, { name, mutateItemIds, mutateVersions }) {
   const base = await readBaseSetlist(userId, id)
 
-  const fallback = {
+  // Offline stub — the collaboration surface (visibility, roster, canEdit)
+  // cannot be known while the network is down; consumers treat it as absent.
+  const fallback = /** @type {Setlist} */ (/** @type {unknown} */ ({
     id,
     userId,
     name: name ?? 'Setlist',
@@ -158,7 +270,7 @@ async function buildOptimisticSetlist(userId, id, { name, mutateItemIds, mutateV
     versionIds: {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  }
+  }))
   const current = base ?? fallback
   const optimistic = {
     ...current,
@@ -182,9 +294,15 @@ async function buildOptimisticSetlist(userId, id, { name, mutateItemIds, mutateV
  * the base (roster edits need the current array). Persisted like item ops so
  * an offline reload shows the pending roster.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @param {Partial<Setlist> | ((current: Setlist) => Partial<Setlist>)} patch
+ * @returns {Promise<Setlist>}
+ */
 async function buildOptimisticCollab(userId, id, patch) {
   const base = await readBaseSetlist(userId, id)
-  const fallback = {
+  const fallback = /** @type {Setlist} */ (/** @type {unknown} */ ({
     id,
     userId,
     name: 'Setlist',
@@ -192,10 +310,11 @@ async function buildOptimisticCollab(userId, id, patch) {
     itemIds: [],
     versionIds: {},
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     isOwner: true,
     canEdit: true,
     collaborators: [],
-  }
+  }))
   const current = base ?? fallback
   const optimistic = {
     ...current,
@@ -212,10 +331,19 @@ async function buildOptimisticCollab(userId, id, patch) {
  * cached getSetlist path would serve the CACHE after a failed read, and a
  * stale copy is exactly what must not decide whether to drop a queued op.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Setlist>}
+ */
 export function fetchServerSetlist(userId, id) {
   return withErrorMapping(() => fetchSetlistById(userId, id))
 }
 
+/**
+ * @param {string} userId
+ * @returns {Promise<Setlist[]>}
+ */
 export function listSetlists(userId) {
   return withErrorMapping(() =>
     withReadThrough(`setlists:${userId}`, async () => {
@@ -231,11 +359,21 @@ export function listSetlists(userId) {
     }))
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Setlist>}
+ */
 export function getSetlist(userId, id) {
   return withErrorMapping(() =>
     withReadThrough(`setlist:${userId}:${id}`, () => fetchSetlistById(userId, id)))
 }
 
+/**
+ * @param {string} userId
+ * @param {{ name: string }} input
+ * @returns {Promise<Setlist>}
+ */
 export async function createSetlist(userId, { name }) {
   return withErrorMapping(async () => {
     const trimmed = name?.trim()
@@ -254,9 +392,11 @@ export async function createSetlist(userId, { name }) {
       invalidateSetlists(userId, [])
       return setlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'createSetlist', args: [userId, { name: trimmed }] })
-      const optimistic = {
+      // Offline stub — collab surface unknown while offline, same as
+      // buildOptimisticSetlist's fallback.
+      const optimistic = /** @type {Setlist} */ (/** @type {unknown} */ ({
         id: `local-${Date.now()}`,
         userId,
         name: trimmed,
@@ -264,13 +404,19 @@ export async function createSetlist(userId, { name }) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         pendingSync: true,
-      }
+      }))
       await offlineSet(`setlist:${userId}:${optimistic.id}`, optimistic)
       return optimistic
     }
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @param {{ name: string }} input
+ * @returns {Promise<Setlist>}
+ */
 export async function updateSetlist(userId, id, { name }) {
   return withErrorMapping(async () => {
     try {
@@ -292,7 +438,7 @@ export async function updateSetlist(userId, id, { name }) {
       invalidateSetlists(userId, [id])
       return setlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'updateSetlist', args: [userId, id, { name }] })
       return buildOptimisticSetlist(userId, id, {
         name: name !== undefined ? name.trim() : undefined,
@@ -302,6 +448,11 @@ export async function updateSetlist(userId, id, { name }) {
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
 export async function deleteSetlist(userId, id) {
   return withErrorMapping(async () => {
     await fetchSetlistById(userId, id)
@@ -320,6 +471,12 @@ export async function deleteSetlist(userId, id) {
 /**
  * Copy a setlist under a new name. Same itemIds, same order.
  * Original is untouched (new id, new timestamps).
+ */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @param {{ name: string }} input
+ * @returns {Promise<Setlist>}
  */
 export async function duplicateSetlist(userId, id, { name }) {
   return withErrorMapping(async () => {
@@ -355,6 +512,12 @@ export async function duplicateSetlist(userId, id, { name }) {
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {string} songId
+ * @returns {Promise<Setlist>}
+ */
 export async function addSongToSetlist(userId, setlistId, songId) {
   return withErrorMapping(async () => {
     try {
@@ -388,7 +551,7 @@ export async function addSongToSetlist(userId, setlistId, songId) {
       invalidateSetlists(userId, [setlistId])
       return setlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'addSongToSetlist', args: [userId, setlistId, songId] })
       return buildOptimisticSetlist(userId, setlistId, {
         mutateItemIds: (itemIds) => (itemIds.includes(songId) ? itemIds : [...itemIds, songId]),
@@ -403,6 +566,13 @@ export async function addSongToSetlist(userId, setlistId, songId) {
  * default. Mirrors addSongToSetlist: online update + refetch; offline
  * enqueueOp (WRITE_OPS, replay-safe — upsert by setlist+song) + optimistic
  * versionIds update in the read-through cache.
+ */
+/**
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {string} songId
+ * @param {string | null} versionId
+ * @returns {Promise<Setlist>}
  */
 export async function setSongVersion(userId, setlistId, songId, versionId) {
   return withErrorMapping(async () => {
@@ -420,16 +590,27 @@ export async function setSongVersion(userId, setlistId, songId, versionId) {
       invalidateSetlists(userId, [setlistId])
       return setlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'setSongVersion', args: [userId, setlistId, songId, versionId] })
       return buildOptimisticSetlist(userId, setlistId, {
         mutateItemIds: (itemIds) => itemIds,
-        mutateVersions: (versionIds) => ({ ...versionIds, [songId]: versionId || undefined }),
+        // versionId null → undefined key, dropped on JSON serialization —
+        // the optimistic cache then keeps only concrete version picks.
+        mutateVersions: (versionIds) => /** @type {Record<string, string>} */ ({
+          ...versionIds,
+          [songId]: versionId || undefined,
+        }),
       })
     }
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {string} songId
+ * @returns {Promise<Setlist>}
+ */
 export async function removeSongFromSetlist(userId, setlistId, songId) {
   return withErrorMapping(async () => {
     try {
@@ -446,7 +627,7 @@ export async function removeSongFromSetlist(userId, setlistId, songId) {
       invalidateSetlists(userId, [setlistId])
       return setlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'removeSongFromSetlist', args: [userId, setlistId, songId] })
       return buildOptimisticSetlist(userId, setlistId, {
         mutateItemIds: (itemIds) => itemIds.filter((id) => id !== songId),
@@ -458,6 +639,13 @@ export async function removeSongFromSetlist(userId, setlistId, songId) {
 /**
  * Move a song from one index to another (splice-out + insert).
  * Indices are clamped into range; out-of-range moves are no-ops.
+ */
+/**
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {number} fromIndex
+ * @param {number} toIndex
+ * @returns {Promise<Setlist>}
  */
 export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
   return withErrorMapping(async () => {
@@ -496,7 +684,7 @@ export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
       invalidateSetlists(userId, [setlistId])
       return freshSetlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       // D7 (task constraint): a reorder replays against STALE indices, so it is
       // online-only once a setlist is shared — queuing it would silently
       // corrupt the order (the S8 merge policy defers to change 3). Queue only
@@ -535,6 +723,12 @@ export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
 // filtered), which is what makes the replay idempotent — the op re-runs its
 // own guards against the server roster at drain time.
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @param {SetlistVisibility} visibility
+ * @returns {Promise<Setlist>}
+ */
 export async function setVisibility(userId, id, visibility) {
   return withErrorMapping(async () => {
     const guard = guardVisibility(visibility)
@@ -552,14 +746,19 @@ export async function setVisibility(userId, id, visibility) {
       invalidateSetlists(userId, [id])
       return setlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'setVisibility', args: [userId, id, visibility] })
       return buildOptimisticCollab(userId, id, { visibility })
     }
   })
 }
 
-/** Invite bandmates onto the setlist (INSERT rows; can_edit defaults true). */
+/** Invite bandmates onto the setlist (INSERT rows; can_edit defaults true).
+ * @param {string} userId
+ * @param {string} id
+ * @param {string[]} bandmateIds
+ * @returns {Promise<Setlist>}
+ */
 export async function shareWithBandmates(userId, id, bandmateIds) {
   return withErrorMapping(async () => {
     try {
@@ -576,10 +775,12 @@ export async function shareWithBandmates(userId, id, bandmateIds) {
       invalidateSetlists(userId, [id])
       return fresh
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       const base = await readBaseSetlist(userId, id)
       const targets = shareTargets(userId, bandmateIds, base?.collaborators)
-      if (targets.length === 0) return base
+      // Edge: offline with a cold cache and nothing to share returns the
+      // (possibly null) base — pre-existing behavior, typed as Setlist.
+      if (targets.length === 0) return /** @type {Setlist} */ (base)
       await enqueueOp(userId, { name: 'shareWithBandmates', args: [userId, id, targets] })
       return buildOptimisticCollab(userId, id, (current) => ({
         collaborators: [
@@ -591,7 +792,13 @@ export async function shareWithBandmates(userId, id, bandmateIds) {
   })
 }
 
-/** Owner flips a collaborator's can_edit (view-only vs edit, setlists R8). */
+/** Owner flips a collaborator's can_edit (view-only vs edit, setlists R8).
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {string} collaboratorId
+ * @param {boolean} canEdit
+ * @returns {Promise<Setlist>}
+ */
 export async function setCollaboratorPermission(userId, setlistId, collaboratorId, canEdit) {
   return withErrorMapping(async () => {
     try {
@@ -606,7 +813,7 @@ export async function setCollaboratorPermission(userId, setlistId, collaboratorI
       invalidateSetlists(userId, [setlistId])
       return fresh
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, {
         name: 'setCollaboratorPermission',
         args: [userId, setlistId, collaboratorId, canEdit],
@@ -620,7 +827,12 @@ export async function setCollaboratorPermission(userId, setlistId, collaboratorI
   })
 }
 
-/** Owner removes a collaborator — 0002 delete_owner revokes their access. */
+/** Owner removes a collaborator — 0002 delete_owner revokes their access.
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {string} collaboratorId
+ * @returns {Promise<Setlist>}
+ */
 export async function removeCollaborator(userId, setlistId, collaboratorId) {
   return withErrorMapping(async () => {
     try {
@@ -635,7 +847,7 @@ export async function removeCollaborator(userId, setlistId, collaboratorId) {
       invalidateSetlists(userId, [setlistId])
       return fresh
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'removeCollaborator', args: [userId, setlistId, collaboratorId] })
       return buildOptimisticCollab(userId, setlistId, (current) => ({
         collaborators: (current.collaborators || []).filter((c) => c.userId !== collaboratorId),
@@ -654,6 +866,12 @@ export async function removeCollaborator(userId, setlistId, collaboratorId) {
  * flipped — so a transfer emits zero 'removed' rows. The RPC re-asserts
  * ownership + guardTransfer server-side with the same USER_ERRORS messages;
  * the client pre-flight guard below stays for UX.
+ */
+/**
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {string} newOwnerId
+ * @returns {Promise<Setlist>}
  */
 export async function transferOwnership(userId, setlistId, newOwnerId) {
   return withErrorMapping(async () => {
@@ -685,7 +903,7 @@ export async function transferOwnership(userId, setlistId, newOwnerId) {
       invalidateSetlists(userId, [setlistId])
       return fresh
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       const base = await readBaseSetlist(userId, setlistId)
       if (base?.userId === newOwnerId && !base.isOwner) return base
       await enqueueOp(userId, { name: 'transferOwnership', args: [userId, setlistId, newOwnerId] })
@@ -706,6 +924,11 @@ export async function transferOwnership(userId, setlistId, newOwnerId) {
  * Resolve the collaborator roster with display names (owner surface). No FK
  * from setlist_collaborators to profiles — second round trip, bandmates.js
  * precedent. Non-owners read only their own row under RLS select_self.
+ */
+/**
+ * @param {string} userId
+ * @param {string} setlistId
+ * @returns {Promise<Array<{ userId: string, canEdit: boolean, pending: boolean, acceptedAt: string | null, username: string | null, displayName: string | null }>>}
  */
 export async function listCollaborators(userId, setlistId) {
   const { data, error } = await supabase
@@ -747,9 +970,17 @@ export async function listCollaborators(userId, setlistId) {
 // its own sender, so the emitting client appends its own event locally.
 
 const ACTIVITY_EVENT = 'setlist-activity'
+/**
+ * @param {string} setlistId
+ * @returns {string}
+ */
 const activityTopic = (setlistId) => `setlist-activity:${setlistId}`
 
-/** Subscribe to a setlist's activity broadcasts. Returns an unsubscribe fn. */
+/** Subscribe to a setlist's activity broadcasts. Returns an unsubscribe fn.
+ * @param {string} setlistId
+ * @param {(payload: { action: string, actor: string, ts: number }) => void} onActivity
+ * @returns {() => void}
+ */
 export function subscribeActivity(setlistId, onActivity) {
   const channel = supabase
     .channel(activityTopic(setlistId))
@@ -761,6 +992,12 @@ export function subscribeActivity(setlistId, onActivity) {
 /**
  * Broadcast one activity event and return its payload so the caller can
  * prepend it locally (the sender's own channel never receives it back).
+ */
+/**
+ * @param {string} setlistId
+ * @param {string} action
+ * @param {string} actorName
+ * @returns {{ action: string, actor: string, ts: number }}
  */
 export function broadcastActivity(setlistId, action, actorName) {
   const payload = { action, actor: actorName, ts: Date.now() }
@@ -790,6 +1027,11 @@ export function broadcastActivity(setlistId, action, actorName) {
  * Subscribe to live changes of one setlist across the published tables.
  * `onChange` receives the raw postgres_changes payload ({table, eventType,
  * new, old}). RLS caps delivery: a non-member subscriber receives nothing.
+ */
+/**
+ * @param {string} setlistId
+ * @param {(payload: unknown) => void} onChange
+ * @returns {() => void}
  */
 export function subscribeSetlistRealtime(setlistId, onChange) {
   const channel = supabase
@@ -822,21 +1064,26 @@ export function subscribeSetlistRealtime(setlistId, onChange) {
 // per-event one-shot channels could reorder two sends and strand a lock.
 
 const LOCK_EVENT = 'edit-lock'
+/**
+ * @param {string} setlistId
+ * @returns {string}
+ */
 const lockTopic = (setlistId) => `setlist-lock:${setlistId}`
 
 /**
- * Open a setlist's lock channel for receive + send. Returns { send, close }:
- * send() queues until the channel joins, then pushes in order; close()
- * removes the channel (teardown on unmount).
+ * @param {string} setlistId
+ * @param {(payload: unknown) => void} onLock
+ * @returns {{ send: (payload: unknown) => void, close: () => void }}
  */
 export function openLockChannel(setlistId, onLock) {
   const channel = supabase.channel(lockTopic(setlistId))
+  /** @type {unknown[] | null} */
   let sendQueue = []
   channel
     .on('broadcast', { event: LOCK_EVENT }, ({ payload }) => onLock?.(payload))
     .subscribe((status) => {
       if (status !== 'SUBSCRIBED') return
-      for (const queued of sendQueue) {
+      for (const queued of /** @type {unknown[]} */ (sendQueue)) {
         channel.send({ type: 'broadcast', event: LOCK_EVENT, payload: queued }).catch(() => {})
       }
       sendQueue = null
@@ -856,6 +1103,11 @@ export function openLockChannel(setlistId, onLock) {
  * Resolve setlist durations by joining with the songs store.
  * Returns { totalSeconds, formatted } (mm:ss, unknown durations omitted).
  */
+/**
+ * @param {string} userId
+ * @param {string} setlistId
+ * @returns {Promise<{ totalSeconds: number, formatted: string }>}
+ */
 export async function getSetlistDuration(userId, setlistId) {
   return withErrorMapping(async () => {
     const setlist = await getSetlist(userId, setlistId)
@@ -867,7 +1119,11 @@ export async function getSetlistDuration(userId, setlistId) {
 
 /**
  * Pure join: sum known song durations for itemIds in order.
- * Unknown durations are skipped (only known ones count).
+ * Unknown durations are skipped (only known ones count). Only reads
+ * { id, durationSeconds } off each song.
+ * @param {string[]} itemIds
+ * @param {Array<{ id: string, durationSeconds: number | null }>} songs
+ * @returns {number}
  */
 export function computeTotalSeconds(itemIds, songs) {
   const byId = new Map(songs.map((s) => [s.id, s]))
