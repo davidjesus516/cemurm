@@ -500,6 +500,12 @@ export default function ServiceDetail() {
               className={outlinedBtn}>Mark completed</button>
           </div>
         )}
+        <Link
+          to={`/services/${service.id}/projection`}
+          className={`${primaryShort} whitespace-nowrap`}
+        >
+          Start projection
+        </Link>
       </div>
 
       <section className="mt-6">
