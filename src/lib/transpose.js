@@ -1,7 +1,43 @@
+// @ts-check
 // Chord transposition utility — pure functions, no DOM, no state.
 // ponytail: handles root notes + common qualities (m, 7, maj7, dim, aug, sus, add, etc.).
 // Does NOT handle polyphonic/slash chord bass transposition (e.g. C/E → D/F#).
 // Upgrade path: full chord-parser library when slash-bass or complex voicings matter.
+
+/**
+ * A note name: pitch-class letter with optional accidental, e.g. "C", "C#", "Bb".
+ * @typedef {string} NoteName
+ */
+
+/**
+ * A chord token as written in ChordPro, e.g. "C", "Am", "G7", "Bbmaj7".
+ * @typedef {string} ChordToken
+ */
+
+/**
+ * A key string like "C", "C major", "Am", "Bb".
+ * @typedef {string} KeyName
+ */
+
+/**
+ * A chord placed at a character position within a lyric line.
+ * @typedef {{ chord: ChordToken, position: number }} PlacedChord
+ */
+
+/**
+ * A lyric line of a parsed song: text plus overlaid chords.
+ * @typedef {{ text: string, chords: PlacedChord[] }} ParsedLine
+ */
+
+/**
+ * A section of a parsed song (verse, chorus, ...).
+ * @typedef {{ type: string, lines: ParsedLine[] }} ParsedSection
+ */
+
+/**
+ * A parsed ChordPro song: song key plus ordered sections.
+ * @typedef {{ key: string, sections: ParsedSection[] }} ParsedSong
+ */
 
 const NOTES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
@@ -9,6 +45,12 @@ const NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 
 // Prefer flats for keys that naturally use them
 const FLAT_KEYS = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'])
 
+/**
+ * Resolve a note name to its chromatic index (0–11) and whether its spelling
+ * prefers flats. Returns null for unparseable input.
+ * @param {string} name
+ * @returns {{ index: number, preferFlat: boolean } | null}
+ */
 function noteIndex(name) {
   const i = NOTES_SHARP.indexOf(name)
   if (i !== -1) return { index: i, preferFlat: false }
@@ -17,6 +59,14 @@ function noteIndex(name) {
   return null
 }
 
+/**
+ * Transpose a single note name by N semitones (octave-wrapped). Uses the
+ * note's own spelling preference unless overridden.
+ * @param {NoteName} noteName
+ * @param {number} semitones
+ * @param {boolean} [preferFlat] optional — override the note's default spelling
+ * @returns {NoteName}
+ */
 function transposeNote(noteName, semitones, preferFlat) {
   const info = noteIndex(noteName)
   if (!info) return noteName
@@ -28,6 +78,14 @@ function transposeNote(noteName, semitones, preferFlat) {
 // Match chord root: optional flat/sharp, then note letter
 const CHORD_RE = /^([A-G][#b]?)(.*)/
 
+/**
+ * Transpose a chord token by N semitones: transposes the root, keeps the
+ * quality suffix (e.g. "Am" → "Cm" at +3). Unparseable chords pass through.
+ * @param {ChordToken} chord
+ * @param {number} semitones
+ * @param {boolean} [preferFlat]
+ * @returns {ChordToken}
+ */
 export function transposeChord(chord, semitones, preferFlat) {
   const m = chord.match(CHORD_RE)
   if (!m) return chord
@@ -35,7 +93,13 @@ export function transposeChord(chord, semitones, preferFlat) {
   return newRoot + m[2]
 }
 
-// Update a key string like "C major", "Am", "Bb" to transposed version
+/**
+ * Transpose a key string like "C major", "Am" or "Bb" by N semitones.
+ * Flat-key roots stay flat (key's natural spelling wins), otherwise sharps.
+ * @param {KeyName} key
+ * @param {number} semitones
+ * @returns {KeyName}
+ */
 export function transposeKey(key, semitones) {
   if (!key) return key
   // Handle "Am", "Bbm" — note + modifier without space
@@ -52,14 +116,21 @@ export function transposeKey(key, semitones) {
  * the capo frets. Capo is a physical fret int, display-only: chord shapes
  * stay put; the sounding key for the band is X (scenario: rendered C + capo 2
  * → "Capo 2 · sounds D"). Empty string when no capo is set.
+ * @param {KeyName} renderedKey
+ * @param {number} capo — physical fret count; 0/null → no label
+ * @returns {string}
  */
 export function capoLabel(renderedKey, capo) {
   if (!renderedKey || !capo) return ''
   return `Capo ${capo} · sounds ${transposeKey(renderedKey, capo)}`
 }
 
-// Flat preference for a key's root — mirrors transposeParsed's check, so
-// annotations.js can reverse-lookup tokens enharmonically consistently.
+/**
+ * Flat preference for a key's root — mirrors transposeParsed's check, so
+ * annotations.js can reverse-lookup tokens enharmonically consistently.
+ * @param {string} [key]
+ * @returns {boolean}
+ */
 export function preferFlatForKey(key) {
   return FLAT_KEYS.has(String(key || '').split(/\s+/)[0])
 }
@@ -67,6 +138,9 @@ export function preferFlatForKey(key) {
 /**
  * Smallest-shift distance from base to target key (3.6): G→D is −5 (perfect
  * fourth down), C→D is +2. Unparseable keys → 0.
+ * @param {string} [baseKey]
+ * @param {string} [targetKey]
+ * @returns {number}
  */
 export function semitonesBetween(baseKey, targetKey) {
   const base = String(baseKey || '').match(/^([A-G][#b]?)/)
@@ -84,6 +158,9 @@ export function semitonesBetween(baseKey, targetKey) {
  * Initial view semitones (D7): per-song override REPLACES the global offset
  * for that song (spec per-song override scenario: "explicit per-song
  * preference wins"). Seeds StageMode/Practice; fallback to global, else 0.
+ * @param {number} [globalOffset]
+ * @param {number} [songOverride]
+ * @returns {number}
  */
 export function initialSemitones(globalOffset, songOverride) {
   return Number(songOverride ?? globalOffset ?? 0)
@@ -92,6 +169,9 @@ export function initialSemitones(globalOffset, songOverride) {
 /**
  * Transpose a parsed ChordPro object by N semitones.
  * Returns a new object — does not mutate the input.
+ * @param {ParsedSong} parsed
+ * @param {number} semitones — 0/undefined → input returned as-is
+ * @returns {ParsedSong}
  */
 export function transposeParsed(parsed, semitones) {
   if (!semitones) return parsed
@@ -118,6 +198,11 @@ export function transposeParsed(parsed, semitones) {
 
 // Self-check: node -e "import('./src/lib/transpose.js').then(m => m.demo())"
 export function demo() {
+  /**
+   * @param {unknown} a
+   * @param {unknown} b
+   * @param {string} msg
+   */
   const assert = (a, b, msg) => {
     if (a !== b) throw new Error(`transpose demo FAILED: ${msg} — got ${JSON.stringify(a)}, expected ${JSON.stringify(b)}`)
   }
