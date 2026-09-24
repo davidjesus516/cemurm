@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { useSongs } from '../hooks/useSongs.js'
 import { useSongImports } from '../hooks/useSongImports.js'
+import { applySuggestions, suggestEnrichment } from '../lib/enrichments.js'
 import { computeReadiness } from '../lib/readiness.js'
 import { formatDuration } from '../lib/duration.js'
 import { filterSongs, matchedChords, parseTempoRange, songMatchesKey } from '../lib/search.js'
@@ -25,6 +27,7 @@ function StatusBadge({ status }) {
 }
 
 export default function Songs() {
+  const { user } = useAuth()
   const [retiredView, setRetiredView] = useState(false)
   const { songs, loading, addSong, updateSong, deleteSong, retireSong, reactivateSong, refresh } = useSongs({ retired: retiredView })
   const [showForm, setShowForm] = useState(false)
@@ -62,7 +65,31 @@ export default function Songs() {
   }
 
   async function handleAdd(payload) {
-    await addSong(payload)
+    // #78 (S1): declared metadata rides addSong's meta (songs columns); the
+    // song is created FIRST so accepted genre/year provenance rows (source
+    // 'musicbrainz') can reference its id — best-effort, never blocking.
+    const created = await addSong({
+      ...payload,
+      meta: {
+        artist: payload.artist || null,
+        genre: payload.genre || null,
+        year: payload.year ?? null,
+      },
+    })
+    const mb = payload.musicBrainzAccepted
+    if (mb && (mb.genre || mb.year != null) && user?.id) {
+      try {
+        const rows = await suggestEnrichment(
+          user.id,
+          created.id,
+          { genre: mb.genre || '', year: mb.year ?? null },
+          'musicbrainz',
+        )
+        if (rows.length) await applySuggestions(user.id, created.id, rows)
+      } catch {
+        // Provenance rows are best-effort — the song itself already exists.
+      }
+    }
     setShowForm(false)
   }
 
