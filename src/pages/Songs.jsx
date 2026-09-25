@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { useSongs } from '../hooks/useSongs.js'
+import { useSongImports } from '../hooks/useSongImports.js'
+import { applySuggestions, suggestEnrichment } from '../lib/enrichments.js'
 import { computeReadiness } from '../lib/readiness.js'
 import { formatDuration } from '../lib/duration.js'
 import { filterSongs, matchedChords, parseTempoRange, songMatchesKey } from '../lib/search.js'
 import SongForm from '../components/songs/SongForm.jsx'
+import ImportQueue from '../components/import/ImportQueue.jsx'
+import ImportUrlDialog from '../components/import/ImportUrlDialog.jsx'
 
 /* eslint-disable react/prop-types */
 
@@ -23,8 +28,9 @@ function StatusBadge({ status }) {
 }
 
 export default function Songs() {
+  const { user } = useAuth()
   const [retiredView, setRetiredView] = useState(false)
-  const { songs, loading, addSong, updateSong, deleteSong, retireSong, reactivateSong } = useSongs({ retired: retiredView })
+  const { songs, loading, addSong, updateSong, deleteSong, retireSong, reactivateSong, refresh } = useSongs({ retired: retiredView })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
@@ -32,6 +38,14 @@ export default function Songs() {
   const [tempo, setTempo] = useState('')
   const [tempoRange, setTempoRange] = useState(null)
   const [error, setError] = useState('')
+
+  // Hito 5 #78: import review queue + URL import handoff (S14/S15 — the
+  // dialog hands title/artist to the New Song form, never downloads content).
+  const importRef = useRef(null)
+  const [showImport, setShowImport] = useState(false)
+  const [showUrlImport, setShowUrlImport] = useState(false)
+  const [urlPrefill, setUrlPrefill] = useState(null)
+  const imports = useSongImports({ onImported: refresh })
 
   // ponytail: filter the full active list client-side with the pure helpers;
   // songs.searchSongs stays as the future Supabase surface. Fine under the
@@ -54,8 +68,43 @@ export default function Songs() {
   }
 
   async function handleAdd(payload) {
-    await addSong(payload)
+    // #78 (S1): declared metadata rides addSong's meta (songs columns); the
+    // song is created FIRST so accepted genre/year provenance rows (source
+    // 'musicbrainz') can reference its id — best-effort, never blocking.
+    const created = await addSong({
+      ...payload,
+      meta: {
+        artist: payload.artist || null,
+        genre: payload.genre || null,
+        year: payload.year ?? null,
+      },
+    })
+    const mb = payload.musicBrainzAccepted
+    if (mb && (mb.genre || mb.year != null) && user?.id) {
+      try {
+        const rows = await suggestEnrichment(
+          user.id,
+          created.id,
+          { genre: mb.genre || '', year: mb.year ?? null },
+          'musicbrainz',
+        )
+        if (rows.length) await applySuggestions(user.id, created.id, rows)
+      } catch {
+        // Provenance rows are best-effort — the song itself already exists.
+      }
+    }
     setShowForm(false)
+    setUrlPrefill(null)
+  }
+
+  // S14/S15 handoff: the URL dialog prefills the NEW song form and closes
+  // itself; the form's initial values come from the URL slug (metadata only).
+  function handleUrlPrefill(initial) {
+    setEditing(null)
+    setUrlPrefill(initial)
+    setShowForm(true)
+    setShowUrlImport(false)
+    setError('')
   }
 
   function startEdit(song) {
@@ -86,16 +135,71 @@ export default function Songs() {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-cem-text">Repertoire</h1>
-        {!showForm && !editing && (
+        <div className="flex items-center gap-2">
+          {!showForm && !editing && (
+            <button
+              type="button"
+              onClick={() => { setShowForm(true); setError(''); setUrlPrefill(null) }}
+              className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            >
+              Add Song
+            </button>
+          )}
+          <input
+            ref={importRef}
+            type="file"
+            multiple
+            accept=".chordpro,.cho,.onsong,.txt,.crd"
+            className="hidden"
+            onChange={(e) => {
+              imports.addFiles(e.target.files)
+              setShowImport(true)
+              setError('')
+              e.target.value = ''
+            }}
+          />
           <button
             type="button"
-            onClick={() => { setShowForm(true); setError('') }}
-            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            onClick={() => importRef.current?.click()}
+            className="rounded-md bg-cem-surface px-4 py-2 text-sm font-medium text-cem-text ring-1 ring-cem-elevated hover:bg-cem-elevated"
           >
-            Add Song
+            Import files…
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => { setShowUrlImport(true); setError('') }}
+            className="rounded-md bg-cem-surface px-4 py-2 text-sm font-medium text-cem-text ring-1 ring-cem-elevated hover:bg-cem-elevated"
+          >
+            Import from URL
+          </button>
+        </div>
       </div>
+
+      {imports.error && (
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{imports.error}</p>
+      )}
+
+      {showImport && (
+        <ImportQueue
+          entries={imports.entries}
+          onApprove={imports.approve}
+          onDiscard={imports.discard}
+          onDecision={imports.setDecision}
+          onConflictChange={imports.setConflict}
+          onLicenseChange={imports.setLicense}
+          onConfirmLicense={imports.confirmLicense}
+          onAddFiles={imports.addFiles}
+        />
+      )}
+
+      {/* T7: URL metadata dialog — chord-site refusal (exact S15 message) and
+          metadata-only prefill; NEVER fetches the pasted page. */}
+      {showUrlImport && (
+        <ImportUrlDialog
+          onClose={() => setShowUrlImport(false)}
+          onPrefill={handleUrlPrefill}
+        />
+      )}
 
       {/* Active / Retired toggle */}
       <div className="mt-4 flex gap-1 rounded-md border border-cem-elevated p-0.5" style={{ width: 'fit-content' }}>
@@ -156,7 +260,12 @@ export default function Songs() {
       {showForm && (
         <div className="mt-4">
           <h2 className="mb-2 text-lg font-semibold text-cem-text">New Song</h2>
-          <SongForm onSubmit={handleAdd} onCancel={() => setShowForm(false)} submitLabel="Add Song" />
+          <SongForm
+            initial={urlPrefill || undefined}
+            onSubmit={handleAdd}
+            onCancel={() => { setShowForm(false); setUrlPrefill(null) }}
+            submitLabel="Add Song"
+          />
         </div>
       )}
 

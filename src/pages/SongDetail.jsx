@@ -15,7 +15,10 @@ import { approvePublicSharing, getConsentStatus } from '../lib/minors.js'
 import ChordProRenderer, { sectionAnchorId } from '../components/notation/ChordProRenderer.jsx'
 import PdfChartViewer from '../components/songs/PdfChartViewer.jsx'
 import { useSpotifyEnrichment } from '../hooks/useSpotifyEnrichment.js'
+import { useLyricsEnrichment } from '../hooks/useLyricsEnrichment.js'
 import EnrichmentPanel from '../components/songs/EnrichmentPanel.jsx'
+import LyricsPanel from '../components/songs/LyricsPanel.jsx'
+import { getDuplicateGroup } from '../lib/importers/duplicates.js'
 import { PDF_SIZE_MESSAGE, PDF_TYPE_MESSAGE, validatePdfFile } from '../lib/pdfCharts.js'
 
 /* eslint-disable react/prop-types */
@@ -24,6 +27,13 @@ const STATUS_STYLES = {
   ready: 'bg-cem-emerald/10 text-cem-emerald',
   draft: 'bg-cem-amber/10 text-cem-amber',
   retired: 'bg-cem-elevated text-cem-secondary',
+}
+
+// S10: import-license labels — the songs_license_check vocabulary (0028).
+const LICENSE_LABELS = {
+  'CC-BY-4.0': 'CC-BY-4.0',
+  proprietary: 'Proprietary (private only)',
+  'public-domain': 'Public domain',
 }
 
 function StatusBadge({ status }) {
@@ -215,6 +225,10 @@ export default function SongDetail() {
   const replaceInputRef = useRef(null)
   const [annotations, setAnnotations] = useState([])
   const [versionId, setVersionId] = useState('')
+  // Hito 5 #78 (S7): durable duplicate-review badge — the song_duplicates
+  // group row (merged vs kept-separate) + the merged-into title (best-effort).
+  const [dupGroup, setDupGroup] = useState(null)
+  const [dupCanonicalTitle, setDupCanonicalTitle] = useState('')
   const [semitones, setSemitones] = useState(0)
   const [degreeView, setDegreeView] = useState(false)
   const comments = useComments(id)
@@ -275,6 +289,30 @@ export default function SongDetail() {
     return () => { cancelled = true }
   }, [user?.id, id])
 
+  // Hito 5 #78 (S7): the import badge — group row on load (most recent first);
+  // canonical_id means "merged into", null means kept separate. Cosmetic: a
+  // failed read only hides the badge.
+  useEffect(() => {
+    let cancelled = false
+    if (!user?.id || !id) return undefined
+    getDuplicateGroup(id)
+      .then(async (group) => {
+        if (cancelled || !group) return
+        setDupGroup(group)
+        if (group.canonical_id) {
+          try {
+            const canonical = await getSong(user.id, group.canonical_id)
+            if (!cancelled) setDupCanonicalTitle(canonical.title)
+          } catch {
+            // Title unavailable — the badge still shows the merged state.
+          }
+        }
+      })
+      .catch(() => { /* cosmetic — ignore */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getSong is a useSongs action (stable-enough per house pattern)
+  }, [user?.id, id])
+
   // Hito 4: minors re-check their consent ledger on mount so the publish
   // action reflects CURRENT guardian approval (revocation flips the gate
   // back on server-side; this keeps the button honest).
@@ -326,6 +364,16 @@ export default function SongDetail() {
   // version is a scan (song-level; drives header actions like Replace scan).
   const openIsPdf = openVersion?.format === 'pdf'
   const isPdfSong = song?.isPdf === true
+
+  // Hito 5 #78 (S11): LRCLIB lyrics — values-first apply (version metadata),
+  // provenance row flip (source 'lrclib'), then a song refresh. Mounted next
+  // to the #69 Spotify panel below.
+  const lyrics = useLyricsEnrichment({
+    song,
+    versionId,
+    metadata: openVersion?.metadata || null,
+    onSongUpdated: (updated) => setSong(updated),
+  })
 
   const parsed = useMemo(() => (openBody ? parseChordPro(openBody) : null), [openBody])
 
@@ -638,6 +686,19 @@ export default function SongDetail() {
       <div className="mt-3 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-cem-text">{song.title}</h1>
+          {/* Hito 5 #78 (S10): import attribution — source always, license
+              only once confirmed (the import gate enforced it anyway). The
+              stored value is the full label ('Imported from OnSong' — T3
+              write contract), so it renders verbatim; any future raw source
+              name still gets the 'Imported from' prefix. */}
+          {song.source && (
+            <p className="mt-0.5 text-xs text-cem-secondary">
+              <span className="font-medium text-cem-text">
+                {song.source.startsWith('Imported from') ? song.source : `Imported from ${song.source}`}
+              </span>
+              {song.licenseConfirmed ? ` · ${LICENSE_LABELS[song.license] || song.license}` : ''}
+            </p>
+          )}
           <p className="mt-1 text-sm text-cem-secondary">
             {[openVersion?.key || '', openVersion?.bpm && `${openVersion.bpm} BPM`]
               .filter(Boolean).join(' · ') || 'No key or BPM set'}
@@ -666,6 +727,15 @@ export default function SongDetail() {
             <StatusBadge status={song.status} />
             {song.status === 'draft' && (
               <span className="text-xs text-cem-amber">{computeReadiness(song).reason}</span>
+            )}
+            {/* Hito 5 #78 (S7): durable duplicate-review state — merged into
+                the canonical song, or reviewed and kept separate. */}
+            {dupGroup && (
+              <span className="rounded-full bg-cem-amber/10 px-2 py-0.5 text-xs font-medium text-cem-amber">
+                {dupGroup.canonical_id
+                  ? `Possible duplicate (reviewed): merged into ${dupCanonicalTitle || 'another song'}`
+                  : 'Possible duplicate (reviewed: kept separate)'}
+              </span>
             )}
             {myEntry && (
               <span className="rounded-full bg-cem-amber/10 px-2 py-0.5 text-xs font-medium text-cem-amber">
@@ -931,6 +1001,10 @@ export default function SongDetail() {
           Declared key for the conflict check = the OPEN version's base key;
           the panel itself never writes it. */}
       <EnrichmentPanel song={song} enrichment={enrichment} declaredKey={openVersion?.key || ''} />
+
+      {/* Hito 5 #78 (S11): LRCLIB lyrics — fetch/apply/discard + applied block
+          with credit. Lives below the Spotify panel, above the comments. */}
+      <LyricsPanel song={song} version={openVersion} enrichment={lyrics} />
 
       <div id="comments-panel" className="mt-6 rounded-lg border border-cem-elevated bg-cem-surface p-4">
         <div className="flex items-baseline justify-between gap-2">

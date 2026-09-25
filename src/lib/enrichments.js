@@ -11,8 +11,9 @@
 //   PERSISTS (unique(user_id, provider) ⇒ reconnect upserts back to
 //   'connected'). Applied enrichment metadata is NEVER deleted on revoke.
 // - external_enrichments is suggestion-first (RLS inserts only
-//   state='suggested', source spotify); the state machine
-//   (suggested → applied|discarded) runs through update, creator-only.
+//   state='suggested', source whitelist spotify|musicbrainz|lrclib — 0026's
+//   insert policy was widened by 0028 §3 for the import pipeline); the state
+//   machine (suggested → applied|discarded) runs through update, creator-only.
 // - Applying values is the CALLER's job (the hook/T3): BPM rides the existing
 //   updateSong path (provenance source passed explicitly), album art is merged
 //   into song_versions.metadata, and the key stays a SUGGESTION only — it
@@ -130,16 +131,23 @@ export function isSpotifyConnected(connection, userId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Insert the three suggestion rows (bpm / key / album_art) for one match,
- * state='suggested', applied_by = the enriching user. Returns the created
- * rows (empty when the match carried no persistable fields).
+ * Insert the suggestion rows for one provider match, state='suggested',
+ * applied_by = the enriching user. Source-agnostic: the source is the
+ * provider's identifier (default 'spotify' — #69 byte-compatible), and the
+ * rows derive from whatever persistable fields the match carries:
+ *   spotify:     bpm / key (keyIndex+mode) / album_art
+ *   musicbrainz: year / genre
+ *   lrclib:      lyrics
+ * Title/artist are NEVER persisted (the 0001 field enum has no title/artist —
+ * they live in UI state only). Returns the created rows (empty when the match
+ * carried no persistable fields).
  */
-export async function suggestEnrichment(userId, songId, match) {
+export async function suggestEnrichment(userId, songId, match, source = 'spotify') {
   const rows = []
   if (typeof match.bpm === 'number' && Number.isFinite(match.bpm)) {
     rows.push({
       song_id: songId,
-      source: 'spotify',
+      source,
       field: 'bpm',
       value: { bpm: match.bpm },
       state: 'suggested',
@@ -150,7 +158,7 @@ export async function suggestEnrichment(userId, songId, match) {
   if (keyLabel) {
     rows.push({
       song_id: songId,
-      source: 'spotify',
+      source,
       field: 'key',
       value: { key: keyLabel },
       state: 'suggested',
@@ -160,9 +168,39 @@ export async function suggestEnrichment(userId, songId, match) {
   if (match.albumArtUrl) {
     rows.push({
       song_id: songId,
-      source: 'spotify',
+      source,
       field: 'album_art',
       value: { album_art: { url: match.albumArtUrl, trackId: match.trackId || null } },
+      state: 'suggested',
+      applied_by: userId,
+    })
+  }
+  if (typeof match.year === 'number' && Number.isFinite(match.year)) {
+    rows.push({
+      song_id: songId,
+      source,
+      field: 'year',
+      value: { year: match.year },
+      state: 'suggested',
+      applied_by: userId,
+    })
+  }
+  if (typeof match.genre === 'string' && match.genre.trim()) {
+    rows.push({
+      song_id: songId,
+      source,
+      field: 'genre',
+      value: { genre: match.genre.trim() },
+      state: 'suggested',
+      applied_by: userId,
+    })
+  }
+  if (typeof match.lyrics === 'string' && match.lyrics.trim()) {
+    rows.push({
+      song_id: songId,
+      source,
+      field: 'lyrics',
+      value: { lyrics: match.lyrics },
       state: 'suggested',
       applied_by: userId,
     })
@@ -237,6 +275,26 @@ export async function listEnrichments(userId, songId) {
 export async function saveAlbumArt(versionId, metadata, { url, trackId = null } = {}) {
   const next = { ...(metadata || {}), album_art: { url, source: 'spotify', at: new Date().toISOString() } }
   if (trackId) next.album_art.trackId = trackId
+  const { error } = await (await supabase())
+    .from('song_versions')
+    .update({ metadata: next })
+    .eq('id', versionId)
+  if (error) throw error
+  return next
+}
+
+/**
+ * Merge lyrics + their provenance into song_versions.metadata:
+ *   metadata.lyrics = { text, source: 'lrclib', at: ISO }
+ * Mirrors saveAlbumArt — preserves whatever else lives on the version row
+ * (existing provenance, album art). The version row is owned by the caller
+ * (owner_id policy).
+ */
+export async function saveLyrics(versionId, metadata, { text } = {}) {
+  const next = {
+    ...(metadata || {}),
+    lyrics: { text: String(text || ''), source: 'lrclib', at: new Date().toISOString() },
+  }
   const { error } = await (await supabase())
     .from('song_versions')
     .update({ metadata: next })

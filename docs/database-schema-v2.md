@@ -293,6 +293,28 @@ CREATE TABLE external_enrichments (
 );
 ```
 
+> **Note on external import (Hito 5, migration 0028):** `songs` gains DECLARED
+> import metadata — `year` (integer; MusicBrainz prefill / import-conflict home,
+> declared only, never guessed) and `license` / `license_confirmed` using the
+> EXACT `public_songs` vocabulary (`'public-domain' | 'CC-BY-4.0' |
+> 'proprietary'`, enforced by `songs_license_check`; default `CC-BY-4.0`,
+> `license_confirmed = false` keeps every existing song untouched — an import
+> only lands with explicit confirmation S9, and attribution shows source +
+> license only when confirmed S10). Import lineage rides the `songs.source`
+> text plus the version row's `name` / `change_note` / `metadata.import`;
+> `lineage_source` stays a uuid ref (version forks) and is NOT the import
+> record — no new table needed. `song_duplicates` is now user-accessible
+> (0002 revoked all) as an owner-scoped, append-only dedupe audit trail: a
+> group is select/insert/update-able iff it contains ≥1 song OWNED by the user
+> (subquery over `songs` inside the policy); NO delete grant — merge stays
+> reversible via setlist ref re-targeting, the audit row persists. 0028 also
+> widens 0026's `external_enrichments` INSERT whitelist from `'spotify'` to
+> `('spotify','musicbrainz','lrclib')` so the import pipeline persists
+> musicbrainz genre/year and lrclib lyrics suggestions through the same
+> `suggestEnrichment` path — the `applied_by` / `state='suggested'` gates are
+> unchanged and the source vocabulary comes from 0001 as-is (no DDL on the
+> table itself).
+
 > **Note on PDF scan charts (Hito 5, migration 0027):** `chart_files` columns are
 > UNCHANGED — `'pdf'` was already in the `chart_format` enum, and a PDF scan is a
 > row with `format = 'pdf'`, `content = NULL` (object stays in Storage) and

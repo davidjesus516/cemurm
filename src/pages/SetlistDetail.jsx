@@ -10,6 +10,8 @@ import { syncNotices, clearSyncNotices } from '../lib/offlineSync.js'
 import { describeActivity } from '../lib/setlistCollab.js'
 import { getProfile } from '../lib/profiles.js'
 import { formatDuration } from '../lib/duration.js'
+import { downloadOnSongFile } from '../lib/exporters/onsong.js'
+import { usePlanningCenter } from '../hooks/usePlanningCenter.js'
 
 export default function SetlistDetail() {
   const { id } = useParams()
@@ -104,6 +106,11 @@ export default function SetlistDetail() {
   // MIDI program input drafts (Hito 5 #56): the input is controlled per item
   // so typing isn't clobbered by realtime/shared refreshes; committed on blur.
   const [midiDrafts, setMidiDrafts] = useState({})
+  // Hito 5 #78 (T8): Planning Center export surface — same hook Setlists.jsx
+  // uses, so the connection row/plans stay in sync with Settings. The OnSong
+  // export needs no hook (pure serializer + guarded download).
+  const pco = usePlanningCenter()
+  const [showPcoPicker, setShowPcoPicker] = useState(false)
 
   useEffect(() => {
     // Wait for BOTH gates to clear: until then the <ol> with the item rows is
@@ -272,6 +279,60 @@ export default function SetlistDetail() {
     }
   }
 
+  // T8: OnSong export — always available once the setlist has ≥1 song. The
+  // lib guards the DOM (node path returns { ok, filename, text }), so the
+  // browser path just triggers the anchor download.
+  async function handleExportOnSong() {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const res = downloadOnSongFile(setlist, setlist.songs)
+      setNotice(`Downloaded ${res.filename} with ${itemIds.length} song${itemIds.length === 1 ? '' : 's'}`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function togglePcoPicker() {
+    const next = !showPcoPicker
+    setShowPcoPicker(next)
+    // Lazy plan fetch on first open (never on mount — keep the page light).
+    if (next && pco.plans.length === 0 && pco.state !== 'working') {
+      pco.loadPlans()
+    }
+  }
+
+  async function handleExportToPlan(planId) {
+    const plan = pco.plans.find((pl) => pl.id === planId)
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const res = await pco.exportToPlan(planId, setlist.songs)
+      if (res?.ok) {
+        setNotice(`Pushed ${res.pushed} song${res.pushed === 1 ? '' : 's'} to ${plan?.name || 'plan'}`)
+        setShowPcoPicker(false)
+      } else if (pco.connection?.status === 'revoked') {
+        // S13: the connection changed under us — surface the gate message.
+        setError('integration revoked — reconnect in Settings')
+      } else if (!pco.online) {
+        setError('offline')
+      } else {
+        setError('Could not push the setlist to Planning Center.')
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const pcoConnected = pco.connection?.status === 'connected'
+  const pcoRevoked = pco.connection?.status === 'revoked'
+
   return (
     <div className="mx-auto max-w-2xl">
       <Link to="/setlists" className="text-sm font-medium text-cem-amber hover:underline">
@@ -390,6 +451,29 @@ export default function SetlistDetail() {
         >
           ▶ Stage Mode
         </Link>
+        {/* T8 exports: OnSong always available with ≥1 song; Planning Center
+            only when the integration is connected (S17 — the push serializes
+            order + agreed keys, never projections/annotations). */}
+        {itemIds.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExportOnSong}
+            disabled={busy}
+            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+          >
+            Export for OnSong
+          </button>
+        )}
+        {pcoConnected && itemIds.length > 0 && (
+          <button
+            type="button"
+            onClick={togglePcoPicker}
+            disabled={busy}
+            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+          >
+            {showPcoPicker ? 'Hide plan picker' : 'Export to Planning Center'}
+          </button>
+        )}
         {setlist.canEdit && (
           <button
             type="button"
@@ -407,6 +491,42 @@ export default function SetlistDetail() {
           {showActivity ? 'Hide activity' : 'Activity'}
         </button>
       </div>
+
+      {showPcoPicker && (
+        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-cem-text">Export to Planning Center</h2>
+          {pcoRevoked ? (
+            // S13: revoked — the push surface says why; reconnect lives in
+            // Settings, exactly like the Setlists import surface.
+            <p className="mt-2 text-sm text-cem-rose">
+              integration revoked — reconnect in Settings
+            </p>
+          ) : pco.state === 'working' ? (
+            <p className="mt-2 text-sm text-cem-secondary">Loading plans…</p>
+          ) : pco.plans.length === 0 ? (
+            <p className="mt-2 text-sm text-cem-secondary">No plans available.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-cem-elevated">
+              {pco.plans.map((plan) => (
+                <li key={plan.id} className="flex items-center justify-between py-2">
+                  <span className="text-sm text-cem-text">{plan.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleExportToPlan(plan.id)}
+                    disabled={busy || pco.state === 'working'}
+                    className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+                  >
+                    Push
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 border-t border-cem-elevated pt-2 text-xs text-cem-secondary">
+            Pushes songs in setlist order with agreed keys only — no projections or annotations.
+          </p>
+        </div>
+      )}
 
       {showActivity && (
         <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
@@ -593,6 +713,15 @@ export default function SetlistDetail() {
                       <span className="ml-2 text-xs text-cem-secondary">
                         {[song.key, song.durationSeconds && formatDuration(song.durationSeconds)]
                           .filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                    {/* S12 (Hito 5 #78): a song with NO chart at all surfaces its
+                        risk inline — works for ANY empty song (Planning Center
+                        plan imports and plain drafts alike), no import-specific
+                        tracking needed: the flag is derived from the song state. */}
+                    {song && !song.body && !song.isPdf && (
+                      <span className="ml-2 text-xs font-medium text-cem-amber">
+                        Missing chart — add or import
                       </span>
                     )}
                     {song && setlist.versionIds?.[songId] && (
