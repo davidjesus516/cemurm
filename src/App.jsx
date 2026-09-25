@@ -17,6 +17,7 @@ import Bandmates from './pages/Bandmates.jsx'
 import Organizations from './pages/Organizations.jsx'
 import Services from './pages/Services.jsx'
 import ServiceDetail from './pages/ServiceDetail.jsx'
+import SubstitutionAssignment from './pages/SubstitutionAssignment.jsx'
 import Rehearsals from './pages/Rehearsals.jsx'
 import RehearsalDetail from './pages/RehearsalDetail.jsx'
 import Notifications from './pages/Notifications.jsx'
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
               { path: '/organizations', element: <Organizations /> },
               { path: '/services', element: <Services /> },
               { path: '/services/:id', element: <ServiceDetail /> },
+              { path: '/assignment/:serviceId', element: <SubstitutionAssignment /> },
               { path: '/rehearsals', element: <Rehearsals /> },
               { path: '/rehearsals/:id', element: <RehearsalDetail /> },
               { path: '/notifications', element: <Notifications /> },
