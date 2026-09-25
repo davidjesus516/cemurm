@@ -6,13 +6,80 @@
 // hardware fact, not an account preference. Offline-safe: read-through kv only
 // (preferences.getPreferences), zero network when a cached copy exists.
 
+import { useEffect, useState } from 'react'
 import { usePreferences } from '../hooks/usePreferences.js'
 import { useMidi } from '../hooks/useMidi.js'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { describeOutput, loadMidiSettings } from '../lib/midi.js'
+import {
+  disconnectSpotify,
+  ensureSpotifyConnected,
+  getSpotifyConnection,
+} from '../lib/enrichments.js'
 
 export default function Settings() {
   const { prefs, loading } = usePreferences()
   const midi = useMidi({ autoConnect: loadMidiSettings().permissionGranted })
+  const { user } = useAuth()
+
+  // Hito 5 #69: Spotify integration status. Offline-safe — getSpotifyConnection
+  // falls back to the localStorage mirror when the DB read fails, so the
+  // status renders with zero network. Connect is implicit on first enrichment
+  // (no OAuth in this feature); disconnect flips the row to 'revoked' and the
+  // applied metadata stays on the songs.
+  const [spotifyConnection, setSpotifyConnection] = useState(null)
+  const [connLoading, setConnLoading] = useState(true)
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [connError, setConnError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    if (!user?.id) {
+      setConnLoading(false)
+      return undefined
+    }
+    getSpotifyConnection(user.id)
+      .then((row) => { if (!cancelled) setSpotifyConnection(row) })
+      .catch(() => { if (!cancelled) setSpotifyConnection(null) })
+      .finally(() => { if (!cancelled) setConnLoading(false) })
+    return () => { cancelled = true }
+  }, [user?.id])
+
+  const spotifyStatus = spotifyConnection
+    ? (spotifyConnection.status === 'connected' ? 'connected' : 'revoked')
+    : 'none'
+
+  async function handleDisconnect() {
+    if (!user?.id) return
+    setDisconnecting(true)
+    setConnError('')
+    try {
+      const row = await disconnectSpotify(user.id)
+      // disconnectSpotify may yield no row when none existed — 'revoked' is
+      // still the honest status for the mirror + UI.
+      setSpotifyConnection(row || { status: 'revoked' })
+      setConfirmingDisconnect(false)
+    } catch {
+      setConnError('Could not disconnect right now — try again.')
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
+  // Reconnect flips the persisted row back to 'connected' (unique
+  // user_id+provider upsert — the smoke-tested path). Applied metadata remains
+  // throughout; enrichment just unlocks again.
+  async function handleReconnect() {
+    if (!user?.id) return
+    setConnError('')
+    try {
+      const row = await ensureSpotifyConnected(user.id)
+      setSpotifyConnection(row)
+    } catch {
+      setConnError('Could not connect right now — try again.')
+    }
+  }
 
   const rows = [
     {
@@ -119,6 +186,94 @@ export default function Settings() {
           Program mappings per song are saved with each setlist. MIDI output selection is
           browser-local and stored on this device.
         </p>
+      </div>
+
+      {/* Hito 5 #69: Spotify integration — status (green dot when connected),
+          inline-confirm Disconnect, and Reconnect after a revoke. The applied
+          metadata is never deleted: revocation only stops future enrichment
+          suggestions (scenario 8). */}
+      <div className="mt-8">
+        <h2 className="text-lg font-bold text-cem-text">Integrations</h2>
+        <p className="mt-1 text-sm text-cem-secondary">
+          External services that enrich your songs — connected automatically the first time you
+          enrich, no separate sign-in.
+        </p>
+
+        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-cem-text">Spotify</span>
+              {connLoading ? (
+                <span className="text-xs text-cem-secondary">Loading…</span>
+              ) : spotifyStatus === 'connected' ? (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-cem-emerald">
+                  <span className="h-2 w-2 rounded-full bg-cem-emerald" aria-hidden="true" />
+                  Connected
+                </span>
+              ) : spotifyStatus === 'revoked' ? (
+                <span className="text-xs font-medium text-cem-rose">Revoked</span>
+              ) : (
+                <span className="text-xs font-medium text-cem-secondary">Not connected</span>
+              )}
+            </div>
+
+            {spotifyStatus === 'connected' && !confirmingDisconnect && (
+              <button
+                type="button"
+                onClick={() => setConfirmingDisconnect(true)}
+                className="rounded border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-rose hover:bg-cem-rose/10"
+              >
+                Disconnect
+              </button>
+            )}
+
+            {spotifyStatus === 'revoked' && (
+              <button
+                type="button"
+                onClick={handleReconnect}
+                className="rounded border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated"
+              >
+                Reconnect
+              </button>
+            )}
+          </div>
+
+          {connError && (
+            <p className="mt-2 text-xs text-cem-rose" role="alert">{connError}</p>
+          )}
+
+          {spotifyStatus === 'connected' && confirmingDisconnect && (
+            <div className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2">
+              <p className="text-xs text-cem-rose">
+                Disconnect stops future enrichments. Metadata already applied stays on your songs.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                  className="rounded bg-cem-rose px-2 py-1 text-xs font-medium text-cem-base hover:bg-cem-rose/90 disabled:opacity-60"
+                >
+                  {disconnecting ? 'Disconnecting…' : 'Confirm disconnect'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDisconnect(false)}
+                  disabled={disconnecting}
+                  className="rounded border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <p className="mt-2 text-xs text-cem-secondary">
+            {spotifyStatus === 'revoked'
+              ? 'Disconnect stops future enrichments. Metadata already applied stays on your songs.'
+              : 'Connections are created automatically when you enrich a song.'}
+          </p>
+        </div>
       </div>
     </div>
   )

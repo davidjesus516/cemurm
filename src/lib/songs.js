@@ -202,6 +202,8 @@ function flattenSong(row) {
     bpm: v.base_tempo ?? null,
     durationSeconds: v.duration_seconds ?? null,
     isReady: v.is_ready,
+    // #69: version metadata flows through (album-art/provenance jsonb home).
+    metadata: v.metadata || {},
     body: (v.chart_file_id ? charts.find((c) => c.id === v.chart_file_id) : null)?.content || '',
   }))
 
@@ -211,6 +213,8 @@ function flattenSong(row) {
     title: row.title,
     key: latest?.base_key || '',
     bpm: latest?.base_tempo ?? null,
+    // #69: album-art/provenance of the latest version (external enrichment).
+    metadata: latest?.metadata || {},
     hasChordChart: !!chart?.content,
     body,
     durationSeconds: latest?.duration_seconds ?? null,
@@ -414,14 +418,23 @@ export function listPlayedAt(userId, songId) {
 /**
  * Update a song. Partial payload — only provided fields change.
  * After update, recompute readiness unless retired.
+ *
+ * Provenance (external-autotagging #69): `provenanceSource` defaults to
+ * 'manual' — when key or bpm is edited here (the USER edit form), the version
+ * metadata records provenance.<field> = { source:'manual', at } merged
+ * alongside any auto-filled entries (scenario 9). The enrichment apply path
+ * calls with 'spotify' so the SAME updateSong writes source:'spotify'
+ * provenance for the applied BPM; album art is merged separately
+ * (enrichments.saveAlbumArt), and the key never lands in base_key.
  */
 /**
  * @param {string} userId
  * @param {string} id
  * @param {SongInput} input
+ * @param {'manual' | 'spotify'} provenanceSource
  * @returns {Promise<Song>}
  */
-export async function updateSong(userId, id, { title, key, bpm, body, durationSeconds }) {
+export async function updateSong(userId, id, { title, key, bpm, body, durationSeconds }, provenanceSource = 'manual') {
   return withErrorMapping(async () => {
     // Fetch current state (throws 'Song not found.' if missing)
     const current = await fetchSongById(userId, id)
@@ -472,6 +485,18 @@ export async function updateSong(userId, id, { title, key, bpm, body, durationSe
         duration_seconds: newDuration,
         // ponytail: only recompute is_ready when not retired
         ...(isRetired ? {} : { is_ready: newStatus === 'ready' }),
+      }
+      // #69 provenance: key/bpm edits through this path record their source
+      // (manual by default; enrichment apply passes 'spotify') on the version
+      // metadata, merged alongside existing entries (album art, manual flags).
+      if (key !== undefined || bpm !== undefined) {
+        const metadata = { ...(current.metadata || {}) }
+        const provenance = { ...(metadata.provenance || {}) }
+        const at = new Date().toISOString()
+        if (key !== undefined) provenance.key = { source: provenanceSource, at }
+        if (bpm !== undefined) provenance.bpm = { source: provenanceSource, at }
+        metadata.provenance = provenance
+        verPatch.metadata = metadata
       }
       const { error } = await supabase
         .from('song_versions')
