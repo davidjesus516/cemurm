@@ -9,6 +9,7 @@ import { formatDuration } from '../lib/duration.js'
 import { filterSongs, matchedChords, parseTempoRange, songMatchesKey } from '../lib/search.js'
 import SongForm from '../components/songs/SongForm.jsx'
 import ImportQueue from '../components/import/ImportQueue.jsx'
+import ImportUrlDialog from '../components/import/ImportUrlDialog.jsx'
 
 /* eslint-disable react/prop-types */
 
@@ -38,10 +39,12 @@ export default function Songs() {
   const [tempoRange, setTempoRange] = useState(null)
   const [error, setError] = useState('')
 
-  // Hito 5 #78: import review queue + URL import handoff (dialog lands in T7).
+  // Hito 5 #78: import review queue + URL import handoff (S14/S15 — the
+  // dialog hands title/artist to the New Song form, never downloads content).
   const importRef = useRef(null)
   const [showImport, setShowImport] = useState(false)
   const [showUrlImport, setShowUrlImport] = useState(false)
+  const [urlPrefill, setUrlPrefill] = useState(null)
   const imports = useSongImports({ onImported: refresh })
 
   // ponytail: filter the full active list client-side with the pure helpers;
@@ -91,6 +94,17 @@ export default function Songs() {
       }
     }
     setShowForm(false)
+    setUrlPrefill(null)
+  }
+
+  // S14/S15 handoff: the URL dialog prefills the NEW song form and closes
+  // itself; the form's initial values come from the URL slug (metadata only).
+  function handleUrlPrefill(initial) {
+    setEditing(null)
+    setUrlPrefill(initial)
+    setShowForm(true)
+    setShowUrlImport(false)
+    setError('')
   }
 
   function startEdit(song) {
@@ -125,7 +139,7 @@ export default function Songs() {
           {!showForm && !editing && (
             <button
               type="button"
-              onClick={() => { setShowForm(true); setError('') }}
+              onClick={() => { setShowForm(true); setError(''); setUrlPrefill(null) }}
               className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
             >
               Add Song
@@ -178,11 +192,13 @@ export default function Songs() {
         />
       )}
 
-      {/* T7 placeholder — the URL metadata dialog replaces this block. */}
+      {/* T7: URL metadata dialog — chord-site refusal (exact S15 message) and
+          metadata-only prefill; NEVER fetches the pasted page. */}
       {showUrlImport && (
-        <div className="mt-4 rounded-lg border border-dashed border-cem-elevated bg-cem-surface p-6 text-center">
-          <p className="text-sm text-cem-secondary">URL import: paste a link to prefill title and artist. The metadata dialog arrives with the next step.</p>
-        </div>
+        <ImportUrlDialog
+          onClose={() => setShowUrlImport(false)}
+          onPrefill={handleUrlPrefill}
+        />
       )}
 
       {/* Active / Retired toggle */}
@@ -244,7 +260,12 @@ export default function Songs() {
       {showForm && (
         <div className="mt-4">
           <h2 className="mb-2 text-lg font-semibold text-cem-text">New Song</h2>
-          <SongForm onSubmit={handleAdd} onCancel={() => setShowForm(false)} submitLabel="Add Song" />
+          <SongForm
+            initial={urlPrefill || undefined}
+            onSubmit={handleAdd}
+            onCancel={() => { setShowForm(false); setUrlPrefill(null) }}
+            submitLabel="Add Song"
+          />
         </div>
       )}
 
