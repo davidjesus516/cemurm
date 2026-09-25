@@ -27,7 +27,10 @@ import {
  * Raw Supabase row shapes (select '*, chart_files(*), song_versions(*)').
  * @typedef {object} RawChartRow
  * @property {string} id
- * @property {string} content
+ * @property {string | null} content
+ * @property {'chordpro' | 'musicxml' | 'abc' | 'pdf'} format
+ * @property {string} object_key
+ * @property {number} size_bytes
  * @property {boolean} soft_deleted
  * @property {string} created_at
  */
@@ -42,6 +45,7 @@ import {
  * @property {number | null} duration_seconds
  * @property {boolean} is_ready
  * @property {string | null} chart_file_id
+ * @property {Record<string, unknown>} metadata
  * @property {string} created_at
  */
 
@@ -52,6 +56,10 @@ import {
  * @property {string} title
  * @property {string | null} artist
  * @property {string | null} genre
+ * @property {string | null} source
+ * @property {number | null} year
+ * @property {'public-domain' | 'CC-BY-4.0' | 'proprietary'} license
+ * @property {boolean} license_confirmed
  * @property {string} created_at
  * @property {string} updated_at
  * @property {boolean} is_deleted
@@ -84,10 +92,19 @@ import {
  * @property {number | null} bpm
  * @property {boolean} hasChordChart
  * @property {string} body
+ * @property {Record<string, unknown>} metadata
+ * @property {'chordpro' | 'musicxml' | 'abc' | 'pdf'} format
+ * @property {string} objectKey
+ * @property {number} sizeBytes
+ * @property {boolean} isPdf
  * @property {number | null} durationSeconds
  * @property {SongStatus} status
  * @property {string} artist
  * @property {string} genre
+ * @property {string} source
+ * @property {number | null} year
+ * @property {'public-domain' | 'CC-BY-4.0' | 'proprietary'} license
+ * @property {boolean} licenseConfirmed
  * @property {string} createdAt
  * @property {string} updatedAt
  * @property {string | null} deletedAt
@@ -100,6 +117,25 @@ import {
  */
 
 /**
+ * Import metadata for addSong (#78): declared fields land on the songs row
+ * (artist/genre/year/source/license — license falls back to the column
+ * default 'CC-BY-4.0' when omitted), version identity on the version row
+ * (versionName → name, changeNote → change_note), and importMeta is persisted
+ * as metadata.import on the version row. All optional — every existing call
+ * site behaves identically when meta is omitted.
+ * @typedef {object} SongMetaInput
+ * @property {string | null | undefined} [artist]
+ * @property {string | null | undefined} [genre]
+ * @property {number | null | undefined} [year]
+ * @property {string | null | undefined} [source]
+ * @property {'public-domain' | 'CC-BY-4.0' | 'proprietary' | undefined} [license]
+ * @property {boolean | undefined} [licenseConfirmed]
+ * @property {string | undefined} [versionName]
+ * @property {string | undefined} [changeNote]
+ * @property {Record<string, unknown> | undefined} [importMeta]
+ */
+
+/**
  * Mutation payload — every field optional, only provided fields change.
  * @typedef {object} SongInput
  * @property {string | undefined} [title]
@@ -108,6 +144,11 @@ import {
  * @property {boolean | undefined} [hasChordChart]
  * @property {string | undefined} [body]
  * @property {number | undefined} [durationSeconds]
+ * @property {string | null | undefined} [artist]
+ * @property {string | null | undefined} [genre]
+ * @property {number | null | undefined} [year]
+ * @property {File | undefined} [pdfFile]
+ * @property {SongMetaInput | undefined} [meta]
  */
 
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
@@ -305,6 +346,7 @@ async function fetchSongById(userId, id) {
 /**
  * #76: fire-and-forget offline cache of a PDF scan's blob (scenario 5).
  * No-op for chordpro songs; silent failure when offline/caching unavailable.
+ * @param {Song} song
  */
 export function maybeCachePdf(song) {
   if (!song?.isPdf || !song.objectKey) return
@@ -388,7 +430,7 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
       }
       const uploaded = await uploadPdf(userId, pdfFile)
       pdfPath = uploaded.path
-      pdfSize = check.sizeBytes
+      pdfSize = check.sizeBytes ?? 0
     }
 
     const readiness = pdfPath
@@ -396,7 +438,16 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
       : computeReadiness({ key: songKey, body: songBody })
 
     // 1. Insert songs row (#78: import metadata lands here when meta present)
-    const songPatch = { created_by: userId, title: trimmed }
+    const songPatch = /** @type {{
+      created_by: string,
+      title: string,
+      artist?: string | null,
+      genre?: string | null,
+      year?: number | null,
+      source?: string | null,
+      license?: 'public-domain' | 'CC-BY-4.0' | 'proprietary',
+      license_confirmed?: boolean,
+    }} */ ({ created_by: userId, title: trimmed })
     if (meta) {
       if (meta.artist !== undefined) songPatch.artist = meta.artist
       if (meta.genre !== undefined) songPatch.genre = meta.genre
@@ -436,7 +487,20 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
 
     // 3. Insert song_versions row (#78: import lineage — name/change_note/
     // metadata.import ride the version row when meta provides them)
-    const verPatch = {
+    const verPatch = /** @type {{
+      song_id: string,
+      name: string,
+      number: number,
+      chart_file_id: string,
+      base_key: string,
+      base_tempo: number | null,
+      duration_seconds: number | null,
+      is_ready: boolean,
+      owner_id: string,
+      created_by: string,
+      change_note?: string,
+      metadata?: Record<string, unknown>,
+    }} */ ({
       song_id: songRow.id,
       name: meta?.versionName || 'Original', // ponytail: not null constraint
       number: 1,
@@ -447,7 +511,7 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
       is_ready: readiness.status === 'ready',
       owner_id: userId,
       created_by: userId,
-    }
+    })
     if (meta) {
       if (meta.changeNote !== undefined) verPatch.change_note = meta.changeNote
       if (meta.importMeta) verPatch.metadata = { import: meta.importMeta }
@@ -472,6 +536,10 @@ export async function addSong(userId, { title, key, bpm, hasChordChart, body, du
  * from the current latest version. The PREVIOUS chart row and version are NOT
  * touched (previous scan preserved in version history — the picker still shows
  * v1 with its chart). Returns the refetched song.
+ * @param {string} userId
+ * @param {string} songId
+ * @param {File} file
+ * @returns {Promise<Song>}
  */
 export async function replacePdfScan(userId, songId, file) {
   return withErrorMapping(async () => {
@@ -667,19 +735,26 @@ export async function updateSong(userId, id, { title, key, bpm, body, durationSe
 
     // 3. Update song_versions row
     if (current.versionId) {
-      const verPatch = {
+      const verPatch = /** @type {{
+        base_key: string,
+        base_tempo: number | null,
+        duration_seconds: number | null,
+        is_ready?: boolean,
+        metadata?: Record<string, unknown>,
+      }} */ ({
         base_key: newKey,
         base_tempo: newBpm,
         duration_seconds: newDuration,
         // ponytail: only recompute is_ready when not retired
         ...(isRetired ? {} : { is_ready: newStatus === 'ready' }),
-      }
+      })
       // #69/#78 provenance: key/bpm/artist/genre/year edits through this path
       // record their source (manual by default; enrichment apply passes
       // 'spotify'; import conflict resolution passes 'import') on the version
       // metadata, merged alongside existing entries (album art, lyrics, flags).
       if (key !== undefined || bpm !== undefined || artist !== undefined
           || genre !== undefined || year !== undefined) {
+        /** @type {{ provenance?: Record<string, { source: string, at: string }>, [key: string]: unknown }} */
         const metadata = { ...(current.metadata || {}) }
         const provenance = { ...(metadata.provenance || {}) }
         const at = new Date().toISOString()

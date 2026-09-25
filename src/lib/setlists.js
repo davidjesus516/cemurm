@@ -24,6 +24,7 @@ import { normalizeProgram } from './midi.js'
  * @property {string} song_id
  * @property {number} position
  * @property {string | null} version_id
+ * @property {number | null} midi_program
  */
 
 /**
@@ -56,6 +57,7 @@ import { normalizeProgram } from './midi.js'
  * @property {SetlistVisibility} visibility
  * @property {string[]} itemIds
  * @property {Record<string, string>} versionIds
+ * @property {Record<string, number | null>} midiPrograms
  * @property {string} createdAt
  * @property {string} updatedAt
  * @property {boolean} isOwner
@@ -177,6 +179,7 @@ function flattenSetlist(row, userId) {
 
   // MIDI program per song (Hito 5 #56): map omits null entries so an
   // unmapped song simply has no key (Stage Mode reads ─ absent key = no send).
+  /** @type {Record<string, number>} */
   const midiPrograms = {}
   for (const item of items) {
     if (item.midi_program !== null && item.midi_program !== undefined) {
@@ -630,6 +633,11 @@ export async function setSongVersion(userId, setlistId, songId, versionId) {
  * replay re-applies the same value — idempotent).
  * `program`: null/'' clears the mapping ("No patch"); else an integer 0-127
  * (normalized via midi.js; the 0024 CHECK constraint is the final guard).
+ * @param {string} userId
+ * @param {string} setlistId
+ * @param {string} songId
+ * @param {number | null | ''} program
+ * @returns {Promise<Setlist>}
  */
 export async function setMidiProgram(userId, setlistId, songId, program) {
   return withErrorMapping(async () => {
@@ -648,7 +656,7 @@ export async function setMidiProgram(userId, setlistId, songId, program) {
       invalidateSetlists(userId, [setlistId])
       return setlist
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'setMidiProgram', args: [userId, setlistId, songId, program] })
       return buildOptimisticSetlist(userId, setlistId, {
         mutateItemIds: (itemIds) => itemIds,
