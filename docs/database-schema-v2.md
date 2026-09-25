@@ -111,6 +111,19 @@ Personal chord substitutions are keyed to the CONCRETE chart chord (music-theory
 | `user_vocal_ranges` (periodized) | `personal-preferences-and-adaptations` stores a manual range preference; the observed range history is derivable from performance records — recompute, don't persist |
 | `duplicate detection results` | The heuristic result is reviewable client-side; only confirmed decisions are stored (as `song_duplicates`) |
 
+> **Note on `overlay_sessions` (Hito 5, migration 0025):** the row above classified
+> `overlay_sessions` as client/runtime state ("realtime surface, not persistent rows")
+> and §2.10.2 mapped obs-overlay to expiring tokens. The OBS Browser Source runs in a
+> SEPARATE Chromium/CEF process, so BroadcastChannel/localStorage (the External Display
+> and Congregation Projection patterns) never cross browser instances; a Realtime channel
+> with an anon SELECT policy would leak every active session to any anonymous subscriber.
+> Migration 0025 therefore adds ONE minimal capability row per (user, setlist) + an
+> unauthenticated polling RPC (`overlay_state`): the unguessable session uuid IS the
+> "audience_views-style expiring token" (§2.10.2), and `status` active|inactive IS the
+> token window. The table is deny-by-default (authenticated lifecycle policies only) and
+> grants `overlay_state` EXECUTE to anon alone — the CEF source holds no JWT. Documented
+> deviation on the same pattern as 0023's `substitution_responses`.
+
 ---
 
 ## 2. Proposed schema v2
@@ -707,7 +720,7 @@ CREATE TABLE scale_catalog (              -- entity #43: extensible scale/mode c
 Three places the future realtime layer plugs in — schema already carries the ids/payloads it needs, nothing more:
 
 1. **Shared setlist edits** (`setlist_items`, `setlist_collaborators`) — Supabase Realtime subscription on `setlist_id`; the conflict toast ("Julian is editing Song B") is client-layer advisory state expressed as a lock, not a DB row (`shared-setlist-collaboration`). `setlist_collaborators.can_edit` is the authority the realtime filter consults.
-2. **Live performance / projection sync** (`performances`, `service_blocks`, `audience_views`) — operator device and display follow the same row (slide index + current song) via a realtime channel; the persistent side is `service_blocks` + `outbox`. `obs-overlay` sessions map to `audience_views`-style expiring tokens.
+2. **Live performance / projection sync** (`performances`, `service_blocks`, `audience_views`) — operator device and display follow the same row (slide index + current song) via a realtime channel; the persistent side is `service_blocks` + `outbox`. `obs-overlay` sessions map to `audience_views`-style expiring tokens: in Hito 5 (0025) the token is the `overlay_sessions.id` capability uuid and the window is the row's `status` (`active`|`inactive`), consumed by the public `overlay_state` polling RPC — see the §1.9 note.
 3. **Offline merge on reconnect** — `outbox.seq` gives deterministic replay order; an edge function re-runs each `payload` against RLS and returns a `conflict` state for items the UI then surfaces (conflict resolution screen). This is the actual offline merge contract the suite needs — per-entity semantic merge rules are app logic, not schema.
 
 ---

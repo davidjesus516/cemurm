@@ -9,6 +9,15 @@ import { usePreferences } from '../hooks/usePreferences.js'
 import { parseChordPro } from '../lib/chordpro/parser.js'
 import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
 import { loadMidiSettings } from '../lib/midi.js'
+import {
+  enableOverlay,
+  disableOverlay,
+  setOverlayMode,
+  pushOverlayState,
+  getOverlaySession,
+  loadOverlayId,
+  OVERLAY_URL,
+} from '../lib/overlay.js'
 
 const SWIPE_THRESHOLD = 48
 
@@ -33,6 +42,18 @@ export default function StageMode() {
   const [gigId, setGigId] = useState('')
   const [completing, setCompleting] = useState(false)
   const [completeError, setCompleteError] = useState('')
+
+  // OBS overlay (Hito 5 #66): operator-side stream session state. The public
+  // /overlay/:sessionId page is driven by a server-backed row, so the local
+  // id + status live here only as the operator's control surface.
+  const [streamOpen, setStreamOpen] = useState(false)
+  const [overlaySessionId, setOverlaySessionId] = useState(null)
+  const [overlayEnabled, setOverlayEnabled] = useState(false)
+  const [overlayMode, setOverlayModeState] = useState('title')
+  const [overlayBusy, setOverlayBusy] = useState(false)
+  const [overlayError, setOverlayError] = useState('')
+  const [overlayCopied, setOverlayCopied] = useState(false)
+  const copyTimeoutRef = useRef(null)
 
   const setlist = setlists.find((s) => s.id === id)
   const songs = setlist?.songs ?? []
@@ -166,6 +187,144 @@ export default function StageMode() {
     return semitones ? transposeKey(parsed.key, semitones) : parsed.key
   }, [parsed, semitones])
 
+  // ── OBS overlay (Hito 5 #66) ──────────────────────────────────────────────
+  // The public /overlay/:sessionId page (OBS Browser Source) mirrors this
+  // setlist's performance through a server-backed overlay_sessions row. The
+  // snapshot pushes the CHART AS RESOLVED by the stage (song.body) — transpose
+  // and capo are personal performance state and never reach the overlay.
+  // Snapshot shape: { song_index, song_total, song_title, song_key, chart_body }.
+  const buildSnapshot = useCallback(
+    () => ({
+      song_index: index,
+      song_total: songs.length,
+      song_title: song?.title ?? '',
+      song_key: parsed?.key ?? '',
+      chart_body: song?.body ?? '',
+    }),
+    [index, songs.length, song, parsed],
+  )
+
+  // Recover the session id + live status when the setlist loads: DB row first
+  // (source of truth), localStorage mirror as the offline fallback. While the
+  // DB says nothing, the overlay stays disabled — a safe default; re-enabling
+  // from the panel refreshes the row anyway.
+  useEffect(() => {
+    if (!setlist) return
+    let cancelled = false
+    const localId = loadOverlayId(setlist.id)
+    setOverlaySessionId(localId ?? null)
+    setOverlayEnabled(false)
+    setOverlayModeState('title')
+    async function restoreOverlay() {
+      try {
+        const session = await getOverlaySession(setlist.id)
+        if (cancelled) return
+        setOverlaySessionId(session?.id ?? localId ?? null)
+        setOverlayEnabled(session?.status === 'active')
+        setOverlayModeState(session?.mode ?? 'title')
+      } catch {
+        // DB read failed (offline/RLS) — keep the local-mirror id, stay
+        // disabled; never block stage mode.
+        if (cancelled) return
+      }
+    }
+    restoreOverlay()
+    return () => {
+      cancelled = true
+    }
+  }, [setlist])
+
+  // Push the current snapshot on song change (next AND back), skipping the
+  // first render so OPENING stage mode does not fire a write — identical
+  // shape to the MIDI Program Change effect above. Transpose/capo never push
+  // (keyed on song.id only).
+  const prevOverlaySongIdRef = useRef(null)
+  useEffect(() => {
+    if (!setlist || !song) return
+    if (prevOverlaySongIdRef.current === null) {
+      prevOverlaySongIdRef.current = song.id
+      return
+    }
+    if (prevOverlaySongIdRef.current === song.id) return
+    prevOverlaySongIdRef.current = song.id
+    if (!overlayEnabled) return
+    pushOverlayState(setlist.id, buildSnapshot())
+  }, [setlist, song, buildSnapshot, overlayEnabled])
+
+  // Absolute URL for OBS: the relative OVERLAY_URL path + this origin.
+  const overlayUrl =
+    overlaySessionId && typeof window !== 'undefined'
+      ? `${window.location.origin}${OVERLAY_URL(overlaySessionId)}`
+      : ''
+
+  async function handleEnableOverlay() {
+    setOverlayError('')
+    setOverlayBusy(true)
+    try {
+      const { id } = await enableOverlay(setlist.id, buildSnapshot())
+      setOverlaySessionId(id)
+      setOverlayEnabled(true)
+      setOverlayModeState('title')
+    } catch (err) {
+      // Enable failed (offline/RLS) — surface it, never block the show.
+      setOverlayError(err.message || 'Could not enable the OBS overlay.')
+    } finally {
+      setOverlayBusy(false)
+    }
+  }
+
+  async function handleDisableOverlay() {
+    setOverlayError('')
+    setOverlayBusy(true)
+    try {
+      await disableOverlay(setlist.id)
+      setOverlayEnabled(false)
+    } catch (err) {
+      // The row is still active — keep our state honest and let the operator
+      // retry; a failed kill must not silently claim "inactive".
+      setOverlayError(err.message || 'Could not disable the OBS overlay.')
+    } finally {
+      setOverlayBusy(false)
+    }
+  }
+
+  async function handleModeChange(nextMode) {
+    setOverlayError('')
+    setOverlayBusy(true)
+    try {
+      await setOverlayMode(setlist.id, nextMode)
+      setOverlayModeState(nextMode)
+    } catch (err) {
+      setOverlayError(err.message || 'Could not change the overlay mode.')
+    } finally {
+      setOverlayBusy(false)
+    }
+  }
+
+  async function handleCopyUrl() {
+    if (!overlayUrl) return
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(overlayUrl)
+      } else {
+        // Fallback for non-secure contexts: hidden textarea + execCommand.
+        const textarea = document.createElement('textarea')
+        textarea.value = overlayUrl
+        textarea.setAttribute('readonly', '')
+        textarea.className = 'sr-only'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setOverlayCopied(true)
+      clearTimeout(copyTimeoutRef.current)
+      copyTimeoutRef.current = setTimeout(() => setOverlayCopied(false), 1500)
+    } catch {
+      // Clipboard unavailable — the URL text stays selectable in the panel.
+    }
+  }
+
   if (loading) return <p className="text-sm text-cem-secondary">Loading setlist…</p>
 
   if (!setlist || !song) {
@@ -224,6 +383,19 @@ export default function StageMode() {
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => setStreamOpen((o) => !o)}
+            aria-label="Toggle OBS overlay stream panel"
+            aria-expanded={streamOpen}
+            className={`rounded border px-3 py-1 text-sm font-medium ${
+              overlayEnabled
+                ? 'border-cem-emerald/40 text-cem-emerald hover:bg-cem-emerald/10'
+                : 'border-white/20 hover:bg-white/10'
+            } ${streamOpen ? 'bg-white/10' : ''}`}
+          >
+            📺 Stream
+          </button>
+          <button
+            type="button"
             onClick={() => setSemitones((s) => s - 1)}
             className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
             aria-label="Transpose down"
@@ -240,6 +412,105 @@ export default function StageMode() {
           </button>
         </div>
       </header>
+
+      {/* Stream panel — OBS overlay operator controls (Hito 5 #66). Absolute
+          over the stage chrome so the performer view stays unobstructed when
+          collapsed. */}
+      {streamOpen && (
+        <div className="absolute right-2 top-16 z-40 w-80 rounded-lg border border-white/10 bg-cem-surface p-3 text-sm text-cem-text shadow-xl">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-white">Stream</h2>
+            {overlayEnabled ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-cem-emerald/15 px-2 py-0.5 text-xs font-medium text-cem-emerald">
+                <span className="h-1.5 w-1.5 rounded-full bg-cem-emerald" aria-hidden="true" />
+                Broadcasting
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/50">
+                <span className="h-1.5 w-1.5 rounded-full bg-white/30" aria-hidden="true" />
+                Inactive
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={overlayEnabled ? handleDisableOverlay : handleEnableOverlay}
+            disabled={overlayBusy}
+            className={`mt-3 w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50 ${
+              overlayEnabled
+                ? 'border border-cem-rose/40 text-cem-rose hover:bg-cem-rose/10'
+                : 'bg-cem-amber text-cem-base hover:bg-cem-amber/90'
+            }`}
+          >
+            {overlayEnabled ? 'Disable OBS overlay' : 'Enable OBS overlay'}
+          </button>
+
+          {overlayEnabled && (
+            <>
+              <div className="mt-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                  Overlay mode
+                </p>
+                <div className="mt-1 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('title')}
+                    disabled={overlayBusy}
+                    className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                      overlayMode === 'title'
+                        ? 'bg-cem-amber text-cem-base'
+                        : 'border border-white/20 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    Title only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('chords')}
+                    disabled={overlayBusy}
+                    className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                      overlayMode === 'chords'
+                        ? 'bg-cem-amber text-cem-base'
+                        : 'border border-white/20 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    Title + chords
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                  OBS Browser Source URL
+                </p>
+                <div className="mt-1 flex gap-1">
+                  <input
+                    readOnly
+                    value={overlayUrl}
+                    onFocus={(e) => e.target.select()}
+                    className="min-w-0 flex-1 rounded-md border border-white/20 bg-black px-2 py-1.5 text-xs text-white/80"
+                    aria-label="OBS Browser Source URL"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyUrl}
+                    className="rounded-md border border-white/20 px-2 py-1.5 text-xs font-medium hover:bg-white/10"
+                  >
+                    {overlayCopied ? 'Copied ✓' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {overlayError && (
+            <p className="mt-3 rounded-md bg-cem-rose/10 px-2 py-1.5 text-xs text-cem-rose">
+              {overlayError}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Song — high contrast, large text */}
       {song?.body && transposed ? (
