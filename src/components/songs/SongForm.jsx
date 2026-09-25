@@ -1,11 +1,13 @@
 /* eslint-disable react/prop-types */
 import { useState } from 'react'
 import { formatDuration, parseDurationInput } from '../../lib/duration.js'
+import { PDF_SIZE_MESSAGE, PDF_TYPE_MESSAGE, validatePdfFile } from '../../lib/pdfCharts.js'
 
 const inputClass =
   'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber disabled:bg-cem-elevated'
 
 export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
+  const isPdfSong = initial?.isPdf === true
   const [form, setForm] = useState({
     title: initial?.title || '',
     key: initial?.key || '',
@@ -13,6 +15,11 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
     hasChordChart: initial?.hasChordChart || false,
     duration: initial?.durationSeconds ? formatDuration(initial.durationSeconds) : '',
   })
+  // Hito 5 #76: chart source toggle — ChordPro text vs PDF scan. The form only
+  // SELECTS the file (no upload until save; addSong handles the upload).
+  const [source, setSource] = useState(isPdfSong ? 'pdf' : 'chordpro')
+  const [pdfFile, setPdfFile] = useState(null)
+  const [pdfError, setPdfError] = useState('')
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -20,6 +27,21 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
     const { name, value, type, checked } = e.target
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }))
+  }
+
+  function handleSourceChange(next) {
+    setSource(next)
+    setPdfFile(null)
+    setPdfError('')
+  }
+
+  function handlePdfPick(e) {
+    const file = e.target.files?.[0] || null
+    e.target.value = '' // allow re-selecting the same file
+    setPdfFile(file)
+    if (!file) { setPdfError(''); return }
+    const check = validatePdfFile(file)
+    setPdfError(check.ok ? '' : (check.reason === 'size' ? PDF_SIZE_MESSAGE : PDF_TYPE_MESSAGE))
   }
 
   function validate() {
@@ -30,6 +52,13 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
     }
     if (form.duration.trim() !== '' && parseDurationInput(form.duration) === null) {
       next.duration = 'Duration must be mm:ss or seconds (e.g. 3:30 or 210).'
+    }
+    // #76: a NEW pdf song needs a valid scan before save. Editing an existing
+    // PDF song (isPdfSong) only touches key/bpm/title here — the scan itself
+    // is replaced from the song page (replacePdfScan); file stays optional.
+    if (source === 'pdf' && !isPdfSong) {
+      if (!pdfFile) next.pdf = 'Choose a PDF scan file.'
+      else if (pdfError) next.pdf = pdfError
     }
     return next
   }
@@ -47,6 +76,7 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
         bpm: form.bpm !== '' ? Number(form.bpm) : null,
         hasChordChart: form.hasChordChart,
         durationSeconds: form.duration.trim() !== '' ? parseDurationInput(form.duration) : null,
+        pdfFile: source === 'pdf' ? pdfFile : null,
       })
     } finally {
       setSubmitting(false)
@@ -112,17 +142,68 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
         {errors.duration && <p className="mt-1 text-xs text-cem-rose">{errors.duration}</p>}
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-cem-text">
-        <input
-          type="checkbox"
-          name="hasChordChart"
-          checked={form.hasChordChart}
-          onChange={handleChange}
-          disabled={submitting}
-          className="rounded border-cem-elevated"
-        />
-        Has chord chart
-      </label>
+      {/* Hito 5 #76: chart source — ChordPro text (existing) vs PDF scan */}
+      <div>
+        <span className="block text-sm font-medium text-cem-text">Chart source</span>
+        <div className="mt-1 flex w-fit gap-1 rounded-md border border-cem-elevated p-0.5">
+          <button
+            type="button"
+            onClick={() => handleSourceChange('chordpro')}
+            disabled={submitting}
+            className={`rounded px-3 py-1 text-sm font-medium disabled:opacity-60 ${source === 'chordpro' ? 'bg-cem-amber text-cem-base' : 'text-cem-secondary hover:bg-cem-elevated'}`}
+          >
+            ChordPro text
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSourceChange('pdf')}
+            disabled={submitting}
+            className={`rounded px-3 py-1 text-sm font-medium disabled:opacity-60 ${source === 'pdf' ? 'bg-cem-amber text-cem-base' : 'text-cem-secondary hover:bg-cem-elevated'}`}
+          >
+            PDF scan
+          </button>
+        </div>
+      </div>
+
+      {source === 'pdf' ? (
+        <div>
+          <label htmlFor="song-pdf" className="block text-sm font-medium text-cem-text">
+            PDF scan {isPdfSong ? '' : '*'}
+          </label>
+          <input
+            id="song-pdf"
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={handlePdfPick}
+            disabled={submitting || isPdfSong}
+            className="mt-1 block w-full text-sm text-cem-secondary file:mr-3 file:rounded-md file:border-0 file:bg-cem-elevated file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-cem-text hover:file:bg-cem-elevated/80 disabled:opacity-60"
+          />
+          {isPdfSong
+            ? (
+              <p className="mt-1 text-xs text-cem-secondary">
+                Current chart is a PDF scan — replace it from the song page (version history keeps the previous scan).
+              </p>
+            )
+            : (
+              <>
+                {pdfFile && <p className="mt-1 text-xs text-cem-text">Chosen: {pdfFile.name}</p>}
+                {(errors.pdf || pdfError) && <p className="mt-1 text-xs text-cem-rose">{errors.pdf || pdfError}</p>}
+              </>
+            )}
+        </div>
+      ) : (
+        <label className="flex items-center gap-2 text-sm text-cem-text">
+          <input
+            type="checkbox"
+            name="hasChordChart"
+            checked={form.hasChordChart}
+            onChange={handleChange}
+            disabled={submitting}
+            className="rounded border-cem-elevated"
+          />
+          Has chord chart
+        </label>
+      )}
 
       <div className="flex gap-2">
         <button

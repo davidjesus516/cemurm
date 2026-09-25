@@ -9,6 +9,8 @@ import { usePreferences } from '../hooks/usePreferences.js'
 import { parseChordPro } from '../lib/chordpro/parser.js'
 import { initialSemitones, transposeParsed, transposeKey } from '../lib/transpose.js'
 import { loadMidiSettings } from '../lib/midi.js'
+import { getCachedPdfBlob, objectUrlForBlob } from '../lib/pdfCharts.js'
+import PdfChartViewer from '../components/songs/PdfChartViewer.jsx'
 import {
   enableOverlay,
   disableOverlay,
@@ -32,6 +34,11 @@ export default function StageMode() {
   const [index, setIndex] = useState(0)
   const [semitones, setSemitones] = useState(0)
   const touchStartRef = useRef(null)
+  // Hito 5 #76: offline-cached scan blob exposed as an objectURL (scenario 5)
+  // — when a cached blob exists the PDF viewer renders it with ZERO network;
+  // otherwise it signs the object path online. Released on song change/unmount.
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
+  const pdfBlobUrlRef = useRef(null)
   // Post-show completion (PR#1c): mark each setlist song played/skipped,
   // add encores (off_setlist), then completeGig writes the single
   // performance record the gig owns (spec post-show scenario).
@@ -57,6 +64,7 @@ export default function StageMode() {
 
   const setlist = setlists.find((s) => s.id === id)
   const songs = setlist?.songs ?? []
+  const song = songs[index]
   // Only open gigs (planned/confirmed) can be completed from the stage;
   // a setlist may serve several, so the panel offers a picker when >1.
   const openGigs = allGigs.filter(
@@ -121,8 +129,10 @@ export default function StageMode() {
     function onKey(e) {
       if (e.key === 'ArrowRight' || e.key === 'PageDown') goTo(index + 1)
       else if (e.key === 'ArrowLeft' || e.key === 'PageUp') goTo(index - 1)
-      else if (e.key === '+') setSemitones((s) => s + 1)
-      else if (e.key === '-') setSemitones((s) => s - 1)
+      // #76: transpose applies to chord data only — PDF scans have none, so a
+      // new scan is the only way to change key (scenario 7 mirror).
+      else if (e.key === '+' && !song?.isPdf) setSemitones((s) => s + 1)
+      else if (e.key === '-' && !song?.isPdf) setSemitones((s) => s - 1)
       else if (e.key === 'Escape') {
         if (finishing) setFinishing(false)
         else navigate(`/setlists/${id}`)
@@ -130,7 +140,7 @@ export default function StageMode() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goTo, index, id, navigate, finishing])
+  }, [goTo, index, id, navigate, finishing, song])
 
   // Touch: swipe left/right changes song.
   function onTouchStart(e) {
@@ -145,8 +155,6 @@ export default function StageMode() {
     if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return
     goTo(index + (dx < 0 ? 1 : -1))
   }
-
-  const song = songs[index]
 
   // MIDI program change (Hito 5 #56): a configured output device sends the
   // current song's mapped Program Change (0-127). First render is skipped so
@@ -187,12 +195,44 @@ export default function StageMode() {
     return semitones ? transposeKey(parsed.key, semitones) : parsed.key
   }, [parsed, semitones])
 
+  // Hito 5 #76: resolve the OFFLINE-cached blob for the current song as an
+  // objectURL (scenario 5). Cache hit → viewer renders with zero network;
+  // miss → viewer signs the object path online (its own effect). Released on
+  // song change / unmount. One effect covers set + cleanup so the objectURL
+  // can never outlive the song it was created for.
+  useEffect(() => {
+    if (!song?.isPdf || !song?.objectKey) {
+      if (pdfBlobUrlRef.current) URL.revokeObjectURL(pdfBlobUrlRef.current)
+      pdfBlobUrlRef.current = null
+      setPdfBlobUrl(null)
+      return undefined
+    }
+    let cancelled = false
+    getCachedPdfBlob(song.objectKey).then((blob) => {
+      if (cancelled || !blob) return
+      const url = objectUrlForBlob(blob)
+      if (!url) return
+      if (pdfBlobUrlRef.current) URL.revokeObjectURL(pdfBlobUrlRef.current)
+      pdfBlobUrlRef.current = url
+      setPdfBlobUrl(url)
+    })
+    return () => {
+      cancelled = true
+      if (pdfBlobUrlRef.current) URL.revokeObjectURL(pdfBlobUrlRef.current)
+      pdfBlobUrlRef.current = null
+      setPdfBlobUrl(null)
+    }
+  }, [song?.id, song?.isPdf, song?.objectKey])
+
   // ── OBS overlay (Hito 5 #66) ──────────────────────────────────────────────
   // The public /overlay/:sessionId page (OBS Browser Source) mirrors this
   // setlist's performance through a server-backed overlay_sessions row. The
   // snapshot pushes the CHART AS RESOLVED by the stage (song.body) — transpose
   // and capo are personal performance state and never reach the overlay.
   // Snapshot shape: { song_index, song_total, song_title, song_key, chart_body }.
+  // #76: PDF-chart songs push chart_body: '' — chords are not extractable from
+  // a scan, so the overlay honestly shows title only (chords mode falls back
+  // to the title; see overlay page).
   const buildSnapshot = useCallback(
     () => ({
       song_index: index,
@@ -375,7 +415,10 @@ export default function StageMode() {
           <p className="text-sm font-bold">{song.title || 'Untitled'}</p>
           <p className="text-xs text-white/60">
             {index + 1} / {songs.length}
-            {displayKey && ` · Key ${displayKey}`}
+            {/* #76: PDF songs carry no chord data — show the DECLARED key
+                (no transpose applies); ChordPro shows the transposed one. */}
+            {song?.isPdf && song.key && ` · Key ${song.key}`}
+            {!song?.isPdf && displayKey && ` · Key ${displayKey}`}
             {semitones !== 0 && ` (${semitones > 0 ? '+' : ''}${semitones})`}
           </p>
         </div>
@@ -394,22 +437,33 @@ export default function StageMode() {
           >
             📺 Stream
           </button>
-          <button
-            type="button"
-            onClick={() => setSemitones((s) => s - 1)}
-            className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
-            aria-label="Transpose down"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            onClick={() => setSemitones((s) => s + 1)}
-            className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
-            aria-label="Transpose up"
-          >
-            +
-          </button>
+          {/* #76: PDF scans carry no chord data — transpose controls are HIDDEN
+              for them (scenario 4 + 7); the note replaces them (a new scan is
+              the only way to change key). */}
+          {song?.isPdf ? (
+            <span className="max-w-48 text-right text-[10px] leading-tight text-white/50">
+              PDF scans need a new scan to change key
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setSemitones((s) => s - 1)}
+                className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
+                aria-label="Transpose down"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setSemitones((s) => s + 1)}
+                className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
+                aria-label="Transpose up"
+              >
+                +
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -512,8 +566,19 @@ export default function StageMode() {
         </div>
       )}
 
-      {/* Song — high contrast, large text */}
-      {song?.body && transposed ? (
+      {/* Song — ChordPro renders as high-contrast large text; PDF scans use the
+      shared PdfChartViewer full-height with its zoom toolbar, and the offline
+      cache objectURL when one exists (blobUrl) — zero network on stage. */}
+      {song?.isPdf ? (
+        <div className="min-h-0 flex-1 overflow-hidden px-4 py-4">
+          <PdfChartViewer
+            title={song.title}
+            objectPath={song.objectKey}
+            sizeBytes={song.sizeBytes}
+            blobUrl={pdfBlobUrl || undefined}
+          />
+        </div>
+      ) : song?.body && transposed ? (
         <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-6">
           <div className="space-y-3 text-xl leading-relaxed md:text-2xl">
             {transposed.sections.map((section, i) => (
