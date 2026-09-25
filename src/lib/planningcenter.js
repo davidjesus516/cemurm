@@ -224,7 +224,7 @@ export function matchPlanSong(planSong, librarySongs) {
  * createSetlist/addSongToSetlist would enqueue — the UI gate prevents that
  * split; the lib documents the boundary.
  */
-export async function importPlanToSetlist(userId, plan, { librarySongs } = null) {
+export async function importPlanToSetlist(userId, plan, { librarySongs } = {}) {
   const conn = await getPcoConnection(userId)
   const gate = connectionGate(conn)
   if (gate) return gate
