@@ -14,7 +14,7 @@ import { formatDuration } from '../lib/duration.js'
 export default function SetlistDetail() {
   const { id } = useParams()
   const { user } = useAuth()
-  const { setlists, loading, refresh, refreshSilent, updateSetlist, addSong, removeSong, moveSong, setSongVersion } = useSetlists()
+  const { setlists, loading, refresh, refreshSilent, updateSetlist, addSong, removeSong, moveSong, setSongVersion, setMidiProgram } = useSetlists()
   const { songs: availableSongs, loading: songsLoading } = useSongs()
   const { active: bandmates } = useBandmates()
   const [error, setError] = useState('')
@@ -101,6 +101,9 @@ export default function SetlistDetail() {
   const deepLinkedSong = searchParams.get('song')
   const [highlightedSong, setHighlightedSong] = useState(null)
   const lastScrolledSong = useRef(null)
+  // MIDI program input drafts (Hito 5 #56): the input is controlled per item
+  // so typing isn't clobbered by realtime/shared refreshes; committed on blur.
+  const [midiDrafts, setMidiDrafts] = useState({})
 
   useEffect(() => {
     // Wait for BOTH gates to clear: until then the <ol> with the item rows is
@@ -623,6 +626,43 @@ export default function SetlistDetail() {
                         ))}
                       </select>
                     )}
+                    {/* Hito 5 #56: optional Program Change (0-127) sent by Stage
+                        Mode when this song becomes current; empty = No patch.
+                        Committed on blur (or Enter), same collab lock as the
+                        version picker. */}
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="0"
+                        max="127"
+                        placeholder="No patch"
+                        value={midiDrafts[songId] ?? setlist.midiPrograms?.[songId] ?? ''}
+                        onChange={(e) => setMidiDrafts((d) => ({ ...d, [songId]: e.target.value }))}
+                        onFocus={() => {
+                          if (setlist.canEdit) collab.acquireLock(songId)
+                        }}
+                        onBlur={() => {
+                          if (!setlist.canEdit) return
+                          collab.releaseLock(songId)
+                          const raw = midiDrafts[songId]
+                          if (raw === undefined) return
+                          setMidiProgram(setlist.id, songId, raw === '' ? null : raw)
+                            .then(() => setMidiDrafts((d) => ({ ...d, [songId]: undefined })))
+                            .catch((err) => setError(err.message))
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur()
+                        }}
+                        disabled={lockedByOther || !setlist.canEdit}
+                        title={
+                          lockedByOther
+                            ? `Being edited by ${lock.actor || 'another member'}`
+                            : 'MIDI Program Change (0-127); empty = No patch'
+                        }
+                        className="w-20 rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none disabled:opacity-60"
+                      />
+                      <span className="text-xs text-cem-secondary">MIDI</span>
+                    </div>
                   </div>
                 </div>
                 {setlist.canEdit && !lockedByOther && (

@@ -24,6 +24,7 @@ const WRITE_OPS = {
   removeSongFromSetlist: setlists.removeSongFromSetlist,
   moveSongInSetlist: setlists.moveSongInSetlist,
   setSongVersion: setlists.setSongVersion,
+  setMidiProgram: setlists.setMidiProgram,
   // 2.6 (R5): collaboration ops are replay-safe because they re-run their own
   // guards against server state — share targets are filtered against the
   // current roster, permission/removal are idempotent, and transferOwnership

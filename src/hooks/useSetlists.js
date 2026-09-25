@@ -120,6 +120,12 @@ export function useSetlists() {
     return updated
   }
 
+  async function setMidiProgram(setlistId, songId, program) {
+    const updated = await setlistStore.setMidiProgram(user.id, setlistId, songId, program)
+    setSetlists((prev) => prev.map((s) => (s.id === setlistId ? updated : s)))
+    return updated
+  }
+
   async function getSetlist(id) {
     return setlistStore.getSetlist(user.id, id)
   }
@@ -137,6 +143,7 @@ export function useSetlists() {
     removeSong,
     moveSong,
     setSongVersion,
+    setMidiProgram,
     getSetlist,
   }
 }
