@@ -595,6 +595,15 @@ export default function SetlistDetail() {
                           .filter(Boolean).join(' · ')}
                       </span>
                     )}
+                    {/* S12 (Hito 5 #78): a song with NO chart at all surfaces its
+                        risk inline — works for ANY empty song (Planning Center
+                        plan imports and plain drafts alike), no import-specific
+                        tracking needed: the flag is derived from the song state. */}
+                    {song && !song.body && !song.isPdf && (
+                      <span className="ml-2 text-xs font-medium text-cem-amber">
+                        Missing chart — add or import
+                      </span>
+                    )}
                     {song && setlist.versionIds?.[songId] && (
                       <span className="ml-2 text-xs font-medium text-cem-amber">
                         {song.versions.find((v) => v.id === setlist.versionIds[songId])?.name || ''}

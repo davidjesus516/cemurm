@@ -16,6 +16,11 @@ import {
   ensureSpotifyConnected,
   getSpotifyConnection,
 } from '../lib/enrichments.js'
+import {
+  disconnectPco,
+  ensurePcoConnected,
+  getPcoConnection,
+} from '../lib/planningcenter.js'
 
 export default function Settings() {
   const { prefs, loading } = usePreferences()
@@ -33,6 +38,16 @@ export default function Settings() {
   const [disconnecting, setDisconnecting] = useState(false)
   const [connError, setConnError] = useState('')
 
+  // Hito 5 #78: Planning Center integration status — same contract as the
+  // Spotify row (external_connections, provider 'planningcenter'), same
+  // offline-safe mirror fallback. Revoke flips the row; imported setlists
+  // remain ordinary rows and are never deleted.
+  const [pcoConnection, setPcoConnection] = useState(null)
+  const [pcoConnLoading, setPcoConnLoading] = useState(true)
+  const [confirmingPcoDisconnect, setConfirmingPcoDisconnect] = useState(false)
+  const [pcoDisconnecting, setPcoDisconnecting] = useState(false)
+  const [pcoConnError, setPcoConnError] = useState('')
+
   useEffect(() => {
     let cancelled = false
     if (!user?.id) {
@@ -43,6 +58,19 @@ export default function Settings() {
       .then((row) => { if (!cancelled) setSpotifyConnection(row) })
       .catch(() => { if (!cancelled) setSpotifyConnection(null) })
       .finally(() => { if (!cancelled) setConnLoading(false) })
+    return () => { cancelled = true }
+  }, [user?.id])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!user?.id) {
+      setPcoConnLoading(false)
+      return undefined
+    }
+    getPcoConnection(user.id)
+      .then((row) => { if (!cancelled) setPcoConnection(row) })
+      .catch(() => { if (!cancelled) setPcoConnection(null) })
+      .finally(() => { if (!cancelled) setPcoConnLoading(false) })
     return () => { cancelled = true }
   }, [user?.id])
 
@@ -78,6 +106,40 @@ export default function Settings() {
       setSpotifyConnection(row)
     } catch {
       setConnError('Could not connect right now — try again.')
+    }
+  }
+
+  const pcoStatus = pcoConnection
+    ? (pcoConnection.status === 'connected' ? 'connected' : 'revoked')
+    : 'none'
+
+  async function handlePcoDisconnect() {
+    if (!user?.id) return
+    setPcoDisconnecting(true)
+    setPcoConnError('')
+    try {
+      const row = await disconnectPco(user.id)
+      // disconnectPco may yield no row when none existed — 'revoked' is
+      // still the honest status for the mirror + UI.
+      setPcoConnection(row || { status: 'revoked' })
+      setConfirmingPcoDisconnect(false)
+    } catch {
+      setPcoConnError('Could not disconnect right now — try again.')
+    } finally {
+      setPcoDisconnecting(false)
+    }
+  }
+
+  // Reconnect flips the persisted row back to 'connected' (unique
+  // user_id+provider upsert — same smoke-tested path as Spotify).
+  async function handlePcoReconnect() {
+    if (!user?.id) return
+    setPcoConnError('')
+    try {
+      const row = await ensurePcoConnected(user.id)
+      setPcoConnection(row)
+    } catch {
+      setPcoConnError('Could not connect right now — try again.')
     }
   }
 
@@ -272,6 +334,98 @@ export default function Settings() {
             {spotifyStatus === 'revoked'
               ? 'Disconnect stops future enrichments. Metadata already applied stays on your songs.'
               : 'Connections are created automatically when you enrich a song.'}
+          </p>
+        </div>
+
+        {/* Hito 5 #78: Planning Center integration — mirrors the Spotify card
+            above (same external_connections contract, provider
+            'planningcenter'). Connect = upsert to 'connected' (mock provider;
+            real OAuth needs a server-side callback — docs/local-dev.md),
+            Disconnect flips to 'revoked' and imported setlists remain. */}
+        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-cem-text">Planning Center</span>
+              {pcoConnLoading ? (
+                <span className="text-xs text-cem-secondary">Loading…</span>
+              ) : pcoStatus === 'connected' ? (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-cem-emerald">
+                  <span className="h-2 w-2 rounded-full bg-cem-emerald" aria-hidden="true" />
+                  Connected
+                </span>
+              ) : pcoStatus === 'revoked' ? (
+                <span className="text-xs font-medium text-cem-rose">Revoked</span>
+              ) : (
+                <span className="text-xs font-medium text-cem-secondary">Not connected</span>
+              )}
+            </div>
+
+            {pcoStatus === 'connected' && !confirmingPcoDisconnect && (
+              <button
+                type="button"
+                onClick={() => setConfirmingPcoDisconnect(true)}
+                className="rounded border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-rose hover:bg-cem-rose/10"
+              >
+                Disconnect
+              </button>
+            )}
+
+            {pcoStatus === 'revoked' && (
+              <button
+                type="button"
+                onClick={handlePcoReconnect}
+                className="rounded border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated"
+              >
+                Reconnect
+              </button>
+            )}
+
+            {pcoStatus === 'none' && (
+              <button
+                type="button"
+                onClick={handlePcoReconnect}
+                className="rounded border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated"
+              >
+                Connect
+              </button>
+            )}
+          </div>
+
+          {pcoConnError && (
+            <p className="mt-2 text-xs text-cem-rose" role="alert">{pcoConnError}</p>
+          )}
+
+          {pcoStatus === 'connected' && confirmingPcoDisconnect && (
+            <div className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2">
+              <p className="text-xs text-cem-rose">
+                Disconnect stops future plan imports and exports. Setlists already imported stay in
+                your library.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handlePcoDisconnect}
+                  disabled={pcoDisconnecting}
+                  className="rounded bg-cem-rose px-2 py-1 text-xs font-medium text-cem-base hover:bg-cem-rose/90 disabled:opacity-60"
+                >
+                  {pcoDisconnecting ? 'Disconnecting…' : 'Confirm disconnect'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingPcoDisconnect(false)}
+                  disabled={pcoDisconnecting}
+                  className="rounded border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <p className="mt-2 text-xs text-cem-secondary">
+            {pcoStatus === 'revoked'
+              ? 'Disconnect stops future imports and exports. Setlists already imported stay in your library.'
+              : 'Import service plans as setlists and push setlist keys back — mock provider in development (real OAuth later).'}
           </p>
         </div>
       </div>

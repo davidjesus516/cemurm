@@ -1,13 +1,52 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSetlists } from '../hooks/useSetlists.js'
+import { usePlanningCenter } from '../hooks/usePlanningCenter.js'
 
 export default function Setlists() {
   const { setlists, loading, createSetlist, deleteSetlist, duplicateSetlist } = useSetlists()
+  const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Hito 5 #78: Planning Center plan import. onImported navigates straight to
+  // the new `<name> (from Planning Center)` setlist; the detail page's fresh
+  // read shows the order + the missing-chart flags (S12).
+  const pco = usePlanningCenter({
+    onImported: (res) => navigate(`/setlists/${res.setlistId}`),
+  })
+  const [showPcoPicker, setShowPcoPicker] = useState(false)
+  const [pcoImportError, setPcoImportError] = useState('')
+  const [importingPlanId, setImportingPlanId] = useState('')
+
+  const pcoConnected = pco.connection?.status === 'connected'
+  const pcoRevoked = pco.connection?.status === 'revoked'
+
+  function togglePcoPicker() {
+    const next = !showPcoPicker
+    setShowPcoPicker(next)
+    setPcoImportError('')
+    // Lazy plan fetch on first open (never on mount — keep the page light).
+    if (next && pco.plans.length === 0 && pco.state !== 'working') {
+      pco.loadPlans()
+    }
+  }
+
+  async function handleImportPlan(plan) {
+    setImportingPlanId(plan.id)
+    setPcoImportError('')
+    try {
+      const res = await pco.importPlan(plan)
+      if (!res?.ok) setPcoImportError(res?.error || 'Could not import the plan.')
+      // Success navigates via onImported (above).
+    } catch (err) {
+      setPcoImportError(err.message)
+    } finally {
+      setImportingPlanId('')
+    }
+  }
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -43,16 +82,77 @@ export default function Setlists() {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-cem-text">Setlists</h1>
-        {!showForm && (
+        <div className="flex items-center gap-2">
+          {pcoConnected && !showForm && (
+            <button
+              type="button"
+              onClick={togglePcoPicker}
+              className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated"
+            >
+              Import from Planning Center
+            </button>
+          )}
+          {!showForm && (
+            <button
+              type="button"
+              onClick={() => { setShowForm(true); setError('') }}
+              className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            >
+              New Setlist
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* S13: a revoked integration hides the import surface and says why —
+          the reconnect path lives in Settings. */}
+      {pcoRevoked && (
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
+          integration revoked — reconnect in Settings
+        </p>
+      )}
+
+      {showPcoPicker && (
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold text-cem-text">Import from Planning Center</h2>
+          {pco.state === 'working' ? (
+            <p className="text-sm text-cem-secondary">Loading plans…</p>
+          ) : pco.plans.length === 0 ? (
+            <p className="text-sm text-cem-secondary">No plans to import.</p>
+          ) : (
+            <ul className="divide-y divide-cem-elevated">
+              {pco.plans.map((plan) => (
+                <li key={plan.id} className="flex items-center justify-between gap-3 py-2">
+                  <div>
+                    <span className="text-sm font-medium text-cem-text">{plan.name}</span>
+                    <span className="ml-2 text-xs text-cem-secondary">
+                      {plan.songs.length} song{plan.songs.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleImportPlan(plan)}
+                    disabled={importingPlanId === plan.id}
+                    className="rounded-md bg-cem-amber px-3 py-1 text-xs font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
+                  >
+                    {importingPlanId === plan.id ? 'Importing…' : 'Import'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {pcoImportError && (
+            <p className="mt-2 text-xs text-cem-rose" role="alert">{pcoImportError}</p>
+          )}
           <button
             type="button"
-            onClick={() => { setShowForm(true); setError('') }}
-            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            onClick={() => setShowPcoPicker(false)}
+            className="mt-3 text-xs font-medium text-cem-secondary hover:underline"
           >
-            New Setlist
+            Close
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="mt-4 flex items-start gap-2">
