@@ -1,3 +1,4 @@
+// @ts-check
 // Supabase data layer for gigs — CRUD + lifecycle (PR#1a-lifecycle, hito-2-remainder).
 // Offline writes (2a.6, D6): on connectivity failure createGig/updateGig/
 // completeGig enqueue into the shared outbox (FIFO per user, survives SW
@@ -10,7 +11,12 @@
 
 // ponytail: lazy import — supabase.js reads import.meta.env at eval
 // (Vite-only) and would crash the node demo() test. Runtime unchanged.
+/** @type {import('@supabase/supabase-js').SupabaseClient | null} */
 let supabaseClient = null
+
+/**
+ * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}
+ */
 async function getSupabase() {
   if (!supabaseClient) supabaseClient = (await import('./supabase.js')).supabase
   return supabaseClient
@@ -20,14 +26,168 @@ async function getSupabase() {
 import { offlineGet, offlineSet } from './offlineCache.js'
 import { enqueueOp } from './offlineQueue.js'
 
+/**
+ * @typedef {'planned' | 'confirmed' | 'completed' | 'cancelled'} GigStatus
+ */
+
+/**
+ * @typedef {'played' | 'skipped' | 'off_setlist'} PlayState
+ */
+
+/**
+ * Raw Supabase row shapes (gigs select '*, performances(*, performance_items(*))').
+ * @typedef {object} RawVenueRow
+ * @property {string} id
+ * @property {string} owner_id
+ * @property {string} name
+ * @property {string | null} [location]
+ * @property {string | null} [type]
+ */
+
+/**
+ * @typedef {object} RawPerformanceItemRow
+ * @property {string} id
+ * @property {string} performance_id
+ * @property {string} song_id
+ * @property {string | null} version_id
+ * @property {PlayState} state
+ * @property {number | null} position
+ */
+
+/**
+ * @typedef {object} RawPerformanceRow
+ * @property {string} id
+ * @property {string} gig_id
+ * @property {string | null} venue_id
+ * @property {string} performed_at
+ * @property {RawPerformanceItemRow[]} [performance_items]
+ */
+
+/**
+ * @typedef {object} RawGigRow
+ * @property {string} id
+ * @property {string} org_id
+ * @property {string | null} branch_id
+ * @property {string} owner_id
+ * @property {string} name
+ * @property {string | null} venue_id
+ * @property {string} scheduled_at
+ * @property {string | null} setlist_id
+ * @property {GigStatus} status
+ * @property {boolean} shared_to_branch
+ * @property {string} created_at
+ * @property {RawPerformanceRow[]} performances
+ */
+
+/**
+ * Flattened app shapes (flattenGig/flattenPerformance/flattenVenue).
+ * Offline optimistic stubs reuse them and may set updatedAt/pendingSync.
+ * @typedef {object} PerformanceItem
+ * @property {string} id
+ * @property {string} songId
+ * @property {string | null} versionId
+ * @property {PlayState} state
+ * @property {number | null} position
+ */
+
+/**
+ * @typedef {object} Performance
+ * @property {string} id
+ * @property {string} gigId
+ * @property {string | null} venueId
+ * @property {string} performedAt
+ * @property {PerformanceItem[]} items
+ */
+
+/**
+ * @typedef {object} Gig
+ * @property {string} id
+ * @property {string | null} orgId
+ * @property {string | null} branchId
+ * @property {string} userId
+ * @property {string} name
+ * @property {string | null} venueId
+ * @property {string} scheduledAt
+ * @property {string | null} setlistId
+ * @property {GigStatus} status
+ * @property {boolean} sharedToBranch
+ * @property {string} createdAt
+ * @property {Performance | null} performance
+ * @property {string} [updatedAt]
+ * @property {boolean} [pendingSync]
+ */
+
+/**
+ * @typedef {object} Venue
+ * @property {string} id
+ * @property {string} userId
+ * @property {string} name
+ * @property {string} location
+ * @property {string} type
+ */
+
+/**
+ * Mutation inputs — all fields optional: createGig guards name/scheduledAt,
+ * updateGig applies only the provided fields.
+ * @typedef {object} GigInput
+ * @property {string | undefined} [name]
+ * @property {string | Date | undefined} [scheduledAt]
+ * @property {string | null | undefined} [venueId]
+ * @property {string | null | undefined} [setlistId]
+ * @property {string | null | undefined} [branchId]
+ * @property {boolean | undefined} [sharedToBranch]
+ * @property {GigStatus | undefined} [status]
+ */
+
+/**
+ * @typedef {object} VenueInput
+ * @property {string | undefined} [name]
+ * @property {string | null | undefined} [location]
+ * @property {string | null | undefined} [type]
+ */
+
+/**
+ * A completion item as passed by the caller: song id + play state, optional
+ * version and position. validateCompletion normalizes to DB column names.
+ * @typedef {object} CompletionItemInput
+ * @property {string} songId
+ * @property {PlayState} state
+ * @property {string | null | undefined} [versionId]
+ * @property {number | null | undefined} [position]
+ */
+
+/**
+ * validateCompletion payload — performedAt is unused by the normalizer but
+ * accepted (completeGig passes it through).
+ * @typedef {object} CompletionPayload
+ * @property {string | undefined} [performedAt]
+ * @property {CompletionItemInput[]} items
+ */
+
+/**
+ * performance_items insert row (validateCompletion output).
+ * @typedef {object} CompletionRow
+ * @property {string} song_id
+ * @property {string | null} version_id
+ * @property {PlayState} state
+ * @property {number | null} position
+ */
+
 // ponytail: best-effort connectivity heuristic (same as setlists.js) —
 // PostgREST network errors surface as fetch failures without a stable code.
+/**
+ * Best-effort connectivity heuristic — PostgREST network errors surface as
+ * fetch failures without a stable code; refine if a code appears.
+ * @param {unknown} e
+ * @returns {boolean}
+ */
 function isConnectivityError(e) {
-  const msg = String(e?.message || '')
+  const err = /** @type {{ message?: string, code?: string } | null | undefined} */ (e)
+  const msg = String(err?.message || '')
   return typeof navigator !== 'undefined' && navigator.onLine === false
     || msg.includes('Failed to fetch')
     || msg.includes('fetch failed')
-    || e?.code === '-1'
+    || err?.code === '-1'
 }
 
 // ponytail: user-facing errors re-thrown as-is; the rest map to a generic one.
@@ -43,16 +203,31 @@ const USER_ERRORS = new Set([
   'Organization could not be resolved.',
 ])
 
+/**
+ * Re-throws known user-facing errors; maps everything else to a generic
+ * message so callers never see PostgREST internals. Never returns.
+ * @param {Error} error
+ * @returns {never}
+ */
 function handleError(error) {
   if (USER_ERRORS.has(error?.message)) throw error
   throw new Error('Something went wrong. Please try again.')
 }
 
+/**
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withErrorMapping(fn) {
-  try { return await fn() } catch (e) { handleError(e) }
+  try { return await fn() } catch (e) { handleError(/** @type {Error} */ (e)) }
 }
 
 /** Flatten a raw Supabase venue row into the suggestion shape. */
+/**
+ * @param {RawVenueRow} row
+ * @returns {Venue}
+ */
 function flattenVenue(row) {
   return {
     id: row.id,
@@ -64,6 +239,10 @@ function flattenVenue(row) {
 }
 
 /** Flatten one performance row; items ordered by position. Absent embed → []. */
+/**
+ * @param {RawPerformanceRow} row
+ * @returns {Performance}
+ */
 function flattenPerformance(row) {
   const items = (row.performance_items || [])
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
@@ -84,9 +263,13 @@ function flattenPerformance(row) {
 }
 
 /** Flatten a raw Supabase gig row (with embedded performances) into app shape. */
+/**
+ * @param {RawGigRow} row
+ * @returns {Gig}
+ */
 function flattenGig(row) {
   const performances = (row.performances || [])
-    .sort((a, b) => new Date(b.performed_at) - new Date(a.performed_at))
+    .sort((a, b) => new Date(b.performed_at).getTime() - new Date(a.performed_at).getTime())
   return {
     id: row.id,
     orgId: row.org_id,
@@ -106,6 +289,11 @@ function flattenGig(row) {
 const DETAIL_SELECT = '*, performances(*, performance_items(*))'
 const LIST_SELECT = '*, performances(id, performed_at, venue_id)'
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Gig>}
+ */
 async function fetchGigById(userId, id) {
   const supabase = await getSupabase()
   const { data, error } = await supabase
@@ -125,6 +313,7 @@ async function fetchGigById(userId, id) {
  * planned/confirmed → cancelled, cancelled → planned (reopen).
  * completed is terminal.
  */
+/** @type {Record<GigStatus, GigStatus[]>} */
 export const GIG_TRANSITIONS = {
   planned: ['confirmed', 'cancelled'],
   confirmed: ['cancelled', 'completed'],
@@ -132,6 +321,11 @@ export const GIG_TRANSITIONS = {
   completed: [],
 }
 
+/**
+ * @param {GigStatus} currentStatus
+ * @param {GigStatus} nextStatus
+ * @returns {boolean}
+ */
 export function validTransition(currentStatus, nextStatus) {
   return GIG_TRANSITIONS[currentStatus]?.includes(nextStatus) ?? false
 }
@@ -139,16 +333,23 @@ export function validTransition(currentStatus, nextStatus) {
 /**
  * Setlist/date/venue/name stay editable until completion (spec scenarios).
  * Status-only patches never count as edits.
+ * @param {GigStatus} currentStatus
+ * @param {GigInput} patch
+ * @returns {boolean}
  */
 export function canEditGig(currentStatus, patch) {
   if (currentStatus !== 'completed') return true
-  const EDITABLE_FIELDS = ['name', 'scheduledAt', 'venueId', 'setlistId', 'branchId', 'sharedToBranch']
+  const EDITABLE_FIELDS = /** @type {(keyof GigInput)[]} */ ([
+    'name', 'scheduledAt', 'venueId', 'setlistId', 'branchId', 'sharedToBranch',
+  ])
   return !EDITABLE_FIELDS.some((f) => patch[f] !== undefined)
 }
 
 /**
  * Normalize a completion payload: non-empty items, each with a songId and a
  * valid play_state. Returns rows ready for performance_items insert.
+ * @param {CompletionPayload} payload
+ * @returns {CompletionRow[]}
  */
 export function validateCompletion(payload) {
   const items = payload?.items
@@ -172,6 +373,9 @@ export function validateCompletion(payload) {
 /**
  * Case-insensitive venue lookup for the suggestion/reuse scenario:
  * returns the saved venue if a name already matches, else undefined.
+ * @param {Venue[]} venues
+ * @param {string} name
+ * @returns {Venue | undefined}
  */
 export function findVenueByName(venues, name) {
   const needle = String(name ?? '').trim().toLowerCase()
@@ -179,6 +383,10 @@ export function findVenueByName(venues, name) {
   return venues.find((v) => v.name.toLowerCase() === needle)
 }
 
+/**
+ * @param {string} userId
+ * @returns {Promise<Gig[]>}
+ */
 export function listGigs(userId) {
   return withErrorMapping(async () => {
     const supabase = await getSupabase()
@@ -193,10 +401,20 @@ export function listGigs(userId) {
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Gig>}
+ */
 export function getGig(userId, id) {
   return withErrorMapping(() => fetchGigById(userId, id))
 }
 
+/**
+ * @param {string} userId
+ * @param {GigInput} input
+ * @returns {Promise<Gig>}
+ */
 export async function createGig(userId, { name, scheduledAt, venueId, setlistId, branchId, sharedToBranch }) {
   return withErrorMapping(async () => {
     const trimmed = name?.trim()
@@ -225,12 +443,12 @@ export async function createGig(userId, { name, scheduledAt, venueId, setlistId,
       if (error) throw error
       return flattenGig(data)
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, {
         name: 'createGig',
         args: [userId, { name: trimmed, scheduledAt: iso, venueId: venueId ?? null, setlistId: setlistId ?? null, branchId: branchId ?? null, sharedToBranch: !!sharedToBranch }],
       })
-      const optimistic = {
+      const optimistic = /** @type {Gig} */ (/** @type {unknown} */ ({
         id: `local-${Date.now()}`,
         orgId: null,
         branchId: branchId ?? null,
@@ -244,7 +462,7 @@ export async function createGig(userId, { name, scheduledAt, venueId, setlistId,
         createdAt: new Date().toISOString(),
         performance: null,
         pendingSync: true,
-      }
+      }))
       await offlineSet(`gig:${userId}:${optimistic.id}`, optimistic)
       return optimistic
     }
@@ -252,6 +470,10 @@ export async function createGig(userId, { name, scheduledAt, venueId, setlistId,
 }
 
 /** Caller's first active org id via the public session_org_ids() bridge (0005). */
+/**
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase
+ * @returns {Promise<string>}
+ */
 async function resolveOrgId(supabase) {
   const { data, error } = await supabase.rpc('session_org_ids')
   if (error) throw error
@@ -266,13 +488,20 @@ async function resolveOrgId(supabase) {
  * evicted). Validation already ran before the connectivity catch, so
  * falling back to a minimal stub is safe.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @param {GigInput} patch
+ * @param {Gig} base
+ * @returns {Promise<Gig>}
+ */
 async function buildOptimisticGig(userId, id, patch, base) {
-  const optimistic = {
+  const optimistic = /** @type {Gig} */ (/** @type {unknown} */ ({
     ...base,
     ...patch,
     updatedAt: new Date().toISOString(),
     pendingSync: true,
-  }
+  }))
   await offlineSet(`gig:${userId}:${id}`, optimistic)
   return optimistic
 }
@@ -283,6 +512,10 @@ async function buildOptimisticGig(userId, id, patch, base) {
  * status transitions are validated; status:'completed' is rejected here —
  * completion is the composite completeGig chain (a completed gig MUST have
  * exactly one performance record, spec).
+ * @param {string} userId
+ * @param {string} id
+ * @param {GigInput} [patch]
+ * @returns {Promise<Gig>}
  */
 export async function updateGig(userId, id, patch = {}) {
   return withErrorMapping(async () => {
@@ -325,7 +558,7 @@ export async function updateGig(userId, id, patch = {}) {
       if (error) throw error
       return fetchGigById(userId, id)
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'updateGig', args: [userId, id, patch] })
       const base = (await offlineGet(`gig:${userId}:${id}`))?.data ?? {
         id, orgId: null, branchId: patch.branchId ?? null, userId, name: 'Gig',
@@ -338,15 +571,30 @@ export async function updateGig(userId, id, patch = {}) {
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Gig>}
+ */
 export function confirmGig(userId, id) {
   return updateGig(userId, id, { status: 'confirmed' })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Gig>}
+ */
 export function cancelGig(userId, id) {
   // Cancel never writes a performance record nor played tags (spec).
   return updateGig(userId, id, { status: 'cancelled' })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<Gig>}
+ */
 export function reopenGig(userId, id) {
   return updateGig(userId, id, { status: 'planned' })
 }
@@ -357,6 +605,10 @@ export function reopenGig(userId, id) {
  * completed. Idempotent: if a performance already exists for the gig, the
  * status is re-set and the existing record is returned — never a duplicate
  * (D6 replay safety; "exactly one" is app-enforced, unconstrained in 0001).
+ * @param {string} userId
+ * @param {string} gigId
+ * @param {{ performedAt: string | Date, items: CompletionItemInput[] }} payload
+ * @returns {Promise<Gig>}
  */
 export async function completeGig(userId, gigId, { performedAt, items }) {
   return withErrorMapping(async () => {
@@ -410,7 +662,7 @@ export async function completeGig(userId, gigId, { performedAt, items }) {
 
       return fetchGigById(userId, gigId)
     } catch (e) {
-      if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+      if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       // Composite op (D6): replay calls completeGig again, whose existence
       // check guarantees exactly one performance per gig — never a duplicate.
       await enqueueOp(userId, { name: 'completeGig', args: [userId, gigId, { performedAt: perfIso, items }] })
@@ -419,7 +671,7 @@ export async function completeGig(userId, gigId, { performedAt, items }) {
         venueId: null, scheduledAt: new Date().toISOString(), setlistId: null,
         status: 'planned', sharedToBranch: false, createdAt: new Date().toISOString(), performance: null,
       }
-      const optimistic = {
+      const optimistic = /** @type {Gig} */ (/** @type {unknown} */ ({
         ...base,
         status: 'completed',
         performance: {
@@ -427,13 +679,18 @@ export async function completeGig(userId, gigId, { performedAt, items }) {
         },
         updatedAt: new Date().toISOString(),
         pendingSync: true,
-      }
+      }))
       await offlineSet(`gig:${userId}:${gigId}`, optimistic)
       return optimistic
     }
   })
 }
 
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
 export async function deleteGig(userId, id) {
   return withErrorMapping(async () => {
     await fetchGigById(userId, id)
@@ -449,6 +706,10 @@ export async function deleteGig(userId, id) {
 
 // ── Venues (suggestion shape + reuse/dedupe) ──────────────────────────────
 
+/**
+ * @param {string} userId
+ * @returns {Promise<Venue[]>}
+ */
 export function listVenues(userId) {
   return withErrorMapping(async () => {
     const supabase = await getSupabase()
@@ -466,6 +727,9 @@ export function listVenues(userId) {
 /**
  * Create a venue, reusing an existing one with the same name (case-
  * insensitive) instead of duplicating — the suggestion/reuse scenario.
+ * @param {string} userId
+ * @param {VenueInput} input
+ * @returns {Promise<Venue>}
  */
 export async function createVenue(userId, { name, location, type }) {
   return withErrorMapping(async () => {
@@ -498,7 +762,16 @@ export async function createVenue(userId, { name, location, type }) {
   })
 }
 
+/**
+ * Network-free asserts for the gig data layer — demo/test harness.
+ * @returns {Promise<void>}
+ */
 export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assertEq = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`gigs demo failed: ${label} expected ${expected}, got ${actual}`)
@@ -506,6 +779,7 @@ export async function demo() {
   }
 
   // Network-free asserts: flatten shapes + CRUD guards
+  /** @type {RawGigRow} */
   const raw = {
     id: 'g1', org_id: 'o1', branch_id: 'b1', owner_id: 'u1', name: 'Friday Gig',
     venue_id: 'v1', scheduled_at: '2026-09-18T21:00:00.000Z', setlist_id: 's1',
@@ -519,8 +793,9 @@ export async function demo() {
     }],
   }
   const gig = flattenGig(raw)
-  assertEq(gig.performance.items[0].songId, 'song1', 'items sorted by position')
-  assertEq(gig.performance.items[1].state, 'skipped', 'skipped recorded separately')
+  const perf = /** @type {Performance} */ (gig.performance)
+  assertEq(perf.items[0].songId, 'song1', 'items sorted by position')
+  assertEq(perf.items[1].state, 'skipped', 'skipped recorded separately')
   assertEq(gig.userId, 'u1', 'owner mapped to userId')
   assertEq(flattenGig({ ...raw, performances: [] }).performance, null, 'no performance → null')
   assertEq(flattenVenue(raw).name, 'Friday Gig', 'flattenVenue passthrough')
@@ -548,34 +823,34 @@ export async function demo() {
   assertEq(rows[0].state, 'off_setlist', 'encore recorded outside the setlist')
   assertEq(rows[1].position, 1, 'explicit position kept')
   let threw = ''
-  try { validateCompletion({ items: [] }) } catch (e) { threw = e.message }
+  try { validateCompletion({ items: [] }) } catch (e) { threw = /** @type {Error} */ (e).message }
   assertEq(threw, 'Cannot complete a gig without songs.', 'empty completion rejected')
   threw = ''
-  try { validateCompletion({ items: [{ songId: 'song1', state: 'sang' }] }) } catch (e) { threw = e.message }
+  try { validateCompletion(/** @type {CompletionPayload} */ (/** @type {unknown} */ ({ items: [{ songId: 'song1', state: 'sang' }] }))) } catch (e) { threw = /** @type {Error} */ (e).message }
   assertEq(threw, 'Invalid performance item.', 'bad play_state rejected')
 
   // Venue suggestion/reuse: case-insensitive match only
   const venues = [
     { id: 'v1', userId: 'u1', name: 'Café La Luna', location: 'Calle Luna 3, Madrid', type: 'bar' },
   ]
-  assertEq(findVenueByName(venues, 'café la luna').id, 'v1', 'case-insensitive reuse')
+  assertEq(/** @type {Venue} */ (findVenueByName(venues, 'café la luna')).id, 'v1', 'case-insensitive reuse')
   assertEq(findVenueByName(venues, 'El Retiro'), undefined, 'unknown venue not suggested')
 
   // Input guards fire before any network call (committed CRUD asserts)
   threw = ''
-  try { await createGig('u1', { scheduledAt: '2026-09-18T21:00:00.000Z' }) } catch (e) { threw = e.message }
+  try { await createGig('u1', { scheduledAt: '2026-09-18T21:00:00.000Z' }) } catch (e) { threw = /** @type {Error} */ (e).message }
   assertEq(threw, 'Gig name is required.', 'createGig rejects empty name')
   threw = ''
-  try { await createGig('u1', { name: ' No Title ' }) } catch (e) { threw = e.message }
+  try { await createGig('u1', { name: ' No Title ' }) } catch (e) { threw = /** @type {Error} */ (e).message }
   assertEq(threw, 'Scheduled date and time are required.', 'createGig rejects missing schedule')
   threw = ''
-  try { await createVenue('u1', {}) } catch (e) { threw = e.message }
+  try { await createVenue('u1', {}) } catch (e) { threw = /** @type {Error} */ (e).message }
   assertEq(threw, 'Venue name is required.', 'createVenue rejects empty name')
   threw = ''
-  try { await updateGig('u1', 'g1', { name: '  ' }) } catch (e) { threw = e.message }
+  try { await updateGig('u1', 'g1', { name: '  ' }) } catch (e) { threw = /** @type {Error} */ (e).message }
   assertEq(threw, 'Gig name is required.', 'updateGig rejects blank name')
   threw = ''
-  try { await updateGig('u1', 'g1', { status: 'completed' }) } catch (e) { threw = e.message }
+  try { await updateGig('u1', 'g1', { status: 'completed' }) } catch (e) { threw = /** @type {Error} */ (e).message }
   assertEq(threw, 'Invalid gig status transition.', 'updateGig rejects direct completion')
 
   console.log('gigs demo OK: 26 asserts (flatten, lifecycle, completion, venue, guards)')
