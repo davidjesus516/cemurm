@@ -1,3 +1,4 @@
+// @ts-check
 // OnSong exporter (Hito 5 #78, S17): setlist → OnSong-compatible ChordPro
 // text. Each song serializes ONLY title / artist / key / body — never
 // projections, annotations, comments, MIDI programs or any other per-item
@@ -13,13 +14,58 @@
 // exact payload without a browser.
 
 /**
+ * The setlist surface the serializer reads: order (itemIds), the per-item
+ * pinned version (versionIds) and the name (slug source) — all real Setlist
+ * fields (setlists.js), so a flattened setlist satisfies it as-is.
+ * @typedef {object} ExportSetlist
+ * @property {string[]} itemIds
+ * @property {string} [name]
+ * @property {Record<string, string>} [versionIds]
+ */
+
+/**
+ * A song version as the agreed-key lookup reads it: id + base key. Nothing
+ * else of the version is exported.
+ * @typedef {object} ExportSongVersion
+ * @property {string} id
+ * @property {string | null} [key]
+ */
+
+/**
+ * The song surface the serializer reads — id (the itemIds join), title/artist
+ * (the OnSong headers), key (the agreed key) and body (verbatim chart).
+ * Projections, annotations, comments and MIDI programs are deliberately
+ * absent from this shape: S17 keeps them out of the export.
+ * @typedef {object} ExportSong
+ * @property {string} id
+ * @property {string} [title]
+ * @property {string} [artist]
+ * @property {string | null} [key]
+ * @property {string} [body]
+ * @property {ExportSongVersion[]} [versions]
+ */
+
+/**
+ * The download verdict — the node-safe branch returns it instead of touching
+ * the DOM, and the browser branch returns the identical shape.
+ * @typedef {object} OnSongDownload
+ * @property {boolean} ok
+ * @property {string} filename
+ * @property {string} text
+ */
+
+/**
  * Serialize a setlist into OnSong-compatible text, songs in SETLIST ORDER.
  * Pure — the demo asserts order, agreed keys and the S17 exclusion without a
  * DB or DOM.
+ * @param {ExportSetlist} setlist
+ * @param {ExportSong[] | null | undefined} songs
+ * @returns {string}
  */
 export function serializeOnSong(setlist, songs) {
   const itemIds = Array.isArray(setlist?.itemIds) ? setlist.itemIds : []
   const byId = new Map((songs || []).map((s) => [s.id, s]))
+  /** @type {string[]} */
   const blocks = []
 
   for (const songId of itemIds) {
@@ -35,6 +81,7 @@ export function serializeOnSong(setlist, songs) {
       if (selected?.key) key = selected.key
     }
 
+    /** @type {string[]} */
     const lines = []
     if (song.title) lines.push(`{title: ${song.title}}`)
     if (song.artist) lines.push(`{artist: ${song.artist}}`)
@@ -51,6 +98,9 @@ export function serializeOnSong(setlist, songs) {
  * Download the serialized setlist as `<setlist-name>.cho` (Blob + object URL
  * + anchor click). Node guard: returns { ok, filename, text } instead of
  * touching the DOM so the demo can assert the exact payload.
+ * @param {ExportSetlist} setlist
+ * @param {ExportSong[] | null | undefined} songs
+ * @returns {OnSongDownload}
  */
 export function downloadOnSongFile(setlist, songs) {
   const text = serializeOnSong(setlist, songs)
@@ -76,6 +126,10 @@ export function downloadOnSongFile(setlist, songs) {
 
 // Self-check: node -e "import('./src/lib/exporters/onsong.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} cond
+   * @param {string} msg
+   */
   const assert = (cond, msg) => {
     if (!cond) throw new Error(`onsong export demo FAILED: ${msg}`)
   }
@@ -105,6 +159,10 @@ export async function demo() {
   const text = serializeOnSong(setlist, songs)
 
   // 1. SETLIST ORDER: title directives appear in itemIds order.
+  /**
+   * @param {string} t
+   * @returns {number}
+   */
   const titleIndex = (t) => text.indexOf(`{title: ${t}}`)
   assert(titleIndex('Way Maker') !== -1, 'song 1 present')
   assert(titleIndex('Oceans (Where Feet May Fail)') !== -1, 'song 2 present')
