@@ -181,6 +181,12 @@ correct (zero occurrences across all 45 features); Spanish-first matches 3 of 4 
 **Do NOT mine these proposals for maturity language.** They say *"fase de especificación avanzada,
 sin implementación real"* and *"primer hito ~2 meses"*; Hitos 1–4 shipped weeks ago.
 
+> **⚠️ And do not mine them for capability language without checking §14.** The characterization
+> suite found that three of the claims above are **false in the current code**: sectional
+> modulation is dead code, flat keys cannot be spelled, and the degree engine is unexported and
+> therefore untested. **A capability may be asserted on the landing only if a characterization
+> test covers it, or it is verified by reading the code.**
+
 **Do NOT cite this claim** from `cemurm-propuesta-para-orquesta-nacional.md:22`: *"Los
 escenarios de prueba del proyecto ya citan explícitamente el Sistema Nacional de Orquestas"*. It
 is false — that string appears exactly once in the whole repository: in that line itself.
@@ -665,7 +671,106 @@ to review.
 must not be edited until the runner is installed and the suite is green, or the file would
 describe something that does not exist.
 
-## 13. Evidence appendix
+## 14. Specification discrepancies found by the characterization suite
+
+PR 1b-0's 235 tests were written against the code as it is, not as the Gherkin says it is. Where
+those two disagree, the tests recorded the code. **Ten discrepancies were reported.** Four were
+independently reproduced and confirmed by the orchestrator; the rest are reported by the suite and
+pending triage.
+
+> ### ⚠️ This is a hazard for the landing copy, not just a bug list
+>
+> §4.6 tells the writer to mine `docs/propuestas/cemurm-propuesta-para-orquesta-nacional.md` for
+> landing copy. **Three of its claims are now known to be false.** Do not assert them. See the
+> table at the end of this section.
+
+### 14.1 Confirmed by reproduction
+
+**A. Sectional key override is dead code, and the module's own self-check fails.**
+`src/domain/chart/parser.js:9` puts `'key'` in `KNOWN_META`. The check at `:69` therefore matches
+every `{key: …}` directive and `continue`s, making the `directive.name === 'key'` branch at `:73`
+**unreachable**. `sectionKeyContexts` is always `[]`. The comment at `:74-76` documents a
+behaviour that does not happen: a second `{key: G}` *overwrites* `meta.key` rather than becoming a
+sectional override. Reproduction:
+
+```
+$ node -e "import('./src/domain/chart/parser.js').then(m=>m.demo())"
+demo failed: song-level key is first directive — expected "C", got "G"
+```
+
+**The repository contains a self-check that fails.** It was evidently never run.
+
+**B. Enharmonic spelling does not work for any flat key.**
+`src/domain/music/transpose.js` spells keys against sharp roots only.
+
+```
+semitonesBetween('C', 'Bb')  =  -2     ← the arithmetic is correct
+transposeKey('C', -2)        =  'A#'   ← should be 'Bb'
+transposeKey('C',  3)        =  'D#'   ← should be 'Eb'
+spotifyKeyToLabel(10,'major')= 'A# major'  ← equal spelling says Bb
+```
+
+B♭ is among the most common keys in orchestral music. The tool currently tells a player they are
+in A♭ when they are in B♭.
+
+**C. The OnSong export cannot reach `agreed key`.**
+`features/external-integrations.feature` requires the export to contain *"the songs in order with
+their charts and **agreed keys**"*. `src/domain/setlist/exporters/onsong.js` has **zero**
+references to it — the exporter reads `song.key` and per-version keys only, and `flattenSetlist()`
+never copies `agreed_key` onto the setlist object. The data exists one layer below
+(`supabase/seed.sql:104` writes it), so this is a reachability bug, not a missing feature.
+
+**D. There is no tie-break, and no resolution is stored.**
+`features/offline-edit-conflict-policy.feature:47-51` contains a scenario titled *"Equal timestamps
+use the recorded tie-break rule"* requiring *"the applied rule is stored with the resolution so
+every device reaches the same result"*. The code is `new Date(server.updatedAt).getTime() > queuedAt`
+— strict `>`, so equal timestamps read as "server not newer" and the client write replays. There
+is no rule and nothing is stored. This is the determinism claim the product is sold on.
+
+### 14.2 Reported by the suite, pending triage
+
+| # | Discrepancy |
+|---|---|
+| E | The OnSong exporter duplicates every directive — a seeded body already opens with `{title}/{artist}/{key}` and the exporter prepends them again, so each appears twice in the output |
+| F | `computeReadiness` only ever returns `'ready'` or `'draft'`; the feature describes a lifecycle including `retired` and `deleted` |
+| G | *"Readiness is tracked per version"* cannot hold — `computeReadiness(song)` takes one flat `{key, body}` with no version parameter, and the schema records `is_ready` per version |
+| H | The feature file has **no scenario at all** for setlist add/remove reconcile. Two consequences: an op that lost its `queuedAt` is always dropped (`queuedAt \|\| 0`), and an `add` with short `args` yields `songId === undefined`, takes the superseded branch, and is **silently discarded** |
+| I | `spotifyKeyToLabel` is sharp-only — verified above, it can never emit `Db` or `Bb` |
+| J | The mode check is an exact string: `'Minor'`, `'MINOR'`, `'minor '` and Spotify's raw int all silently become `major` |
+
+Additional sharp edges locked in by the tests, none of them specified anywhere: a fractional
+semitone count yields the literal chord `"undefined"`; lowercase chord tokens pass through
+untransposed; a unicode accidental rides in the suffix so `transposeKey('B♭',2) === 'C#♭'`;
+`buildSubstitutionMap` creates a key even when the value is `undefined`, defeating
+`applySubstitution`'s own `Object.keys().length` guard; a flat-spelled anchor can never match under
+a sharp key; `reconcileSetlistOp(null, …)` throws; `computeReadiness` throws on a truthy non-string
+key.
+
+### 14.3 What this means for the landing
+
+| Claim in the source proposals | Status |
+|---|---|
+| `…-orquesta-nacional.md:74` "Modulación por secciones: cada sección de una obra puede tener su propio contexto de tonalidad" | **FALSE** — dead code, finding A |
+| `…-orquesta-nacional.md:75` enharmonic spelling | **FALSE** — flats cannot be spelled, finding B |
+| `…-orquesta-nacional.md:73` degrees correct in modal harmony, "E7 as I in Phrygian dominant" | **Unverified** — the pure engine in `degreeResolver` is unexported and therefore untested |
+| `…-orquesta-nacional.md:52` substitute-material projection | Not contradicted by the suite, and it is the most director-shaped claim available |
+| `…-orquesta-nacional.md:67` canonical chart vs personal rendering | Not contradicted by the suite, and it is the hero |
+
+**Rule for the landing copy:** a capability may be asserted only if a characterization test covers
+it or it is verified by reading the code. Everything else is either omitted or carries the framing
+line from §5.5. This is a stronger filter than the one §4.6 specified, and it exists because
+these were found rather than assumed.
+
+### 14.4 Out of scope here
+
+**None of these are fixed in PR 1b-0, PR 1b, or any landing PR.** Each is a behaviour change with
+its own Gherkin scenario, and the project operates under an active YAGNI entry rule
+(`docs/engineering-review-backlog.md:5`). They are recorded here so that they are not lost, and so
+that whoever writes the landing copy is checked against them.
+
+A change proposal per finding is the right next vehicle — not a bugfix smuggled into a refactor.
+
+## 15. Evidence appendix
 
 Key anchors used to build this brief. All read-only.
 

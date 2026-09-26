@@ -368,6 +368,21 @@ These are already written in the project's own voice. Reuse, don't reinvent.
 **Do not mine the proposals for maturity language.** They say *"fase de especificación avanzada,
 sin implementación real"* and *"primer hito ~2 meses"*. Hitos 1–4 shipped weeks ago.
 
+**⚠️ And do not mine them for capability language either — five of those claims are false in the
+current code, proven by a 235-test characterization suite:**
+
+| Claim | Reality |
+|---|---|
+| `…-orquesta-nacional.md:74` "Modulación por secciones" | **Dead code.** `parser.js:9` puts `'key'` in `KNOWN_META`, so the check at `:69` always matches and `continue`s. The sectional-override branch at `:73` is unreachable, `sectionKeyContexts` is always `[]`, and the module's own `demo()` **fails** |
+| `…-orquesta-nacional.md:75` enharmonic spelling | **False.** `transposeKey('C', -2)` returns `'A#'`, not `'Bb'`. `transposeKey('C', 3)` returns `'D#'`, not `'Eb'`. Flats cannot be spelled at all |
+| `…-orquesta-nacional.md:73` degrees correct in modal harmony | **Unverified.** The pure engine in `degreeResolver` is unexported, so it has no test |
+| `external-integrations.feature` — export contains "agreed keys" | **False.** The OnSong exporter has zero references to `agreed_key`; `flattenSetlist()` never copies it onto the setlist object |
+| `offline-edit-conflict-policy.feature:47` — equal timestamps use a recorded tie-break, stored so every device agrees | **False.** The comparison is a strict `>`, and no resolution is stored. "Every device reaches the same result" does not hold |
+
+> **The rule: a capability may be asserted only if a characterization test covers it, or you have
+> read the code and verified it yourself. Otherwise omit it, or let the framing line in §5.5
+> cover it.** Full findings: `odd/tasks/cemurm-brand-landing.md` §14.
+
 **Do not cite** `cemurm-propuesta-para-orquesta-nacional.md:22` — the claim that the test
 scenarios cite a national orchestra system is false. That string appears exactly once in the whole
 repository: in that line itself.
