@@ -1,3 +1,4 @@
+// @ts-check
 // Planning Center integration data layer (Hito 5 #78): plans list + import +
 // export under the external_connections contract (migration 0026 — the row is
 // shared with Spotify, provider 'planningcenter', unique(user_id, provider),
@@ -24,21 +25,92 @@
 
 import { normalizeTitle } from '../data/repositories/duplicates.js'
 
+/**
+ * external_connections.status (0026: text default 'connected'; the only two
+ * values the contract uses — 'revoked' means revoked, the row persists).
+ * @typedef {'connected' | 'revoked'} PcoStatus
+ */
+
+/**
+ * The connection row this module reads and writes (provider 'planningcenter',
+ * unique(user_id, provider)) — and the seam the pure helpers accept: only
+ * `status` is read by the gate, so the demo and the Settings/SetlistDetail
+ * paths inject `{ status }` alone.
+ * @typedef {object} PcoConnection
+ * @property {PcoStatus} status
+ * @property {string} [id]
+ * @property {string} [user_id]
+ * @property {string} [provider]
+ * @property {string} [created_at]
+ */
+
+/**
+ * One song of a mock plan: the Planning Center title/artist pair. `artist` is
+ * optional because a plan song is matched on title alone (conservative
+ * linking) and a created draft falls back to ''.
+ * @typedef {object} PcoPlanSong
+ * @property {string} title
+ * @property {string} [artist]
+ */
+
+/**
+ * A mock plan (the deterministic S12 fixture): identity, display name and the
+ * ordered song sets the import walks in sequence.
+ * @typedef {object} PcoPlan
+ * @property {string} id
+ * @property {string} name
+ * @property {PcoPlanSong[]} songs
+ */
+
+/**
+ * The library row plan→library linking matches on: id + title. The songs lib
+ * Song carries both, so listSongs output satisfies it without a cast.
+ * @typedef {object} PcoLibrarySong
+ * @property {string} id
+ * @property {string} title
+ */
+
+/**
+ * The S17 export payload row — title/key only, never projections,
+ * annotations or chart bodies.
+ * @typedef {object} PcoExportSong
+ * @property {string} [title]
+ * @property {string} [key]
+ */
+
+/**
+ * The S13 gate verdict: the EXACT 'integration revoked' message, returned
+ * before any write.
+ * @typedef {{ ok: false, error: string }} PcoGate
+ */
+
 const CONNECTION_PREFIX = 'cemurm:pco:connection:'
 
 // Lazy imports (house pattern): the DB layers only load on first use, keeping
 // this module import-safe in node.
+/** @type {typeof import('./supabase.js').supabase | null} */
 let supabaseClient = null
+/**
+ * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}
+ */
 async function supabase() {
   if (!supabaseClient) supabaseClient = (await import('../data/supabase.js')).supabase
   return supabaseClient
 }
+/** @type {typeof import('./songs.js') | null} */
 let songsModule = null
+/**
+ * @returns {Promise<typeof import('./songs.js')>}
+ */
 async function songsLib() {
   if (!songsModule) songsModule = await import('../data/repositories/songs.js')
   return songsModule
 }
+/** @type {typeof import('./setlists.js') | null} */
 let setlistsModule = null
+/**
+ * @returns {Promise<typeof import('./setlists.js')>}
+ */
 async function setlistsLib() {
   if (!setlistsModule) setlistsModule = await import('../data/repositories/setlists.js')
   return setlistsModule
@@ -48,6 +120,10 @@ async function setlistsLib() {
 // localStorage mirror (guarded, best-effort — enrichments.js/overlay.js pattern)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * @param {string} userId
+ * @returns {PcoConnection | null}
+ */
 function loadConnectionMirror(userId) {
   if (typeof localStorage === 'undefined' || !userId) return null
   try {
@@ -58,6 +134,10 @@ function loadConnectionMirror(userId) {
   }
 }
 
+/**
+ * @param {string} userId
+ * @param {PcoConnection} row
+ */
 function saveConnectionMirror(userId, row) {
   if (typeof localStorage === 'undefined' || !userId) return
   try {
@@ -77,6 +157,8 @@ function saveConnectionMirror(userId, row) {
  * read is the source of truth; a mirror fill-in only happens when the read
  * FAILS (network down) — a successful read that finds no row wins over a
  * stale mirror so a revoked/absent connection never comes back to life.
+ * @param {string} userId
+ * @returns {Promise<PcoConnection | null>}
  */
 export async function getPcoConnection(userId) {
   const mirrored = loadConnectionMirror(userId)
@@ -99,6 +181,8 @@ export async function getPcoConnection(userId) {
  * Upsert the connection row to 'connected' — the mock provider's connect
  * (real OAuth arrives with the server-side callback; local-dev.md). Mirrors
  * the row; throws only on a hard write failure.
+ * @param {string} userId
+ * @returns {Promise<PcoConnection>}
  */
 export async function ensurePcoConnected(userId) {
   const { data, error } = await (await supabase())
@@ -118,6 +202,8 @@ export async function ensurePcoConnected(userId) {
  * Revoke: UPDATE status='revoked' — the row persists and imported setlists
  * REMAIN (ordinary setlists rows; nothing is deleted). The mirror is updated
  * so the offline Settings page renders Revoked.
+ * @param {string} userId
+ * @returns {Promise<PcoConnection | null>}
  */
 export async function disconnectPco(userId) {
   const { data, error } = await (await supabase())
@@ -138,6 +224,8 @@ export async function disconnectPco(userId) {
  * entry point resolves its own connection row and runs this before touching
  * anything. No row (never connected) or 'connected' passes — the UI only
  * exposes the import surface when the row says connected.
+ * @param {PcoConnection | null} connection
+ * @returns {PcoGate | null}
  */
 export function connectionGate(connection) {
   if (connection?.status === 'revoked') {
@@ -156,6 +244,7 @@ export function connectionGate(connection) {
  * match the SEEDED demo library (20000000-…-001/…-002 → linked), 'Goodness of
  * God' and 'Kingdom' have no chart (→ created as missing-chart drafts). Plan 2
  * exercises the multi-plan picker. Pure + stable across calls.
+ * @returns {PcoPlan[]}
  */
 export function buildMockPlans() {
   return [
@@ -185,6 +274,9 @@ export function buildMockPlans() {
  * injected row (enrichments-style test seam — duplicates.js
  * findDuplicateCandidates precedent): the demo asserts the gate + determinism
  * without a DB; the UI path omits it and resolves the row itself.
+ * @param {string} userId
+ * @param {PcoConnection | null} [connection]
+ * @returns {Promise<PcoGate | { ok: true, plans: PcoPlan[] }>}
  */
 export async function listPlans(userId, connection = null) {
   const conn = connection || (await getPcoConnection(userId))
@@ -203,6 +295,9 @@ export async function listPlans(userId, connection = null) {
  * (which asks a human), an auto-link must never guess ('Happy' ≠ 'Happy
  * Birthday'). No chart → the song is created as a draft (S12 missing-chart
  * flag) and a human can merge later.
+ * @param {PcoPlanSong | null} planSong
+ * @param {PcoLibrarySong[] | null | undefined} librarySongs
+ * @returns {PcoLibrarySong | null}
  */
 export function matchPlanSong(planSong, librarySongs) {
   const q = normalizeTitle(planSong?.title)
@@ -223,6 +318,10 @@ export function matchPlanSong(planSong, librarySongs) {
  * drop fails on the first addSong (addSong has no offline queue path) while
  * createSetlist/addSongToSetlist would enqueue — the UI gate prevents that
  * split; the lib documents the boundary.
+ * @param {string} userId
+ * @param {PcoPlan} plan
+ * @param {{ librarySongs?: PcoLibrarySong[] }} [options]
+ * @returns {Promise<PcoGate | { ok: true, setlistId: string, linked: number, createdMissing: number }>}
  */
 export async function importPlanToSetlist(userId, plan, { librarySongs } = {}) {
   const conn = await getPcoConnection(userId)
@@ -268,6 +367,8 @@ export async function importPlanToSetlist(userId, plan, { librarySongs } = {}) {
  * Serialize ONLY title/key per song — never projections, annotations or chart
  * bodies go to Planning Center (S17). Pure: the export payload is derivable
  * and assertable in the demo; the mock push simply counts it.
+ * @param {PcoExportSong[] | null | undefined} songs
+ * @returns {PcoExportSong[]}
  */
 export function serializeExportSongs(songs) {
   return (songs || []).map((song) => ({
@@ -280,6 +381,11 @@ export function serializeExportSongs(songs) {
  * Mock push of a setlist to a plan: { ok:true, pushed, planId }. Revoked →
  * { ok:false, error:'integration revoked' }. `connection` is the same optional
  * injected-row seam as listPlans (demo-assertable gate); the UI omits it.
+ * @param {string} userId
+ * @param {string} planId
+ * @param {PcoExportSong[] | null | undefined} songs
+ * @param {PcoConnection | null} [connection]
+ * @returns {Promise<PcoGate | { ok: true, pushed: number, planId: string }>}
  */
 export async function exportSetlistToPlan(userId, planId, songs, connection = null) {
   const conn = connection || (await getPcoConnection(userId))
@@ -291,6 +397,11 @@ export async function exportSetlistToPlan(userId, planId, songs, connection = nu
 
 // Self-check: node -e "import('./src/integrations/planningcenter.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assert = (actual, expected, label) => {
     const a = JSON.stringify(actual)
     const e = JSON.stringify(expected)
@@ -316,7 +427,9 @@ export async function demo() {
   assert(connectionGate(null), null, 'gate passes never-connected (mock reads plans)')
   const plansRevoked = await listPlans('u1', { status: 'revoked' })
   assert(plansRevoked, { ok: false, error: 'integration revoked' }, 'listPlans revoked gate')
-  const plansOk = await listPlans('u1', { status: 'connected' })
+  // The cast states the branch the injected 'connected' row already
+  // established: no gate, so the ok branch carries the plans.
+  const plansOk = /** @type {{ ok: boolean, plans: PcoPlan[] }} */ (await listPlans('u1', { status: 'connected' }))
   assert(plansOk.ok, true, 'connected listPlans resolves ok')
   assert(plansOk.plans.length, 2, 'connected listPlans returns both plans')
 
