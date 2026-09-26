@@ -1,3 +1,4 @@
+// @ts-check
 // Pure search helpers for the repertoire — no DOM, no localStorage, safe in Node.
 // Composes title, chord, key, and tempo filters (AND). Mirrors the future
 // Supabase query surface so chunk C8 can swap the implementation without
@@ -9,11 +10,63 @@
 import { parseChordPro } from '../chart/parser.js'
 
 /**
+ * The song fields the search layer actually reads: title/body for the
+ * free-text and chord match, key for the exact key filter, bpm for the
+ * inclusive range. A full songs.js `Song` row satisfies it structurally, so
+ * filterSongs/searchSongs keep returning the caller's own song type.
+ * @typedef {object} SearchableSong
+ * @property {string} title
+ * @property {string} body
+ * @property {string | null} [key]
+ * @property {number | null} [bpm]
+ */
+
+/**
+ * Inclusive bpm window, as produced by parseTempoRange.
+ * @typedef {object} TempoRange
+ * @property {number} min
+ * @property {number} max
+ */
+
+/**
+ * filterSongs filter bag. Every field is optional and an absent field means
+ * "no filter"; `tempo` is either a raw "70-100" string (parsed here) or an
+ * already-parsed range (Songs.jsx holds whichever it was given).
+ * @typedef {object} SongFilters
+ * @property {string} [query]
+ * @property {string} [key]
+ * @property {string | TempoRange | null} [tempo]
+ */
+
+/**
+ * The public_library_entries (0010 view) fields the catalog filter reads. The
+ * demo fixtures and publicLibrary.js rows both satisfy it.
+ * @typedef {object} CatalogEntry
+ * @property {string} id
+ * @property {string} title
+ * @property {string | null} [artist]
+ * @property {string | null} [genre]
+ * @property {string} license
+ */
+
+/**
+ * filterPublicEntries filter bag — both fields optional, absent means "all".
+ * @typedef {object} CatalogFilters
+ * @property {string} [query]
+ * @property {string} [license]
+ */
+
+/**
  * Extract unique chord names from a ChordPro body, in document order.
  * Parses the body and collects bare chord tokens from [Chord] markers
  * (e.g. body with [G] [C] [Em] → ["G", "C", "Em"]).
  */
+/**
+ * @param {string | null | undefined} body
+ * @returns {string[]}
+ */
 export function extractChords(body) {
+  /** @type {string[]} */
   const seen = []
   const parsed = parseChordPro(body ?? '')
   for (const section of parsed.sections) {
@@ -32,6 +85,10 @@ export function extractChords(body) {
  * empty or unparseable input → null (callers treat null as "no filter").
  * Non-numeric segments (e.g. "70-abc") are rejected, not clamped.
  */
+/**
+ * @param {string | number | null | undefined} value
+ * @returns {TempoRange | null}
+ */
 export function parseTempoRange(value) {
   const text = String(value ?? '').trim()
   if (!text) return null
@@ -46,6 +103,10 @@ export function parseTempoRange(value) {
  * Pragmatic normalization: chart chords are bare tokens ("G", "Em", "G7",
  * "F#m"), so the qualifier only matters for prefix matching below.
  */
+/**
+ * @param {string | null | undefined} query
+ * @returns {string}
+ */
 function chordPrimitive(query) {
   return String(query ?? '').trim().toLowerCase().replace(/\s+(major|minor)$/, '')
 }
@@ -59,6 +120,11 @@ function chordPrimitive(query) {
  *   spelling is a later hito.
  * Empty query matches everything.
  */
+/**
+ * @param {SearchableSong} song
+ * @param {string | null | undefined} query
+ * @returns {boolean}
+ */
 export function songMatchesQuery(song, query) {
   const q = String(query ?? '').trim().toLowerCase()
   if (!q) return true
@@ -71,6 +137,11 @@ export function songMatchesQuery(song, query) {
 }
 
 /** Exact case-insensitive key match; empty/undefined key filter → true. */
+/**
+ * @param {SearchableSong} song
+ * @param {string | null | undefined} key
+ * @returns {boolean}
+ */
 export function songMatchesKey(song, key) {
   const k = String(key ?? '').trim().toLowerCase()
   if (!k) return true
@@ -81,6 +152,11 @@ export function songMatchesKey(song, key) {
  * Inclusive bpm range check. Songs without a bpm never match when a range
  * is set. range = null → no filter.
  */
+/**
+ * @param {SearchableSong} song
+ * @param {TempoRange | null | undefined} range
+ * @returns {boolean}
+ */
 export function songMatchesTempo(song, range) {
   if (!range) return true
   if (song.bpm == null) return false
@@ -90,6 +166,11 @@ export function songMatchesTempo(song, range) {
 /**
  * Chords in the song's body that match a chord query — used to tag results
  * ("matched chord: G"). Returns [] for title-only matches or empty query.
+ */
+/**
+ * @param {SearchableSong} song
+ * @param {string | null | undefined} query
+ * @returns {string[]}
  */
 export function matchedChords(song, query) {
   const primitive = chordPrimitive(query)
@@ -105,6 +186,15 @@ export function matchedChords(song, query) {
  * `tempo` may be a raw string ("70-100") or a parsed {min, max} range;
  * invalid raw strings → null → no tempo filter.
  */
+/**
+ * Generic over the caller's song type (withReadThrough precedent): a
+ * songs.js `Song[]` comes back as `Song[]`, not as the SearchableSong
+ * projection the predicates read.
+ * @template {SearchableSong} S
+ * @param {S[] | null | undefined} songs
+ * @param {SongFilters} [filters]
+ * @returns {S[]}
+ */
 export function filterSongs(songs, { query = '', key = '', tempo } = {}) {
   const range = typeof tempo === 'string' ? parseTempoRange(tempo) : tempo
   return (songs || []).filter(
@@ -116,6 +206,11 @@ export function filterSongs(songs, { query = '', key = '', tempo } = {}) {
  * Public library catalog filter (AND): free-text over title/artist/genre +
  * exact license match. S4.1 — mirrors the client-side "ponytail" used in
  * Songs.jsx: bounded catalog, no server-side composition yet.
+ */
+/**
+ * @param {CatalogEntry[] | null | undefined} entries
+ * @param {CatalogFilters} [filters]
+ * @returns {CatalogEntry[]}
  */
 export function filterPublicEntries(entries, { query = '', license = '' } = {}) {
   const q = String(query ?? '').trim().toLowerCase()
@@ -129,6 +224,10 @@ export function filterPublicEntries(entries, { query = '', license = '' } = {}) 
 
 // Self-check: node -e "import('./src/domain/library/search.js').then(m => m.demo())"
 export function demo() {
+  /**
+   * @param {unknown} cond
+   * @param {string} msg
+   */
   const assert = (cond, msg) => {
     if (!cond) throw new Error(`search demo FAILED: ${msg}`)
   }

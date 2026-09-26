@@ -1,3 +1,4 @@
+// @ts-check
 // Offline read-through cache backed by IndexedDB.
 // Pure native API — no dependencies.
 // TTL is caller-side: callers decide staleness; this store always
@@ -15,10 +16,44 @@ const CACHE_META_STORE = 'cache-meta'
 export const DB_VERSION = 3
 
 /**
+ * A kv row exactly as offlineSet writes it: the caller-shaped payload under
+ * `data` plus the write timestamp. `data` is deliberately `any` — the kv
+ * store is schemaless and the payload shape belongs to the caller, and the
+ * withReadThrough helpers (songs.js, setlists.js, follows.js,
+ * notifications.js) return `cached.data` straight out of their own
+ * `@template T` function, which any narrower type here would not satisfy.
+ * @typedef {object} OfflineCacheEntry
+ * @property {any} data
+ * @property {number} savedAt
+ */
+
+/**
+ * cache-meta row (storage screen, 2b.1 D5): the cache name this row describes
+ * plus the byte count and timestamp recorded alongside it. `name` is the
+ * store key; `bytes`/`savedAt` come from IDB `getAll()`, whose rows are typed
+ * `any` — this shape records the row contract above, which tsc cannot verify.
+ * @typedef {object} CacheMetaRow
+ * @property {string} name
+ * @property {number} bytes
+ * @property {number} savedAt
+ */
+
+/**
+ * The slice of IDBDatabase applyUpgrade touches. Structural rather than
+ * IDBDatabase so demo() can pass a plain mock that only records
+ * createObjectStore calls.
+ * @typedef {{ createObjectStore: (name: string) => unknown }} UpgradeTarget
+ */
+
+/**
  * Additive upgrade plan, shared with offlineQueue.js — single source of
  * truth, so the two modules are lockstep by construction (D5; drift would
  * surface as a VersionError and permanently disable the cache). Runs inside
  * onupgradeneeded; existing stores are always preserved.
+ */
+/**
+ * @param {UpgradeTarget} db
+ * @param {number} oldVersion
  */
 export function applyUpgrade(db, oldVersion) {
   if (oldVersion < 1) db.createObjectStore('kv')
@@ -26,8 +61,10 @@ export function applyUpgrade(db, oldVersion) {
   if (oldVersion < 3) db.createObjectStore(CACHE_META_STORE)
 }
 
+/** @type {Promise<IDBDatabase | null> | null} */
 let dbPromise = null
 
+/** @returns {Promise<IDBDatabase | null>} */
 function getDb() {
   if (dbPromise) return dbPromise
   if (typeof indexedDB === 'undefined') {
@@ -39,8 +76,16 @@ function getDb() {
       // Must match offlineQueue's schema: the shared DB is version DB_VERSION.
       // Opening with a lower version against a newer DB throws VersionError
       // and permanently disables the cache.
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
-      req.onupgradeneeded = () => applyUpgrade(req.result, req.oldVersion)
+      //
+      // ponytail: `oldVersion` is read off the REQUEST here, but IndexedDB
+      // defines it on the upgradeneeded event (IDBVersionChangeEvent), not on
+      // IDBOpenDBRequest — so the value is undefined at runtime and every
+      // comparison in applyUpgrade is false. Left verbatim: this is a typing
+      // pass, not a behavior change, and the discrepancy is reported
+      // upstream. The intersection cast records what the code reads without
+      // pretending IDBOpenDBRequest declares it.
+      const req = /** @type {IDBOpenDBRequest & { oldVersion?: number }} */ (indexedDB.open(DB_NAME, DB_VERSION))
+      req.onupgradeneeded = () => applyUpgrade(req.result, /** @type {number} */ (req.oldVersion))
       req.onsuccess = () => resolve(req.result)
       req.onerror = () => resolve(null)
     } catch {
@@ -50,6 +95,13 @@ function getDb() {
   return dbPromise
 }
 
+/**
+ * Read a kv row. Resolves null when the cache is unavailable (no
+ * IndexedDB, open failed), the key is missing, or the read threw — a
+ * read-through caller then falls through to the network.
+ * @param {string} key
+ * @returns {Promise<OfflineCacheEntry | null>}
+ */
 export async function offlineGet(key) {
   const db = await getDb()
   if (!db) return null
@@ -65,31 +117,43 @@ export async function offlineGet(key) {
   }
 }
 
+/**
+ * Write a kv row, stamping savedAt. Best-effort: a no-op when the cache is
+ * unavailable, and every failure is swallowed.
+ * @param {string} key
+ * @param {unknown} data
+ * @returns {Promise<void>}
+ */
 export async function offlineSet(key, data) {
   const db = await getDb()
   if (!db) return
   try {
-    await new Promise((resolve, reject) => {
+    await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const req = tx.objectStore(STORE_NAME).put({ data, savedAt: Date.now() }, key)
       req.onsuccess = () => resolve()
       req.onerror = () => reject(req.error)
-    })
+    }))
   } catch {
     // swallow — cache is best-effort
   }
 }
 
+/**
+ * Drop a kv row. Best-effort; a missing key is not an error.
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
 export async function offlineRemove(key) {
   const db = await getDb()
   if (!db) return
   try {
-    await new Promise((resolve, reject) => {
+    await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const req = tx.objectStore(STORE_NAME).delete(key)
       req.onsuccess = () => resolve()
       req.onerror = () => reject(req.error)
-    })
+    }))
   } catch {
     // swallow
   }
@@ -97,6 +161,9 @@ export async function offlineRemove(key) {
 
 // Storage screen (2b.1, D5): read every cache-meta row ({bytes, savedAt} per
 // cache name) and drop a row when a category cache is cleared/evicted.
+/**
+ * @returns {Promise<CacheMetaRow[]>}
+ */
 export async function cacheMetaList() {
   const db = await getDb()
   if (!db) return []
@@ -114,31 +181,45 @@ export async function cacheMetaList() {
   }
 }
 
+/**
+ * Drop one cache-meta row. Best-effort.
+ * @param {string} name
+ * @returns {Promise<void>}
+ */
 export async function cacheMetaRemove(name) {
   const db = await getDb()
   if (!db) return
   try {
-    await new Promise((resolve, reject) => {
+    await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
       const tx = db.transaction(CACHE_META_STORE, 'readwrite')
       const req = tx.objectStore(CACHE_META_STORE).delete(name)
       req.onsuccess = () => resolve()
       req.onerror = () => reject(req.error)
-    })
+    }))
   } catch {
     // swallow — meta is best-effort
   }
 }
 
+/**
+ * Every kv key starting with `prefix`, for the storage screen's per-category
+ * eviction. kv keys are always the string keys offlineGet/offlineSet/
+ * offlineRemove take, so the filtered result is string[].
+ * @param {string} prefix
+ * @returns {Promise<string[]>}
+ */
 export async function offlineKeysByPrefix(prefix) {
   const db = await getDb()
   if (!db) return []
   try {
-    const keys = await new Promise((resolve, reject) => {
+    const keys = await /** @type {Promise<string[]>} */ (new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
       const req = tx.objectStore(STORE_NAME).getAllKeys()
-      req.onsuccess = () => resolve(req.result ?? [])
+      // IDB types keys as IDBValidKey; this store only ever holds the
+      // string keys offlineGet/offlineSet/offlineRemove are called with.
+      req.onsuccess = () => resolve(/** @type {string[]} */ (req.result ?? []))
       req.onerror = () => reject(req.error)
-    })
+    }))
     return keys.filter((k) => typeof k === 'string' && k.startsWith(prefix))
   } catch {
     return []
@@ -146,6 +227,11 @@ export async function offlineKeysByPrefix(prefix) {
 }
 
 export function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assertEq = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`offlineCache demo failed: ${label} expected ${expected}, got ${actual}`)
@@ -154,7 +240,9 @@ export function demo() {
 
   // Threat RED 3: the v3 upgrade path is strictly additive — kv/outbox rows
   // survive the bump; cache-meta is the only addition (never a rebuild).
+  /** @type {string[]} */
   const created = []
+  /** @type {UpgradeTarget} */
   const mockDb = {
     createObjectStore: (name) => {
       created.push(name)

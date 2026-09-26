@@ -1,3 +1,4 @@
+// @ts-check
 // Drains the IDB outbox after reconnecting. Client-only: ops are replayed
 // in order against the server; no server-side outbox sync yet.
 // ponytail: client-only FIFO — no server outbox drain yet; 2.6 reconciles the
@@ -14,9 +15,24 @@ import { pendingOps, removeOps } from './queue.js'
 import { offlineGet, offlineSet, offlineRemove } from './cache.js'
 import { reconcileSetlistOp } from '../domain/setlist/collab.js'
 
+/**
+ * A queued op row, aliased from offlineQueue.js (which owns the shape) so the
+ * writer and this drainer cannot drift apart.
+ * @typedef {import('./offlineQueue.js').QueuedOp} QueuedOp
+ */
+
+/**
+ * Replay decision for one queued op: replay it, or drop it — plus the
+ * user-facing notice when the drop lost data.
+ * @typedef {object} ReplayDecision
+ * @property {boolean} replay
+ * @property {string} [notice]
+ */
+
 // op.name whitelist — setlist + gig writes are queued (see setlists.js /
 // gigs.js 2a.6), plus the 2.6 collaboration ops (2b). Unknown op names warn +
 // drop at drain (D6).
+/** @type {Record<string, (...args: any[]) => Promise<unknown>>} */
 const WRITE_OPS = {
   createSetlist: setlists.createSetlist,
   updateSetlist: setlists.updateSetlist,
@@ -59,6 +75,7 @@ const WRITE_OPS = {
 // Ops whose replay rejection is a designed supersession (first-wins): when
 // the server rejects with a matching message, the queued intent is stale —
 // drop the op with a notice and keep draining, instead of stopping the queue.
+/** @type {Record<string, RegExp>} */
 const SUPERSEDED_ERRORS = {
   respondSubstitution: /Position already covered\./,
 }
@@ -70,20 +87,33 @@ const RECONCILE_OPS = new Set(['addSongToSetlist', 'removeSongFromSetlist'])
 
 // Drain-time notices are one-shot strings the UI consumes ("removed before
 // your sync"), keyed per user so two accounts on one device never mix.
+/**
+ * @param {string} userId
+ * @returns {string}
+ */
 const noticesKey = (userId) => `sync-notices:${userId}`
 
 /** Pending drain notices for a user, oldest first. */
+/**
+ * @param {string} userId
+ * @returns {Promise<string[]>}
+ */
 export async function syncNotices(userId) {
   return (await offlineGet(noticesKey(userId)))?.data || []
 }
 
 /** Consume the pending notices (the UI shows each exactly once). */
+/**
+ * @param {string} userId
+ * @returns {Promise<void>}
+ */
 export async function clearSyncNotices(userId) {
   await offlineRemove(noticesKey(userId))
 }
 
 // Last userId explicitly passed to drainPending. The 'online' listener
 // receives a raw Event object, so the user identity must come from here.
+/** @type {string | null} */
 let knownUserId = null
 
 let draining = false
@@ -101,14 +131,20 @@ export function startOfflineSync() {
  * change that decides the outcome. When the read fails the op is kept for the
  * next drain (the replay would fail on the same connection anyway).
  */
+/**
+ * @param {string} userId
+ * @param {QueuedOp} op
+ * @returns {Promise<ReplayDecision>}
+ */
 async function decideReplay(userId, op) {
   let server = null
   try {
-    server = await setlists.fetchServerSetlist(userId, op.args?.[1])
+    // args is [userId, setlistId, songId] for the two reconciled ops.
+    server = await setlists.fetchServerSetlist(userId, /** @type {string} */ (op.args?.[1]))
   } catch {
     return { replay: true }
   }
-  const decision = reconcileSetlistOp(op, server)
+  const decision = reconcileSetlistOp(/** @type {import('./setlistCollab.js').QueuedSetlistOp} */ (op), server)
   if (!decision.drop) return { replay: true }
   if (!decision.notice) return { replay: false }
   return { replay: false, notice: await buildNotice(userId, op) }
@@ -119,6 +155,11 @@ async function decideReplay(userId, op) {
  * postgres_changes payload carries no user id (D5) — so the notice names the
  * song instead. The song lookup is cosmetic: a failure falls back to the
  * generic line rather than losing the notice.
+ */
+/**
+ * @param {string} userId
+ * @param {QueuedOp} op
+ * @returns {Promise<string>}
  */
 async function buildNotice(userId, op) {
   const songId = op.args?.[2]
@@ -134,11 +175,26 @@ async function buildNotice(userId, op) {
     : 'A song was removed from the setlist before your sync.'
 }
 
+/**
+ * @param {string} userId
+ * @param {string[]} lines
+ * @returns {Promise<void>}
+ */
 async function appendNotices(userId, lines) {
   const existing = await syncNotices(userId)
   await offlineSet(noticesKey(userId), [...existing, ...lines])
 }
 
+/**
+ * Replay the user's queued ops in order, then drop them. Unknown op names and
+ * designed supersessions are dropped with a notice; any other rejection stops
+ * the drain so the remaining ops keep their order. `userId` is optional and
+ * may be absent: the 'online' listener registered by startOfflineSync passes
+ * a raw Event, which the `typeof userId === 'string'` guard below rejects, so
+ * the identity falls back to the last value a caller passed in.
+ * @param {string | Event | null | undefined} [userId]
+ * @returns {Promise<void>}
+ */
 export async function drainPending(userId) {
   if (typeof userId === 'string' && userId) knownUserId = userId
   const target = knownUserId
@@ -176,7 +232,7 @@ export async function drainPending(userId) {
         // position was covered by someone else before the sync, so the queued
         // intent is moot. Drop it with a notice and keep draining. Every other
         // rejection stops the queue to preserve order.
-        const superseded = SUPERSEDED_ERRORS[op.name]?.test(String(e?.message || ''))
+        const superseded = SUPERSEDED_ERRORS[op.name]?.test(String(/** @type {Error} */ (e)?.message || ''))
         if (superseded) {
           notices.push('A substitution you accepted was already covered before your sync.')
           await removeOps(target, new Set([op.seq]))
@@ -184,7 +240,7 @@ export async function drainPending(userId) {
           continue
         }
         // Still offline or server rejected — stop and keep the rest in order.
-        console.warn(`offline sync: op ${op.name} failed, retrying on next reconnect`, e?.message || e)
+        console.warn(`offline sync: op ${op.name} failed, retrying on next reconnect`, /** @type {Error} */ (e)?.message || e)
         break
       }
     }
