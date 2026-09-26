@@ -559,8 +559,9 @@ perform.
 
 | Slice | Content | Risk |
 |---|---|---|
-| **PR 1a** — `-pr1a-module-relocation` | Relocate 111 files into `data/`, `integrations/`, `offline/`, `features/`, `hooks/shared/`. Update import paths. **No behaviour change, no refactors.** `src/lib/storage.js` does not move (`docs/adr/0002`, "Two hard constraints"). `ui/` and `content/` are excluded — zero members today | **None.** Import paths only |
-| **PR 1b** — `-pr1b-boundary-refactors` | The six refactors in `docs/adr/0002`: render-model injection for `ChordProRenderer`, engine/lookup split for `degreeResolver`, pure/impure splits, the 4-hop cycle break, clock injection in `relativeTime` | **Medium.** Each is small and independently verifiable |
+| **PR 1a** — `-pr1a-module-relocation` | ~~Relocate 111 files into `data/`, `integrations/`, `offline/`, `features/`, `hooks/shared/`. Update import paths. **No behaviour change, no refactors.** `src/lib/storage.js` does not move. `ui/` and `content/` are excluded — zero members today~~ **DONE** (`ae14521`, bundle byte-identical) | **None.** Import paths only |
+| **PR 1b-0** — `-pr1b0-characterization-tests` | **Vitest + characterization tests for the 9 modules PR 1b will refactor** (§12). Must be **green against the current, pre-refactor code** | **None.** No production code changes |
+| **PR 1b** — `-pr1b-boundary-refactors` | The six refactors in `docs/adr/0002`: render-model injection for `ChordProRenderer`, engine/lookup split for `degreeResolver`, pure/impure splits, the 4-hop cycle break, clock injection in `relativeTime`. Plus the 19 prose comments that still name renamed modules | **Medium.** Behaviour-changing — hence PR 1b-0 |
 | **PR 2** — `-pr2-performance` | Route code splitting, vendor chunk, lazy Supabase client, variable fonts (§7.1, §7.4) | **None.** No class changes meaning |
 | **PR 3** — `-pr3-pwa` | Manifest, `theme-color`, icon set, real favicon, Playwright harness (§7.5) | **None.** Closes the "not installable" claim |
 | **PR 4** — `-pr4-brand-system` | Additive token layer in `:root`, the eight primitives, `lucide-react`, the mark, the mascot spec (§7.2, §4) | **Low.** Additive only; the §10.3 grep proves it |
@@ -568,17 +569,103 @@ perform.
 
 PR 1a through PR 3 are prerequisites with no design risk and are each independently valuable —
 PR 3 alone closes the "not installable" claim. Merging them first means the landing lands on a
-fast, installable, correctly-bounded base.
+fast, installable, correctly-bounded, tested base.
 
 1. ~~Write this feature document~~ — done
 2. ~~Write the master design prompt~~ — done, `docs/prompts/brand-landing-master-prompt.md`
 3. ~~Record the architecture decisions~~ — done, `docs/adr/0001`, `docs/adr/0002`
-4. Execute PR 1a → 1b → 2 → 3 → 4 → 5
-5. Review the landing against §9
-6. Only then: propose the app refactor as its own cycle, split the large files, and delete the
+4. ~~PR 1a — module relocation~~ — done, `ae14521`
+5. Execute PR 1b-0 → 1b → 2 → 3 → 4 → 5
+6. Review the landing against §9
+7. Only then: propose the app refactor as its own cycle, split the large files, and delete the
    legacy tokens
 
-## 12. Evidence appendix
+**The acceptance gate for PR 1b, once 1b-0 exists:** every characterization test passes with
+**zero edits to the test files**. Any test that had to change means the refactor altered
+behaviour, and that is a defect found at review time rather than in a concert hall.
+
+## 12. Test strategy — characterization before refactor
+
+### 12.1 Why characterization, not TDD
+
+PR 1b restructures behaviour that already works. TDD's red-green-refactor cycle is for building
+new behaviour: written against the new structure, the red step means "the module does not exist"
+rather than "the assertion failed", and written against the old structure it is not TDD at all.
+
+Characterization testing has a stricter success criterion and it is the right one here: **write the
+test against the current code, it must pass unmodified, and the refactor must leave it passing
+without touching the test.** That "without touching it" is the proof the refactor was faithful.
+
+| | TDD | Characterization |
+|---|---|---|
+| Written against | code you are about to write | code that **already works** |
+| Red means | "behaviour is missing" | **never** — it must pass green immediately |
+| Proves the refactor was faithful | no | **yes**: green with the test unmodified |
+| Applies to | new features | **refactoring existing code** |
+
+### 12.2 Tooling: one dependency
+
+**Vitest, and nothing else.** It shares Vite's transform pipeline, so the existing
+`vite.config.js` serves it with no extra configuration, and it runs in the `node` environment.
+
+**No jsdom. No @testing-library/react. No DOM at all.** Reason: the `ChordProRenderer` refactor is
+*"stop importing `domain/`, accept a resolved `renderModel`"*. If the model builder is extracted as
+a **pure function** and the component only renders it, then the function is what gets tested, with
+no DOM. The component becomes trivial. Component testing is added later, for a component whose
+behaviour cannot be captured by a pure model — not speculatively now.
+
+### 12.3 What gets characterized, and against which BDD scenario
+
+Almost everything PR 1b touches is already pure, and three of the modules map to a feature file
+that already specifies their behaviour. **Trace each test to the scenario it protects** — this is
+ODD and BDD doing the same job, not a fifth methodology.
+
+| Module under refactor | Pure exports to lock first | Feature file that specifies it |
+|---|---|---|
+| `domain/setlist/collab.js` | `isLockStale`, `reconcileSetlistOp` | `features/offline-edit-conflict-policy.feature` |
+| `domain/music/annotations.js` | `noteForLine`, `buildSubstitutionMap`, `applySubstitution` | `features/personal-preferences-and-adaptations.feature` |
+| `domain/music/degreeResolver.js` | `noteToSemitone`, `extractRoot`, `rootToDegree`, `qualityForDegree`, `formatRomanNumeral`, `parseKeyContext` | `features/music-theory.feature` |
+| `domain/chart/parser.js` | parser entry points | `features/music-notation.feature` |
+| `domain/chart/readiness.js` | readiness computation | `features/song-lifecycle.feature` |
+| `domain/music/transpose.js` | transpose entry points | `features/personal-preferences-and-adaptations.feature` |
+| `domain/setlist/exporters/onsong.js` | `serializeOnSong` (round-trip) | `features/external-integrations.feature` |
+| `domain/library/relativeTime.js` | `relativeTime` at a **fixed** `now` | — |
+| `integrations/spotify.js` | key normalization given injected scales | `features/external-autotagging.feature` |
+
+`relativeTime` is the one behavioural change: today it reads `Date.now()` inside the body
+(`:19`). The characterization test must therefore pass an explicit `now` and assert the value.
+The clock injection in PR 1b is what makes that testable at all.
+
+### 12.4 Sequencing and the acceptance gate
+
+Tests land **before** the refactors, in their own slice, and they must be **green on the
+pre-refactor code**. That is the gate. If a characterization test cannot be made to pass against
+current behaviour, that is a finding about the current behaviour, not a reason to weaken the
+test — report it.
+
+The refactor PR's acceptance criterion is then the strictest and simplest one available:
+
+> **Every characterization test passes with zero edits to the test files.**
+
+Any test that had to change during PR 1b means the refactor altered behaviour. That is a defect,
+and it is found at review time rather than in a concert hall.
+
+### 12.5 CI
+
+`pnpm test` is added to `.github/workflows/ci.yml` alongside `lint` and `build`.
+
+**Not** in this slice: adding `pnpm typecheck` to CI. It is a real gap —
+`AGENTS.md:21` records that typecheck is absent from CI, so type errors ship with a green check —
+but it is a separate decision from establishing a test suite, and bundling them makes both harder
+to review.
+
+### 12.6 `AGENTS.md` is updated when the tests exist, not before
+
+`AGENTS.md:19` currently states *"There is no unit test framework and no test runner."* That line
+must not be edited until the runner is installed and the suite is green, or the file would
+describe something that does not exist.
+
+## 13. Evidence appendix
 
 Key anchors used to build this brief. All read-only.
 
