@@ -79,7 +79,15 @@ select tmp_assert(
 
 -- ══════════════ 2. FIXTURES: THREE PROFILE STATES (postgres) ══════════════
 -- auth.users insert → 0006 on_auth_user_created creates the profiles row with
--- date_of_birth NULL. …0901/…0902 then declare a dob as THEMSELVES below.
+-- date_of_birth NULL. …0901/…0902 are then given a dob below.
+--
+-- These UPDATEs run as postgres, deliberately. They set up test state; they are not
+-- the client write path. Migration 0030 revoked `update (date_of_birth)` from
+-- authenticated (the no-escalation bypass) and routed every real write through
+-- public.set_date_of_birth(), which carries validation the trigger cannot. The CLIENT
+-- path — including that the direct column write is now denied — is asserted in
+-- scripts/smoke/0030-date-of-birth-step.sql. Seeding here as authenticated would test
+-- a privilege that no longer exists and fail for the wrong reason.
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                         email_confirmed_at, confirmation_token, recovery_token,
                         email_change_token_new, email_change_token_current, email_change,
@@ -119,17 +127,11 @@ values
 
 -- …0901 declares a dob INSIDE 18 years. (current_date - interval '10 years') is
 -- used instead of a literal so the fixture cannot silently age into adulthood.
-select set_config('role','authenticated',false);
-select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000901","role":"authenticated"}',false);
-
 update public.profiles
    set date_of_birth = (current_date - interval '10 years')::date
  where id = '10000000-0000-0000-0000-000000000901';
 
 -- …0902 declares the grandfathered adult date.
-select set_config('role','authenticated',false);
-select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000902","role":"authenticated"}',false);
-
 update public.profiles
    set date_of_birth = date '2002-10-10'
  where id = '10000000-0000-0000-0000-000000000902';

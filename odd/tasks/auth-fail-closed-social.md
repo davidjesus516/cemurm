@@ -75,21 +75,25 @@ Net effect: the only thing that has ever locked a minor account is a client-side
 
 ## Work units
 
-### WU1 — Close the server-side hole (migration `0029`) — **next**
-- [ ] T1.1 `supabase/migrations/0029_fail_closed_minors.sql` — add `private.profile_dob_known(uuid)`; add `private.profile_not_verified_adult(uuid)` = `dob is null or is_minor`; recreate `profiles_select_search` to exclude **unknown** as well as minors; tighten the publish guard so an unknown-dob session is blocked from public sharing; **leave** `record_guardian_consent` / `approve_guardian_public_sharing` on the known-minor predicate so an unknown-dob user is never pushed into the consent flow.
-- [ ] T1.2 Backfill existing accounts: `date_of_birth = 2002-10-10` where null, so the grandfathered base is verifiably adult.
-- [ ] T1.3 `scripts/smoke/0029-fail-closed-minors.sql` — assert the three states (minor / adult / unknown) resolve correctly for search visibility and the publish guard; assert the backfill result.
-- [ ] T1.4 Re-verify the 10 scenarios in `features/minors-and-guardian-consent.feature` still hold against the new behaviour; update the doc's scenario-6 wording if "unknown is also excluded" needs stating.
+### WU1 — Close the server-side hole (migration `0029`) — **done** (`9f63656`)
+- [x] T1.1 `supabase/migrations/0029_fail_closed_minors.sql` — `private.profile_dob_known()` + `private.profile_not_verified_adult()`; `profiles_select_search` recreated to exclude unknown as well as minors; publish guard gained a second branch for unknown-dob sessions; `record_guardian_consent` / `approve_guardian_public_sharing` deliberately left on the known-minor predicate.
+- [x] T1.2 Backfill existing accounts to `2002-10-10`.
+- [x] T1.3 `scripts/smoke/0029-fail-closed-minors.sql` — assert the three states (minor / adult / unknown) resolve correctly for search visibility and the publish guard; assert the backfill result.
+- [x] T1.4 Re-verify the 10 scenarios in `features/minors-and-guardian-consent.feature` still hold against the new behaviour; update the doc's scenario-6 wording if "unknown is also excluded" needs stating.
 
 **Acceptance:** a session whose `date_of_birth` is NULL cannot appear in `profiles_select_search` and cannot publish; an adult with dob set can do both; a minor still requires consent. Smoke script reports `[PASS]` for each assertion.
 
-### WU2 — Fail-closed profile step (app)
-- [ ] T2.1 RPC `set_date_of_birth` in `0029` (or a follow-up) so the client never writes the column directly.
-- [ ] T2.2 `src/lib/minors.js` — client for the new RPC, added to `USER_ERRORS` as needed.
-- [ ] T2.3 `src/components/auth/AuthGuards.jsx` — when dob is unknown, render a date-of-birth step instead of `<Outlet />`; keep the existing locked screen for known minors without active consent.
-- [ ] T2.4 New page for the dob step, Tailwind-only, matching `GuardianConsentRequired` conventions.
+### WU2 — Fail-closed profile step (app) — **done**
+- [x] T2.1 Migration **`0030_date_of_birth_step.sql`** (not 0029 — that file is now frozen history). Revokes 0017's `update (date_of_birth)` grant and routes every write through `public.set_date_of_birth()`. Adds `public.my_age_status()` because the client cannot SELECT either age column.
+- [x] T2.2 `src/lib/minors.js` — `getAgeStatus()`, `setDateOfBirth()`; seven new messages registered in the existing `USER_ERRORS` set.
+- [x] T2.3 `src/components/auth/AuthGuards.jsx` — three-way branch. `user.isMinor` is no longer consulted anywhere.
+- [x] T2.4 `src/pages/DateOfBirthRequired.jsx` — Tailwind-only, matches `GuardianConsentRequired`.
+- [x] T2.5 `scripts/smoke/0030-date-of-birth-step.sql` — 38 assertions.
+- [x] T2.6 Repaired `scripts/smoke/0029-fail-closed-minors.sql` (see Progress).
 
-**Acceptance:** a fresh account (OAuth or email) cannot reach `/songs` until a dob is set; setting it as an adult unlocks immediately; setting it as a minor routes to the guardian consent screen.
+**The no-escalation rule — why the RPC is not a blind upsert.** A minor may correct their date to another minor date, and an adult may fix a typo in an adult date, but **a minor can never re-declare themselves as an adult**. Without this the RPC would be exactly the bypass its own section removes: the trigger recomputes `is_minor` from the date just written, and 0017 lines 53–57 would archive the active guardian consent on the way out. Self-approval by "correcting" your birthday once, and the audit trail of supervision deleted by the same act. Adult→minor is deliberately *not* blocked: it only ever adds restrictions. The comparison reuses 0017's exact `current_date - interval '18 years'` formula rather than a second one — two formulas would eventually disagree about who is a minor, and the loser would be the security check.
+
+**Acceptance:** a fresh account (OAuth or email) cannot reach `/songs` until a dob is set; setting it as an adult unlocks immediately; setting it as a minor routes to the guardian consent screen. **Met** — `AuthGuards.jsx:104` (`return <Outlet />`) is reachable only when `readFailed === false && age.dobKnown === true`, so neither an unknown dob nor a failed read can fall through.
 
 ### WU3 — Social signup
 - [ ] T3.1 `supabase/config.toml` — enable `[auth.external.google]` and `[auth.external.github]`.
@@ -113,13 +117,21 @@ Net effect: the only thing that has ever locked a minor account is a client-side
 ## Progress
 
 - 2026-09-26 — Plan agreed, worktree + branch created from `main` (8b66394). WU1 not started.
+- 2026-09-26 — **WU1 done**, commit `9f63656`. Migration `0029_fail_closed_minors.sql` + `scripts/smoke/0029-fail-closed-minors.sql` (19 assertions). Two new definer helpers (`profile_dob_known`, `profile_not_verified_adult`); `profiles_select_search` recreated to exclude unknown; `private.publish_song_to_library` recreated with one added branch (unknown-dob ⇒ `'Complete your date of birth before publishing.'`) and nothing else changed. The consent RPCs were deliberately left on the known-minor predicate. Backfill to `2002-10-10` applied.
+- 2026-09-26 — **WU1's RDD review could not run and is still open.** `gentle-ai review assess` returned `high` (signal `auth`), START created lineage `review-45fda52164e79125` in state `reviewing` with 4 lenses, but the collect step has no transport for this runtime: `review capture-result --materialize --agent opencode` refuses with `the active runtime is not eligible for immutable receipt review; supported immutable review runtimes: claude-code, codex`, and `review opencode-transport` returns `immutable_review_transport_unsupported`. Installed build 3.7.0 (stable) advertises `contract v1` / protocol 1.5 and omits `capture-result` and `acknowledge-approved` from its operation list, though it accepts `--contract=…/v2` for start/status. The user chose to continue without reporting. The lineage is preserved, not closable in this build; `review abandon` needs maintainer authorization with an eight-line binding, so it was not run. **WU1's verification of record is the writer's foreground run plus the parent spot check, not the review.**
+- 2026-09-26 — **WU2 done.** Migration `0030_date_of_birth_step.sql` + `scripts/smoke/0030-date-of-birth-step.sql` (38 assertions) + `src/lib/minors.js` + `src/components/auth/AuthGuards.jsx` + `src/pages/DateOfBirthRequired.jsx`. The direct `update (date_of_birth)` grant is revoked — verified over PostgREST HTTP as well as in psql (`42501 permission denied for table profiles`).
+- 2026-09-26 — **Repaired `scripts/smoke/0029-fail-closed-minors.sql`.** WU2's revoke broke it: its section 2 seeded the minor and adult fixtures with a direct `update … set date_of_birth` executed as `authenticated` (4 assertions failed, including a misleading publish-gate failure that was really a cascading fixture failure). Those two UPDATEs now run as `postgres` — they set up test state, they are not the client write path, and 0030's smoke is what asserts the client path. The section header had already said `(postgres)`; the two `set_config('role','authenticated')` lines were wrong from the start. **Lesson recorded:** any smoke assertion that counts rows *through RLS* can pass vacuously — 0030's own first draft reported `[PASS]` on a tidy-up check while its fixtures were still in the table, because a claimless `authenticated` role sees zero rows and `= 0` was trivially true.
+- 2026-09-26 — Behaviour change worth remembering: an account that declared itself a minor at signup under Hito 4 (`user_metadata.isMinor = true`) but whose `date_of_birth` says adult now takes the `<Outlet />` branch. That is the intended D1 consequence — the metadata hint stops deciding — but it is visible.
 
 ## Verification
 
 - `pnpm lint` — zero warnings (the only automated gate this project has).
-- `psql … < scripts/smoke/0029-fail-closed-minors.sql` — run by hand against the local stack; expected counts in the script header.
+- `docker exec -i supabase_db_cemurm psql -U postgres -d postgres < scripts/smoke/0029-fail-closed-minors.sql` → **19 PASS / 0 FAIL** (re-run by the parent after the repair).
+- `docker exec -i supabase_db_cemurm psql -U postgres -d postgres < scripts/smoke/0030-date-of-birth-step.sql` → **38 PASS / 0 FAIL** (re-run by the parent).
+- Both smokes were confirmed to be able to fail: re-applying 0017's column grant turns 0030's suite to 35 PASS / 3 FAIL and the direct write demonstrably succeeds, and restoring 0030 returns 38/0 with byte-identical state snapshots.
 - No test framework, no typecheck, no CI. Do not claim otherwise.
+- Known pre-existing defect, unrelated to this work and not fixed here: `supabase/migrations/0018_service_planning.sql:344` and `0019_rehearsal_workflow.sql:184` both `create function private.display_name_for(uuid)` without `or replace`, so a clean `supabase db reset` can never get past 0019. Any local verification had to apply migrations by hand. This blocks reproducible setup and deserves its own work unit.
 
 ## Next step
 
-WU1 / T1.1 — author `supabase/migrations/0029_fail_closed_minors.sql`.
+WU3 — social signup: `supabase/config.toml` `[auth.external.*]`, `signInWithOAuth` in `src/lib/auth.js`, social buttons in `src/pages/Auth.jsx`. OAuth accounts must land on WU2's date-of-birth step, which is now the only thing standing between a Google sign-in and the app.
