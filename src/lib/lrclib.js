@@ -1,3 +1,4 @@
+// @ts-check
 // LRCLIB lyrics provider (Hito 5 #78): pure + guarded, spotify.js pattern —
 // DOM/env access is guarded so this module never explodes in node.
 //
@@ -19,6 +20,38 @@
 
 import { isOnline } from './spotify.js'
 
+/**
+ * The lyric lookup query. `artist` is OPTIONAL on purpose: a title-only lookup
+ * is the documented "no confident match" case (the demo asserts it), so callers
+ * may omit either half of the pair.
+ * @typedef {object} LrcQuery
+ * @property {string} title
+ * @property {string} [artist]
+ */
+
+/**
+ * The synced-lyrics match this provider resolves: `lyrics` is the LRC block
+ * (synced when the API has it, plain otherwise) and is always a string.
+ * @typedef {object} LrcMatch
+ * @property {string} lyrics
+ * @property {'lrclib'} source
+ */
+
+/**
+ * fetchLrclibLyrics's resolved shape, discriminated on `ok`: the failure branch
+ * carries 'offline' | 'unavailable', the success branches carry the match
+ * (null = no confident match, nothing is written).
+ * @typedef {{ ok: false, error: string } | { ok: true, match: null } | { ok: true, match: LrcMatch }} LrcResult
+ */
+
+/**
+ * One lrclib.net search row. Both lyric flavors are optional-and-nullable —
+ * the find below keeps the first row that carries either one.
+ * @typedef {object} LrcSearchHit
+ * @property {string | null} [syncedLyrics]
+ * @property {string | null} [plainLyrics]
+ */
+
 /** True when the real LRCLIB API is opted in (dev mock otherwise). */
 export const LRCLIB_LIVE = Boolean(import.meta.env?.VITE_LRCLIB_LIVE)
 
@@ -27,6 +60,8 @@ export const LRCLIB_LIVE = Boolean(import.meta.env?.VITE_LRCLIB_LIVE)
  *   { ok: true, match: { lyrics, source: 'lrclib' } }
  *   { ok: true, match: null }  — no confident match (nothing is written)
  *   { ok: false, error: 'offline' | 'unavailable' }  — provider unreachable
+ * @param {LrcQuery} query
+ * @returns {Promise<LrcResult>}
  */
 export async function fetchLrclibLyrics({ title, artist }) {
   if (!isOnline()) return { ok: false, error: 'offline' }
@@ -44,6 +79,13 @@ export async function fetchLrclibLyrics({ title, artist }) {
 // Mock provider (deterministic dev contract; see header)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The deterministic dev lyric block (see header): no title+artist, or a title
+ * marked 'unconfident'/'nomatch', resolves to the no-match branch.
+ * @param {string} title
+ * @param {string} [artist]
+ * @returns {LrcResult}
+ */
 function searchMockProvider(title, artist) {
   const t = String(title || '').trim()
   const a = String(artist || '').trim()
@@ -69,6 +111,14 @@ function searchMockProvider(title, artist) {
 
 const LRCLIB_API = 'https://lrclib.net/api'
 
+/**
+ * The opt-in lrclib.net search. Throws on any transport/HTTP failure — the
+ * caller's catch turns that into { ok: false, error: 'unavailable' }, so there
+ * is deliberately NO mock fallback here.
+ * @param {string} title
+ * @param {string} [artist]
+ * @returns {Promise<LrcResult>}
+ */
 async function searchRealProvider(title, artist) {
   const params = new URLSearchParams({
     track_name: String(title || '').trim(),
@@ -78,7 +128,9 @@ async function searchRealProvider(title, artist) {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new Error('LRCLIB search failed')
-  const body = await res.json()
+  // The cast states the success shape; the Array.isArray guard below stays for a
+  // non-array error payload the API can answer with.
+  const body = /** @type {LrcSearchHit[]} */ (await res.json())
   const hit = (Array.isArray(body) ? body : []).find((r) => r.syncedLyrics || r.plainLyrics)
   if (!hit) return { ok: true, match: null }
   return {
@@ -92,6 +144,11 @@ async function searchRealProvider(title, artist) {
 
 // Self-check: node -e "import('./src/lib/lrclib.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assert = (actual, expected, label) => {
     const a = JSON.stringify(actual)
     const e = JSON.stringify(expected)
@@ -107,12 +164,14 @@ export async function demo() {
   assert(noMatch, { ok: true, match: null }, 'nomatch title → no match')
   const noArtist = await fetchLrclibLyrics({ title: 'Song' })
   assert(noArtist, { ok: true, match: null }, 'missing artist → no match')
-  const hit = await fetchLrclibLyrics({ title: 'Way Maker', artist: 'Sinach' })
+  // The two casts state the ok + match branch the mock contract guarantees for
+  // this input (the asserts below read through `match`).
+  const hit = /** @type {{ ok: boolean, match: LrcMatch }} */ (await fetchLrclibLyrics({ title: 'Way Maker', artist: 'Sinach' }))
   assert(hit.ok, true, 'mock match resolves ok')
   assert(hit.match.source, 'lrclib', 'source is lrclib')
   assert(hit.match.lyrics.includes('Way Maker'), true, 'lyrics embed the title')
   assert(hit.match.lyrics.includes('\n'), true, 'lyrics are a multiline block')
-  const again = await fetchLrclibLyrics({ title: 'Way Maker', artist: 'Sinach' })
+  const again = /** @type {{ ok: boolean, match: LrcMatch }} */ (await fetchLrclibLyrics({ title: 'Way Maker', artist: 'Sinach' }))
   assert(again.match.lyrics, hit.match.lyrics, 'mock is deterministic for the same input')
 
   console.log('lrclib demo: all asserts passed')
