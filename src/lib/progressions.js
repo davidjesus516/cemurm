@@ -1,3 +1,4 @@
+// @ts-check
 // Client-side progression catalog — common chord progressions searchable
 // by degree pattern. "The concrete chart is canonical; degrees are a
 // derived view." Progression search matches declared degree patterns only;
@@ -194,6 +195,11 @@ export function listProgressions() {
 
 // Self-check: node -e "import('./src/lib/progressions.js').then(m => m.demo())"
 export function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assert = (actual, expected, label) => {
     if (JSON.stringify(actual) !== JSON.stringify(expected)) {
       throw new Error(`progressions demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
@@ -205,7 +211,7 @@ export function demo() {
   assert(searchProgressions('ii-V-I').length >= 1, true, 'search by pattern')
   assert(searchProgressions('blues').length >= 1, true, 'search by family')
   assert(searchProgressions('').length, PROGRESSIONS.length, 'empty query returns all')
-  assert(getProgressionByName('I-IV-V').name, 'I-IV-V', 'exact lookup')
+  assert(/** @type {Progression} */ (getProgressionByName('I-IV-V')).name, 'I-IV-V', 'exact lookup')
   assert(getProgressionByName('nonexistent'), null, 'missing lookup returns null')
 
   console.log('progressions demo OK: 7 asserts')
