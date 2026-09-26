@@ -1,3 +1,4 @@
+// @ts-check
 // Supabase data layer for community follows (Hito 4 S4.2.4).
 // Follow/unfollow writes go through the S4.2 SECURITY DEFINER RPCs (0013);
 // the own-graph read (is-following state) hits the `follows` table directly
@@ -14,6 +15,34 @@
 import { supabase } from '../supabase.js'
 import { offlineGet, offlineRemove, offlineSet } from '../../offline/cache.js'
 
+/**
+ * Aggregate follow counts (0013 RPC get_profile_follow_counts): the
+ * followers/following BIGINTs resolved to numbers — the RPC never returns
+ * follow rows, so there is no identity/edge-list exposure here.
+ * @typedef {object} FollowCounts
+ * @property {number} followers
+ * @property {number} following
+ */
+
+/**
+ * Row of the public_library_entries view (0010) as the T5 feed reads it
+ * (select '*'): the public_songs catalog columns joined with the song's
+ * title/artist/genre and the contributor's display_name. The view filters
+ * to live entries, so status is always 'live'.
+ * @typedef {object} LibraryEntry
+ * @property {string} id
+ * @property {string} song_id
+ * @property {string} contributor_id
+ * @property {string} license
+ * @property {boolean} license_confirmed
+ * @property {string} status
+ * @property {string} updated_at
+ * @property {string} title
+ * @property {string | null} artist
+ * @property {string | null} genre
+ * @property {string | null} contributor_name
+ */
+
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
 // errors map to a safe generic message (same contract as publicLibrary.js).
 const USER_ERRORS = new Set([
@@ -21,26 +50,41 @@ const USER_ERRORS = new Set([
   'Cannot follow yourself.',
 ])
 
+/**
+ * @param {Error} error
+ * @returns {never}
+ */
 function handleError(error) {
   const msg = error?.message || ''
   if (USER_ERRORS.has(msg)) throw error
   throw new Error('Something went wrong. Please try again.')
 }
 
+/**
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withErrorMapping(fn) {
-  try { return await fn() } catch (e) { handleError(e) }
+  try { return await fn() } catch (e) { handleError(/** @type {Error} */ (e)) }
 }
 
 // Same read-through contract as publicLibrary.js: every successful network
 // read overwrites the cache and offline reads serve it unconditionally, so
 // staleness self-heals on the next successful fetch.
+/**
+ * @template T
+ * @param {string} key
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withReadThrough(key, fn) {
   try {
     const data = await fn()
     await offlineSet(key, data)
     return data
   } catch (e) {
-    if (USER_ERRORS.has(e?.message)) throw e
+    if (USER_ERRORS.has(/** @type {Error} */ (e)?.message)) throw e
     const cached = await offlineGet(key)
     if (cached?.data) return cached.data
     throw e
@@ -55,6 +99,11 @@ async function withReadThrough(key, fn) {
  * Invalidate-before-refresh shape matches
  * publishSongToLibrary's offlineRemove('publicLibrary:entries').
  */
+/**
+ * @param {string} followerId
+ * @param {string} followedId
+ * @returns {Promise<void>}
+ */
 export async function invalidateFollowCaches(followerId, followedId) {
   await offlineRemove(`follows:state:${followerId}:${followedId}`)
   await offlineRemove(`follows:counts:${followedId}`)
@@ -65,6 +114,10 @@ export async function invalidateFollowCaches(followerId, followedId) {
  * Aggregate follow counts for a profile (0013 RPC). Resolves
  * { followers, following } as numbers. Aggregates only — the RPC never
  * returns follow rows, so no identity/edge-list exposure for arbitrary users.
+ */
+/**
+ * @param {string} userId
+ * @returns {Promise<FollowCounts>}
  */
 export function getProfileFollowCounts(userId) {
   return withErrorMapping(() => withReadThrough(`follows:counts:${userId}`, async () => {
@@ -87,6 +140,11 @@ export function getProfileFollowCounts(userId) {
  * the caller is not a participant, so callers must pass the session user as
  * `followerId` (the hook does).
  */
+/**
+ * @param {string} followerId
+ * @param {string} followedId
+ * @returns {Promise<boolean>}
+ */
 export function getFollowState(followerId, followedId) {
   return withErrorMapping(() => withReadThrough(`follows:state:${followerId}:${followedId}`, async () => {
     const { data, error } = await supabase
@@ -105,6 +163,10 @@ export function getFollowState(followerId, followedId) {
  * ON CONFLICT DO NOTHING); the RPC rejects anonymous sessions and
  * self-follow. The hook invalidates local caches after success.
  */
+/**
+ * @param {string} followedId
+ * @returns {Promise<void>}
+ */
 export async function followUser(followedId) {
   return withErrorMapping(async () => {
     const { error } = await supabase.rpc('follow_user', { p_followed_id: followedId })
@@ -115,6 +177,10 @@ export async function followUser(followedId) {
 /**
  * Unfollow another musician (scenario 12, reversible). Idempotent:
  * unfollowing someone already unfollowed is a no-op server-side.
+ */
+/**
+ * @param {string} followedId
+ * @returns {Promise<void>}
  */
 export async function unfollowUser(followedId) {
   return withErrorMapping(async () => {
@@ -136,6 +202,10 @@ export async function unfollowUser(followedId) {
  * zero-returns another caller's graph. Follows nobody → [] without a second
  * round trip. Feed cache is dropped by invalidateFollowCaches on any
  * follow/unfollow mutation.
+ */
+/**
+ * @param {string} userId
+ * @returns {Promise<LibraryEntry[]>}
  */
 export function getDiscoveryFeed(userId) {
   return withErrorMapping(() => withReadThrough(`follows:feed:${userId}`, async () => {
