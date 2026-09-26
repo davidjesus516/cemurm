@@ -1,13 +1,34 @@
+// @ts-check
 // Scale catalog data layer — fetches from Supabase `scale_catalog` table,
 // caches locally in module scope. Read-only reference data for music theory
 // features (Hito 4). No writes — catalog is seeded via migration.
 
+/**
+ * One `scale_catalog` row as the selected columns read it (0001_init.sql:
+ * id uuid, name text, aliases text[], intervals integer[], parent_scale_id
+ * uuid, rotation integer, cardinality integer). `aliases` is a nullable array
+ * column, so an absent alias list arrives as null, not [].
+ * @typedef {object} Scale
+ * @property {string} id
+ * @property {string} name
+ * @property {string[] | null} aliases
+ * @property {number[]} intervals
+ * @property {string | null} parent_scale_id
+ * @property {number | null} rotation
+ * @property {number} cardinality
+ */
+
+/** @type {Scale[] | null} */
 let cache = null
 
 /**
  * Lazy-imported Supabase client (same pattern as annotations.js).
+ * @type {typeof import('./supabase.js').supabase | null}
  */
 let supabaseClient = null
+/**
+ * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}
+ */
 async function supabase() {
   if (!supabaseClient) supabaseClient = (await import('../supabase.js')).supabase
   return supabaseClient
@@ -17,6 +38,7 @@ async function supabase() {
  * Fetch all scales from the catalog and cache in module scope.
  * Returns the cached array on subsequent calls. Never throws — returns []
  * on network/RLS failure so callers degrade gracefully.
+ * @returns {Promise<Scale[]>}
  */
 export async function fetchScales() {
   if (cache) return cache
@@ -36,6 +58,8 @@ export async function fetchScales() {
 
 /**
  * Lookup a scale by its UUID. Returns the scale object or null.
+ * @param {string} id
+ * @returns {Promise<Scale | null>}
  */
 export async function getScaleById(id) {
   const scales = await fetchScales()
@@ -46,6 +70,8 @@ export async function getScaleById(id) {
  * Fuzzy-match a scale by name or alias (case-insensitive).
  * Exact name match first, then alias match, then substring.
  * Returns the scale object or null.
+ * @param {string | null | undefined} name
+ * @returns {Promise<Scale | null>}
  */
 export async function findScaleByName(name) {
   if (!name) return null
@@ -79,6 +105,11 @@ export function resetScaleCache() {
 
 // Self-check: node -e "import('./src/data/repositories/scaleCatalog.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assert = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`scaleCatalog demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)

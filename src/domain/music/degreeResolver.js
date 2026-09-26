@@ -1,3 +1,4 @@
+// @ts-check
 // Degree resolver — computes roman numerals from a concrete chord + key context
 // (tonic + scale). The concrete chart is ALWAYS canonical; degrees are a
 // derived view only (BDD scenario: "degree progression I-IV-V is a derived
@@ -8,6 +9,30 @@
 
 import { findScaleByName } from '../../data/repositories/scaleCatalog.js'
 
+/**
+ * The tertian quality derived from a scale's intervals. 'power' is the honest
+ * answer for pentatonic/chromatic scales, where a root-third-fifth analysis
+ * is not meaningful.
+ * @typedef {'major' | 'minor' | 'diminished' | 'augmented' | 'power'} DegreeQuality
+ */
+
+/**
+ * A parsed key context: the tonic note plus the name the scale catalog is
+ * looked up by (defaults to "Major" when the key string names no scale).
+ * @typedef {object} KeyContext
+ * @property {string} tonic
+ * @property {string} scaleName
+ */
+
+/**
+ * The structured degree the renderer consumes.
+ * @typedef {object} DegreeInfo
+ * @property {number} degree
+ * @property {string} numeral
+ * @property {DegreeQuality | null} quality
+ * @property {string} scaleId
+ */
+
 // Chromatic note names in sharp spelling (index 0 = C).
 const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const FLAT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
@@ -15,6 +40,8 @@ const FLAT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 
 /**
  * Convert a note name (e.g. "C#", "Bb") to a semitone index 0–11.
  * Returns null if unparseable.
+ * @param {string | null | undefined} name
+ * @returns {number | null}
  */
 function noteToSemitone(name) {
   if (!name) return null
@@ -28,6 +55,8 @@ function noteToSemitone(name) {
 /**
  * Extract the root note from a chord string (e.g. "Cmaj7" → "C", "Bb" → "Bb").
  * Handles sharps (#) and flats (b).
+ * @param {string} chord
+ * @returns {string | null}
  */
 function extractRoot(chord) {
   const m = chord.match(/^([A-G][#b]?)/)
@@ -41,6 +70,10 @@ const ROMAN_MINOR = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii']
 /**
  * Determine whether a chord root matches a scale degree.
  * Returns the degree (1-based) or null if no match.
+ * @param {number | null} tonicSemitone
+ * @param {number[]} scaleIntervals
+ * @param {number | null} chordRootSemitone
+ * @returns {number | null}
  */
 function rootToDegree(tonicSemitone, scaleIntervals, chordRootSemitone) {
   if (chordRootSemitone === null || tonicSemitone === null) return null
@@ -64,6 +97,9 @@ function rootToDegree(tonicSemitone, scaleIntervals, chordRootSemitone) {
  *
  * Returns: 'major', 'minor', 'diminished', 'augmented', or 'power' (for
  * pentatonic/chromatic where tertian analysis is less meaningful).
+ * @param {number[] | null | undefined} intervals
+ * @param {number} degree
+ * @returns {DegreeQuality | null}
  */
 function qualityForDegree(intervals, degree) {
   if (!intervals || degree < 1 || degree > intervals.length) return null
@@ -109,6 +145,9 @@ function qualityForDegree(intervals, degree) {
  * - Diminished → "°" suffix
  * - Augmented → "+" suffix
  * - Seventh chords get "7" appended based on quality
+ * @param {number} degree
+ * @param {DegreeQuality | null} quality
+ * @returns {string}
  */
 function formatRomanNumeral(degree, quality) {
   if (!degree || degree < 1 || degree > 7) return '?'
@@ -134,6 +173,8 @@ function formatRomanNumeral(degree, quality) {
 /**
  * Parse a key string like "C major", "E Phrygian", "Ab" into { tonic, scaleName }.
  * If no scale is specified, defaults to "Major" (standard convention).
+ * @param {string | null | undefined} keyString
+ * @returns {KeyContext | null}
  */
 export function parseKeyContext(keyString) {
   if (!keyString) return null
@@ -152,9 +193,9 @@ export function parseKeyContext(keyString) {
 /**
  * Resolve the roman numeral degree for a concrete chord within a key context.
  *
- * @param {object} keyContext - { tonic: 'E', scaleName: 'Phrygian dominant' } or parsed key string
- * @param {string} concreteChord - The chord string (e.g. "E7", "F", "Bm")
- * @returns {string|null} Roman numeral string or null if unresolvable
+ * @param {string | KeyContext} keyContext - { tonic: 'E', scaleName: 'Phrygian dominant' } or parsed key string
+ * @param {string | null | undefined} concreteChord - The chord string (e.g. "E7", "F", "Bm")
+ * @returns {Promise<string | null>} Roman numeral string or null if unresolvable
  */
 export async function resolveDegree(keyContext, concreteChord) {
   if (!concreteChord) return null
@@ -179,6 +220,9 @@ export async function resolveDegree(keyContext, concreteChord) {
 /**
  * Resolve degree info as a structured object for the renderer.
  * Returns { degree, numeral, quality, scaleId } or null.
+ * @param {string | KeyContext} keyContext - Parsed key string or { tonic, scaleName }
+ * @param {string | null | undefined} concreteChord
+ * @returns {Promise<DegreeInfo | null>}
  */
 export async function resolveDegreeInfo(keyContext, concreteChord) {
   if (!concreteChord) return null
@@ -204,6 +248,11 @@ export async function resolveDegreeInfo(keyContext, concreteChord) {
 
 // Self-check: node -e "import('./src/domain/music/degreeResolver.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assert = (actual, expected, label) => {
     if (JSON.stringify(actual) !== JSON.stringify(expected)) {
       throw new Error(`degreeResolver demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
