@@ -49,3 +49,5 @@ CEMURM/
 .atl/
 .reflection/
 .codegraph/
+/.agents
+/.claude
