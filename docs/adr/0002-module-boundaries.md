@@ -67,6 +67,26 @@ An exception with no name is a leak. These are the only four, and each has a rea
 | `offline/drainer.js` may import `data/repositories/*` | **The drainer is the exception that justifies the rule.** It replays 30 whitelisted operations against repositories. It is the one place where the dependency legitimately inverts. |
 | `data/repositories/enrichments.js` may import `integrations/spotify.js` | Provenance lives with the repository, not with the provider. The reverse hop is what is forbidden (see refactor 4). |
 
+### Two known violations of rule 2, present at the time of writing
+
+Rule 2 says `data/` is the only module permitted to import the Supabase client. That is **not yet
+true**, and this ADR does not pretend otherwise:
+
+| File | Import | Why it is still there |
+|---|---|---|
+| `src/features/stage/pages/Overlay.jsx:11` | `data/supabase.js` | The OBS overlay polls `overlay_state()` to learn whether a session is active. The clean fix is a repository in `data/` and a call through it. Not done: it is a behaviour-affecting change to a surface that must never crash (an error must render the inactive state, not throw) |
+| `src/features/stage/hooks/useFootPedal.js:2` | `data/supabase.js` | Persists pedal configuration to `device_configs`. The clean fix is a repository in `data/`. Not done for the same reason |
+
+Both are stage surfaces, both are deliberately defensive, and neither is a boundary that is easy to
+get wrong by accident. They are recorded here as debt with a named destination, not waved through.
+
+### One known violation of rule 3 that this ADR missed
+
+`applyLock` at `src/domain/setlist/collab.js:91` reads `Date.now()` internally. That is the same
+class of violation as refactor 6 and it is **not** in the refactor table below. Recorded here so
+the list is complete.
+
+
 ## The six refactors this requires
 
 Relocation alone does not produce compliant boundaries. These are not `git mv`:

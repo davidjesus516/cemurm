@@ -80,12 +80,15 @@ describe('isLockStale', () => {
     expect(lock).toEqual(before)
   })
 
-  it('defaults `now` to Date.now(), and a just-created lock reads fresh', () => {
-    // Only a fresh lock is asserted here — the TTL boundary itself is covered
-    // above with an explicit clock, so this cannot drift into flakiness.
-    expect(isLockStale({ ts: Date.now() })).toBe(false)
-    expect(isLockStale(null)).toBe(true)
-    expect(isLockStale({ ts: Date.now() - LOCK_TTL_MS - 1000 })).toBe(true)
+  it('requires an explicit `now`, and a just-created lock reads fresh', () => {
+    // ADR 0002 removed the defaulted clock from the exported signature, so `now`
+    // is a required argument. This test used to pin that default; it now pins the
+    // required-argument contract. The TTL boundary itself is covered above with an
+    // explicit clock. Capturing one `now` also removes the three separate reads.
+    const now = Date.now()
+    expect(isLockStale({ ts: now }, now)).toBe(false)
+    expect(isLockStale(null, now)).toBe(true)
+    expect(isLockStale({ ts: now - LOCK_TTL_MS - 1000 }, now)).toBe(true)
   })
 })
 

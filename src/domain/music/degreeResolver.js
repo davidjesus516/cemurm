@@ -1,12 +1,18 @@
-// Degree resolver — computes roman numerals from a concrete chord + key context
-// (tonic + scale). The concrete chart is ALWAYS canonical; degrees are a
-// derived view only (BDD scenario: "degree progression I-IV-V is a derived
-// view, not the stored content").
+// Degree resolver — PURE ENGINE (ADR 0002 refactor 2, engine/lookup split).
+// Computes roman numerals from a concrete chord + key context (tonic +
+// scale). The concrete chart is ALWAYS canonical; degrees are a derived view
+// only (BDD scenario: "degree progression I-IV-V is a derived view, not the
+// stored content").
 //
 // Quality derives from the scale intervals, NOT hardcoded major/minor
 // assumptions (BDD: "Quality derives from the scale").
-
-import { findScaleByName } from '../../data/repositories/scaleCatalog.js'
+//
+// This module is the whole engine and nothing else: no imports, no I/O, no
+// catalog. It is reached through data/repositories/degrees.js, which owns the
+// `findScaleByName` read and exports the async entry points resolveDegree /
+// resolveDegreeInfo. Before the split those two lived here and were
+// `export async` ONLY because of scaleCatalog → supabase, which made the
+// engine below unreachable from a test.
 
 // Chromatic note names in sharp spelling (index 0 = C).
 const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -16,7 +22,7 @@ const FLAT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 
  * Convert a note name (e.g. "C#", "Bb") to a semitone index 0–11.
  * Returns null if unparseable.
  */
-function noteToSemitone(name) {
+export function noteToSemitone(name) {
   if (!name) return null
   const sharp = SHARP_NOTES.indexOf(name)
   if (sharp !== -1) return sharp
@@ -29,7 +35,7 @@ function noteToSemitone(name) {
  * Extract the root note from a chord string (e.g. "Cmaj7" → "C", "Bb" → "Bb").
  * Handles sharps (#) and flats (b).
  */
-function extractRoot(chord) {
+export function extractRoot(chord) {
   const m = chord.match(/^([A-G][#b]?)/)
   return m ? m[1] : null
 }
@@ -42,7 +48,7 @@ const ROMAN_MINOR = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii']
  * Determine whether a chord root matches a scale degree.
  * Returns the degree (1-based) or null if no match.
  */
-function rootToDegree(tonicSemitone, scaleIntervals, chordRootSemitone) {
+export function rootToDegree(tonicSemitone, scaleIntervals, chordRootSemitone) {
   if (chordRootSemitone === null || tonicSemitone === null) return null
   const offset = ((chordRootSemitone - tonicSemitone) % 12 + 12) % 12
 
@@ -65,7 +71,7 @@ function rootToDegree(tonicSemitone, scaleIntervals, chordRootSemitone) {
  * Returns: 'major', 'minor', 'diminished', 'augmented', or 'power' (for
  * pentatonic/chromatic where tertian analysis is less meaningful).
  */
-function qualityForDegree(intervals, degree) {
+export function qualityForDegree(intervals, degree) {
   if (!intervals || degree < 1 || degree > intervals.length) return null
   const len = intervals.length
 
@@ -110,7 +116,7 @@ function qualityForDegree(intervals, degree) {
  * - Augmented → "+" suffix
  * - Seventh chords get "7" appended based on quality
  */
-function formatRomanNumeral(degree, quality) {
+export function formatRomanNumeral(degree, quality) {
   if (!degree || degree < 1 || degree > 7) return '?'
 
   const majorNumeral = ROMAN_MAJOR[degree - 1]
@@ -149,61 +155,10 @@ export function parseKeyContext(keyString) {
   return { tonic, scaleName }
 }
 
-/**
- * Resolve the roman numeral degree for a concrete chord within a key context.
- *
- * @param {object} keyContext - { tonic: 'E', scaleName: 'Phrygian dominant' } or parsed key string
- * @param {string} concreteChord - The chord string (e.g. "E7", "F", "Bm")
- * @returns {string|null} Roman numeral string or null if unresolvable
- */
-export async function resolveDegree(keyContext, concreteChord) {
-  if (!concreteChord) return null
-
-  const ctx = typeof keyContext === 'string' ? parseKeyContext(keyContext) : keyContext
-  if (!ctx) return null
-
-  const scale = await findScaleByName(ctx.scaleName)
-  if (!scale) return null
-
-  const tonicSemitone = noteToSemitone(ctx.tonic)
-  const chordRoot = extractRoot(concreteChord)
-  const chordRootSemitone = noteToSemitone(chordRoot)
-
-  const degree = rootToDegree(tonicSemitone, scale.intervals, chordRootSemitone)
-  if (!degree) return null
-
-  const quality = qualityForDegree(scale.intervals, degree)
-  return formatRomanNumeral(degree, quality)
-}
-
-/**
- * Resolve degree info as a structured object for the renderer.
- * Returns { degree, numeral, quality, scaleId } or null.
- */
-export async function resolveDegreeInfo(keyContext, concreteChord) {
-  if (!concreteChord) return null
-
-  const ctx = typeof keyContext === 'string' ? parseKeyContext(keyContext) : keyContext
-  if (!ctx) return null
-
-  const scale = await findScaleByName(ctx.scaleName)
-  if (!scale) return null
-
-  const tonicSemitone = noteToSemitone(ctx.tonic)
-  const chordRoot = extractRoot(concreteChord)
-  const chordRootSemitone = noteToSemitone(chordRoot)
-
-  const degree = rootToDegree(tonicSemitone, scale.intervals, chordRootSemitone)
-  if (!degree) return null
-
-  const quality = qualityForDegree(scale.intervals, degree)
-  const numeral = formatRomanNumeral(degree, quality)
-
-  return { degree, numeral, quality, scaleId: scale.id }
-}
-
 // Self-check: node -e "import('./src/domain/music/degreeResolver.js').then(m => m.demo())"
-export async function demo() {
+// The engine half of the old demo; the "no catalog → null" assert moved with
+// resolveDegree into data/repositories/degrees.js, which owns the catalog read.
+export function demo() {
   const assert = (actual, expected, label) => {
     if (JSON.stringify(actual) !== JSON.stringify(expected)) {
       throw new Error(`degreeResolver demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
@@ -217,9 +172,18 @@ export async function demo() {
   assert(parseKeyContext('E Phrygian dominant'), { tonic: 'E', scaleName: 'Phrygian dominant' }, 'parseKeyContext exotic')
   assert(parseKeyContext(''), null, 'parseKeyContext empty')
 
-  // Without Supabase, degree resolution returns null (catalog not loaded).
-  const deg = await resolveDegree({ tonic: 'C', scaleName: 'Major' }, 'G')
-  assert(deg, null, 'no catalog → null')
+  // Engine: semitones, root extraction, degree + quality + numeral.
+  assert(noteToSemitone('C'), 0, 'noteToSemitone C')
+  assert(noteToSemitone('Bb'), 10, 'noteToSemitone Bb')
+  assert(extractRoot('Cmaj7'), 'C', 'extractRoot Cmaj7')
+  assert(rootToDegree(0, [0, 2, 4, 5, 7, 9, 11], 7), 5, 'G in C major is degree 5')
+  // FINDING: qualityForDegree reads consecutive scale intervals as a triad, so
+  // every degree of a real diatonic scale falls through to 'power' — the
+  // major/minor/dim/aug branches need tertian-sized steps. Pinned in
+  // degreeResolver.test.js; not changed here, this PR is behaviour-preserving.
+  assert(qualityForDegree([0, 2, 4, 5, 7, 9, 11], 5), 'power', 'degree 5 of C major is power, not major')
+  assert(qualityForDegree([0, 4, 7, 8, 9, 10, 11], 1), 'major', 'tertiian steps do reach major')
+  assert(formatRomanNumeral(5, 'power'), 'V', 'degree 5 power → V')
 
-  console.log('degreeResolver demo OK: 5 asserts (parseKeyContext, graceful null)')
+  console.log('degreeResolver demo OK: 13 asserts (parseKeyContext, engine)')
 }

@@ -14,7 +14,7 @@
 //   but gets NOTHING unless the session is active — even the owner.
 // - The session id is mirrored to localStorage (cemurm:obs:id:<setlistId>)
 //   so Stage Mode knows the URL immediately after a reload without a
-//   round-trip; all storage access is guarded (midi.js pattern — never
+//   round-trip; all storage access is guarded (webMidi.js pattern — never
 //   explodes offline). The DB row remains the source of truth.
 // - Transpose is personal performance state and stays on the operator side:
 //   the snapshot pushes the chart as resolved by the stage (song.body).
@@ -113,7 +113,7 @@ export async function setOverlayMode(setlistId, mode) {
 
 /**
  * Push the current song snapshot ({ song_index, song_total, song_title,
- * song_key, chart_body }). BEST-EFFORT, mirroring midi.js: failures are
+ * song_key, chart_body }). BEST-EFFORT, mirroring webMidi.js: failures are
  * swallowed so a hiccup never blocks the performance — the next poll simply
  * serves the last state that made it to the database.
  */

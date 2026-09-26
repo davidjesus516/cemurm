@@ -10,7 +10,7 @@ import { syncNotices, clearSyncNotices } from '../../../offline/drainer.js'
 import { describeActivity } from '../../../domain/setlist/collab.js'
 import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
-import { downloadOnSongFile } from '../../../domain/setlist/exporters/onsong.js'
+import { downloadOnSongFile } from '../../../integrations/download.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
 
 export default function SetlistDetail() {
@@ -50,7 +50,7 @@ export default function SetlistDetail() {
   }, [showActivity, id])
 
   // 2.6 (R7): drain-time notices ("removed before your sync") are persisted by
-  // offlineSync.js — surface them on mount, on reconnect, and when a drain
+  // drainer.js — surface them on mount, on reconnect, and when a drain
   // finishes, then consume them so each is shown exactly once.
   useEffect(() => {
     if (!user) return undefined
@@ -280,8 +280,9 @@ export default function SetlistDetail() {
   }
 
   // T8: OnSong export — always available once the setlist has ≥1 song. The
-  // lib guards the DOM (node path returns { ok, filename, text }), so the
-  // browser path just triggers the anchor download.
+  // integrations/download.js shim guards the DOM (node path returns
+  // { ok, filename, text }), so the browser path just triggers the anchor
+  // download.
   async function handleExportOnSong() {
     setBusy(true)
     setError('')

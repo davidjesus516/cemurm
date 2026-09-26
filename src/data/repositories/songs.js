@@ -4,7 +4,7 @@
 // Public surface: listSongs, addSong, getSong, updateSong, deleteSong,
 // searchSongs, retireSong, reactivateSong, replacePdfScan, maybeCachePdf —
 // same signatures as before (+ #76 pdf scan flows).
-// Reads are read-through cached in IndexedDB (offlineCache.js); writes
+// Reads are read-through cached in IndexedDB (cache.js); writes
 // invalidate the affected keys on success.
 
 import { supabase } from '../supabase.js'

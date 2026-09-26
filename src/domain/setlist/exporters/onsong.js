@@ -9,8 +9,10 @@
 // key (the flattened song.key). Songs missing from the library contribute
 // nothing (the setlist UI already shows them as '(missing song)').
 //
-// Node-safe: downloadOnSongFile guards the DOM, so the demo can assert the
-// exact payload without a browser.
+// PURE after ADR 0002 refactor 3: downloadOnSongFile touches `document` and
+// now lives in integrations/download.js (the webMidi.js precedent for a
+// browser-platform shim). The serializer below is the whole module, so the
+// demo asserts the exact payload without a DB or DOM.
 
 /**
  * Serialize a setlist into OnSong-compatible text, songs in SETLIST ORDER.
@@ -48,31 +50,10 @@ export function serializeOnSong(setlist, songs) {
 }
 
 /**
- * Download the serialized setlist as `<setlist-name>.cho` (Blob + object URL
- * + anchor click). Node guard: returns { ok, filename, text } instead of
- * touching the DOM so the demo can assert the exact payload.
+ * MOVED to integrations/download.js — this touches `document`, and domain/ is
+ * pure (ADR 0002 rule 3, refactor 3). The serializer above is unchanged and
+ * is what integrations/download.js calls.
  */
-export function downloadOnSongFile(setlist, songs) {
-  const text = serializeOnSong(setlist, songs)
-  const base = String(setlist?.name || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  const filename = `${base || 'setlist'}.cho`
-
-  if (typeof document === 'undefined') return { ok: true, filename, text }
-
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(url)
-  return { ok: true, filename, text }
-}
 
 // Self-check: node -e "import('./src/domain/setlist/exporters/onsong.js').then(m => m.demo())"
 export async function demo() {
@@ -128,10 +109,10 @@ export async function demo() {
   // 4. Body verbatim — ChordPro sections preserved.
   assert(text.includes('[Verse]') && text.includes('[Chorus]'), 'chord sections pass through verbatim')
 
-  // 5. Node download path returns the identical payload + slug filename.
-  const dl = downloadOnSongFile(setlist, songs)
-  assert(dl.ok === true && dl.filename === 'sunday-service.cho', 'node path returns slug filename')
-  assert(dl.text === text, 'node path returns identical text')
+  // 5. The download path (slug filename, DOM) is covered by
+  //    integrations/download.js demo, which now owns it. Here we only pin that
+  //    the serializer holds no hidden state.
+  assert(serializeOnSong(setlist, songs) === text, 'serializeOnSong is pure (no hidden state)')
 
   console.log('onsong export demo OK')
 }

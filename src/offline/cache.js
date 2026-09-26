@@ -3,7 +3,7 @@
 // TTL is caller-side: callers decide staleness; this store always
 // serves cached data when the network is unavailable.
 // v3 (hito-2-remainder 2a.2, D5): additive lockstep bump with
-// offlineQueue.js — `<1 kv → <2 outbox → <3 cache-meta` ({bytes, savedAt}).
+// queue.js — `<1 kv → <2 outbox → <3 cache-meta` ({bytes, savedAt}).
 // The upgrade never drops stores: it only ever creates.
 // ponytail: plain IndexedDB, no idb wrapper; add one when the
 //   open-on-demand pattern becomes awkward.
@@ -15,7 +15,7 @@ const CACHE_META_STORE = 'cache-meta'
 export const DB_VERSION = 3
 
 /**
- * Additive upgrade plan, shared with offlineQueue.js — single source of
+ * Additive upgrade plan, shared with queue.js — single source of
  * truth, so the two modules are lockstep by construction (D5; drift would
  * surface as a VersionError and permanently disable the cache). Runs inside
  * onupgradeneeded; existing stores are always preserved.
@@ -36,7 +36,7 @@ function getDb() {
   }
   dbPromise = new Promise((resolve) => {
     try {
-      // Must match offlineQueue's schema: the shared DB is version DB_VERSION.
+      // Must match queue.js's schema: the shared DB is version DB_VERSION.
       // Opening with a lower version against a newer DB throws VersionError
       // and permanently disables the cache.
       const req = indexedDB.open(DB_NAME, DB_VERSION)

@@ -32,7 +32,7 @@ async function supabase() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// localStorage mirror (guarded, best-effort — midi.js/overlay.js pattern)
+// localStorage mirror (guarded, best-effort — webMidi.js/overlay.js pattern)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function loadConnectionMirror(userId) {

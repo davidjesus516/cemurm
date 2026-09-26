@@ -8,8 +8,8 @@
 // annotations.buildSubstitutionMap — this module computes the TOTAL view
 // offset each page feeds into those existing pieces. No new rendering engine.
 //
-// Offline: the app already has an IDB outbox (offlineQueue.js) drained by
-// offlineSync.startOfflineSync (mounted in main.jsx). This module reuses it —
+// Offline: the app already has an IDB outbox (queue.js) drained by
+// startOfflineSync (drainer.js, mounted in main.jsx). This module reuses it —
 // respondSubstitutionOfflineAware queues when offline; the drain replays on
 // reconnect and drops a superseded first-wins accept with a notice.
 //
@@ -238,7 +238,7 @@ export function renderSemitones(prefs, songId, instrument) {
 /**
  * Accept a substitution with offline support. Online: direct first-wins RPC.
  * Offline: queue the accept in the outbox — the existing drain
- * (offlineSync.startOfflineSync, mounted in main.jsx) replays it on
+ * (startOfflineSync in drainer.js, mounted in main.jsx) replays it on
  * reconnect and drops it with a notice when the position was already covered
  * before the sync (first-wins supersedes the queued intent).
  */

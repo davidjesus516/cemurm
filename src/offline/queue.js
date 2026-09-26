@@ -1,8 +1,8 @@
 // IDB-backed FIFO queue of pending offline writes, one key per user holding
-// an ordered array of ops. Shares the cemurm-offline DB with offlineCache.js;
+// an ordered array of ops. Shares the cemurm-offline DB with cache.js;
 // version 2 added the outbox store, version 3 adds cache-meta (hito-2-remainder
 // 2a.2, D5). Pure native API — no dependencies. The upgrade plan is imported
-// from offlineCache.js, so both modules are lockstep by construction: drift
+// from cache.js, so both modules are lockstep by construction: drift
 // between them would throw a VersionError and disable the cache.
 // ponytail: plain IndexedDB, one read-modify-write per op — no transactional
 // guarantee across the read+put pair and no multi-tab coordination; add a

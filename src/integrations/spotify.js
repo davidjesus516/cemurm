@@ -1,5 +1,12 @@
-// Spotify enrichment provider (Hito 5 #69): pure + guarded, bandmates.js/midi.js
+// Spotify enrichment provider (Hito 5 #69): pure + guarded, bandmates.js/webMidi.js
 // pattern — DOM/env access is guarded so this module never explodes in node.
+//
+// BOUNDARY (ADR 0002 refactor 4): this module used to import fetchScales from
+// data/repositories/scaleCatalog.js, which chained
+// data/repositories/enrichments.js → integrations/spotify.js → data/repositories/scaleCatalog.js → data/supabase.js
+// — a 4-hop cycle for a label normaliser. The catalog is no longer read here:
+// canonicalKeyLabel takes the scales as a parameter and the caller supplies
+// them, so this file is a leaf (its only import is the pure transpose table).
 //
 // MOCK PROVIDER (default, no credentials): deterministic dev-contract. Title
 // containing 'unconfident' (case-insensitive) or a missing title/artist →
@@ -18,7 +25,6 @@
 // or { ok: true, match: null } — callers branch on `ok` + `error`.
 
 import { NOTES_SHARP } from '../domain/music/transpose.js'
-import { fetchScales } from '../data/repositories/scaleCatalog.js'
 
 /** True when real Spotify credentials are configured (dev mock otherwise). */
 export function isSpotifyConfigured() {
@@ -191,8 +197,18 @@ export function spotifyKeyToLabel(keyIndex, mode) {
  * canonical and surfaces a warning when they differ — applying a suggestion
  * NEVER writes base_key. Unknown labels pass through with a lowercase
  * canonical so comparisons stay deterministic.
+ *
+ * `scales` is INJECTED, not read: this is the ADR 0002 refactor 4 seam. Pass
+ * the result of fetchScales() from data/repositories/scaleCatalog.js (an empty
+ * array is a valid input — the shorthands below already carry the canonical
+ * capitalization, so the canonical form is identical with or without a
+ * reachable catalog).
+ *
+ * @param {string} label
+ * @param {Array<{ name: string, aliases?: string[] }>} scales
+ * @returns {Promise<{ label: string, canonical: string }>}
  */
-export async function canonicalKeyLabel(label) {
+export async function canonicalKeyLabel(label, scales) {
   const raw = String(label || '').trim()
   if (!raw) return { label: '', canonical: '' }
   const m = raw.match(/^([A-G][#b]?)\s*(.*)$/)
@@ -205,8 +221,7 @@ export async function canonicalKeyLabel(label) {
     return { label: raw, canonical: `${root} Major` }
   }
 
-  const scales = await fetchScales()
-  const canonical = resolveCanonicalQuality(qualityRaw, scales)
+  const canonical = resolveCanonicalQuality(qualityRaw, scales || [])
   return { label: raw, canonical: canonical ? `${root} ${canonical}` : `${root} ${qualityRaw}` }
 }
 
@@ -251,22 +266,30 @@ export async function demo() {
   const again = await searchSpotifyMatch({ title: 'way maker', artist: 'sinach' })
   assert(again.match.bpm, hit.match.bpm, 'mock is deterministic across case')
 
-  // Key label + equal-spelling canonicalization.
+  // Key label + equal-spelling canonicalization. The catalog is injected now
+  // (ADR 0002 refactor 4), so the demo passes a fixed two-row catalog — no
+  // Supabase, and the canonical spellings are pinned by the fixture.
   assert(spotifyKeyToLabel(4, 'major'), 'E major', 'keyIndex 4 major → E major')
   assert(spotifyKeyToLabel(4, 'minor'), 'E minor', 'keyIndex 4 minor → E minor')
   assert(spotifyKeyToLabel(0, 'major'), 'C major', 'keyIndex 0 major → C major')
   assert(spotifyKeyToLabel(14, 'major'), 'D major', 'keyIndex wraps mod 12')
   assert(spotifyKeyToLabel(null, 'major'), '', 'null keyIndex → empty')
-  const e1 = await canonicalKeyLabel('E major')
-  const e2 = await canonicalKeyLabel('E')
-  const e3 = await canonicalKeyLabel('E Ionian')
+  const CATALOG = [
+    { name: 'Major', aliases: ['ionian', 'maj'] },
+    { name: 'Natural Minor', aliases: ['aeolian', 'min'] },
+  ]
+  const e1 = await canonicalKeyLabel('E major', CATALOG)
+  const e2 = await canonicalKeyLabel('E', CATALOG)
+  const e3 = await canonicalKeyLabel('E Ionian', CATALOG)
   assert(e1.canonical, 'E Major', 'E major canonical')
   assert(e2.canonical, e1.canonical, 'bare E ≡ E major')
   assert(e3.canonical, e1.canonical, 'Ionian alias ≡ E major')
-  const em = await canonicalKeyLabel('Em')
+  const em = await canonicalKeyLabel('Em', CATALOG)
   assert(em.canonical, 'E Natural Minor', 'Em → E Natural Minor (catalog canonical)')
-  const gm = await canonicalKeyLabel('G major')
+  const gm = await canonicalKeyLabel('G major', CATALOG)
   assert(gm.canonical !== e1.canonical, true, 'G major ≠ E major (never silent conflict)')
+  // An empty catalog is a valid input: shorthands carry the canonical spelling.
+  assert((await canonicalKeyLabel('Em', [])).canonical, 'E Natural Minor', 'empty catalog still canonicalises shorthands')
 
   console.log('spotify demo: all asserts passed')
 }

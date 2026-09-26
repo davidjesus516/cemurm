@@ -4,8 +4,8 @@
 // instances is by the realtime echo of the other instance's read_at UPDATEs
 // (postgres_changes echoes the user's own writes, unlike broadcast).
 //
-// Reads go through src/lib/notifications.js, which owns the IDB read-through
-// (offlineCache.js kv keys `notifications:<userId>` / `notifications-unread:
+// Reads go through src/data/repositories/notifications.js, which owns the IDB read-through
+// (cache.js kv keys `notifications:<userId>` / `notifications-unread:
 // <userId>` — additive keys only, no store/schema/DB_VERSION change).
 // Realtime refetches are debounced 150ms (useSharedSetlist precedent) so a
 // postgres_changes burst coalesces into one fetch. Listeners mirror

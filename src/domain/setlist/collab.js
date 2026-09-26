@@ -67,8 +67,15 @@ export function describeActivity(event) {
 
 export const LOCK_TTL_MS = 30000
 
-/** True when a lock is missing or stale enough to be overwritten/released. */
-export function isLockStale(lock, now = Date.now()) {
+/**
+ * True when a lock is missing or stale enough to be overwritten/released.
+ *
+ * `now` is REQUIRED (ADR 0002 refactor 6, rule 3). It used to be
+ * `now = Date.now()`, a clock read hiding in an exported signature: the
+ * function was untestable at the TTL boundary and the caller could not state
+ * which instant it meant. Every caller supplies its own.
+ */
+export function isLockStale(lock, now) {
   return !lock || now - (lock.ts || 0) > LOCK_TTL_MS
 }
 
@@ -94,7 +101,7 @@ export function applyLock(locks, payload) {
 }
 
 // ── 2.6 offline reconcile (design D6, spec R6/R7) ───────────────────────────
-// Pure decision for the drain loop (offlineSync.js): may a queued setlist-item
+// Pure decision for the drain loop (drainer.js): may a queued setlist-item
 // op replay against the CURRENT server setlist, and what should the user be
 // told when it must not? `server` is the flattened setlist ({itemIds,
 // updatedAt}) read fresh at drain time — the cached copy would hide exactly
@@ -167,8 +174,8 @@ export function demo() {
   const t0 = Date.now()
   const aLock = applyLock(noLocks, { userId: 'a', songId: 's1', locked: true, ts: t0 })
   assert(aLock.s1?.userId, 'a', 'acquire stores the holder')
-  assert(isLockStale(null), true, 'missing lock is stale')
-  assert(isLockStale({ ts: Date.now() }), false, 'fresh lock is not stale')
+  assert(isLockStale(null, Date.now()), true, 'missing lock is stale')
+  assert(isLockStale({ ts: Date.now() }, Date.now()), false, 'fresh lock is not stale')
   assert(
     JSON.stringify(applyLock(aLock, { userId: 'b', songId: 's1', locked: true, ts: t0 + 1000 })),
     JSON.stringify(aLock),

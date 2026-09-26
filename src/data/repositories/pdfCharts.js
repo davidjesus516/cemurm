@@ -1,5 +1,5 @@
 // PDF scan charts (Hito 5 #76): storage upload, signed URLs, validation and
-// offline cache. midi.js/spotify.js pattern — every DOM/env access is guarded
+// offline cache. webMidi.js/spotify.js pattern — every DOM/env access is guarded
 // so this module never explodes in node (no caches, no URL.createObjectURL).
 
 import { supabase } from '../supabase.js'

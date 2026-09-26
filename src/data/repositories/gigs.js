@@ -2,7 +2,7 @@
 // Offline writes (2a.6, D6): on connectivity failure createGig/updateGig/
 // completeGig enqueue into the shared outbox (FIFO per user, survives SW
 // updates via IDB v3) and persist an optimistic pendingSync copy — mirrors
-// setlists.js. Drain-side membership lives in offlineSync.js WRITE_OPS.
+// setlists.js. Drain-side membership lives in drainer.js WRITE_OPS.
 //
 // RLS (0004) scopes reads by owner (direct for gigs/venues, via the gig
 // for performances/items). Org (D2a) is deny-by-default → createGig uses

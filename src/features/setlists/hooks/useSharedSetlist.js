@@ -20,7 +20,7 @@ const REFETCH_DEBOUNCE_MS = 150
 
 // Advisory locks are ephemeral broadcasts with no presence channel: the
 // holder re-broadcasts its lock on this interval so a crashed tab expires by
-// LOCK_TTL_MS (setlistCollab.js) instead of blocking co-editors forever.
+// LOCK_TTL_MS (collab.js) instead of blocking co-editors forever.
 const LOCK_HEARTBEAT_MS = 15000
 
 export function useSharedSetlist(setlistId, { actorName, onRemoteChange } = {}) {
@@ -96,7 +96,7 @@ export function useSharedSetlist(setlistId, { actorName, onRemoteChange } = {}) 
   const acquireLock = useCallback((songId) => {
     if (!user || !setlistId) return null
     const held = locksRef.current[songId]
-    if (held && held.userId !== user.id && !isLockStale(held)) return held
+    if (held && held.userId !== user.id && !isLockStale(held, Date.now())) return held
     const payload = { userId: user.id, songId, actor: actorName || null, locked: true, ts: Date.now() }
     setLocks((prev) => applyLock(prev, payload))
     lockChannelRef.current?.send(payload)

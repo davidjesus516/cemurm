@@ -6,7 +6,7 @@
 // silently ("revoked-pending invalid", R6). Validation guards (no-self,
 // already-active) are client-layer per 0006 header — RLS enforces the
 // invariant only — so the pure guards run in demo() bare-node; network reads
-// use the lazy supabase import (annotations.js pattern; offlineQueue.js has
+// use the lazy supabase import (annotations.js pattern; queue.js has
 // no browser-only module scope).
 
 import { enqueueOp } from '../../offline/queue.js'
@@ -176,7 +176,7 @@ export async function declineInvite(userId, bandmateId) {
 }
 
 /**
- * Queue-safe respond used by offlineSync WRITE_OPS (1.3, R6): a revoked
+ * Queue-safe respond used by drainer.js WRITE_OPS (1.3, R6): a revoked
  * invite (row deleted before the queued response drained) drops silently
  * instead of erroring — idempotent replay.
  */

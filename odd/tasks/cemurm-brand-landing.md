@@ -727,7 +727,38 @@ every device reaches the same result"*. The code is `new Date(server.updatedAt).
 — strict `>`, so equal timestamps read as "server not newer" and the client write replays. There
 is no rule and nothing is stored. This is the determinism claim the product is sold on.
 
-### 14.2 Reported by the suite, pending triage
+**E. `qualityForDegree` returns `'power'` for every degree of every real scale — the four quality
+branches are dead code.**
+`src/domain/music/degreeResolver.js:82-88` reads `intervals[degree-1]` as the triad root and
+`intervals[degree]` / `intervals[degree+1]` as its third and fifth. Those are **consecutive scale
+steps**, 1–2 semitones apart. The branches at `:91-99` require a third of 3–4 semitones and a fifth
+of 6–8, so nothing ever matches and every path falls through to `return 'power'`.
+
+Reproduced: `qualityForDegree` returns `'power'` for all 7 degrees of C major, A natural minor, E
+Phrygian and E harmonic minor — 28 of 28. `minor`, `major`, `diminished` and `augmented` are
+reachable only from synthetic input.
+
+The effect: `resolveDegree` renders every roman numeral uppercase and undecorated — `II` where the
+spec requires `ii°`, `I` where it requires `i`. **`features/music-theory.feature` demands otherwise,
+and this is the third dead-code finding in the same layer** (with the parser's sectional-key branch
+and, implicitly, the enharmonic spelling in finding B). Two earlier reviews on 2026-09-22 also
+recorded it. Nobody has fixed it.
+
+### 14.5 What the findings say about the music-theory layer
+
+Three of the four confirmed findings are in the same subsystem — the parser, the transposition and
+the degree engine — and all three are the same failure mode: **code that looks implemented and is
+not.** A branch exists, a comment documents the intended behaviour, the schema supports it, a
+feature file specifies it, and the proposal sells it. The implementation is absent or wrong.
+
+`docs/propuestas/cemurm-propuesta-para-orquesta-nacional.md` claims all three. **Every music-theory
+claim in that document is now known to be false.** That matters beyond the landing: the music-theory
+layer is precisely what separates CEMURM from a setlist app, so the layer that differentiates the
+product is also the least trustworthy part of it.
+
+
+
+### 14.2 Reported by the suite or found during PR 1b, pending triage
 
 | # | Discrepancy |
 |---|---|
@@ -752,7 +783,7 @@ key.
 |---|---|
 | `…-orquesta-nacional.md:74` "Modulación por secciones: cada sección de una obra puede tener su propio contexto de tonalidad" | **FALSE** — dead code, finding A |
 | `…-orquesta-nacional.md:75` enharmonic spelling | **FALSE** — flats cannot be spelled, finding B |
-| `…-orquesta-nacional.md:73` degrees correct in modal harmony, "E7 as I in Phrygian dominant" | **Unverified** — the pure engine in `degreeResolver` is unexported and therefore untested |
+| `…-orquesta-nacional.md:73` degrees correct in modal harmony, "E7 as I in Phrygian dominant" | **FALSE** — `qualityForDegree` returns `'power'` for all 7 degrees of C major, A minor, E Phrygian and E harmonic minor alike. See 14.5 |
 | `…-orquesta-nacional.md:52` substitute-material projection | Not contradicted by the suite, and it is the most director-shaped claim available |
 | `…-orquesta-nacional.md:67` canonical chart vs personal rendering | Not contradicted by the suite, and it is the hero |
 

@@ -10,7 +10,7 @@
 // Lazy supabase import (bandmates.js precedent): demo() runs bare-node and
 // never touches the network or the env-gated client (supabase.js throws
 // without VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY). The read-through cache
-// uses offlineCache.js kv keys `notifications:<userId>` and
+// uses cache.js kv keys `notifications:<userId>` and
 // `notifications-unread:<userId>` — NEW keys only, no store/schema/DB_VERSION
 // change (songs.js withReadThrough semantics: network first, cache on
 // success, serve the kv copy on failure).

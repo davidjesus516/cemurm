@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react'
 import { canonicalKeyLabel } from '../../../integrations/spotify.js'
+import { fetchScales } from '../../../data/repositories/scaleCatalog.js'
 
 /** Album-art thumbnail with a placeholder fallback — mock/dev URLs never load
  * (onError → placeholder) and applied art lives on the version row, so this
@@ -62,7 +63,9 @@ export default function EnrichmentPanel({ song, enrichment, declaredKey }) {
   // Equal-spelling conflict check (scenario 6): compare the CANONICAL forms
   // ('E' ≡ 'E major', 'Em' ≡ 'E Natural Minor') and warn when the Spotify
   // suggestion differs from the chart's declared key — a suggestion never
-  // overwrites base_key.
+  // overwrites base_key. The scale catalog is read HERE and passed into
+  // canonicalKeyLabel (ADR 0002 refactor 4) so integrations/spotify.js never
+  // has to reach into data/.
   const [keyConflict, setKeyConflict] = useState('')
   useEffect(() => {
     let cancelled = false
@@ -70,7 +73,11 @@ export default function EnrichmentPanel({ song, enrichment, declaredKey }) {
       setKeyConflict('')
       return undefined
     }
-    Promise.all([canonicalKeyLabel(declaredKey), canonicalKeyLabel(suggestionKey)])
+    fetchScales()
+      .then((scales) => Promise.all([
+        canonicalKeyLabel(declaredKey, scales),
+        canonicalKeyLabel(suggestionKey, scales),
+      ]))
       .then(([declared, suggested]) => {
         if (cancelled) return
         if (declared.canonical && suggested.canonical && declared.canonical !== suggested.canonical) {

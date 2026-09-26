@@ -3,7 +3,7 @@
 // Replaces the localStorage mock with hosted Supabase queries.
 // Duration is computed on read (join with the songs store), never stored —
 // keeps the store lazy and avoids stale totals when a song's duration changes.
-// Reads are read-through cached in IndexedDB (offlineCache.js); writes
+// Reads are read-through cached in IndexedDB (cache.js); writes
 // invalidate the affected keys on success.
 
 import { supabase } from '../supabase.js'
@@ -346,7 +346,7 @@ async function buildOptimisticCollab(userId, id, patch) {
 }
 
 /**
- * Fresh server read for the 2.6 drain-time reconcile (offlineSync.js). The
+ * Fresh server read for the 2.6 drain-time reconcile (drainer.js). The
  * cached getSetlist path would serve the CACHE after a failed read, and a
  * stale copy is exactly what must not decide whether to drop a queued op.
  */
@@ -632,7 +632,7 @@ export async function setSongVersion(userId, setlistId, songId, versionId) {
  * by the setlist read, invalidated after success, and enqueued offline (the
  * replay re-applies the same value — idempotent).
  * `program`: null/'' clears the mapping ("No patch"); else an integer 0-127
- * (normalized via midi.js; the 0024 CHECK constraint is the final guard).
+ * (normalized via webMidi.js; the 0024 CHECK constraint is the final guard).
  * @param {string} userId
  * @param {string} setlistId
  * @param {string} songId
@@ -782,7 +782,7 @@ export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
 // 2.1 — shared-setlist collaboration ops (setlists R1/R8/R9/R10). All are
 // owner-only surfaces enforced by 0002 owner-management RLS policies
 // (setlist_collaborators insert/update/delete via private.session_owns_setlist,
-// setlists UPDATE owner branch); the client guards in setlistCollab.js add
+// setlists UPDATE owner branch); the client guards in collab.js add
 // friendlier errors before hitting the server.
 // 2.6 (R5/R6): each op also queues on a connectivity failure and returns the
 // optimistic setlist, so a bandmate edit made offline survives to the next
@@ -1126,7 +1126,7 @@ export function subscribeSetlistRealtime(setlistId, onChange) {
 // 2.5 — client advisory lock (R3, D4): broadcast {userId, songId} pairs over
 // the setlist's lock channel. Realtime does not reliably echo a broadcast
 // back to its sender (2.3 experience), so the holder also applies its own
-// lock locally; receivers merge via applyLock (setlistCollab.js). ONE
+// lock locally; receivers merge via applyLock (collab.js). ONE
 // persistent channel per setlist preserves acquire→release ordering —
 // per-event one-shot channels could reorder two sends and strand a lock.
 
