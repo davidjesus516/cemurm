@@ -549,29 +549,34 @@ border still renders, it just renders wrong.
 
 ## 11. Route
 
-**This is not one PR.** At ~400 changed lines per PR it is four. The repository convention is
-chained slices with a `-prN-` suffix, on a shared `feat/` branch
+**This is not one PR.** The repository convention is ~400 changed lines per PR, chained slices
+with a `-prN-` suffix on a shared `feat/` branch
 (precedent: `feat/hito-3-notifications`, `feat/ts-checkjs-baseline`).
 
-| Slice | Content | Visual risk |
+Structure comes first, so the landing is never built on a provisional layout. See
+`docs/adr/0002-module-boundaries.md` for the boundaries and the six refactors PR 1b exists to
+perform.
+
+| Slice | Content | Risk |
 |---|---|---|
-| **PR 1** — `feat/cemurm-brand-landing-pr1-performance` | Route code splitting, vendor chunk, lazy Supabase client, variable fonts (§7.1, §7.4) | **None.** No class changes meaning |
-| **PR 2** — `-pr2-pwa` | Manifest, `theme-color`, icon set, real favicon, Playwright harness (§7.5) | **None.** Closes a false claim |
-| **PR 3** — `-pr3-tokens` | Additive token layer in `:root`, primitives, `lucide-react` (§7.2, §4, §5) | **Low.** Additive only; the §10.3 grep proves it |
-| **PR 4** — `-pr4-landing` | The 13 sections, the hero demo, the mascot spec, the mark | **None to the app.** Landing is a new surface |
+| **PR 1a** — `-pr1a-module-relocation` | Relocate 111 files into `data/`, `integrations/`, `offline/`, `features/`, `hooks/shared/`. Update import paths. **No behaviour change, no refactors.** `src/lib/storage.js` does not move (`docs/adr/0002`, "Two hard constraints"). `ui/` and `content/` are excluded — zero members today | **None.** Import paths only |
+| **PR 1b** — `-pr1b-boundary-refactors` | The six refactors in `docs/adr/0002`: render-model injection for `ChordProRenderer`, engine/lookup split for `degreeResolver`, pure/impure splits, the 4-hop cycle break, clock injection in `relativeTime` | **Medium.** Each is small and independently verifiable |
+| **PR 2** — `-pr2-performance` | Route code splitting, vendor chunk, lazy Supabase client, variable fonts (§7.1, §7.4) | **None.** No class changes meaning |
+| **PR 3** — `-pr3-pwa` | Manifest, `theme-color`, icon set, real favicon, Playwright harness (§7.5) | **None.** Closes the "not installable" claim |
+| **PR 4** — `-pr4-brand-system` | Additive token layer in `:root`, the eight primitives, `lucide-react`, the mark, the mascot spec (§7.2, §4) | **Low.** Additive only; the §10.3 grep proves it |
+| **PR 5** — `-pr5-landing` | The 13 sections, the hero demo, `content/landing.es.js` (§8) | **None to the app.** New surface |
 
-PRs 1 and 2 are prerequisites with no design risk and are independently valuable — PR 2 alone
-closes the "not installable" claim. Merging them first means the landing lands on a fast,
-installable base.
+PR 1a through PR 3 are prerequisites with no design risk and are each independently valuable —
+PR 3 alone closes the "not installable" claim. Merging them first means the landing lands on a
+fast, installable, correctly-bounded base.
 
-1. ~~Write this feature document~~ (done — this file)
-2. Write the master design prompt, structured as the user requested: **agent role / context and
-   technology / page description and structure / expected result**, plus tokens, aesthetic
-   direction with the reference applied, the skill set, acceptance criteria, and the line budget
-   (done — `docs/prompts/brand-landing-master-prompt.md`)
-3. Execute PR 1 → PR 2 → PR 3 → PR 4, in that order
-4. Review the landing against §9
-5. Only then: propose the app refactor as its own cycle, and only then delete the legacy tokens
+1. ~~Write this feature document~~ — done
+2. ~~Write the master design prompt~~ — done, `docs/prompts/brand-landing-master-prompt.md`
+3. ~~Record the architecture decisions~~ — done, `docs/adr/0001`, `docs/adr/0002`
+4. Execute PR 1a → 1b → 2 → 3 → 4 → 5
+5. Review the landing against §9
+6. Only then: propose the app refactor as its own cycle, split the large files, and delete the
+   legacy tokens
 
 ## 12. Evidence appendix
 

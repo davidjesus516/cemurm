@@ -83,6 +83,21 @@ Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-
 - Import/enrichment provider clients **never throw**: they return `{ ok: true, … }` or `{ ok: false, error: 'offline' | 'unavailable' }`, gated by `isOnline()`.
 - No `src/store/` and no Zustand — state lives in React context and hooks. (CONTRIBUTING.md still claims a Zustand store exists; it does not.)
 
+## Methodology
+
+Four layers run in this repo. They are not interchangeable — putting an artifact in the wrong one is the most common planning mistake here.
+
+| Layer | Owns | Home |
+|---|---|---|
+| **BDD** | Product truth. 45 `.feature` files, 656 scenarios. The source of what to build | `features/*.feature` |
+| **Milestones** | Temporal sequencing. Hitos 1–6 | `README.md`, `docs/mvp-scope.md` |
+| **SDD (OpenSpec)** | **Capabilities and delta specs.** One spec per capability, archived when the change closes | `openspec/specs/`, `openspec/changes/` |
+| **ODD** | **Execution records.** One file per work unit, with commit SHAs and verification evidence | `odd/tasks/*.md` |
+
+The rule of thumb: if you are writing down *what a capability is*, it goes in OpenSpec. If you are writing down *what was done and how it was verified*, it goes in `odd/tasks/`. A change that ships writes to both — an OpenSpec spec for the capability, an `odd/tasks/` record for the unit.
+
+**Entry rule** (`docs/engineering-review-backlog.md:5`): an item is implemented only when its hito or BDD feature requires it. YAGNI is active. This is the only rule here that does not accumulate debt — do not weaken it in the name of scalability.
+
 ## Conventions
 
 - **JSX, not TSX.** The spec mentions TypeScript; the codebase is plain JS. Follow what exists.
@@ -95,6 +110,7 @@ Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-
 ## Where the real context lives
 
 - `docs/local-dev.md` — local stack, reset procedure, seed identities, env vars. **Read before any DB work.**
+- `docs/adr/` — accepted architecture decisions. **0001** no application API layer (PostgREST + RLS, edge functions only for three named cases). **0002** module boundaries: the four dependency rules, the four named exceptions, the six required refactors, and the `public/sw.js` mirror constraint.
 - `docs/engineering-review-backlog.md` — open engineering debt, triggers planned work (e.g. the checkJs baseline).
 - `odd/tasks/*.md` — one feature record per shipped unit, with commit SHAs, verification evidence, and deviations. This is where commands and rationale that never made it into `docs/` actually live; check here when a procedure seems undocumented.
 - `features/*.feature` — Gherkin specs; the product source of truth, ahead of the README.
