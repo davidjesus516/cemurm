@@ -172,8 +172,11 @@ values
 
 -- An ACTIVE guardian consent for …0a5, so the escalation damage is observable
 -- (0017 lines 53-57 archive it on a minor → adult transition).
-insert into public.guardian_consents (user_id, guardian_name, guardian_email, consent_text)
-values ('10000000-0000-0000-0000-0000000000a5', 'A Guardian', 'guardian@cemurm.app', 'v1 text');
+-- 0031 changed the column DEFAULT from 'active' to 'pending' (D4), so this
+-- fixture now states 'active' explicitly. It is the state the assertions below
+-- require, and the assertions are untouched — 38 PASS is still the bar.
+insert into public.guardian_consents (user_id, guardian_name, guardian_email, consent_text, status)
+values ('10000000-0000-0000-0000-0000000000a5', 'A Guardian', 'guardian@cemurm.app', 'v1 text', 'active');
 
 select tmp_assert(
   '0030 fixtures: three null-dob accounts exist, none is a minor yet',
