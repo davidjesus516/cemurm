@@ -18,13 +18,23 @@ export function RequireAuth() {
   return <Outlet />
 }
 
-// Hito 4 + WU2: two server-owned gates in front of every protected route.
+// Hito 4 + WU2 + WU4: two server-owned gates in front of every protected route.
 //   1. date of birth (scenario 1, D2): an account that has not declared a
 //      date of birth is NOT an adult — it is UNKNOWN, and unknown is blocked.
 //      This renders DateOfBirthRequired in place of the app routes.
 //   2. guardian consent (scenario 2): a KNOWN minor without an ACTIVE consent
-//      is locked behind GuardianConsentRequired, exactly as Hito 4 shipped it.
+//      is locked behind GuardianConsentRequired.
 // Everything else reaches <Outlet />.
+//
+// ⚠ Gate 2 changed meaning in 0031 (WU4) and the difference is the whole work
+// unit. Hito 4 let a minor type a guardian's name into their own form and the
+// consent RPC returned an 'active' row, so this gate opened on the spot without
+// any guardian being involved. Since 0031 a submitted request is 'pending' and
+// the ledger stays 'pending' until the guardian follows the emailed link, so the
+// `status === 'active'` test below is now a real check rather than a formality.
+// Nothing in this component had to change to get that right — which is the point
+// of keeping the rule server-side: the client gate was already correct, and
+// fixing the defect did not require trusting the client any more than before.
 //
 // The age facts come from public.my_age_status (0030) — the server is the only
 // source that can answer them, because date_of_birth / is_minor have no client
@@ -85,7 +95,6 @@ export function RequireGuardianConsent() {
   if (age === null && !readFailed) {
     return <p className="text-sm text-cem-secondary">Checking age requirements…</p>
   }
-
   // Gate 1: unknown date of birth — OR an age status we could not read. The
   // fallback case matters as much as the first: falling through to <Outlet />
   // on a failed read would hand the app to exactly the accounts this change
