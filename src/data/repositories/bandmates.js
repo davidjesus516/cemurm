@@ -1,3 +1,4 @@
+// @ts-check
 // Bandmate invite lifecycle (Hito 3 PR#1a, bandmates R3–R5): reads/mutates
 // bandmate_links under the 0006 pair-scope RLS — rows are visible to the two
 // users of the pair only. Invite = INSERT with user_id fixed to the inviter;
@@ -11,7 +12,69 @@
 
 import { enqueueOp } from '../../offline/queue.js'
 
+/**
+ * @typedef {'pending' | 'active' | 'declined'} LinkStatus
+ */
+
+/**
+ * @typedef {'outgoing' | 'incoming'} LinkDirection
+ */
+
+/**
+ * Raw bandmate_links row (0001 — the "band" edge, pair PK user_id +
+ * bandmate_id). id and accepted_at are absent from the offline optimistic
+ * stub, hence optional.
+ * @typedef {object} RawLinkRow
+ * @property {string} user_id
+ * @property {string} bandmate_id
+ * @property {LinkStatus} status
+ * @property {string} created_at
+ * @property {string} [id]
+ * @property {string | null} [accepted_at]
+ */
+
+/**
+ * The existing-pair row guardInvite reads — the invite lookup selects only
+ * user_id, bandmate_id, status (no id, no timestamps).
+ * @typedef {object} ExistingLinkRow
+ * @property {LinkStatus} [status]
+ */
+
+/**
+ * profiles carries only id/username/display_name (0006) — no FK from
+ * bandmate_links to profiles, so the name needs a second round trip.
+ * @typedef {object} RawProfileRow
+ * @property {string} id
+ * @property {string | null} username
+ * @property {string | null} display_name
+ */
+
+/**
+ * @typedef {object} BandmateProfile
+ * @property {string | null} username
+ * @property {string | null} displayName
+ */
+
+/**
+ * Flattened app shape (normalizeLink) — each side of the pair sees the row
+ * from their own direction. Offline-queued rows carry pendingSync: true and
+ * no id (placeholder until the drain publishes them).
+ * @typedef {object} BandmateLink
+ * @property {string | undefined} id
+ * @property {string} userId
+ * @property {LinkDirection} direction
+ * @property {LinkStatus} status
+ * @property {string} createdAt
+ * @property {string | null | undefined} acceptedAt
+ * @property {BandmateProfile | null} profile
+ * @property {boolean} pendingSync
+ */
+
+/** @type {typeof import('../supabase.js').supabase | null} */
 let supabaseClient = null
+/**
+ * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}
+ */
 async function supabase() {
   if (!supabaseClient) supabaseClient = (await import('../supabase.js')).supabase
   return supabaseClient
@@ -28,14 +91,27 @@ const USER_ERRORS = new Set([
 
 // ponytail: best-effort connectivity heuristic, same shape as setlists.js —
 // refined if a stable fetch-failure code ever appears.
+/**
+ * Best-effort connectivity heuristic, same shape as setlists.js — refined if a
+ * stable fetch-failure code ever appears.
+ * @param {unknown} e
+ * @returns {boolean}
+ */
 function isConnectivityError(e) {
-  const msg = String(e?.message || '')
+  const err = /** @type {{ message?: string, code?: string } | null | undefined} */ (e)
+  const msg = String(err?.message || '')
   return typeof navigator !== 'undefined' && navigator.onLine === false
     || msg.includes('Failed to fetch')
     || msg.includes('fetch failed')
-    || e?.code === '-1'
+    || err?.code === '-1'
 }
 
+/**
+ * Re-throws known user-facing errors; maps everything else to a generic
+ * message so callers never see PostgREST internals. Never returns.
+ * @param {Error} error
+ * @returns {never}
+ */
 export function handleError(error) {
   if (USER_ERRORS.has(error?.message)) throw error
   throw new Error('Something went wrong. Please try again.')
@@ -45,6 +121,12 @@ export function handleError(error) {
  * Pure invite guard (bandmates R4): no-self, already-active, and any other
  * existing pair row (pending/declined) blocks a fresh invite — the inviter
  * must remove the row first. Returns an error message or null when allowed.
+ */
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @param {ExistingLinkRow | null | undefined} existingLink
+ * @returns {string | null}
  */
 export function guardInvite(userId, bandmateId, existingLink) {
   if (bandmateId === userId) return 'You cannot add yourself.'
@@ -57,6 +139,11 @@ export function guardInvite(userId, bandmateId, existingLink) {
  * Pure row mapper: each side of the pair sees the row from their own
  * direction, with the other user's id as `userId` (profile resolved by the
  * caller after the profiles join round-trip).
+ */
+/**
+ * @param {RawLinkRow} row
+ * @param {string} userId
+ * @returns {BandmateLink}
  */
 export function normalizeLink(row, userId) {
   const outgoing = row.user_id === userId
@@ -74,6 +161,12 @@ export function normalizeLink(row, userId) {
 
 // Optimistic shape for offline-queued mutations (setlists.js precedent):
 // flagged pendingSync so the UI shows it, replaced on next successful read.
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @param {LinkStatus} status
+ * @returns {BandmateLink}
+ */
 function optimisticLink(userId, bandmateId, status) {
   return {
     ...normalizeLink(
@@ -85,6 +178,10 @@ function optimisticLink(userId, bandmateId, status) {
 }
 
 /** All links involving the user, each with the other party's profile. */
+/**
+ * @param {string} userId
+ * @returns {Promise<BandmateLink[]>}
+ */
 export async function listBandmates(userId) {
   const { data, error } = await (await supabase())
     .from('bandmate_links')
@@ -92,7 +189,7 @@ export async function listBandmates(userId) {
     .or(`user_id.eq.${userId},bandmate_id.eq.${userId}`)
   if (error) throw error
 
-  const links = (data || []).map((row) => normalizeLink(row, userId))
+  const links = (data || []).map(/** @param {RawLinkRow} row */ (row) => normalizeLink(row, userId))
   const ids = [...new Set(links.map((link) => link.userId))]
   if (ids.length) {
     const { data: profiles, error: profilesError } = await (await supabase())
@@ -100,7 +197,10 @@ export async function listBandmates(userId) {
       .select('id, username, display_name')
       .in('id', ids)
     if (profilesError) throw profilesError
-    const byId = new Map((profiles || []).map((profile) => [profile.id, profile]))
+    /** @type {Map<string, RawProfileRow>} */
+    const byId = new Map((profiles || []).map(
+      /** @param {RawProfileRow} profile */ (profile) => [profile.id, profile],
+    ))
     for (const link of links) {
       const profile = byId.get(link.userId)
       link.profile = profile
@@ -112,6 +212,11 @@ export async function listBandmates(userId) {
 }
 
 /** Invite a user to the band (pending link from me to them). */
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @returns {Promise<BandmateLink>}
+ */
 export async function inviteBandmate(userId, bandmateId) {
   const { data: existing, error: existingError } = await (await supabase())
     .from('bandmate_links')
@@ -133,7 +238,7 @@ export async function inviteBandmate(userId, bandmateId) {
     if (error) throw error
     return normalizeLink(data, userId)
   } catch (e) {
-    if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+    if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
     await enqueueOp(userId, { name: 'inviteBandmate', args: [userId, bandmateId] })
     return optimisticLink(userId, bandmateId, 'pending')
   }
@@ -141,6 +246,13 @@ export async function inviteBandmate(userId, bandmateId) {
 
 // Online-only mutation: flips MY incoming pending link to the target status.
 // Zero rows updated → the invite was revoked/removed/already resolved.
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @param {LinkStatus} status
+ * @param {{ accepted_at?: string }} patch
+ * @returns {Promise<BandmateLink>}
+ */
 async function respondToInvite(userId, bandmateId, status, patch) {
   const { data, error } = await (await supabase())
     .from('bandmate_links')
@@ -155,21 +267,31 @@ async function respondToInvite(userId, bandmateId, status, patch) {
   return normalizeLink(data, userId)
 }
 
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @returns {Promise<BandmateLink>}
+ */
 export async function acceptInvite(userId, bandmateId) {
   try {
     return await respondToInvite(userId, bandmateId, 'active', { accepted_at: new Date().toISOString() })
   } catch (e) {
-    if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+    if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
     await enqueueOp(userId, { name: 'respondInvite', args: [userId, bandmateId, 'active'] })
     return optimisticLink(userId, bandmateId, 'active')
   }
 }
 
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @returns {Promise<BandmateLink>}
+ */
 export async function declineInvite(userId, bandmateId) {
   try {
     return await respondToInvite(userId, bandmateId, 'declined', {})
   } catch (e) {
-    if (USER_ERRORS.has(e?.message) || !isConnectivityError(e)) throw e
+    if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
     await enqueueOp(userId, { name: 'respondInvite', args: [userId, bandmateId, 'declined'] })
     return optimisticLink(userId, bandmateId, 'declined')
   }
@@ -180,18 +302,29 @@ export async function declineInvite(userId, bandmateId) {
  * invite (row deleted before the queued response drained) drops silently
  * instead of erroring — idempotent replay.
  */
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @param {LinkStatus} status
+ * @returns {Promise<BandmateLink | null>}
+ */
 export async function respondInvite(userId, bandmateId, status) {
   try {
     return status === 'active'
       ? await acceptInvite(userId, bandmateId)
       : await declineInvite(userId, bandmateId)
   } catch (e) {
-    if (e?.message === 'This invitation is no longer valid.') return null
+    if (/** @type {Error} */ (e)?.message === 'This invitation is no longer valid.') return null
     throw e
   }
 }
 
 /** Remove the band link (either side). Revokes a pending invite, too. */
+/**
+ * @param {string} userId
+ * @param {string} bandmateId
+ * @returns {Promise<void>}
+ */
 export async function removeBandmate(userId, bandmateId) {
   const { error } = await (await supabase())
     .from('bandmate_links')
@@ -202,6 +335,11 @@ export async function removeBandmate(userId, bandmateId) {
 
 // Self-check: node -e "import('./src/data/repositories/bandmates.js').then(m => m.demo())"
 export function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assert = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`bandmates demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
