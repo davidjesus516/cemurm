@@ -51,3 +51,4 @@ CEMURM/
 .codegraph/
 /.agents
 /.claude
+.playwright-mcp/

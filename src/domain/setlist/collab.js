@@ -116,19 +116,34 @@ export function applyLock(locks, payload) {
  * message (the actor name is unknowable — postgres_changes carries none, D5).
  */
 export function reconcileSetlistOp(op, server) {
+  // `op.name`, not `op?.name`: a null op still throws a TypeError, which is
+  // correct here and out of scope to change. That crash is finding 6 and has
+  // its own change (fix-unspecified-crashes); silently fixing it inside the
+  // silent-drop fix would merge two changes that must be reviewed apart.
+  const isSetlistOp = op.name === 'addSongToSetlist' || op.name === 'removeSongFromSetlist'
+  if (!isSetlistOp) return { drop: false }
+
   const songId = op.args?.[2]
-  const queuedAt = op.queuedAt || 0
   const present = (server?.itemIds || []).includes(songId)
-  const serverNewer = !!server?.updatedAt && new Date(server.updatedAt).getTime() > queuedAt
+
+  // A song id the queue never recorded is not a conflict, and not a no-op
+  // either — it is an operation this client cannot identify. Dropping it as
+  // "superseded" would tell the user their edit lost to someone else when
+  // nobody looked at it. Scoped to the two setlist ops: an unrecognised op has
+  // no positional args to be short, and replays unconditionally.
+  if (songId == null) return { drop: true, notice: true, reason: 'malformed' }
+
   if (op.name === 'addSongToSetlist') {
     if (present) return { drop: true }
-    if (serverNewer) return { drop: true, notice: true }
+    // A missing queuedAt is unknown age, NOT old. `|| 0` used to make every
+    // server timestamp beat it, so a queue row that lost its timestamp was
+    // reported as superseded.
+    if (op.queuedAt == null) return { drop: true, notice: true, reason: 'unknown-age' }
+    const serverNewer = !!server?.updatedAt && new Date(server.updatedAt).getTime() > op.queuedAt
+    if (serverNewer) return { drop: true, notice: true, reason: 'superseded' }
     return { drop: false }
   }
-  if (op.name === 'removeSongFromSetlist') {
-    return { drop: !present }
-  }
-  return { drop: false }
+  return { drop: !present }
 }
 
 // Self-check: node -e "import('./src/domain/setlist/collab.js').then(m => m.demo())"

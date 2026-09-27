@@ -98,10 +98,13 @@ describe('reconcileSetlistOp — addSongToSetlist', () => {
   })
 
   it('drops an add the server superseded, and asks for the removal notice', () => {
-    // R7: the song was removed online after this op was queued.
+    // R7: the song was removed online after this op was queued. The reason is
+    // now part of the outcome, so the drainer can word this as a real
+    // supersession — the only one of the three that may blame a collaborator.
     expect(reconcileSetlistOp(op('addSongToSetlist', 'not-on-server', T - 1000), SERVER)).toEqual({
       drop: true,
       notice: true,
+      reason: 'superseded',
     })
   })
 
@@ -125,14 +128,21 @@ describe('reconcileSetlistOp — addSongToSetlist', () => {
     expect(reconcileSetlistOp(op('addSongToSetlist', 'not-on-server', T), SERVER)).toEqual({ drop: false })
   })
 
-  it('drops an add with NO queuedAt, because 0 makes every server look newer', () => {
-    // FINDING: `queuedAt || 0` means a queue row that lost its timestamp is
-    // always treated as superseded, so the write is discarded with a notice.
-    expect(reconcileSetlistOp({ name: 'addSongToSetlist', args: [OWNER, SETLIST, 'not-on-server'] }, SERVER)).toEqual({
+  it('drops an add with NO queuedAt as unknown-age, NOT as superseded', () => {
+    // The assertion this replaces pinned `queuedAt || 0`, which made every
+    // real server timestamp beat 0 and reported a lost-timestamp write as
+    // "someone changed it before you". Unknown age is a different fact and now
+    // carries its own reason, so the UI can say the client failed to replay it.
+    expect(
+      reconcileSetlistOp({ name: 'addSongToSetlist', args: [OWNER, SETLIST, 'not-on-server'] }, SERVER),
+    ).toEqual({ drop: true, notice: true, reason: 'unknown-age' })
+    // A queuedAt of 0 is a real timestamp, not a missing one: epoch is before
+    // any server write, so the op is genuinely superseded and says so.
+    expect(reconcileSetlistOp(op('addSongToSetlist', 'not-on-server', 0), SERVER)).toEqual({
       drop: true,
       notice: true,
+      reason: 'superseded',
     })
-    expect(reconcileSetlistOp(op('addSongToSetlist', 'not-on-server', 0), SERVER)).toEqual({ drop: true, notice: true })
   })
 
   it('replays an add when updatedAt is unparseable', () => {
@@ -143,15 +153,48 @@ describe('reconcileSetlistOp — addSongToSetlist', () => {
     ).toEqual({ drop: false })
   })
 
-  it('DROPS WITH A NOTICE an add whose args are too short to carry a songId', () => {
-    // FINDING: the song id is read positionally as op.args[2]. A short arg list
-    // yields undefined, which is never "present", so the op takes the
-    // superseded branch and the user's add is silently discarded.
+  it('DROPS a short-args add as malformed, and says which failure it was', () => {
+    // The song id is read positionally as op.args[2]. A short arg list yields
+    // undefined, which used to be "not present" and therefore took the
+    // superseded branch — the user's add discarded, blamed on a collaborator.
+    // It is now its own reason, distinct from unknown-age because the two need
+    // different triage.
     expect(reconcileSetlistOp({ name: 'addSongToSetlist', args: [OWNER, SETLIST] }, SERVER)).toEqual({
       drop: true,
       notice: true,
+      reason: 'malformed',
     })
-    expect(reconcileSetlistOp({ name: 'addSongToSetlist' }, SERVER)).toEqual({ drop: true, notice: true })
+    expect(reconcileSetlistOp({ name: 'addSongToSetlist' }, SERVER)).toEqual({
+      drop: true,
+      notice: true,
+      reason: 'malformed',
+    })
+    // A short-args remove is equally unidentifiable, and was equally silent.
+    expect(reconcileSetlistOp({ name: 'removeSongFromSetlist', args: [OWNER, SETLIST] }, SERVER)).toEqual({
+      drop: true,
+      notice: true,
+      reason: 'malformed',
+    })
+  })
+
+  it('replays a healthy add and a healthy remove', () => {
+    // Neither shape had any scenario in offline-edit-conflict-policy.feature —
+    // its ten all cover field-level chord edits, which is how the silent drop
+    // survived. Pinned here so the success path is asserted, not assumed.
+    const after = T + 10 ** 7
+    expect(reconcileSetlistOp(op('addSongToSetlist', 'not-on-server', after), SERVER)).toEqual({ drop: false })
+    expect(reconcileSetlistOp(op('removeSongFromSetlist', ITEM_SONG, after), SERVER)).toEqual({ drop: false })
+  })
+
+  it('still drops a genuine supersession as superseded', () => {
+    // The fix must not weaken the path it sits next to: a real later server
+    // write on the same field still loses, and still asks for the R7 notice.
+    const older = { itemIds: [], updatedAt: new Date(T + 10 ** 6).toISOString() }
+    expect(reconcileSetlistOp(op('addSongToSetlist', 'not-on-server', T), older)).toEqual({
+      drop: true,
+      notice: true,
+      reason: 'superseded',
+    })
   })
 })
 
@@ -214,6 +257,7 @@ describe('reconcileSetlistOp — server read shape', () => {
     expect(reconcileSetlistOp(op1, { itemIds: [ITEM_SONG], updatedAt: new Date(T + 1).toISOString() })).toEqual({
       drop: true,
       notice: true,
+      reason: 'superseded',
     })
   })
 

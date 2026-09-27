@@ -111,16 +111,27 @@ async function decideReplay(userId, op) {
   const decision = reconcileSetlistOp(op, server)
   if (!decision.drop) return { replay: true }
   if (!decision.notice) return { replay: false }
-  return { replay: false, notice: await buildNotice(userId, op) }
+  return { replay: false, notice: await buildNotice(userId, op, decision.reason) }
 }
 
 /**
- * "removed before your sync" line (R7). The actor is unknowable — a
- * postgres_changes payload carries no user id (D5) — so the notice names the
- * song instead. The song lookup is cosmetic: a failure falls back to the
- * generic line rather than losing the notice.
+ * The notice line (R7). The actor is unknowable — a postgres_changes payload
+ * carries no user id (D5) — so the line names the song instead. The song lookup
+ * is cosmetic: a failure falls back to the generic line rather than losing the
+ * notice.
+ *
+ * `reason` decides the wording, and it matters more than the branch name. Only
+ * a genuine supersession may claim someone else got there first; an operation
+ * this client cannot identify must not blame a collaborator for a write the
+ * client simply failed to replay.
  */
-async function buildNotice(userId, op) {
+async function buildNotice(userId, op, reason) {
+  if (reason === 'malformed') {
+    return 'A queued change to the setlist could not be read and was not applied. Please make the change again.'
+  }
+  if (reason === 'unknown-age') {
+    return 'A queued change to the setlist lost its timestamp and was not applied. Please make the change again.'
+  }
   const songId = op.args?.[2]
   let title = null
   try {
