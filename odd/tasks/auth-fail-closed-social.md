@@ -17,19 +17,25 @@
 |----|---------|---------|--------|-------|
 | 1 | `9f63656`, `e337b47`, `5b563cc`, `07829ee` | Fail-closed compliance (0029 + 0030 + the dob step) **and the two db-reset fixes that make it verifiable** | 1806 | verified from a clean reset |
 | 2 | `d19a3b5` | Social sign-in: config, `signInWithOAuth`, buttons, docs | 186 | verified except the provider round-trip |
-| 3 | *(pending)* | Guardian consent by email: `pending` state, two RPCs, Edge Function, `/guardian/*` routes | ~735 | not started |
+| 3 | `6401251`, `c020a42`, `f284fdb`, `b9677f9` | Guardian consent by email: `pending` state, two token RPCs, Edge Function, `/guardian/*` routes, docs | 2381 | verified except a real send and a real browser render |
+
+### The budget is blown, and that is now a decision, not a note
+
+The stack is **4451 authored changed lines** against a ~400-per-slice policy — 11×. It is not one oversized commit spread evenly: `6401251` is 1200 on its own, and the 836-line smoke script and 359-line migration inside it are most of that. The WU4 forecast was ~735 and it came in at 2381, **3.2× the estimate** — the miss is honest and recorded rather than absorbed by cutting comments, blanks or assertions to make a number look better.
+
+`ask-on-risk` is the delivery strategy, so the overage is the trigger and the choice is the user's: accept a `size:exception`, or split PR 3 further. Splitting is not free — `f284fdb` cannot be separated from `6401251` without landing a client commit whose database contract does not exist yet, which costs a green-tree commit in exchange for a smaller review.
 
 The commits are already sequential on the branch, so the stack needs no rewriting of *content* — but it does need a **reorder**: `5b563cc` and `07829ee` currently sit *after* the WU3 commits, so cutting PR 1 at `e337b47` would leave the reset fixes behind. Before anything is pushed, PR 1's branch is cut at `e337b47` and the two fixes are cherry-picked onto it; the feature branch then drops them. That is branch surgery on the user's repo and push/PR creation is their decision, so it is recorded here and not performed.
 
-Every PR merges to main in order, so each slice is independently mergeable and rollback is a single revert rather than abandoning a branch.
-
 **PR 1 is the one that matters.** It is the only slice that closes a live compliance hole, and it is the only one that carries the two `high`-risk RDD assessments. Its review is currently blocked by the local-transport defect described in Verification, not by the code.
+
+**PR 3 carries the third and final compliance hole** — the `'active'` default that made guardian consent self-asserted — plus the app's first unauthenticated state-mutating endpoint. It is the largest slice and the least verified, which is the worst combination on the stack.
 
 ---
 
 ## Problem
 
-The minors system is shipped (Hito 4, migration `0017`) but **its server-side enforcement has never actually run**. Two independent defects:
+The minors system is shipped (Hito 4, migration `0017`) but **its server-side enforcement has never actually run**. Three independent defects — the third was found last, by WU4, and is the worst of them because nothing about it looks like a bug on the page:
 
 1. **`is_minor` is client-owned.** `src/lib/auth.js:71` writes `user_metadata.isMinor` inside `signUp()`, and only there. `mapUser()` (`auth.js:32`) reads it back. With any other entry path, `isMinor` is always `false`. In GoTrue `user_metadata` is user-updatable via `updateUser()` and **no migration guards `raw_user_meta_data`** (grep across `supabase/migrations/` returns zero hits) — so the user can flip their own minor flag.
 
@@ -37,7 +43,9 @@ The minors system is shipped (Hito 4, migration `0017`) but **its server-side en
    `is_minor := new.date_of_birth is not null and new.date_of_birth > (current_date - interval '18 years')`
    and `0017:71` grants `update (date_of_birth) to authenticated` — but grep across `src/` finds **no write of `date_of_birth` anywhere**, only comments. So `is_minor` is permanently `false` in the database, `private.session_is_minor()` is permanently `false`, and every RLS guard in `0017` is dead code.
 
-Net effect: the only thing that has ever locked a minor account is a client-side boolean the account holder controls.
+3. **Guardian consent was self-asserted** (found by WU4, closed in `0031`). `0017:88` shipped `status text not null default 'active'`, and `record_guardian_consent` inserted without a status. So a minor typed a guardian's name into their own form and the row came out `active` — **the account unlocked itself.** The `consent?.status === 'active'` gate in `AuthGuards.jsx` was correct the entire time; it was reading a value the account holder could write. The whole product surface implied a guardian approved. Nothing ever asked one.
+
+Net effect: the only thing that has ever locked a minor account is a client-side boolean the account holder controls — and the only thing that has ever unlocked one is the same person clicking their own button.
 
 **Why now:** the user chose social signup (Google/GitHub) as the primary registration path. Adding OAuth before fixing this opens a **second** bypass of the same gate, on a path where `ageDeclaration` does not even exist.
 
@@ -188,17 +196,22 @@ Net effect: the only thing that has ever locked a minor account is a client-side
 - WU3 checks: `pnpm lint` clean · `pnpm build` clean (`dist/` removed after) · `supabase stop && supabase start` accepts the edited `config.toml`, and `GET /auth/v1/settings` then reports `google: true, github: true` · an `auth.users` fixture shaped like a Google signup (provider in `raw_app_meta_data`) gets its `profiles` row from the `on_auth_user_created` trigger with no app code, `my_age_status()` returns `dob_known = false` for it, and `set_date_of_birth()` flips it to `true`.
 - **WU3 unverified, stated plainly:** the provider round-trip. No Google or GitHub credential exists in this environment, so no real sign-in was performed. The docs say "unverified end to end" rather than implying OAuth is live.
 - **Both reset defects are now fixed (`5b563cc`, `07829ee`) and every number above is from a clean `supabase db reset`.** What that bought: the reset completes through 0030 and records `0030` in `supabase_migrations.schema_migrations` (the hand-applied state never did); the three seeded profiles are `2002-10-10` / `is_minor false` / usernames intact. Over PostgREST with a real `demo@cemurm.app` session, `PATCH display_name` → **204** while `PATCH date_of_birth` → **403 `42501 permission denied for table profiles`**, with `date_of_birth` still `2002-10-10` afterwards. The control write is the load-bearing part: it shows the 403 is the revoked column grant and not a blanket denial.
-- RDD state: `gentle-ai review mode status` reads `on` (global). WU1 and WU3 both assessed `high` and both are stranded in the collect step of build 3.7.0 (see Progress). **Neither has a receipt, and neither should be reported as reviewed.** Verification of record for both is the writer's foreground run plus the parent spot check. The two reset fixes assessed `medium` / `review_due: false` / `under_budget` (`executable_change` on a migration, no `auth` hot path), which defers to the slice boundary per the ODD contract — so no review was started and no third lineage was stranded.
+- **Parent spot check after WU4 returned** (not the writer's own numbers): the three smokes were re-run by the parent against the writer's committed state and reproduced exactly — 0029 **19/0**, 0030 **38/0**, 0031 **66/0**. `git status` clean at `b9677f9`, 15 files, 2381 insertions / 116 deletions, no `dist/`, no `.env` tracked. The parent also confirmed by direct read that `0017:88` really did ship `default 'active'` (against `8b66394`), that `0031:67` flips the default to `'pending'` with a four-value CHECK at line 63, that `record_guardian_consent` is revoked from `public`/`anon` at 0031:339-341 — which is what actually kills the self-assertion path — and that `read_resend_api_key` is granted to `service_role` only.
+- RDD state: `gentle-ai review mode status` reads `on` (global). **Three of the four work units have no receipt.**
+  - WU1 (`review-45fda52164e79125`) and WU3 (`review-7f95d015fe566bd7`) assessed `high`, were consented, started, and are stranded in the collect step of build 3.7.0.
+  - WU4 assessed `high` / `review_due: true`. Worth noting the only reason the native assess reported was `hot_path → odd/tasks/auth-fail-closed-social.md` — the **markdown**, not the auth code, which is not a useful signal about a 2381-line change that adds an unauthenticated mutation endpoint. The read-only preflight STATUS was run and returned the same typed unavailability: `immutable_review_transport_unsupported`, `next_action: stop`, `mutation_outcome: not_started`, `retry_safe: false`. **No lineage was created and no authority was consumed**, so there is no third stranded lineage to clean up.
+  - **None of the three should be reported as reviewed.** Verification of record for each is the writer's foreground run plus the parent spot check. The underlying defect is reported upstream as `Gentleman-Programming/gentle-ai#4808`, still open, still unfixed.
+- The two reset fixes assessed `medium` / `review_due: false` / `under_budget` (`executable_change` on a migration, no `auth` hot path), which defers to the slice boundary per the ODD contract.
 - Still unverified: a real Google/GitHub sign-in (no credential exists in this environment) and any real guardian email send. Do not claim otherwise.
 
 ## Next step
 
 **Immediate, before anything is pushed:** perform the reorder described in [Delivery slices](#delivery-slices) — cut PR 1 at `e337b47`, cherry-pick `5b563cc` and `07829ee` onto it, then drop them from the feature branch. Nothing is pushed and no PR is opened until the user decides to, and that branch surgery belongs to that decision rather than being done silently.
 
-Then, with WU4 shipped: the feature's last work unit is done and there is no WU5 defined. What remains before this branch is pushable is not code.
+Then, with WU4 shipped: the feature's last work unit is done and there is no WU5 defined. What remains before this branch is pushable is not code — it is three decisions that are the user's to make.
 
-1. **The two open questions from WU4's plan were decided, and the decision is recorded rather than left to the next reader.** D5 shipped as *a missing-key guard, not a credential block* — the function is deliverable and fully testable locally and sends nothing until a key exists. The login-less `/guardian/*` routes were confirmed intended: they are the first public state-mutating surface in the app, and the mitigation is the one-shot token plus one indistinguishable error, not authentication.
-2. **Two claims in this document are weaker than the rest and must not be reported as verified:** no real email has ever been sent (the furthest proven hop is a 502 from a deliberately invalid Resend key), and no guardian page has been rendered in a real browser (none was attached to the session; `guardianLink.js` was verified in node instead).
-3. **The PR stack is still unsliced**, and the reorder below is the prerequisite for it.
+1. **The size decision, which is now blocking.** `ask-on-risk` fired: the stack is 4451 authored lines and PR 3 alone is 2381, with `6401251` at 1200. Either a maintainer-approved `size:exception` for PR 3, or a further split — and the further split is not free, because `f284fdb` cannot land without `6401251`'s database contract. The writer reported the overage rather than gaming it, and that is the right call; the resolution is not the writer's to pick.
+2. **The two open questions from WU4's plan were decided, and the decision is recorded rather than left to the next reader.** D5 shipped as *a missing-key guard, not a credential block* — the function is deliverable and fully testable locally and sends nothing until a key exists. The login-less `/guardian/*` routes were confirmed intended: they are the first public state-mutating surface in the app, and the mitigation is the one-shot token plus one indistinguishable error, not authentication.
+3. **Two claims in this document are weaker than the rest and must not be reported as verified:** no real email has ever been sent (the furthest proven hop is a 502 from a deliberately invalid Resend key), and no guardian page has been rendered in a real browser (none was attached to the session; `guardianLink.js` was verified in node instead).
 
 Carried forward, no longer WU4's business: the stale 0017 comments at lines 37-38 / 68-70 (claim the app learns minor status via `user_metadata`, which D1 retired). The `GuardianConsentRequired.jsx:152` promise about an emailed link is resolved by WU4 — the link is now real.
