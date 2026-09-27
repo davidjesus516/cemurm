@@ -23,6 +23,8 @@ import RehearsalDetail from './pages/RehearsalDetail.jsx'
 import Notifications from './pages/Notifications.jsx'
 import StageMode from './pages/StageMode.jsx'
 import Overlay from './pages/Overlay.jsx'
+import GuardianConfirm from './pages/GuardianConfirm.jsx'
+import GuardianRevoke from './pages/GuardianRevoke.jsx'
 import Auth from './pages/Auth.jsx'
 import Practice from './pages/Practice.jsx'
 import PublicLibrary from './pages/PublicLibrary.jsx'
@@ -40,8 +42,10 @@ const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
-// Hito 4: minors without an ACTIVE guardian consent never reach the
-          // app routes — RequireGuardianConsent swaps them for the lock screen.
+// Hito 4, revised by 0031: a minor reaches the app routes only with an ACTIVE
+          // consent. Since 0031 a submitted request is 'pending' and stays locked,
+          // so this gate is no longer a formality a minor walks past in a form —
+          // it is the only thing standing between a request and an open account.
           {
             element: <RequireGuardianConsent />,
             children: [
@@ -84,6 +88,25 @@ const router = createBrowserRouter([
   {
     path: '/overlay/:sessionId',
     element: <Overlay />,
+  },
+  // The guardian's two links (WU4 / T4.4), same reasoning as /overlay above and
+  // for a sharper reason: the primary reader of these pages is a parent with NO
+  // CEMURM account, who cannot sign in and must not have to. Authorization is
+  // the 128-bit revocation_token in the query string — the capability 0017
+  // shipped and 0031's anon-granted confirm RPC checks one-shot.
+  //
+  // Putting them outside RequireAuth is not a relaxation: RequireGuardianConsent
+  // gates the minor's own account, and these pages act on a ledger row through a
+  // login-less RPC, so the guard has nothing to say about them. Both pages
+  // require a real click (never auto-confirm on load) and strip the query string
+  // the moment they read it — see src/lib/guardianLink.js.
+  {
+    path: '/guardian/confirm',
+    element: <GuardianConfirm />,
+  },
+  {
+    path: '/guardian/revoke',
+    element: <GuardianRevoke />,
   },
 ])
 
