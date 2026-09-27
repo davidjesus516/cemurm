@@ -87,7 +87,7 @@ Keeping them together in one hito would overload it; the split honors the depend
 
 ## Hito 1 — Core Viewer + Auth (Months 1–2)
 
-**Implementation status: complete** — email/password auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search against hosted Supabase (data layer + read-through offline cache, PR #87), practice view, schema + owner-scoped RLS deployed (`supabase/migrations/`). Caveats: Google/GitHub OAuth pending; PWA runtime and full BDD scenario coverage tracked per feature on follow-up hitos.
+**Implementation status: complete** — email/password auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search against hosted Supabase (data layer + read-through offline cache, PR #87), practice view, schema + owner-scoped RLS deployed (`supabase/migrations/`). Caveats: Google/GitHub OAuth implemented in the client and enabled in `supabase/config.toml`, but unverified end to end (provider credentials are placeholders); PWA runtime and full BDD scenario coverage tracked per feature on follow-up hitos.
 
 ### Objectives
 - Build the foundational app shell with routing and authentication
@@ -97,7 +97,7 @@ Keeping them together in one hito would overload it; the split honors the depend
 
 ### Deliverables
 - [x] React app with Vite, Tailwind, and React Router
-- [x] Supabase Auth integration (email/password live; Google + GitHub OAuth pending — all external providers are disabled in `supabase/config.toml`)
+- [x] Supabase Auth integration (email/password live; Google + GitHub OAuth implemented — providers enabled in `supabase/config.toml`, credentials still placeholders)
 - [x] ChordPro parser (text → structured data) and renderer (structured data → styled React components)
 - [x] Song CRUD: create, read, update, delete songs (hosted Supabase — `src/lib/songs.js`)
 - [x] Setlist CRUD: create setlists, add/remove/reorder songs (hosted Supabase — `src/lib/setlists.js`)
@@ -302,7 +302,7 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 
 ### Planned vs. implemented (as of 2026-09-23)
 
-- **Hito 1 — Core Viewer + Auth: complete.** Song/setlist CRUD and search run against hosted Supabase (no localStorage mocks); owner-scoped RLS covers auth, songs, setlists, and chart content. Remaining caveats: Google/GitHub OAuth providers disabled in `supabase/config.toml`.
+- **Hito 1 — Core Viewer + Auth: complete.** Song/setlist CRUD and search run against hosted Supabase (no localStorage mocks); owner-scoped RLS covers auth, songs, setlists, and chart content. Remaining caveats: Google/GitHub OAuth providers are enabled in `supabase/config.toml` but carry placeholder credentials, so a real social sign-in is still unverified.
 - **Hito 2 — Stage Mode: core complete.** Stage Mode and offline access shipped in #87 (8/8 deliverables; `public/sw.js` + IndexedDB cache/queue live). Remaining caveats: real-device HID testing requires a physical foot pedal + `chrome://flags` HID; browser-level offline QA and PWA background-update UX are follow-up work under `pwa-updates-and-storage`.
 - **Hito 3 — Collaboration: complete.** Band collaboration (shared setlists, bandmates, comments) and notifications shipped and archived (`openspec/changes/archive/2026-09-18-hito-3-band-collaboration/`, `2026-09-19-hito-3-notifications/`). Outstanding from the original feature list: MusicXML/ABC notation, thematic collections, and the full practice-mode surface.
 - **Hito 4 — Basic Community: complete.** Public library (S4.1 #125–#127), contributions/profiles/follows (S4.2 #131/#136), music theory (#137), community moderation (#138), org repertoire (#139), minors & guardian consent, service planning, and rehearsal workflow are merged on main (migrations through `0019_rehearsal_workflow.sql`). The URL-importer deliverable is not shipped — it rides Hito 5's integrations surface.

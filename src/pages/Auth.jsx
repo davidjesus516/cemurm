@@ -1,12 +1,21 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.jsx'
-import { EMAIL_RE, getSession } from '../lib/auth.js'
+import { EMAIL_RE, getSession, signInWithOAuth } from '../lib/auth.js'
 
 const inputClass =
   'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber disabled:bg-cem-elevated'
 
 const inputErrorClass = 'border-cem-rose/40'
+
+// WU3: the social buttons, shown above the email form in BOTH modes. `failed` is
+// the provider-specific prefix for formError, so a failure names the button the
+// user actually pressed while the reason still comes from auth.js's toAuthError.
+// No icon set exists in this project, so providers are named in text.
+const OAUTH_PROVIDERS = [
+  { id: 'google', label: 'Google', failed: 'Google sign-in failed' },
+  { id: 'github', label: 'GitHub', failed: 'GitHub sign-in failed' },
+]
 
 function Auth() {
   const { signIn, signUp } = useAuth()
@@ -28,6 +37,10 @@ function Auth() {
   const [formError, setFormError] = useState('')
   const [notice, setNotice] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Which provider button is mid-flight. Tracked apart from isSubmitting so the
+  // pressed button can say "Opening Google…" while every other control just goes
+  // inert, instead of all of them claiming to be signing in.
+  const [pendingProvider, setPendingProvider] = useState('')
 
   const isSignUp = mode === 'signup'
 
@@ -116,6 +129,26 @@ function Auth() {
       setFormError(error.message)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // WU3 social sign-in. Deliberately separate from handleSubmit: there is no
+  // form to validate and nothing to read back — signInWithOAuth resolves the
+  // moment the SDK has the provider authorize URL and the browser is already
+  // navigating away. Clearing isSubmitting on success would re-enable the form
+  // during that hand-off; on failure we clear it so the user is not stranded.
+  async function handleOAuth(provider) {
+    setFormError('')
+    setNotice('')
+    setErrors({})
+    setIsSubmitting(true)
+    setPendingProvider(provider.id)
+    try {
+      await signInWithOAuth({ provider: provider.id })
+    } catch (error) {
+      setFormError(`${provider.failed}: ${error.message}`)
+      setIsSubmitting(false)
+      setPendingProvider('')
     }
   }
 
@@ -229,6 +262,34 @@ function Auth() {
             )}
           </div>
         )}
+
+        {/* WU3 social sign-in, shown above the email fields in both modes. Social is
+            the primary registration path, so it comes first. type="button" is load
+            bearing: these live inside the <form>, and a submit here would validate
+            and post the password form instead. */}
+        <div className="space-y-2">
+          {OAUTH_PROVIDERS.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              onClick={() => handleOAuth(provider)}
+              disabled={isSubmitting}
+              className="w-full rounded-md border border-cem-elevated bg-cem-surface px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+            >
+              {pendingProvider === provider.id
+                ? `Opening ${provider.label}…`
+                : `Continue with ${provider.label}`}
+            </button>
+          ))}
+        </div>
+
+        {/* Divider between the social path and the email form. Decorative: the word
+            carries no information a screen reader needs, so it is aria-hidden. */}
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-cem-elevated" />
+          <span className="text-xs uppercase tracking-wide text-cem-secondary">or</span>
+          <span className="h-px flex-1 bg-cem-elevated" />
+        </div>
 
         {renderField('email', 'Email', { type: 'email', autoComplete: 'email' })}
         {renderField('password', 'Password', {

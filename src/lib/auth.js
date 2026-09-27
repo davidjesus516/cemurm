@@ -44,6 +44,11 @@ function toAuthError(error) {
   return new Error(messages[error?.code] || 'Something went wrong. Please try again.')
 }
 
+// WU3: the only social providers this app offers. Guarded here, not passed
+// through to the SDK, so a typo or a future caller cannot ask GoTrue for a
+// provider that was never configured.
+const OAUTH_PROVIDERS = new Set(['google', 'github'])
+
 export async function signUp({ firstName, lastName, displayName, email, password, ageDeclaration }) {
   // Same local validation and messages as the mock, kept client-side (D4).
   const normalizedEmail = email.trim().toLowerCase()
@@ -101,6 +106,42 @@ export async function signIn({ email, password }) {
 export async function signOut() {
   try {
     const { error } = await supabase.auth.signOut()
+    if (error) throw error
+  } catch (error) {
+    throw toAuthError(error)
+  }
+}
+
+// WU3 social sign-in. Navigates the browser away to the provider and RESOLVES as
+// soon as the SDK has the authorize URL — there is deliberately no callback
+// handler here:
+//   * supabase-js runs with detectSessionInUrl at its default (true), so the
+//     tokens/code on the return URL are consumed automatically on arrival. Reading
+//     a hash or a `code` query param by hand here would duplicate (and eventually
+//     disagree with) the SDK.
+//   * nothing may be read after this call: there is no user yet. The session only
+//     exists once the browser comes back, and useAuth/AuthProvider pick it up on
+//     mount (src/hooks/useAuth.jsx).
+//   * on return, RequireGuardianConsent (src/components/auth/AuthGuards.jsx) sees
+//     a brand-new account with no date_of_birth and renders DateOfBirthRequired.
+//     That is the intended net and the reason compliance shipped before OAuth
+//     (decision D6) — this path used to have NO age gate at all, because the
+//     ageDeclaration radio below only exists on the email form. An OAuth user is
+//     asked for a real date instead of self-declaring a flag, which is strictly
+//     stronger evidence; the radio stays for email signups and is not refactored.
+// Returns void; surfaces failures through the same toAuthError mapping as every
+// other call in this file.
+export async function signInWithOAuth({ provider }) {
+  if (!OAUTH_PROVIDERS.has(provider)) {
+    throw new Error('That sign-in method is not available.')
+  }
+  // Built from the live origin so the same call works on localhost:5173 in dev and
+  // on whatever host the app is deployed to. It must be allow-listed in
+  // supabase/config.toml → [auth] additional_redirect_urls. The bare origin (not
+  // /auth) is the destination the email flow lands on too — see Auth.jsx handleSubmit.
+  const redirectTo = window.location.origin
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } })
     if (error) throw error
   } catch (error) {
     throw toAuthError(error)

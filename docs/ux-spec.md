@@ -179,6 +179,7 @@ Consolidated (see design-system.md §7 for mascot treatment):
 |------|-------------|-----------|------------------|
 | Welcome (3 slides) | Swipe forward; `Get Started` on last | `Skip` on slide 1 | walkthrough_completed |
 | Account creation | Email/Google/GitHub | No (required) | account_created |
+| Date of birth | One date field — **every** account, social included | No (required) | date_of_birth_set |
 | Profile setup | Instrument, skill level | Yes (`Later`) | profile_setup |
 | Dashboard tour (4 steps) | Highlight ring + tooltip; `Skip Tour` | Yes | tour_completed |
 | Celebration | Confetti + `You're all set!` | Auto-dismiss | onboarding_complete |
