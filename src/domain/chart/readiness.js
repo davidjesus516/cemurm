@@ -1,7 +1,26 @@
+// @ts-check
 // Pure readiness logic — no DOM, no localStorage, safe in Node.
 // ponytail: split from songs.js so computeReadiness is importable in Node.
 
 import { parseChordPro } from './parser.js'
+
+/**
+ * The slice of a song computeReadiness reads: base key + chart body, plus
+ * the PDF-scan branch inputs. Every field is optional/nullish because the
+ * caller assembles this from a (possibly absent) chart row, and the demo
+ * passes a null song to exercise the missing-key guard.
+ * @typedef {object} ReadinessInput
+ * @property {string | null | undefined} [key]
+ * @property {string | null | undefined} [body]
+ * @property {boolean | null | undefined} [hasPdfChart]
+ * @property {number | null | undefined} [sizeBytes]
+ */
+
+/**
+ * @typedef {object} Readiness
+ * @property {'ready' | 'draft'} status
+ * @property {string | null} reason
+ */
 
 /**
  * Compute readiness for a song from its key + body.
@@ -18,6 +37,9 @@ import { parseChordPro } from './parser.js'
  *
  * NOTE (Hito 1): readiness is computed from the single current chart (body + key).
  * Versioned readiness is Hito 3 — no version table here.
+ *
+ * @param {ReadinessInput | null | undefined} song
+ * @returns {Readiness}
  */
 export function computeReadiness(song) {
   if (!song || !song.key || !song.key.trim()) {
@@ -58,6 +80,11 @@ export function computeReadiness(song) {
 
 // Self-check: node -e "import('./src/domain/chart/readiness.js').then(m => m.demo())"
 export function demo() {
+  /**
+   * @param {unknown} cond
+   * @param {string} msg
+   * @returns {void}
+   */
   const assert = (cond, msg) => {
     if (!cond) throw new Error(`readiness demo FAILED: ${msg}`)
   }

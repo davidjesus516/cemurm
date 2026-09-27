@@ -1,3 +1,4 @@
+// @ts-check
 // Personal preferences data layer (3.1, D2): read-through `prefs:${userId}`
 // kv cache, offline-safe (kv only). Typed hot-path columns (transpose_offset,
 // capo) + `preferences` jsonb for evolving per-song overrides / default
@@ -8,12 +9,56 @@ import { offlineGet, offlineSet } from '../../offline/cache.js'
 
 // ponytail: lazy import — supabase.js reads import.meta.env at eval time,
 // which is undefined in bare node (this module's demo runs there).
+/** @type {typeof import('./supabase.js').supabase | null} */
 let supabaseClient = null
+/**
+ * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}
+ */
 async function supabase() {
   if (!supabaseClient) supabaseClient = (await import('../supabase.js')).supabase
   return supabaseClient
 }
 
+/**
+ * Per-song practice overrides (D2 jsonb): the key and tempo the practice view
+ * drives for one song.
+ * @typedef {object} PracticePref
+ * @property {string} key
+ * @property {number} tempo
+ */
+
+/**
+ * The evolving per-song jsonb bag (D2). Every key is optional because the
+ * column starts empty and each feature adds its own slice.
+ * @typedef {object} PreferencesJson
+ * @property {string | null} [default_version]
+ * @property {Record<string, number> | null} [override]
+ * @property {Record<string, PracticePref> | null} [practice]
+ */
+
+/**
+ * Raw user_preferences row: two typed hot-path columns + the jsonb bag.
+ * @typedef {object} RawPreferencesRow
+ * @property {number | null} transpose_offset
+ * @property {number | null} capo
+ * @property {PreferencesJson | null} preferences
+ */
+
+/**
+ * Client preference shape (flattenPreferences — flattenSetlist precedent):
+ * the jsonb snake_case keys promoted to camelCase.
+ * @typedef {object} Preferences
+ * @property {number} transpose
+ * @property {number} capo
+ * @property {string | null} defaultVersion
+ * @property {Record<string, number>} overrides
+ * @property {Record<string, PracticePref>} practice
+ */
+
+/**
+ * @param {string} userId
+ * @returns {string}
+ */
 export const PREF_KEY = (userId) => `prefs:${userId}`
 
 export const DEFAULT_PREFS = Object.freeze({
@@ -28,6 +73,8 @@ export const DEFAULT_PREFS = Object.freeze({
  * Map a raw user_preferences row (typed columns + jsonb, D2) to the client
  * shape. A missing row (maybeSingle → null) maps to the defaults — a user
  * with no prefs row gets 0/0/none, matching the schema defaults.
+ * @param {RawPreferencesRow | null | undefined} row
+ * @returns {Preferences}
  */
 export function flattenPreferences(row) {
   const jsonb = row?.preferences ?? {}
@@ -40,6 +87,10 @@ export function flattenPreferences(row) {
   }
 }
 
+/**
+ * @param {string} userId
+ * @returns {Promise<Preferences>}
+ */
 async function fetchPreferences(userId) {
   const { data, error } = await (await supabase())
     .from('user_preferences')
@@ -55,6 +106,8 @@ async function fetchPreferences(userId) {
  * on failure serve the kv copy; with neither, fall back to defaults — so
  * reads never throw and are fully offline-safe. No user-facing error here:
  * a missing pref row IS the default state.
+ * @param {string} userId
+ * @returns {Promise<Preferences>}
  */
 export async function getPreferences(userId) {
   try {
@@ -70,6 +123,12 @@ export async function getPreferences(userId) {
 
 // Self-check: node -e "import('./src/data/repositories/preferences.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   * @returns {void}
+   */
   const assert = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`preferences demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
