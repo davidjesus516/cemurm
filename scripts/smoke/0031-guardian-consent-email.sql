@@ -45,7 +45,20 @@
 -- `select set_config(...)` (bare calls are not valid top-level statements), and
 -- every fixture is deleted as postgres — a claimless `authenticated` role sees
 -- zero rows, so a `= 0` tidy-up assertion run as a client would pass vacuously.
--- expects 66 PASS / 0 FAIL
+--
+-- ⚠ Read the ERROR count, not the PASS count. psql does not stop on error, so an
+-- assertion that dies on `permission denied` disappears from the output while the
+-- run still prints a green FAIL tally. Two POST-CONDITION checks did exactly that
+-- for a while and the suite reported 66/0. The real check is:
+--
+--   docker exec -i supabase_db_cemurm psql -U postgres -d postgres -q \
+--     < scripts/smoke/0031-guardian-consent-email.sql 2>&1 \
+--     | grep -c ERROR        -- must be 0
+--
+-- and, to catch an assertion that never fires at all, compare the number of
+-- emitted `[PASS]` notices against the number of call sites. Both counts are 68.
+--
+-- expects 68 PASS / 0 FAIL, and 0 psql ERROR lines
 set client_min_messages to notice;
 
 create or replace function tmp_assert(p_name text, p_ok boolean) returns void language plpgsql as $$
@@ -512,6 +525,16 @@ select tmp_assert(
    = 'Consent not found or already finalized.')
 );
 
+-- The two post-conditions below read the ledger directly, so they need a role
+-- that may read it. `anon` may not (`0017` revokes all and grants select only to
+-- `authenticated` under self-select RLS), and psql does not stop on error — so
+-- running them as `anon` made them die with `permission denied` and continue,
+-- which reported 66 PASS / 0 FAIL while these two never executed. Verified
+-- caught by counting `[PASS]` notices against call sites, not by reading the
+-- summary. They assert the state the rejected attempts left behind, so `postgres`
+-- is the honest role; the client path is what the arms above exercise.
+select set_config('role','postgres',false);
+
 select tmp_assert(
   '0031 POST-CONDITION: the grown-up account''s request is still pending, not active',
   (select count(*) from public.guardian_consents
@@ -531,6 +554,8 @@ select tmp_assert(
                           '10000000-0000-0000-0000-0000000000c2')
           and status = 'pending') = 2
 );
+
+select set_config('role','anon',false);
 
 -- ══════════════ 6. THE CORRECT TOKEN ACTIVATES — login-less (anon) ══════════════════════
 -- Nothing differs from section 5's failures except the 128-bit token: still role
