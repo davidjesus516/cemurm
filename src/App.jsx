@@ -30,6 +30,8 @@ import Profile from './pages/Profile.jsx'
 import Moderation from './pages/Moderation.jsx'
 import Storage from './pages/Storage.jsx'
 import Settings from './pages/Settings.jsx'
+import Projection from './pages/Projection.jsx'
+import ProjectionDisplay from './pages/ProjectionDisplay.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 const router = createBrowserRouter([
@@ -61,6 +63,7 @@ const router = createBrowserRouter([
               { path: '/services', element: <Services /> },
               { path: '/services/:id', element: <ServiceDetail /> },
               { path: '/assignment/:serviceId', element: <SubstitutionAssignment /> },
+              { path: '/services/:id/projection', element: <Projection /> },
               { path: '/rehearsals', element: <Rehearsals /> },
               { path: '/rehearsals/:id', element: <RehearsalDetail /> },
               { path: '/notifications', element: <Notifications /> },
@@ -74,6 +77,7 @@ const router = createBrowserRouter([
         element: <RedirectIfAuthed />,
         children: [{ path: '/auth', element: <Auth /> }],
       },
+      { path: '/projection/display', element: <ProjectionDisplay /> },
       { path: '*', element: <NotFound /> },
     ],
   },
