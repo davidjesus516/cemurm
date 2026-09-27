@@ -181,7 +181,7 @@ create function private.session_may_mark_item(p_rehearsal_id uuid) returns boole
 
 -- display_name_for: profiles.display_name → username → 'Someone' (NULL-tolerant identity
 -- surface for this slice; profiles is client-readable via 0006 column-capped grants).
-create function private.display_name_for(p_user_id uuid) returns text
+create or replace function private.display_name_for(p_user_id uuid) returns text
   language sql security definer stable set search_path = '' as $$
   select coalesce(pr.display_name, pr.username, 'Someone')
   from public.profiles pr

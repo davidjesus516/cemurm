@@ -341,7 +341,7 @@ create function private.block_interval(p_block_id uuid)
   where b.id = p_block_id $$;
 
 -- human-readable member name for warnings/notifications: display_name → username → 'Someone'.
-create function private.display_name_for(p_user_id uuid) returns text
+create or replace function private.display_name_for(p_user_id uuid) returns text
   language sql security definer stable set search_path = '' as $$
   select coalesce(
     (select p.display_name from public.profiles p where p.id = p_user_id),
