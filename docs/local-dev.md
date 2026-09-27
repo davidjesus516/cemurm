@@ -39,6 +39,25 @@ VITE_SUPABASE_ANON_KEY=<anon key from supabase status>
 
 `src/lib/supabase.js` throws if either variable is missing.
 
+## Social sign-in — Google + GitHub
+
+`/auth` offers **Continue with Google** and **Continue with GitHub** in both sign-in and sign-up mode (`signInWithOAuth` in `src/lib/auth.js`, buttons in `src/pages/Auth.jsx`). GoTrue reads the provider half from `supabase/config.toml`:
+
+- `[auth.external.google]` and `[auth.external.github]` are `enabled = true`.
+- `client_id` is **public** — it travels in the authorization URL in the clear, so the placeholder in `config.toml` is meant to be filled in and committed.
+- `secret` is **sensitive** — both blocks read `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)` / `env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)`, the same substitution `[auth.external.apple]` already uses. Export them before `supabase start` / `supabase db reset`; never commit a literal.
+
+  ```bash
+  export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=<provider client secret>
+  export SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET=<provider client secret>
+  ```
+
+Fill the two `client_id` placeholders, export the secrets, then restart the stack. The redirect allowlist already carries `http://localhost:5173/**`: the OAuth callback returns to the **app** origin, and `pnpm dev` serves Vite on :5173 — not the :3000 in `site_url` — so without that entry GoTrue rejects the post-sign-in redirect and the sign-in dies on the last hop.
+
+**While the credentials are placeholders the buttons cannot complete a real sign-in.** `GET /auth/v1/settings` reports both providers as enabled, but the provider round-trip is unverified; the only honest check is a manual sign-in, not the config.
+
+Social accounts sit behind the same fail-closed age gate as email accounts. A brand-new OAuth user has no `profiles.date_of_birth`, so `my_age_status()` reports `dob_known = false` and the app routes them to the date-of-birth step before anything else. OAuth is **not** a way around the minors / guardian-consent system.
+
 ## Spotify enrichment provider (mock vs real API)
 
 Song enrichment (Hito 5 #69) runs against the **Spotify Web API** — or a deterministic **mock** when no Spotify credentials are configured.

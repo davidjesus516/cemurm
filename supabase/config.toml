@@ -159,7 +159,12 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# http://localhost:5173/** — WU3 social sign-in. The OAuth callback returns to the APP
+# origin, and `pnpm dev` (Vite) serves the app on :5173, not the :3000 listed above, so
+# without this entry GoTrue rejects the post-sign-in redirect and the sign-in dies on the
+# last hop. The /** wildcard covers every path under the origin (e.g. /auth, /songs) so a
+# redirect that carries a return path still matches.
+additional_redirect_urls = ["https://127.0.0.1:3000", "http://localhost:5173/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -332,6 +337,53 @@ url = ""
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
+
+# ═════════════ SOCIAL SIGN-IN — GOOGLE + GITHUB (WU3) ═════════════
+# The client half of social sign-in is implemented: signInWithOAuth() in
+# src/lib/auth.js plus the Google / GitHub buttons on /auth (src/pages/Auth.jsx),
+# rendered in both 'signin' and 'signup' modes. These blocks are the server half —
+# the providers GoTrue will actually hand off to.
+#
+# ⚠️  THE VALUES BELOW ARE PLACEHOLDERS, NOT SECRETS.  ⚠️
+# This file is tracked in git, so a real client_id / secret must NEVER be committed
+# here. `[auth.external.apple]` above shows the alternative this repo already uses
+# for an OAuth secret: `secret = "env(SOME_VAR)"`, read from the environment. What
+# goes where:
+#   * Google — Google Cloud Console → APIs & Services → Credentials → OAuth client ID
+#              → Application type "Web application" (client_id + client secret there).
+#   * GitHub — GitHub → Settings → Developer settings → OAuth Apps → New OAuth App
+#              (Client ID + Client secret there).
+# In BOTH consoles the authorized callback URL must be this local stack's auth
+# callback, NOT the app:
+#              http://127.0.0.1:54321/auth/v1/callback
+# (GoTrue, not the browser, is what the provider redirects back to; it then forwards
+# the session to the app origin allow-listed in [auth] above.)
+#
+# UNTIL A MAINTAINER FILLS IN REAL CREDENTIALS both buttons render and the code path
+# is correct, but a real sign-in cannot complete — the provider rejects the
+# placeholder client. That is expected, not a regression: no credential is committed
+# here by design, and none is invented.
+[auth.external.google]
+enabled = true
+# The client_id is NOT a secret — it travels in the authorization URL in the clear
+# and is safe to commit. Fill it in here.
+client_id = "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID"
+# The secret IS sensitive. Same rule and same mechanism as [auth.external.apple]
+# above: environment substitution, never a literal in a tracked file. Export
+# SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET before `supabase start` / `supabase db reset`.
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# Supabase's template config notes the nonce check is "required for local sign in
+# with Google auth" (see the note on [auth.external.apple] above). Left commented and
+# unset because it has never been exercised against real credentials in this repo —
+# flip it only if a local Google sign-in fails on the nonce.
+# skip_nonce_check = true
+
+[auth.external.github]
+enabled = true
+# Public, as above.
+client_id = "REPLACE_WITH_GITHUB_OAUTH_CLIENT_ID"
+# Sensitive, as above.
+secret = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)"
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.

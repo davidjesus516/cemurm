@@ -53,7 +53,7 @@ CEMURM is in **active development**. During the beta period:
 - **Your feedback shapes the product**: We prioritize features based on beta user input
 
 ### Current Beta Scope (Hito 1–4 — implemented)
-- ✅ Sign up / sign in (email/password; Google + GitHub OAuth pending)
+- ✅ Sign up / sign in (email/password; Google + GitHub OAuth implemented, provider credentials pending)
 - ✅ Create and edit songs (ChordPro format)
 - ✅ Build and manage setlists
 - ✅ Practice view with transposition
