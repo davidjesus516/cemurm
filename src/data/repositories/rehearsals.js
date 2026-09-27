@@ -1,3 +1,4 @@
+// @ts-check
 // Supabase data layer for rehearsals (Hito 4 — rehearsal workflow, 0019 backend).
 // The 0019 migration owns the read scope (leader + org/event members) and every
 // write RPC; this layer only maps rows to app shapes, resolves member names via
@@ -15,6 +16,218 @@
 //    for the ids; session_org_ids() is the public bridge, 0005).
 
 import { supabase } from '../supabase.js'
+
+/**
+ * @typedef {'planned' | 'published' | 'completed'} RehearsalStatus
+ */
+
+/**
+ * Raw Supabase rows for the rehearsals family (0019) and the embeds the
+ * queries select (songs / song_versions / profiles / organizations).
+ * @typedef {object} RawRehearsalRow
+ * @property {string} id
+ * @property {string | null} org_id
+ * @property {string | null} branch_id
+ * @property {string | null} event_id
+ * @property {string} scope
+ * @property {string} name
+ * @property {string | null} setlist_id
+ * @property {number | null} timebox_minutes
+ * @property {RehearsalStatus} status
+ * @property {string | null} planned_for
+ * @property {string | null} created_by
+ * @property {string} created_at
+ * @property {Array<{ count: number }>} [rehearsal_items]
+ */
+
+/**
+ * @typedef {object} RawVersionEmbedRow
+ * @property {string} created_at
+ * @property {number | null} duration_seconds
+ */
+
+/**
+ * songs(title, artist, song_versions(created_at, duration_seconds)) join —
+ * RLS-null for members who do not own the song, hence nullable members.
+ * @typedef {object} RawSongEmbedRow
+ * @property {string | null} title
+ * @property {string | null} artist
+ * @property {RawVersionEmbedRow[] | null} [song_versions]
+ */
+
+/**
+ * @typedef {object} RawItemVersionEmbedRow
+ * @property {boolean | null} is_ready
+ * @property {number | null} duration_seconds
+ */
+
+/**
+ * @typedef {object} RawRehearsalItemRow
+ * @property {string} id
+ * @property {string} rehearsal_id
+ * @property {string} song_id
+ * @property {string | null} version_id
+ * @property {string | null} outcome
+ * @property {number | null} run_count
+ * @property {string | null} notes
+ * @property {string | null} carry_over_to
+ * @property {RawSongEmbedRow | null} [songs]
+ * @property {RawItemVersionEmbedRow | null} [song_versions]
+ */
+
+/**
+ * One entry of the setlist_items.vocal_parts jsonb (schema-unconstrained).
+ * @typedef {object} RawVocalPart
+ * @property {string} [part]
+ * @property {string | null} [user_id]
+ */
+
+/**
+ * @typedef {object} RawSetlistItemRow
+ * @property {string} id
+ * @property {string} song_id
+ * @property {string | null} agreed_key
+ * @property {RawVocalPart[]} [vocal_parts]
+ * @property {number} position
+ */
+
+/**
+ * @typedef {object} RawRsvpRow
+ * @property {string} id
+ * @property {string} rehearsal_id
+ * @property {string} user_id
+ * @property {string} status
+ * @property {string | null} responded_at
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {object} RawChangeLogRow
+ * @property {string} id
+ * @property {string} setlist_id
+ * @property {string} actor_id
+ * @property {string} action
+ * @property {Record<string, unknown> | null} detail
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {object} RawProfileRow
+ * @property {string} id
+ * @property {string | null} username
+ * @property {string | null} display_name
+ */
+
+/**
+ * Flattened app shapes (flattenRehearsal + the getRehearsal detail maps).
+ * @typedef {object} Rehearsal
+ * @property {string} id
+ * @property {string | null} orgId
+ * @property {string | null} orgName
+ * @property {string | null} branchId
+ * @property {string | null} eventId
+ * @property {string} scope
+ * @property {string} name
+ * @property {string | null} setlistId
+ * @property {number | null} timeboxMinutes
+ * @property {RehearsalStatus} status
+ * @property {string | null} plannedFor
+ * @property {string | null} createdBy
+ * @property {string} createdAt
+ */
+
+/**
+ * @typedef {object} RehearsalItem
+ * @property {string} id
+ * @property {string} songId
+ * @property {string} title
+ * @property {string} artist
+ * @property {string | null} versionId
+ * @property {boolean | null} isReady
+ * @property {number | null} durationSeconds
+ * @property {number | null} latestVersionDurationSeconds
+ * @property {string} outcome
+ * @property {number} runCount
+ * @property {string} notes
+ * @property {string | null} carryOverTo
+ * @property {boolean} inSetlist
+ * @property {string | null} agreedKey
+ * @property {Array<{ part: string, userId: string | null, name: string }>} parts
+ * @property {number | null} position
+ * @property {string | null} setlistItemId
+ */
+
+/**
+ * @typedef {object} Rsvp
+ * @property {string} id
+ * @property {string} rehearsalId
+ * @property {string} userId
+ * @property {string} status
+ * @property {string | null} respondedAt
+ * @property {string} name
+ */
+
+/**
+ * @typedef {object} ChangeLogEntry
+ * @property {string} id
+ * @property {string} setlistId
+ * @property {string} actorId
+ * @property {string} actorName
+ * @property {string} action
+ * @property {Record<string, unknown>} detail
+ * @property {string} createdAt
+ */
+
+/**
+ * @typedef {object} RehearsalDetail
+ * @property {Rehearsal} rehearsal
+ * @property {RehearsalItem[]} items
+ * @property {Rsvp[]} rsvps
+ * @property {ChangeLogEntry[]} changeLog
+ */
+
+/**
+ * Mutation inputs — client guards run before any RPC call.
+ * @typedef {object} RehearsalInput
+ * @property {string | undefined} [orgId]
+ * @property {string | undefined} [name]
+ * @property {string | undefined} [setlistId]
+ * @property {string | number | undefined} [timeboxMinutes]
+ * @property {string | Date | null | undefined} [plannedFor]
+ */
+
+/**
+ * @typedef {object} RehearsalSongInput
+ * @property {string} rehearsalId
+ * @property {string} songId
+ */
+
+/**
+ * @typedef {object} RecordRunInput
+ * @property {string} rehearsalId
+ * @property {string} itemId
+ */
+
+/**
+ * @typedef {object} MarkOutcomeInput
+ * @property {string} rehearsalId
+ * @property {string} itemId
+ * @property {string} outcome
+ */
+
+/**
+ * @typedef {object} UpdateNoteInput
+ * @property {string} rehearsalId
+ * @property {string} itemId
+ * @property {string | null} note
+ */
+
+/**
+ * @typedef {object} ChangeItemKeyInput
+ * @property {string} setlistId
+ * @property {string} itemId
+ * @property {string | null | undefined} agreedKey
+ */
 
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
 // errors map to a safe generic message (gigs.js / songs.js convention).
@@ -41,16 +254,32 @@ const USER_ERRORS = new Set([
   'Timebox must be a positive number.',
 ])
 
+/**
+ * Re-throws known user-facing errors; maps everything else to a generic
+ * message so callers never see PostgREST internals. Never returns.
+ * @param {Error} error
+ * @returns {never}
+ */
 function handleError(error) {
   if (USER_ERRORS.has(error?.message)) throw error
   throw new Error('Something went wrong. Please try again.')
 }
 
+/**
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withErrorMapping(fn) {
-  try { return await fn() } catch (e) { handleError(e) }
+  try { return await fn() } catch (e) { handleError(/** @type {Error} */ (e)) }
 }
 
 /** Flatten a raw Supabase rehearsal row into the app shape. */
+/**
+ * @param {RawRehearsalRow} row
+ * @param {string | null | undefined} orgName
+ * @returns {Rehearsal}
+ */
 function flattenRehearsal(row, orgName) {
   return {
     id: row.id,
@@ -72,6 +301,8 @@ function flattenRehearsal(row, orgName) {
 /**
  * Best-effort org name lookup (organizations are deny-by-default on this
  * branch — a failed read yields null, and callers render '—').
+ * @param {Array<string | null | undefined>} orgIds
+ * @returns {Promise<Map<string, string>>}
  */
 async function fetchOrgNames(orgIds) {
   const unique = [...new Set((orgIds || []).filter(Boolean))]
@@ -92,6 +323,7 @@ async function fetchOrgNames(orgIds) {
  * The session's org ids via the public session_org_ids() bridge (0005).
  * No helper is importable from gigs.js (resolveOrgId is private there), so
  * the RPC is called directly here.
+ * @returns {Promise<string[]>}
  */
 export function getSessionOrgIds() {
   return withErrorMapping(async () => {
@@ -104,6 +336,7 @@ export function getSessionOrgIds() {
 /**
  * Session orgs with best-effort display names (for the "New rehearsal" form);
  * id-only labels when the names are unreachable.
+ * @returns {Promise<Array<{ id: string, name: string | null }>>}
  */
 export async function getSessionOrgs() {
   const ids = await getSessionOrgIds()
@@ -116,6 +349,7 @@ export async function getSessionOrgs() {
  * List rehearsals visible to the session, newest first. Org name join is
  * best-effort (null on this branch — the list renders '—'); item count comes
  * from the embedded rehearsal_items(count) aggregate (RLS-capped, 0019 2.3).
+ * @returns {Promise<Array<Rehearsal & { itemCount: number }>>}
  */
 export function listRehearsals() {
   return withErrorMapping(async () => {
@@ -137,11 +371,15 @@ export function listRehearsals() {
 /**
  * Latest version duration of a song from the nested songs.song_versions embed
  * (sorted by created_at desc — DB rows come unsorted). null when unreachable.
+ * @param {RawVersionEmbedRow[] | null | undefined} versions
+ * @returns {number | null}
  */
 function latestVersionDuration(versions) {
   const rows = (versions || [])
     .slice()
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .sort((a, b) =>
+      /** @type {number} */ (/** @type {unknown} */ (new Date(b.created_at)))
+      - /** @type {number} */ (/** @type {unknown} */ (new Date(a.created_at))))
   return rows.find((v) => v.duration_seconds != null)?.duration_seconds ?? null
 }
 
@@ -152,6 +390,8 @@ function latestVersionDuration(versions) {
  * created_by / change-log actors) resolve through the profiles search —
  * profiles carries only id/username/display_name on this branch (0006).
  * Throws 'Rehearsal not found.' when the row is invisible/absent.
+ * @param {string} id
+ * @returns {Promise<RehearsalDetail>}
  */
 export function getRehearsal(id) {
   return withErrorMapping(async () => {
@@ -176,6 +416,7 @@ export function getRehearsal(id) {
     // inSetlist / agreedKey / parts (vocal_parts) / position to each item.
     // Client-readable for owner/accepted collaborator (0002 setlist_items
     // select_member); a caller outside that scope sees every item as an extra.
+    /** @type {RawSetlistItemRow[]} */
     let setlistItems = []
     if (rehearsal.setlistId) {
       const { data: siRows, error: siErr } = await supabase
@@ -226,6 +467,7 @@ export function getRehearsal(id) {
       ...setlistItems.flatMap((si) => (si.vocal_parts || []).map((vp) => vp.user_id)),
       ...logRows.map((l) => l.actor_id),
     ].filter(Boolean))
+    /** @type {Map<string, RawProfileRow>} */
     let byId = new Map()
     if (ids.size > 0) {
       const { data: profiles, error: profilesErr } = await supabase
@@ -235,13 +477,17 @@ export function getRehearsal(id) {
       if (profilesErr) throw profilesErr
       byId = new Map((profiles || []).map((p) => [p.id, p]))
     }
+    /**
+     * @param {string | null | undefined} userId
+     * @returns {string}
+     */
     const nameOf = (userId) => {
       if (!userId) return 'Unassigned'
       const profile = byId.get(userId)
       return profile?.display_name || profile?.username || 'Someone'
     }
 
-    const items = (itemRows || []).map((it) => {
+    const items = (itemRows || []).map(/** @param {RawRehearsalItemRow} it */ (it) => {
       const attached = setlistBySong.get(it.song_id)
       return {
         id: it.id,
@@ -273,7 +519,7 @@ export function getRehearsal(id) {
     return {
       rehearsal,
       items: orderedItems,
-      rsvps: (rsvpRows || []).map((r) => ({
+      rsvps: (rsvpRows || []).map(/** @param {RawRsvpRow} r */ (r) => ({
         id: r.id,
         rehearsalId: r.rehearsal_id,
         userId: r.user_id,
@@ -281,7 +527,7 @@ export function getRehearsal(id) {
         respondedAt: r.responded_at,
         name: nameOf(r.user_id),
       })),
-      changeLog: logRows.map((l) => ({
+      changeLog: logRows.map(/** @param {RawChangeLogRow} l */ (l) => ({
         id: l.id,
         setlistId: l.setlist_id,
         actorId: l.actor_id,
@@ -298,6 +544,8 @@ export function getRehearsal(id) {
  * Create an org-scope rehearsal mirroring a setlist's agenda. Returns the new
  * rehearsal id. Client guards run before the RPC; backend errors surface
  * verbatim ('Not a member.', 'Setlist not found.').
+ * @param {RehearsalInput} input
+ * @returns {Promise<string>}
  */
 export function createRehearsal({ orgId, name, setlistId, timeboxMinutes, plannedFor }) {
   return withErrorMapping(async () => {
@@ -322,6 +570,10 @@ export function createRehearsal({ orgId, name, setlistId, timeboxMinutes, planne
 }
 
 /** Publish the agenda: flips the status and invites every assigned member. */
+/**
+ * @param {string} rehearsalId
+ * @returns {Promise<number>}
+ */
 export function publishRehearsal(rehearsalId) {
   return withErrorMapping(async () => {
     const { data, error } = await supabase.rpc('publish_rehearsal', { p_rehearsal_id: rehearsalId })
@@ -335,6 +587,11 @@ export function publishRehearsal(rehearsalId) {
  * per the contract) so 'Invalid status.' never runs a network call.
  */
 const RSVP_STATUSES = new Set(['confirmed', 'declined', 'undecided'])
+/**
+ * @param {string} rehearsalId
+ * @param {string} status
+ * @returns {Promise<void>}
+ */
 export function rsvpRehearsal(rehearsalId, status) {
   return withErrorMapping(async () => {
     if (!RSVP_STATUSES.has(status)) throw new Error('Invalid status.')
@@ -347,6 +604,10 @@ export function rsvpRehearsal(rehearsalId, status) {
 }
 
 /** Leader adds an extra song to the agenda (setlist untouched). */
+/**
+ * @param {RehearsalSongInput} input
+ * @returns {Promise<string>}
+ */
 export function addRehearsalSong({ rehearsalId, songId }) {
   return withErrorMapping(async () => {
     const { data, error } = await supabase.rpc('add_rehearsal_song', {
@@ -359,6 +620,10 @@ export function addRehearsalSong({ rehearsalId, songId }) {
 }
 
 /** Record one run-through: rehearsal_items.run_count + 1. */
+/**
+ * @param {RecordRunInput} input
+ * @returns {Promise<void>}
+ */
 export function recordRun({ rehearsalId, itemId }) {
   return withErrorMapping(async () => {
     const { error } = await supabase.rpc('record_rehearsal_run', {
@@ -371,6 +636,10 @@ export function recordRun({ rehearsalId, itemId }) {
 
 /** Mark an outcome: polished | needs_work | quick_review (vocabulary checked first). */
 const OUTCOMES = new Set(['polished', 'needs_work', 'quick_review'])
+/**
+ * @param {MarkOutcomeInput} input
+ * @returns {Promise<void>}
+ */
 export function markOutcome({ rehearsalId, itemId, outcome }) {
   return withErrorMapping(async () => {
     if (!OUTCOMES.has(outcome)) throw new Error('Invalid outcome.')
@@ -384,6 +653,10 @@ export function markOutcome({ rehearsalId, itemId, outcome }) {
 }
 
 /** Attach a rehearsal note to the agenda item (NULL clears it). */
+/**
+ * @param {UpdateNoteInput} input
+ * @returns {Promise<void>}
+ */
 export function updateNote({ rehearsalId, itemId, note }) {
   return withErrorMapping(async () => {
     const { error } = await supabase.rpc('update_rehearsal_note', {
@@ -396,6 +669,10 @@ export function updateNote({ rehearsalId, itemId, note }) {
 }
 
 /** Leader closes the rehearsal; afterwards every role reads it only. */
+/**
+ * @param {string} rehearsalId
+ * @returns {Promise<void>}
+ */
 export function completeRehearsal(rehearsalId) {
   return withErrorMapping(async () => {
     const { error } = await supabase.rpc('complete_rehearsal', { p_rehearsal_id: rehearsalId })
@@ -407,6 +684,8 @@ export function completeRehearsal(rehearsalId) {
  * Change the agreed key on the SETLIST item (p_item_id is the setlist item,
  * not the rehearsal item). Other devices pick the change up by re-fetching
  * the setlist — this layer only re-fetches on behalf of the caller's UI.
+ * @param {ChangeItemKeyInput} input
+ * @returns {Promise<void>}
  */
 export function changeSetlistItemKey({ setlistId, itemId, agreedKey }) {
   return withErrorMapping(async () => {
@@ -424,6 +703,9 @@ export function changeSetlistItemKey({ setlistId, itemId, agreedKey }) {
 /**
  * Extend the timebox: a plain leader-only UPDATE on rehearsals
  * (0019 rehearsals_update_leader — created_by + status <> 'completed').
+ * @param {string} rehearsalId
+ * @param {string | number} minutes
+ * @returns {Promise<void>}
  */
 export function updateTimebox(rehearsalId, minutes) {
   return withErrorMapping(async () => {
@@ -443,6 +725,8 @@ export function updateTimebox(rehearsalId, minutes) {
  * comes from its chosen version's duration, falling back to the song's
  * latest-version duration, and 0 when unreachable. A 'quick_review' outcome
  * TRIMS the slot — the item is excluded entirely (scenario 8).
+ * @param {RehearsalItem[] | null | undefined} items
+ * @returns {number}
  */
 export function estimateMinutes(items) {
   return (items || []).reduce((sum, item) => {
@@ -454,6 +738,8 @@ export function estimateMinutes(items) {
 /**
  * Format total seconds as words — '15 minutes and 30 seconds' (BDD scenario 6
  * exact shape). Total is rounded to whole seconds and clamped at zero.
+ * @param {number | string} totalSeconds
+ * @returns {string}
  */
 export function formatDuration(totalSeconds) {
   const total = Math.max(0, Math.round(Number(totalSeconds) || 0))
