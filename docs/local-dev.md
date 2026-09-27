@@ -125,6 +125,81 @@ Import creates `<name> (from Planning Center)` as an ordinary, editable setlist 
 - **OnSong `.cho` file:** `src/lib/exporters/onsong.js` serializes the setlist in order, per song `{title:}` / `{artist:}` / `{key:}` (agreed key = the item's pinned version key, else the song's current key) + the chart body verbatim. Only title/artist/key/body — never projections, annotations or comments (S17). In the browser, `downloadOnSongFile` builds a Blob + object URL and clicks an anchor (`<setlist-name>.cho`); in node (no DOM) it returns `{ ok, filename, text }` so the demo asserts the exact payload.
 - **Planning Center push (mock):** `exportSetlistToPlan` returns `{ ok:true, pushed, planId }` — the mock counts the payload; the serializer passed in already excludes projections by construction. Revoked → the same `'integration revoked'` gate. The SetlistDetail surface shows `Pushed N songs to <plan>`.
 
+## Guardian consent by email (Hito 4 / WU4) — the first server-side code
+
+The guardian-consent flow is the first thing in the product that leaves the browser. A minor submits a request, and **the approval has to arrive in a parent's inbox** — a parent who has no CEMURM account and never will, which is why `/guardian/confirm` and `/guardian/revoke` sit outside `RequireAuth`. All the access-control rules still live in the database (`supabase/migrations/0031_guardian_consent_email.sql`); the Edge Function is a courier.
+
+Three things have to be configured. Two of them are optional in the sense that the app runs without them — and says so honestly instead of pretending to have sent anything.
+
+### 1. The Resend key — Supabase Vault (D5)
+
+```bash
+# once per environment; a secret belongs to an environment, not to a repository
+docker exec -i supabase_db_cemurm psql -U postgres -d postgres \
+  -c "select vault.create_secret('re_…', 'resend_api_key', 'Guardian email sender');"
+```
+
+Nothing else in the repo ever holds this value. `public.read_resend_api_key()` (migration 0031) reads it from `vault.decrypted_secrets` and is granted to **`service_role` only** — `anon` and `authenticated` get `permission denied for function read_resend_api_key`, and the smoke asserts it on `PUBLIC`, `anon` and `authenticated`. Not in `supabase/config.toml` (it is tracked), not in a `VITE_` variable (that ships to every browser).
+
+**With no key the local stack is still a working stack:** the function answers `503 {"error":"email_not_configured"}` and sends nothing. That is the normal local state, and it is the reason this work unit is deliverable without credentials. There is no mock send anywhere in the function.
+
+### 2. `SITE_URL` — the app origin (not a secret)
+
+The guardian link is absolute, so the function needs to know where the PWA lives. It does **not** read the request's `Origin` header: a spoofed origin would put a working approval link in a stranger's domain.
+
+`supabase/functions/.env` is gitignored (the root `.gitignore` `.env` pattern matches at any depth) and is read by the local stack into the function's environment:
+
+```env
+SITE_URL=http://localhost:5173
+```
+
+Without it the function answers `503 {"error":"app_url_not_configured"}`. Restart the stack (`supabase stop && supabase start`) after adding it — the local stack only reads `functions/.env` at start, and a new function directory is likewise only picked up by a full restart, not `docker restart`.
+
+### 3. The function itself
+
+`supabase/functions/send-guardian-consent/index.ts`, declared in `supabase/config.toml`:
+
+```toml
+[functions.send-guardian-consent]
+verify_jwt = true
+```
+
+`verify_jwt` is load-bearing: the function derives the account from the JWT `sub` and never from the request body, so a signed-in minor cannot mail a stranger's guardian. A malformed bearer is rejected by the gateway (`UNAUTHORIZED_INVALID_JWT_FORMAT`); the handler keeps its own typed `401` for a JWT that carries no user.
+
+Calling it by hand, as a signed-in minor:
+
+```bash
+curl -X POST http://127.0.0.1:54321/functions/v1/send-guardian-consent \
+  -H "apikey: $ANON" -H "Authorization: Bearer $MINOR_ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+| Situation | Answer |
+|-----------|--------|
+| No / malformed JWT | `401` at the gateway |
+| No `SITE_URL` | `503 app_url_not_configured` |
+| No Vault key | `503 email_not_configured` |
+| Fake or wrong Resend key | `502 email_provider_failed` (Resend's own body is logged, never returned) |
+| Pending request, key accepted | `200 {"status":"sent","provider_message_id":"…"}` — the **only** success |
+| Consent already `active` | `200 {"status":"already_active"}` — nothing sent |
+| Request already finalized | `200 {"status":"no_open_request"}` — nothing sent |
+
+The function is a courier, not a second writer: it reads the existing `pending` row and never creates one, so a retry cannot turn one request into two approval emails.
+
+**A real send is NOT verified.** No Resend credential exists in this environment, so the last row above has never been observed. What *has* been observed is the call leaving the process — with a deliberately fake key, Resend answered `401 API key is invalid`, which proves the outbound fetch, the link building and the pending-row lookup all work. Do not report a real email as tested.
+
+### Exercising the guardian pages
+
+`pnpm dev`, then open a link straight out of the ledger as `postgres`:
+
+```sql
+select 'http://localhost:5173/guardian/confirm?user=' || user_id
+       || '&token=' || revocation_token
+  from public.guardian_consents where status = 'pending';
+```
+
+The revoke link needs the witness as well — 0017's `revoke_guardian_consent` requires the guardian's email next to the token, so the emailed link carries `&email=<guardian_email>`. Both pages strip the whole query string out of browser history the moment they read it (`src/lib/guardianLink.js`), and neither auto-confirms on load: a mail-client link scanner would otherwise spend the one-shot capability.
+
 ## Run / stop
 
 ```bash
