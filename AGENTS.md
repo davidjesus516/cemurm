@@ -79,7 +79,10 @@ Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-
 
 ## Architecture notes that aren't obvious from filenames
 
-- `src/main.jsx` → `src/App.jsx` (router). The authed tree is wrapped by `RequireAuth` + `RequireGuardianConsent`; add new routes there, not in `main.jsx`.
+Enforced module boundaries live in `docs/adr/0002-module-boundaries.md` — read it before adding or moving any module. The tree is post-relocation (PR 1a), so paths that older docs mention no longer exist:
+
+- Entrypoint is `index.html` → **`src/app/main.jsx`**. The router is `src/app/router.jsx`; shell chrome is `src/app/AppLayout.jsx`; providers in `src/app/providers/`. `src/App.jsx`, `src/main.jsx`, `src/pages/` and `src/components/` are **gone** — several `docs/` files and `odd/tasks/*.md` still cite them.
+- `src/domain/**` is pure logic and is where the characterization suite lives. `src/data/repositories/` holds the impure halves. `src/integrations/`, `src/offline/`, `src/ui/patterns/` are leaf modules. `src/features/<feature>/` holds pages/components per feature. The four dependency rules and the named exceptions are in ADR 0002, not here.
 - RLS is the client-side gate. The service worker (`public/sw.js`) + IndexedDB layer does read-cache, an offline write queue, and a drain on reconnect.
 - The `charts` storage bucket is **private** with owner-folder RLS (first path segment must be `auth.uid()`); reads are 1-hour signed URLs only. The 10 MB PDF cap is **app-side only** — the DB deliberately accepts oversized rows.
 - Import/enrichment provider clients **never throw**: they return `{ ok: true, … }` or `{ ok: false, error: 'offline' | 'unavailable' }`, gated by `isOnline()`.
@@ -108,6 +111,18 @@ The rule of thumb: if you are writing down *what a capability is*, it goes in Op
 - Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Merge is always a human decision.
 - ESLint's `no-unused-vars` uses `varsIgnorePattern: '^[A-Z_]'`, so uppercase bindings (JSX components) are exempt from the unused check — don't "fix" that by renaming.
 - **CONTRIBUTING.md is stale**: it says `npm install`, `npm run lint`, and lists a `src/store/` Zustand layer. Ignore those; use pnpm and the layout above.
+
+## Delivery workflow (standing authorization)
+
+The maintainer set this working agreement on 2026-09-27. It is standing, not per-PR:
+
+1. Work lands as work-unit commits on the current feature branch.
+2. When a unit is ready to ship, **update the branch and open the PR to `main`** yourself. Do not stop and ask for push/PR permission again — it is granted here for this cycle.
+3. **Fix what breaks to make it correct.** Invasive refactors, signature changes, updating dependent call sites and docs are pre-authorized when they are required to land the unit honestly. Do not let a failing gate defer the decision.
+4. **Merge stays human.** You open the PR; the maintainer approves and merges. Never merge or push to `main` directly.
+5. Report honestly: if a check fails, a gate was weakened, or a spec conflict was found, say so in the PR body. Do not present a green run as covering something it does not.
+
+The one limit on clause 3: **a failing characterization test is fixed in the source, never in the assertion.** The suite in `src/domain/**` records current behaviour on purpose (`odd/tasks/cemurm-brand-landing.md` §12.1). Editing a test to go green, loosening a threshold, or adding a skip to clear a gate hides a regression and defeats the only safety net the refactor series has. If a test genuinely encodes a wrong expectation, that is a finding to report, not to silently rewrite.
 
 ## Where the real context lives
 
