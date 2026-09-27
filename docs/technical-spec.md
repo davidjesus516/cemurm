@@ -355,6 +355,8 @@ Redis is **not a database replacement** for CEMURM but a potential acceleration 
 
 **Decision:** TypeScript via Supabase edge functions for the MVP. Rust is documented as the preferred backend for Phase 2 if performance becomes a bottleneck (particularly for batch MusicXML processing). Java is not recommended for CEMURM's scope.
 
+**Status as of WU4 (guardian consent by email): Option A is no longer a recommendation — it is the shipped backend.** The application had been 100 % client-side until the guardian-consent work unit, which needed the first server-side code in the product for one reason: the consent request has to leave the browser, because a parent who has never heard of CEMURM is the person who must open it. The first Edge Function is `send-guardian-consent` (`supabase/functions/send-guardian-consent`), and the first outbound network call in the product is its call to the Resend API. Everything else — including every access-control rule the flow depends on — stayed in the database, as RPCs. See §11.1.bis.
+
 ### 10.4 Client-Side Processing: WebAssembly (Rust → WASM)
 
 CEMURM's music notation workload (parsing ChordPro, transposing keys, rendering MusicXML) is **CPU-bound** and benefits significantly from client-side WASM processing:
@@ -543,11 +545,29 @@ Validated against [itsfree.dev](https://itsfree.dev) (revisión jul 2026), catá
 
 No hay hueco funcional en el pilar de datos/hosting/auth: los cuatro servicios ya contemplados cubren las necesidades del MVP sin coste.
 
+### 11.1.bis Resend — añadido por el consentimiento deGuardian (Hito 4 / WU4)
+
+**Resend dejó de estar diferido.** Figuraba en la §11.2 de esta misma tabla con el disparador *"cuando se necesiten emails de producto propios"*, y ese momento llegó con una razón de seguridad, no deFeatures: hasta la migración `0031_guardian_consent_email`, `guardian_consents.status` salía por defecto en `'active'`, así que un menor escribía el nombre de su tutor en su propio formulario y la cuenta se desbloqueaba al instante — sin que ningún tutor hubiera intervened nada. Un flujo que depende de la supervisión de un adulto no puede implementarse "en el cliente cuando toque": hace falta entregar un enlace a una bandeja externa, y eso obliga a salir del cliente.
+
+| Aspecto | Decisión |
+|---------|----------|
+| Proveedor | Resend (API HTTP `POST /emails`) |
+| Rol | Un único email transaccional: la petición de consentimiento del menor, con los enlaces de **aprobar** y de **retirar** |
+| Dónde vive la clave | **Supabase Vault**, secret `resend_api_key`. Nunca en el repositorio (`supabase/config.toml` está versionado) ni en el bundle del cliente (una variable `VITE_` se envía a cada navegador) |
+| Quién la lee | La Edge Function `send-guardian-consent` con la clave `service_role`, a través de `public.read_resend_api_key()`, concedida **solo** a `service_role` |
+| Código de servidor | Primera Edge Function del producto (`supabase/functions/send-guardian-consent`). Es también la primera llamada saliente; hasta aquí la aplicación era 100 % cliente |
+| Variable no secreta | `SITE_URL` por entorno (origen de la PWA). El enlace es absoluto, así que su ausencia produce `app_url_not_configured` y no se envía nada |
+| Ausencia de clave | Respuesta tipada `email_not_configured` (503). Es el estado normal en local y la razón de que la función sea entregable y testeable sin credenciales: no hay envío simulado en ninguna parte |
+| Superficie pública | `/guardian/confirm` y `/guardian/revoke`, **fuera** de `RequireAuth`. La autorización es el `revocation_token` de 128 bits del propio registro; ambas páginas exigen un clic real y borran la query del historial nada más leerla |
+
+**Verificación real de un envío: NO realizada.** No existe credencial de Resend en este entorno, así que lo verificado es todo lo demás — la validación del JWT, la lectura de la fila `pending` con `service_role`, la construcción de los enlaces y la llamada saliente real (Resend respondió `401 API key is invalid` a una clave de prueba). El primer correo que llegue a una bandeja real no está probado.
+
+Ver `docs/local-dev.md` para el montaje de Vault y de la variable `SITE_URL`.
+
 ### 11.2 No incluido — diferido a fases posteriores
 
 | Tool | Candidate role | Why deferred | Trigger to add |
 |------|----------------|--------------|----------------|
-| Resend | Emails transaccionales (confirmar cuenta, invitaciones) | Supabase Auth ya gestiona los emails de confirmación | Cuando se necesiten emails de producto propios (SaaS, invitaciones de banda) |
 | Sentry | Observabilidad de errores en producción | La observabilidad formal es del plan Phase 4 (§10.9) | Al desplegar para público real; no para el shell de MVP |
 | UptimeRobot / Better Stack | Páginas de estado y monitorización de uptime | Sin servicio en producción que vigilar | Tras el primer despliegue público |
 | Umami / Cloudflare Web Analytics | Analítica web privacy-first | No requerida por el MVP; metas de producto no definidas | Al definir KPIs de uso |
@@ -557,6 +577,7 @@ No hay hueco funcional en el pilar de datos/hosting/auth: los cuatro servicios y
 ### 11.3 Decisión
 
 - **MVP (Phase 0):** confirmado en Supabase + Cloudflare R2 + Vercel. Sin dependencias gratuitas adicionales → coste **$0/β** respaldado por la §8.
+- **Excepción ya materializada (WU4):** **Resend** entra en el stack (§11.1.bis). Rompe el coste **$0/β** en el orden de los miles de correos al mes — muy por debajo del umbral de pago, y solo cuando realmente hay tutores a los que avisar. La regla de más abajo sigue vigente; esta fila es el caso en que un hito la ***exigió***, que es exactamente el disparador que la propia tabla fijaba.
 - **Regla de oro:** no añadir servicios de su catálogo a menos que un hito (`mvp-scope.md`) o un requerimiento funcional los exija. Evaluar cada entrada del catálogo solo cuando el costo de build o el límite del tier gratuito sea un cuello de botella real.
 
 *Revisar de nuevo cuando se alcance un límite de tier gratuito, se añada un servicio en producción, o se defina la estrategia de observabilidad del despliegue público.*
