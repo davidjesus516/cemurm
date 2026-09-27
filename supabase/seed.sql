@@ -45,6 +45,26 @@ update profiles set username = 'isolation', display_name = 'Isolation User'
 update profiles set username = 'outsider', display_name = 'Outsider User'
   where id = '10000000-0000-0000-0000-000000000003';
 
+-- ── grandfather of the seeded base (0029 §5) ─────────────────────────────────
+-- 0029 backfills pre-existing accounts to a verifiably adult date, but
+-- `supabase db reset` applies EVERY migration BEFORE seed.sql runs. So on a
+-- clean reset 0029 backfills an empty profiles table, and these three accounts
+-- are then born with date_of_birth NULL — which the fail-closed gate (0029 §1)
+-- locks, leaving every seeded login stuck at the date-of-birth step.
+--
+-- Production is unaffected and needs nothing here: there the accounts exist
+-- before 0029 runs, so 0029's own backfill reaches them. This block is the
+-- local mirror of that same grandfather, not a second code path.
+--
+-- is_minor is never written. The profiles_minor_flag trigger (0017 lines 48-66)
+-- is its only legal writer and fires from this UPDATE.
+update profiles set date_of_birth = date '2002-10-10'
+  where id in (
+    '10000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000002',
+    '10000000-0000-0000-0000-000000000003'
+  );
+
 -- ── tenancy: orgs, branch, memberships ──
 insert into organizations (id, name, org_type, status) values
   ('10000000-0000-0000-0000-0000000000a1', 'Demo Academy', 'Academy', 'active'),
