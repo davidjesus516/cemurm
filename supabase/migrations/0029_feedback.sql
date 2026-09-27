@@ -1,4 +1,4 @@
--- CEMURM 0020 — In-App Feedback: beta feedback + bug reports (submit-only)
+-- CEMURM 0029 — In-App Feedback: beta feedback + bug reports (submit-only)
 --
 -- Backend of features/in-app-feedback.feature (8 scenarios). Hito 5 slice; base =
 -- merged main (0001–0019). No cross-branch deps: feedback is a brand-new table
