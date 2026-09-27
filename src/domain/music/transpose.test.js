@@ -208,19 +208,52 @@ describe('transposeKey', () => {
 // ── preferFlatForKey ─────────────────────────────────────────────────────────
 
 describe('preferFlatForKey', () => {
-  it('is true for the six flat-key roots, with or without a quality suffix', () => {
-    for (const k of ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']) {
-      expect(preferFlatForKey(k)).toBe(true)
+  it('is true for every flat key, major or minor, with or without a suffix', () => {
+    // The assertion this replaces listed six roots and no minors. The rule the
+    // Gherkin states is the key's own spelling, so every flat key qualifies —
+    // including all seven flat MINOR keys, which the six-name set could not
+    // answer at all.
+    for (const k of [
+      'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb',
+      'F minor', 'Bb minor', 'Eb minor', 'Ab minor', 'Db minor', 'Gb minor',
+      'Fm', 'Bbm', 'Ebm', 'Abm', 'Dbm', 'Gbm', 'Cbm',
+      'Bb major', 'Bb ', 'Bb7', 'F#'.replace('F#', 'F'),
+    ]) {
+      expect(preferFlatForKey(k), k).toBe(true)
     }
-    expect(preferFlatForKey('Bb major')).toBe(true)
-    expect(preferFlatForKey('Bb ')).toBe(true)
-    expect(preferFlatForKey('F#')).toBe(false)
   })
 
   it('is false for sharp keys', () => {
-    for (const k of ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Am', 'Em']) {
-      expect(preferFlatForKey(k)).toBe(false)
+    for (const k of ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Am', 'Em', 'A minor', 'E minor', 'B minor']) {
+      expect(preferFlatForKey(k), k).toBe(false)
     }
+  })
+
+  it('reads the mode for C, the one tonic whose own name carries no accidental', () => {
+    // C major has no accidentals and C minor has three, so the tonic cannot
+    // decide this one — the mode must. 'm', 'min' and '-' all say minor; '7'
+    // is a dominant seventh and must not be read as one.
+    expect(preferFlatForKey('C minor')).toBe(true)
+    expect(preferFlatForKey('Cm')).toBe(true)
+    expect(preferFlatForKey('Cm7')).toBe(true)
+    expect(preferFlatForKey('Cmin')).toBe(true)
+    expect(preferFlatForKey('C major')).toBe(false)
+    expect(preferFlatForKey('C')).toBe(false)
+    expect(preferFlatForKey('C7')).toBe(false)
+    expect(preferFlatForKey('Cmaj7')).toBe(false)
+    expect(preferFlatForKey('Cmaj')).toBe(false)
+    expect(preferFlatForKey('Csus4')).toBe(false)
+    // Neither a hyphen nor 'dim' is a minor marker. In ChordPro C- is Cdim and
+    // in lead-sheet spelling it is C#; a diminished seventh has no third at
+    // all. A version of this that matched 'dim' read Cdim as a minor key, and
+    // one that stripped a leading '-' read C- as one too. Both were wrong and
+    // both are pinned here now.
+    expect(preferFlatForKey('Cdim')).toBe(false)
+    expect(preferFlatForKey('Cdim7')).toBe(false)
+    expect(preferFlatForKey('C-')).toBe(false)
+    // A slash chord takes its mode from the base, not the bass note.
+    expect(preferFlatForKey('C/E')).toBe(false)
+    expect(preferFlatForKey('Cm/E')).toBe(true)
   })
 
   it('is false for every empty/absent input', () => {
@@ -229,15 +262,27 @@ describe('preferFlatForKey', () => {
     expect(preferFlatForKey(undefined)).toBe(false)
   })
 
-  it('splits on whitespace, so LEADING whitespace silently breaks it', () => {
-    // FINDING: String.split(/\s+/)[0] of ' bb' is '', not 'bb'.
+  it('tolerates leading whitespace, which used to silently answer false', () => {
+    // FINDING (now fixed): String.split(/\s+/)[0] of ' bb' is '', not 'bb', so a
+    // leading space turned a flat key into a sharp one. The rule reads the name
+    // directly and trims first, so spacing no longer decides the answer.
     expect(preferFlatForKey(' bb')).toBe(false)
+    expect(preferFlatForKey('  Bb')).toBe(true)
     expect(preferFlatForKey('C  major')).toBe(false)
     expect(preferFlatForKey('C\tmajor')).toBe(false)
+    expect(preferFlatForKey('  F minor')).toBe(true)
   })
 
   it('is case-sensitive — "bb" is not "Bb"', () => {
+    // Deliberately unchanged. Note names are uppercase throughout the app, and
+    // accepting a lowercase 'b' would start reading prose as a key.
     expect(preferFlatForKey('bb')).toBe(false)
+  })
+
+  it('is false for input that is not a key at all', () => {
+    expect(preferFlatForKey('H')).toBe(false)
+    expect(preferFlatForKey('hello')).toBe(false)
+    expect(preferFlatForKey(123)).toBe(false)
   })
 })
 

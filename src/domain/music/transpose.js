@@ -42,8 +42,56 @@
 export const NOTES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 
-// Prefer flats for keys that naturally use them
-const FLAT_KEYS = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'])
+// Which spelling a key prefers, from the key's OWN name rather than a
+// membership list. This replaces FLAT_KEYS, a set of six major key names, which
+// had two defects the Gherkin does not allow:
+//
+//   - it was case- and whitespace-sensitive, so 'F minor' resolved to 'F' and
+//     matched while 'Fminor' did not — the same key answered differently
+//     depending on how it was written;
+//   - it only listed MAJOR names, so every flat minor (F minor, Bb minor, Eb
+//     minor, Ab minor, Db minor, Gb minor) and Cb major were read as sharp.
+//
+// The rule music-theory.feature states is "the key's preferred spelling", which
+// is a property of the name itself. Three predicates cover all fifteen
+// conventional keys:
+//
+//   1. the tonic carries a flat accidental — Bb, Eb, Ab, Db, Gb, Cb;
+//   2. the tonic is F, which is one flat major and three flats minor, so its
+//      own name has no accidental to carry the signature's;
+//   3. the tonic is C AND the mode is minor, since C major has no accidentals
+//      but C minor has three.
+//
+// That is the whole list, and there is no set to extend when a key is added:
+// a new flat key is a name ending in 'b', and a new sharp key is anything else.
+
+/**
+ * @param {string} [key] e.g. "Bb", "F minor", "Gmaj7", "C#m"
+ * @returns {boolean}
+ */
+function keyPrefersFlats(key) {
+  const text = String(key || '').trim()
+  const m = text.match(/^([A-G][#b]?)(.*)$/)
+  if (!m) return false
+  const [, tonic, rest] = m
+  // The modifier carries the mode. A slash chord's bass note comes first so it
+  // is dropped: 'C/E' is a C chord over E and the mode belongs to the C.
+  //
+  // Only 'm' and 'min' are minor markers. Nothing else is: in ChordPro a hyphen
+  // is a diminished chord (C- is Cdim) and in lead-sheet spelling it is a sharp
+  // (C- is C#), and 'dim' names a chord with no third at all. Both are sharp
+  // keys for spelling purposes, and a version that read them as minor got both
+  // wrong — Cdim as a minor key, C- as a minor key.
+  //
+  // The marker is tried longest-first and the leading space stripped, so
+  // 'C minor' is not read as 'm' plus an extension called 'inor'. A lookahead
+  // alone is not enough, because the space is part of what the regex sees.
+  const mode = rest.split('/')[0].trim().replace(/^\s+/, '')
+  if (/b$/.test(tonic)) return true
+  if (tonic === 'F') return true
+  if (tonic === 'C') return /^(minor|min|m)(?![a-z])/i.test(mode)
+  return false
+}
 
 /**
  * Resolve a note name to its chromatic index (0–11) and whether its spelling
@@ -107,8 +155,12 @@ export function transposeKey(key, semitones) {
   if (!m) return key
   const noteInfo = noteIndex(m[1])
   if (!noteInfo) return key
-  const preferFlat = FLAT_KEYS.has(transposeNote(m[1], semitones, noteInfo.preferFlat))
-  return transposeNote(m[1], semitones, preferFlat) + m[2]
+  // The Gherkin is explicit that the TARGET key's spelling governs, so the
+  // decision is made on the transposed name. It used to be made on the
+  // transposed note alone, with the mode stripped: 'Gm' + 2 asked about 'A' and
+  // never consulted that the key was minor. The mode now travels with the note.
+  const target = transposeNote(m[1], semitones, noteInfo.preferFlat) + m[2]
+  return transposeNote(m[1], semitones, keyPrefersFlats(target)) + m[2]
 }
 
 /**
@@ -132,7 +184,7 @@ export function capoLabel(renderedKey, capo) {
  * @returns {boolean}
  */
 export function preferFlatForKey(key) {
-  return FLAT_KEYS.has(String(key || '').split(/\s+/)[0])
+  return keyPrefersFlats(key)
 }
 
 /**
@@ -176,7 +228,7 @@ export function initialSemitones(globalOffset, songOverride) {
 export function transposeParsed(parsed, semitones) {
   if (!semitones) return parsed
 
-  const preferFlat = FLAT_KEYS.has(parsed.key?.split(/\s+/)[0])
+  const preferFlat = keyPrefersFlats(parsed.key)
 
   const sections = parsed.sections.map((section) => ({
     ...section,
