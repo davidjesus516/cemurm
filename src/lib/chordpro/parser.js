@@ -1,3 +1,4 @@
+// @ts-check
 // Pure JS ChordPro parser — no dependencies, no DOM (runs in Node and the browser).
 // MVP scope: metadata directives ({title}/{key}/{artist}), {comment}/{section}
 // annotations, plain lyric lines, and inline [Chord] annotations with the
@@ -8,7 +9,57 @@
 
 const KNOWN_META = new Set(['title', 'key', 'artist'])
 
+/**
+ * One inline [Chord] marker: the chord name plus the column it starts at in
+ * the line's chord-stripped text (position drives rendering).
+ * @typedef {object} ChordMark
+ * @property {string} chord
+ * @property {number} position
+ */
+
+/**
+ * One line inside a section: the text with [Chord] markers stripped, plus the
+ * markers that were removed. `chords: []` for directive/comment lines.
+ * @typedef {object} ChordLine
+ * @property {string} text
+ * @property {ChordMark[]} chords
+ */
+
+/**
+ * A run of consecutive lines. `type` is the directive that opened it:
+ * 'comment', 'section' or 'lyrics' (the implicit default section).
+ * @typedef {object} ChordSection
+ * @property {string} type
+ * @property {ChordLine[]} lines
+ */
+
+/**
+ * A sectional key modulation: `{key: X}` inside a section records which
+ * section it modulates, so the renderer can transpose from there.
+ * @typedef {object} SectionKeyContext
+ * @property {number} sectionIndex
+ * @property {string} key
+ */
+
+/**
+ * Directive metadata harvested from the chart body. The accumulator is a
+ * free-form string map (any directive name is storable), while the parsed
+ * result promotes the three directives the app reads.
+ * @typedef {{ title?: string, key?: string, artist?: string }} ParsedMeta
+ */
+
+/**
+ * A parsed {name, value} directive line, or null when the line is not one.
+ * @typedef {object} Directive
+ * @property {string} name
+ * @property {string} value
+ */
+
 // Recognizes a directive line: {name: value} or {name}
+/**
+ * @param {string} line
+ * @returns {Directive | null}
+ */
 function parseDirective(line) {
   const match = line.match(/^\s*\{([^:}]+):?\s*([^}]*)\}\s*$/)
   if (!match) return null
@@ -17,6 +68,10 @@ function parseDirective(line) {
 
 // Strips inline [Chord] markers, returning the lyric text and each chord's
 // column position in that stripped text.
+/**
+ * @param {string} line
+ * @returns {ChordLine}
+ */
 function stripChords(line) {
   const chords = []
   let text = ''
@@ -46,13 +101,25 @@ function stripChords(line) {
   return { text: text.replace(/\s+$/, ''), chords }
 }
 
+/**
+ * @param {string | null | undefined} text
+ * @returns {ParsedMeta & { sections: ChordSection[], sectionKeyContexts: SectionKeyContext[] }}
+ */
 export function parseChordPro(text) {
+  /** @type {Record<string, string>} */
   const meta = {}
+  /** @type {ChordSection[]} */
   const sections = []
+  /** @type {SectionKeyContext[]} */
   const sectionKeyContexts = []
+  /** @type {ChordSection | null} */
   let current = null
   let currentSectionIndex = -1
 
+  /**
+   * @param {string} type
+   * @returns {ChordSection}
+   */
   function ensureSection(type) {
     if (!current || current.type !== type) {
       current = { type, lines: [] }
@@ -116,6 +183,12 @@ No hell beneath us
 
   const parsed = parseChordPro(sample)
 
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   * @returns {void}
+   */
   const expect = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`demo failed: ${label} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)

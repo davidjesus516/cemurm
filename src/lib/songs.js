@@ -139,7 +139,7 @@ import {
  * Mutation payload — every field optional, only provided fields change.
  * @typedef {object} SongInput
  * @property {string | undefined} [title]
- * @property {string | undefined} [key]
+ * @property {string | null | undefined} [key]
  * @property {number | string | undefined} [bpm]
  * @property {boolean | undefined} [hasChordChart]
  * @property {string | undefined} [body]

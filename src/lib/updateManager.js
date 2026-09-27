@@ -1,3 +1,4 @@
+// @ts-check
 // SW update pipeline (hito-2-remainder 2a.5, D3): background install →
 // waiting SW → once-per-session "Update now" prompt → SKIP_WAITING + reload,
 // or the next natural load activates. Never prompts mid-session, never
@@ -32,6 +33,10 @@ export function registerUpdateManager() {
   })
 }
 
+/**
+ * @param {ServiceWorkerRegistration} registration
+ * @returns {void}
+ */
 function promptForUpdate(registration) {
   try {
     if (sessionStorage.getItem(PROMPT_KEY)) return // once per session
