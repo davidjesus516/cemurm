@@ -1,3 +1,4 @@
+// @ts-check
 // Notifications data layer (Hito 3 PR#2, task 2.2 — notifications Feed1–7,
 // realtime delivery scenario). Reads are RLS-capped to the caller
 // (0002 notifications_select_self); read-state is the 0002 column grant
@@ -17,21 +18,121 @@
 
 import { offlineGet, offlineSet } from '../../offline/cache.js'
 
+/**
+ * Frozen notifications.category enum (0001): 'invitation' | 'setlist' |
+ * 'event' | 'system' — display order lives in CATEGORY_ORDER.
+ * @typedef {'invitation' | 'setlist' | 'event' | 'system'} NotificationCategory
+ */
+
+/**
+ * notifications.payload (0001 jsonb) — the deep-link descriptor. Which keys
+ * are present depends on the action (notificationTarget maps them), so every
+ * one is optional; legacy rows may also carry the same object as a JSON
+ * string (normalizeNotification parses that case).
+ * @typedef {object} NotificationPayload
+ * @property {string} [action]
+ * @property {string} [setlist_id]
+ * @property {string} [song_id]
+ * @property {string} [comment_id]
+ * @property {string | number} [section]
+ * @property {string} [actor_id]
+ */
+
+/**
+ * Deep-link target: the route to open plus the params that action needs —
+ * 'song' for the setlist-item actions, 'anchor'/'cid' for comment/mention,
+ * null params for the rest. A null target is an informational row with
+ * nowhere to go.
+ * @typedef {object} NotificationTarget
+ * @property {string} route
+ * @property {{ song?: string, anchor?: string | null, cid?: string } | null} params
+ */
+
+/**
+ * Raw notifications row (0001; listNotifications selects every column but
+ * user_id). body/payload are nullable columns, and payload tolerates the
+ * legacy JSON-string encoding.
+ * @typedef {object} RawNotificationRow
+ * @property {string} id
+ * @property {NotificationCategory} category
+ * @property {string} title
+ * @property {string} created_at
+ * @property {string | null} [body]
+ * @property {string | NotificationPayload | null} [payload]
+ * @property {string | null} [read_at]
+ */
+
+/**
+ * Flattened app shape (normalizeNotification — flattenSetlist precedent):
+ * payload.action/actor_id promoted to the top level, the deep link resolved
+ * into `target`, and read_at folded into `read`.
+ * @typedef {object} Notification
+ * @property {string} id
+ * @property {NotificationCategory} category
+ * @property {string} title
+ * @property {string | null} body
+ * @property {string | null} action
+ * @property {NotificationTarget | null} target
+ * @property {boolean} read
+ * @property {string} createdAt
+ * @property {string | null} actorId
+ */
+
+/**
+ * Row surface groupByCategory reads — deliberately minimal (ThreadRow
+ * precedent: the grouping is pure and bare-node testable, so the demo passes
+ * partial rows; the feed passes whole Notifications).
+ * @typedef {object} FeedRow
+ * @property {string} id
+ * @property {NotificationCategory} category
+ * @property {boolean} read
+ */
+
+/**
+ * One category group (groupByCategory output) with its unread tally (Feed4).
+ * @typedef {object} CategoryGroup
+ * @property {NotificationCategory} category
+ * @property {FeedRow[]} rows
+ * @property {number} unread
+ */
+
+// ponytail: lazy import — supabase.js reads import.meta.env at eval time,
+// which is undefined in bare node (this module's demo runs there).
+/** @type {typeof import('../supabase.js').supabase | null} */
 let supabaseClient = null
+/**
+ * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}
+ */
 async function supabase() {
   if (!supabaseClient) supabaseClient = (await import('../supabase.js')).supabase
   return supabaseClient
 }
 
 // Frozen category enum (0001): display order drives groupByCategory.
+/** @type {NotificationCategory[]} */
 export const CATEGORY_ORDER = ['invitation', 'setlist', 'event', 'system']
 
+/**
+ * @param {string} userId
+ * @returns {string}
+ */
 const FEED_KEY = (userId) => `notifications:${userId}`
+/**
+ * @param {string} userId
+ * @returns {string}
+ */
 const UNREAD_KEY = (userId) => `notifications-unread:${userId}`
 
 // ponytail: same read-through shape as songs.js — no freshness TTL; every
 // successful network read overwrites the cache and offline reads serve it
 // unconditionally, so staleness self-heals on the next successful fetch.
+/**
+ * @template T
+ * @param {string} key
+ * @param {T} fallbackValue
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
 async function withReadThrough(key, fallbackValue, fn) {
   try {
     const data = await fn()
@@ -46,6 +147,10 @@ async function withReadThrough(key, fallbackValue, fn) {
 }
 
 /** Full feed for one user, newest first (idx_notifications_user order). */
+/**
+ * @param {string} userId
+ * @returns {Promise<Notification[]>}
+ */
 export async function listNotifications(userId) {
   const data = await withReadThrough(FEED_KEY(userId), [], async () => {
     const { data: rows, error } = await (await supabase())
@@ -60,6 +165,10 @@ export async function listNotifications(userId) {
 }
 
 /** Number of unread rows (read_at IS NULL), cached for the offline badge. */
+/**
+ * @param {string} userId
+ * @returns {Promise<number>}
+ */
 export async function unreadCount(userId) {
   return withReadThrough(UNREAD_KEY(userId), 0, async () => {
     const { count, error } = await (await supabase())
@@ -77,6 +186,11 @@ export async function unreadCount(userId) {
  * update (read_at) column grant). RLS caps the update to the caller's own
  * rows; touching any other column is 42501 by the column grant.
  */
+/**
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
 export async function markRead(userId, id) {
   const { error } = await (await supabase())
     .from('notifications')
@@ -86,6 +200,10 @@ export async function markRead(userId, id) {
 }
 
 /** Mark every unread notification read (Feed3). */
+/**
+ * @param {string} userId
+ * @returns {Promise<void>}
+ */
 export async function markAllRead(userId) {
   const { error } = await (await supabase())
     .from('notifications')
@@ -99,6 +217,11 @@ export async function markAllRead(userId) {
  * Live subscription to the caller's own rows (realtime delivery scenario:
  * the non-PK user_id filter + replica identity full deliver per subscriber,
  * and RLS caps the channel). Returns an unsubscribe fn — teardown on unmount.
+ */
+/**
+ * @param {string} userId
+ * @param {(payload: unknown) => void} onChange
+ * @returns {Promise<() => void>}
  */
 export async function subscribeNotifications(userId, onChange) {
   const client = await supabase()
@@ -114,8 +237,12 @@ export async function subscribeNotifications(userId, onChange) {
 }
 
 /** Deep-link map (design "Deep-link navigation"): payload.action → route. */
+/**
+ * @param {NotificationPayload | null | undefined} payload
+ * @returns {NotificationTarget | null}
+ */
 export function notificationTarget(payload) {
-  const p = payload && typeof payload === 'object' ? payload : {}
+  const p = payload && typeof payload === 'object' ? payload : /** @type {NotificationPayload} */ ({})
   switch (p.action) {
     case 'invite':
     case 'bandmate-accepted':
@@ -144,9 +271,13 @@ export function notificationTarget(payload) {
 }
 
 /** Row → the shape the feed renders (payload.action/actor_id promoted). */
+/**
+ * @param {RawNotificationRow} row
+ * @returns {Notification}
+ */
 export function normalizeNotification(row) {
   const payload =
-    row.payload && typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload || {}
+    row.payload && typeof row.payload === 'string' ? JSON.parse(row.payload) : /** @type {NotificationPayload} */ (row.payload || {})
   return {
     id: row.id,
     category: row.category,
@@ -165,6 +296,10 @@ export function normalizeNotification(row) {
  * categories that have rows are returned; input order (newest first) is
  * preserved inside each group.
  */
+/**
+ * @param {FeedRow[]} rows
+ * @returns {CategoryGroup[]}
+ */
 export function groupByCategory(rows) {
   return CATEGORY_ORDER
     .map((category) => rows.filter((row) => row.category === category))
@@ -178,6 +313,11 @@ export function groupByCategory(rows) {
 
 // Self-check: node -e "import('./src/data/repositories/notifications.js').then(m => m.demo())"
 export function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
   const assertEq = (actual, expected, label) => {
     const got = JSON.stringify(actual)
     const want = JSON.stringify(expected)
@@ -230,7 +370,7 @@ export function demo() {
   assertEq(row.action, 'song-added', 'action promoted from payload')
   assertEq(row.read, false, 'read_at null → unread')
   assertEq(row.actorId, 'u9', 'actor_id promoted')
-  assertEq(row.target.route, '/setlists/sl1', 'normalized row carries its target')
+  assertEq(/** @type {{ route: string }} */ (row.target).route, '/setlists/sl1', 'normalized row carries its target')
   assertEq(normalizeNotification({ id: 'n2', category: 'invitation', title: 't', payload: null, read_at: '2026-09-18T10:00:00Z', created_at: 'c' }).read, true, 'read_at set → read')
   assertEq(normalizeNotification({ id: 'n3', category: 'system', title: 't', payload: { actor_id: 'u1' }, read_at: null, created_at: 'c' }).actorId, 'u1', 'payload-only actor_id')
 
