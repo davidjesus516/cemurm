@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 // Public, login-less guardian approval page (Hito 4 — minors/consent, H10).
 // The guardian opens the shareable link from the minor's song page
 // (/guardian-approve?user=…&email=…&token=…) WITHOUT a session — the route
