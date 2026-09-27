@@ -82,11 +82,22 @@ describe('computeReadiness — missing base key', () => {
     )
   })
 
-  it('throws a TypeError when key is a truthy non-string (it calls .trim blindly)', () => {
-    // FINDING: `!song.key || !song.key.trim()` guards falsy values but not
-    // truthy non-strings, so a numeric base_key crashes the readiness read.
-    expect(() => computeReadiness({ key: 123, body: '[C]Hello' })).toThrow(TypeError)
-    expect(() => computeReadiness({ key: {}, body: '[C]Hello' })).toThrow(TypeError)
+  it('treats a truthy non-string key as a missing key rather than crashing', () => {
+    // The assertion this replaces asserted that both of these THROW, and said
+    // the throw is why the case is recorded. A crash is the bug: readiness is
+    // read on a list render, so one malformed key takes the whole page down
+    // rather than one badge.
+    //
+    // `song_versions.base_key` is `text` (0001_init.sql), so a non-string key
+    // is not a shape this schema produces — but the guard belongs to the
+    // reader, and the reader is what runs first.
+    for (const key of [123, {}, true, [], Symbol('k')]) {
+      expect(computeReadiness({ key, body: '[C]Hello' }).status, String(key)).toBe('draft')
+      expect(computeReadiness({ key, body: '[C]Hello' }).reason, String(key)).toBe(`${NOT_READY}missing base key`)
+    }
+    // A null song is still tolerated, as before.
+    expect(computeReadiness(null).status).toBe('draft')
+    expect(computeReadiness(undefined).status).toBe('draft')
   })
 })
 

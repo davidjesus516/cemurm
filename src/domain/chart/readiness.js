@@ -20,7 +20,13 @@ import { parseChordPro } from './parser.js'
  * Versioned readiness is Hito 3 — no version table here.
  */
 export function computeReadiness(song) {
-  if (!song || !song.key || !song.key.trim()) {
+  // `song.key.trim()` threw on a truthy non-string key — a number, an object, a
+  // boolean — and a key is text in this schema (song_versions.base_key is
+  // `text`, 0001_init.sql). A key that is not text is a missing key as far as
+  // readiness is concerned, so it takes the existing "missing base key" path
+  // rather than crashing the caller.
+  const key = typeof song?.key === 'string' ? song.key : ''
+  if (!key.trim()) {
     return { status: 'draft', reason: 'Not ready: missing base key' }
   }
 

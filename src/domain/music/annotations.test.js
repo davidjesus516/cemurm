@@ -249,8 +249,20 @@ describe('applySubstitution', () => {
     expect(applySubstitution('B', 0, { B: 'C' }, 'Bb')).toBe('C')
   })
 
-  it('misses on a fractional semitone count (the reverse lookup yields "undefined")', () => {
-    expect(applySubstitution('Bm', 2.5, { Bm: 'Dmaj7' }, 'C')).toBe('Bm')
+  it('no longer misses on a fractional semitone count — the reverse lookup is clean', () => {
+    // The assertion this replaces was named "misses on a fractional semitone
+    // count (the reverse lookup yields 'undefined')" and asserted the token
+    // comes back UNCHANGED. The unchanged result was a miss, not a pass: the
+    // reverse lookup computed 'undefined', found no mapping for it, and gave
+    // up quietly. So a substitution the user had set never applied.
+    //
+    // The reverse transpose now returns the token itself for a non-integer
+    // amount, which the map does contain, so the substitution is found. This
+    // is a behaviour change and it is the correct one — the amount being
+    // fractional does not make the anchor unrecognisable.
+    expect(applySubstitution('Bm', 2.5, { Bm: 'Dmaj7' }, 'C')).toBe('Dmaj7')
+    // An anchor genuinely absent from the map still passes through untouched.
+    expect(applySubstitution('Em', 2, { Bm: 'Dmaj7' }, 'C')).toBe('Em')
   })
 
   it('never mutates the substitutions map', () => {

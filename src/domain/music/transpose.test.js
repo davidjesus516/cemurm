@@ -113,13 +113,31 @@ describe('transposeChord', () => {
     expect(() => transposeChord(undefined, 1)).toThrow(TypeError)
   })
 
-  it('produces the literal string "undefined" for a non-integer semitone count', () => {
-    // FINDING: (index + 2.5 % 12 + 12) % 12 is fractional, so the table lookup
-    // misses and string concatenation yields "undefined" as the chord root —
-    // then the quality suffix is still appended.
-    expect(transposeChord('C', 2.5)).toBe('undefined')
-    expect(transposeChord('Am', undefined)).toBe('undefinedm')
-    expect(transposeChord('G7', NaN)).toBe('undefined7')
+  it('transposes nothing for a non-integer semitone count, and says why', () => {
+    // The assertion this replaces asserted the literal strings "undefined",
+    // "undefinedm" and "undefined7" were produced. Those were the bug: the
+    // table lookup went fractional and the miss was stringified into the chord,
+    // suffix and all.
+    //
+    // Rounding is deliberately NOT the fix. A quarter-tone up and a half-tone
+    // down are not the same distance, and silently picking one is a musical
+    // decision made by a modulo. A non-integer amount transposes nothing, which
+    // is at least a defined outcome the caller can detect.
+    expect(transposeChord('C', 2.5)).toBe('C')
+    expect(transposeChord('Am', 2.5)).toBe('Am')
+    // undefined and NaN are not integers either, and used to stringify to
+    // "undefinedm" and "undefined7" — suffix and all.
+    expect(transposeChord('Am', undefined)).toBe('Am')
+    expect(transposeChord('G7', NaN)).toBe('G7')
+    expect(transposeChord('C', null)).toBe('C')
+  })
+
+  it('still accepts a numeric STRING, which is not a fraction', () => {
+    // A form control or a JSON payload delivers an integer as '2'. Coercing
+    // before the integer check is what keeps that working; checking the raw
+    // value would have regressed it.
+    expect(transposeChord('C', '2')).toBe('D')
+    expect(transposeChord('C', '2.5')).toBe('C')
   })
 
   it('prefers sharps on the sharp side of the circle and flats only when asked', () => {
@@ -200,8 +218,10 @@ describe('transposeKey', () => {
     expect(transposeKey('B♭', 2)).toBe('C#♭')
   })
 
-  it('yields the string "undefined" for a non-integer semitone count', () => {
-    expect(transposeKey('C', 2.5)).toBe('undefined')
+  it('does not yield the string "undefined" for a non-integer semitone count', () => {
+    // The assertion this replaces asserted transposeKey('C', 2.5) === 'undefined'.
+    // The same fractional-table-lookup bug as transposeChord, seen from here.
+    expect(transposeKey('C', 2.5)).toBe('C')
   })
 })
 
@@ -372,8 +392,11 @@ describe('capoLabel', () => {
     expect(capoLabel('C', '2')).toBe('Capo 2 · sounds D')
   })
 
-  it('renders a fractional capo verbatim and leaks "undefined" into the key', () => {
-    expect(capoLabel('C', 1.5)).toBe('Capo 1.5 · sounds undefined')
+  it('renders a fractional capo verbatim and does NOT leak "undefined" into the key', () => {
+    // The assertion this replaces expected 'Capo 1.5 · sounds undefined' — a
+    // capo line telling the player the key is literally "undefined". The capo
+    // number is displayed as typed; the key is not transposed by a fraction.
+    expect(capoLabel('C', 1.5)).toBe('Capo 1.5 · sounds C')
   })
 })
 

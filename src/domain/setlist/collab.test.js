@@ -232,10 +232,17 @@ describe('reconcileSetlistOp — server read shape', () => {
     expect(JSON.stringify(server)).toBe(serverBefore)
   })
 
-  it('throws a TypeError on a null/undefined op', () => {
-    // FINDING: `op.args?.` guards a missing `args` but not a missing `op`, so a
-    // malformed queue row takes the whole drain loop down.
-    expect(() => reconcileSetlistOp(null, SERVER)).toThrow(TypeError)
-    expect(() => reconcileSetlistOp(undefined, SERVER)).toThrow(TypeError)
+  it('replays rather than throwing when the op is null or undefined', () => {
+    // The assertion this replaces was named "throws a TypeError on a null/
+    // undefined op" and asserted the throw. A crash is not a useful contract
+    // for a caller holding no operation — and this one is not theoretical: a
+    // malformed queue row takes down the whole drain loop, not just its own
+    // entry. `op.args?.` guarded a missing `args` all along, which is what made
+    // the asymmetry look deliberate.
+    expect(reconcileSetlistOp(null, SERVER)).toEqual({ drop: false })
+    expect(reconcileSetlistOp(undefined, SERVER)).toEqual({ drop: false })
+    expect(reconcileSetlistOp(null, null)).toEqual({ drop: false })
+    // An object with no args at all still travels the normal path.
+    expect(reconcileSetlistOp({}, SERVER)).toEqual({ drop: false })
   })
 })

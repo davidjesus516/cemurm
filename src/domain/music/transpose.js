@@ -70,7 +70,17 @@ function noteIndex(name) {
 function transposeNote(noteName, semitones, preferFlat) {
   const info = noteIndex(noteName)
   if (!info) return noteName
-  const idx = (info.index + semitones % 12 + 12) % 12
+  // A fractional semitone has no musical meaning, and indexing a note table with
+  // one produced the literal string "undefined" as the chord. Rounding would be
+  // a silent musical decision, so a non-integer amount transposes nothing.
+  //
+  // A numeric STRING is not a fraction though: '2' is how a form control or a
+  // JSON payload delivers an integer, and the suite pinned that it works. It is
+  // coerced first and only the result is checked, so '2' still transposes and
+  // '2.5' does not.
+  if (!Number.isInteger(Number(semitones))) return noteName
+  const amount = Number(semitones)
+  const idx = (info.index + amount % 12 + 12) % 12
   const useFlat = preferFlat !== undefined ? preferFlat : info.preferFlat
   return useFlat ? NOTES_FLAT[idx] : NOTES_SHARP[idx]
 }
