@@ -75,8 +75,50 @@ function transposeNote(noteName, semitones, preferFlat) {
   return useFlat ? NOTES_FLAT[idx] : NOTES_SHARP[idx]
 }
 
-// Match chord root: optional flat/sharp, then note letter
-const CHORD_RE = /^([A-G][#b]?)(.*)/
+// Root note, optional accidental, everything else as the suffix.
+//
+// ChordPro's own spec treats the root as case-insensitive, accepts three
+// spellings for a flat ('B♭', 'Bb', 'Bes') and the two unicode accidentals, and
+// reserves a lowercase root for "this is a note, not a chord" when the `notes`
+// config is enabled — so none of these is an error, they are the same chord
+// written four ways.
+//
+// The regex used to be uppercase-only, so 'am' matched nothing and
+// transposeChord returned it untouched, and 'B♭' matched only 'B' and carried
+// '♭' into the suffix, producing 'C#♭'. Both are reachable from a stored chart:
+// the parser keeps the token verbatim.
+const CHORD_RE = /^(Bes|bes|BES|[A-Ga-g][#b♭♯]?)(.*)/
+
+/**
+ * Normalise a root to the app's uppercase + ASCII-accidental spelling.
+ *
+ * ChordPro accepts three spellings for a flat — `B♭`, `Bb` and `Bes` — the two
+ * unicode accidentals `♭` (U+266D) and `♯` (U+266F), and treats the root as
+ * case-insensitive, so all of them have to land on one form. `♭` and `b` both
+ * mean flat; `♯` and `#` both mean sharp. `Bes` is German, and its `es` is part
+ * of the ACCIDENTAL rather than a suffix, so it collapses to `Bb` and the `es`
+ * must not survive as one — otherwise `Besm` becomes `C#esm`.
+ *
+ * Folding the unicode accidentals into the ASCII ones is what stops a pasted
+ * chart from rendering a note name no musician writes. The stored text keeps
+ * whatever the author typed; only the rendered name is normalised.
+ *
+ * Only the LETTER is case-folded. The accidental is left alone, which is what
+ * keeps a lowercased `bb` meaning B-flat (`B` + flat `b`) rather than colliding
+ * with the letter `b`.
+ *
+ * @param {string} raw
+ * @returns {string | null} null only for an empty capture
+ */
+function normalizeRoot(raw) {
+  if (!raw) return null
+  if (raw === 'Bes' || raw === 'bes' || raw === 'BES') return 'Bb'
+  const note = raw[0].toUpperCase()
+  const accidental = raw.slice(1)
+  if (accidental === '♭' || accidental === 'b') return `${note}b`
+  if (accidental === '♯' || accidental === '#') return `${note}#`
+  return note
+}
 
 /**
  * Transpose a chord token by N semitones: transposes the root, keeps the
@@ -89,8 +131,12 @@ const CHORD_RE = /^([A-G][#b]?)(.*)/
 export function transposeChord(chord, semitones, preferFlat) {
   const m = chord.match(CHORD_RE)
   if (!m) return chord
-  const newRoot = transposeNote(m[1], semitones, preferFlat)
-  return newRoot + m[2]
+  // transposeNote is what rejects a note it has no table for, and an
+  // unrecognised root comes back as the name itself, which leaves the token
+  // untouched — the behaviour this branch already had.
+  const root = normalizeRoot(m[1])
+  if (!root) return chord
+  return transposeNote(root, semitones, preferFlat) + m[2]
 }
 
 /**
@@ -102,13 +148,28 @@ export function transposeChord(chord, semitones, preferFlat) {
  */
 export function transposeKey(key, semitones) {
   if (!key) return key
-  // Handle "Am", "Bbm" — note + modifier without space
-  const m = key.match(/^([A-G][#b]?)(.*)$/)
+  // Handle "Am", "Bbm" — note + modifier without space.
+  //
+  // 'Bes' is German for B-flat and is the one flat spelling whose accidental is
+  // written with LETTERS, so it cannot be expressed as [A-G][#b♭]? and would be
+  // read as the note 'B' plus the modifier 'es'. It is rewritten to the ASCII
+  // form first so everything below is a single code path.
+  const german = /^(Bes|bes|BES)(.*)$/.exec(key)
+  const spelled = german ? `Bb${german[2]}` : key
+  //
+  // Uppercase-only, unlike CHORD_RE. A key tonic starting with a lowercase letter
+  // is not accepted: the text after a key's tonic is a modifier ('Am', 'Bbm'), so
+  // 'atonal' would parse as the note 'a' plus the modifier 'tonal' and transpose
+  // to the invented 'Btonal'. The ChordPro lowercase convention ('[f] [g] [a]')
+  // is a CHORD token in the body, which is what CHORD_RE covers. A `{key: am}`
+  // in a chart is returned verbatim, exactly as before this change.
+  const m = spelled.match(/^([A-G][#b♭♯]?)(.*)$/)
   if (!m) return key
-  const noteInfo = noteIndex(m[1])
+  const root = normalizeRoot(m[1])
+  const noteInfo = root && noteIndex(root)
   if (!noteInfo) return key
-  const preferFlat = FLAT_KEYS.has(transposeNote(m[1], semitones, noteInfo.preferFlat))
-  return transposeNote(m[1], semitones, preferFlat) + m[2]
+  const preferFlat = FLAT_KEYS.has(transposeNote(root, semitones, noteInfo.preferFlat))
+  return transposeNote(root, semitones, preferFlat) + m[2]
 }
 
 /**
@@ -143,11 +204,18 @@ export function preferFlatForKey(key) {
  * @returns {number}
  */
 export function semitonesBetween(baseKey, targetKey) {
-  const base = String(baseKey || '').match(/^([A-G][#b]?)/)
-  const target = String(targetKey || '').match(/^([A-G][#b]?)/)
+  // '♭' and '♯' are accepted for the same reason as in transposeKey: they are
+  // real spellings of a flat and a sharp, and matching only the 'B' of 'B♭'
+  // measured the distance to B-natural. Lowercase is not accepted — a key is a
+  // note name, and 'atonal' must not measure as the note 'a'.
+  const base = String(baseKey || '').match(/^([A-G][#b♭♯]?)/)
+  const target = String(targetKey || '').match(/^([A-G][#b♭♯]?)/)
   if (!base || !target) return 0
-  const bi = noteIndex(base[1])
-  const ti = noteIndex(target[1])
+  const baseRoot = normalizeRoot(base[1])
+  const targetRoot = normalizeRoot(target[1])
+  if (!baseRoot || !targetRoot) return 0
+  const bi = noteIndex(baseRoot)
+  const ti = noteIndex(targetRoot)
   if (!bi || !ti) return 0
   let diff = (ti.index - bi.index + 12) % 12
   if (diff > 6) diff -= 12

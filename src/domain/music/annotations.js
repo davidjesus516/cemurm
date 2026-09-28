@@ -83,7 +83,24 @@ export function applySubstitution(token, semitones, substitutions, baseKey) {
   if (!token || !substitutions || !Object.keys(substitutions).length) return token
   const preferFlat = preferFlatForKey(baseKey)
   const concrete = transposeChord(token, -semitones, preferFlat)
-  const target = substitutions[concrete]
+  // The anchor is written by a musician, not by this module, so it may be spelled
+  // either way: an anchor saved as "Bb" never matched on a sharp-spelled chart,
+  // because the lookup key came out sharp and the flat anchor was not in the map.
+  // The substitution then silently did nothing — no error, no notice, the chart
+  // just unchanged. Both derived spellings are tried, and the anchor as typed is
+  // tried last so a deliberately-chosen enharmonic spelling is not overridden.
+  //
+  // The typed anchor is only consulted for a whole number of semitones. That
+  // fallback compares a name from one key space against a name from another — the
+  // derived key is a concrete-note name, the typed anchor is whatever the musician
+  // tapped — and that comparison is only meaningful when the round trip through
+  // transpose is. A fractional amount has no valid reverse transpose at all, so
+  // every derived spelling is the same non-note and matching one would invent a
+  // substitution out of a transposition that cannot exist.
+  const target =
+    substitutions[concrete] ??
+    substitutions[transposeChord(token, -semitones, !preferFlat)] ??
+    (Number.isInteger(semitones) ? substitutions[token] : undefined)
   return target ? transposeChord(target, semitones, preferFlat) : token
 }
 

@@ -91,13 +91,38 @@ describe('transposeChord', () => {
     expect(transposeChord('C', '2')).toBe('D')
   })
 
-  it('passes unparseable tokens through untouched', () => {
-    // Lowercase is NOT supported: the root regex is [A-G] uppercase only.
-    expect(transposeChord('c', 1)).toBe('c')
-    expect(transposeChord('am', 3)).toBe('am')
+  it('transposes a lowercase root, because ChordPro treats the root as case-insensitive', () => {
+    // The assertion this replaces asserted 'c' and 'am' pass through UNTOUCHED
+    // and said in a comment "Lowercase is NOT supported: the root regex is
+    // [A-G] uppercase only". That made the regex the specification.
+    //
+    // ChordPro's own docs are the specification: the root note is
+    // case-insensitive, and a lowercase root is explicitly reserved as a way to
+    // write "this is a note, not a chord" — used for intros like
+    // "{comment: Intro [f] [g] [a] [E]}". So lowercase is a valid root that is
+    // transposed and displayed exactly as a chord, never an error.
+    //
+    // The parser keeps the token verbatim, so a stored chart really does reach
+    // this function with a lowercase root.
+    expect(transposeChord('c', 1)).toBe('C#')
+    expect(transposeChord('am', 3)).toBe('Cm')
+    expect(transposeChord('g7', 3)).toBe('A#7')
+    // Bm up a minor third is Dm — the module resolves the enharmonic pair to
+    // whichever the note's own preference picks, same as for an uppercase 'Bm'.
+    expect(transposeChord('bm', 3)).toBe('Dm')
+    expect(transposeChord('Bm', 3)).toBe('Dm')
+    // The flat preference still applies to a lowercase root.
+    expect(transposeChord('c', 1, true)).toBe('Db')
+    expect(transposeChord('e', 1, true)).toBe('F')
+  })
+
+  it('passes genuinely unparseable tokens through untouched', () => {
+    // 'H' is the German B-natural, which ChordPro accepts but this app has no
+    // table for, so it is not a root here. 'atonal' is a word, not a chord.
     expect(transposeChord('H', 1)).toBe('H')
     expect(transposeChord('', 2)).toBe('')
     expect(transposeChord('H#', 2)).toBe('H#')
+    expect(transposeChord('N.C.', 2)).toBe('N.C.')
   })
 
   it('does NOT transpose a slash-chord bass note (documented limitation)', () => {
@@ -189,15 +214,38 @@ describe('transposeKey', () => {
   })
 
   it('returns an unparseable key unchanged', () => {
+    // 'H' is German B-natural and 'atonal' is a word; neither is a key here.
+    // A lowercase 'atonal' must not start with a root and have 'tonal' as its
+    // suffix, which is what a naive case-insensitive match would produce.
     expect(transposeKey('H', 2)).toBe('H')
     expect(transposeKey('atonal', 2)).toBe('atonal')
   })
 
-  it('treats a unicode accidental as part of the suffix, not the root', () => {
-    // FINDING: only ASCII '#'/'b' are recognised. U+266F/U+266D ride along in
-    // the suffix, so 'B♭' transposes to the nonsense 'C#♭'.
-    expect(transposeKey('C♯', 2)).toBe('D♯')
-    expect(transposeKey('B♭', 2)).toBe('C#♭')
+  it('reads a unicode accidental as part of the ROOT, not the suffix', () => {
+    // The assertion this replaces asserted transposeKey('B♭', 2) === 'C#♭' and
+    // said the unicode flat "rides along in the suffix". It does not ride along
+    // — it was never recognised as an accidental at all, so only the 'B' part
+    // was the root and '♭' was carried into the output, producing a chord that
+    // is half-transposed and half-untouched.
+    //
+    // ChordPro's docs list three spellings for a flat: B♭, Bb and Bes. All
+    // three are B-flat and all three must transpose the same way.
+    expect(transposeKey('B♭', 2)).toBe('C')
+    expect(transposeKey('Bb', 2)).toBe('C')
+    expect(transposeKey('Bes', 2)).toBe('C')
+    expect(transposeChord('B♭', 2)).toBe('C')
+    expect(transposeChord('Besm', 2)).toBe('Cm')
+    // The unicode SHARP (U+266F) is the same defect in the other direction, and
+    // this assertion used to pin the broken answer 'D♯'. It is folded in with
+    // the flat: both are one character from the same paste, and leaving the
+    // sharp behind would mean the next chart hit the same bug.
+    expect(transposeKey('C♯', 2)).toBe('D#')
+    expect(transposeChord('F♯m', 2)).toBe('G#m')
+    // Both accidentals reach semitonesBetween too — 'B♭' to 'D' is a perfect
+    // fourth, 4 semitones, and matching only the 'B' measured 3. 'C♯' to 'D' is
+    // a minor second, 1 semitone; reading it as C-natural would have said 2.
+    expect(semitonesBetween('B♭', 'D')).toBe(4)
+    expect(semitonesBetween('C♯', 'D')).toBe(1)
   })
 
   it('yields the string "undefined" for a non-integer semitone count', () => {

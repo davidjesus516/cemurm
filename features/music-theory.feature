@@ -99,6 +99,30 @@ Feature: Music Theory Model (Advanced Scales, Modes, and Degrees)
     And transposing to A renders the same chord as A/C#
     And the bass note transposes with the chord
 
+  Scenario: A chord root is case-insensitive, because ChordPro defines it that way
+    Given "Canción Minúsculas" in C major has "[am]" on the first beat and "[c]" on the second
+    When I transpose the song up 3 semitones
+    Then the chords render as Cm and D#
+    And a lowercase root is a root, not a word that the transposer leaves alone
+    And the rendered chord uses the app's own spelling from then on, so transposing
+      back down 3 semitones renders F#m and A rather than restoring the lowercase tokens
+
+  Scenario: All three ChordPro spellings of a flat are the same chord
+    Given "Canción Bemol" in C major has "[B♭]" on the first beat and "[Bes]" on the second
+    When I transpose the song up 2 semitones
+    Then the chords render as C and C
+    And a flat is never carried into the output as a stray character, so the chord
+      is not left half-transposed as "C#♭"
+
+  Scenario: A personal substitution anchor matches however the musician spelled it
+    Given Pedro plays "Canción W" in C major and sets a substitution "Bb -> C" for the Bb in the chorus
+    When Pedro transposes the song up 2 semitones
+    Then the chorus renders D, because the substitution applied
+    And the substitution applies the same way with a sharp-spelled anchor on a
+      flat-spelled chart, in either enharmonic spelling
+    And a substitution that genuinely does not cover that chord still leaves the
+      chord untouched
+
   ──────────────────────────────────────────────
   MODULATION & SECTIONAL KEY CONTEXT
   ──────────────────────────────────────────────

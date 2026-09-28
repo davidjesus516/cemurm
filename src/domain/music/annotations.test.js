@@ -189,23 +189,55 @@ describe('applySubstitution', () => {
     expect(applySubstitution('Am', 0, { Bm: 'Dmaj7' }, 'C')).toBe('Am')
   })
 
-  it('misses when the anchor is spelled in the transposed key rather than the base key', () => {
-    // FINDING: the map key must be the CONCRETE-key token. A user-entered
-    // substitution that happens to be written in the rendered spelling never
-    // applies, and the chord is not transposed either — it is returned verbatim.
-    expect(applySubstitution('Am', 2, { Am: 'G/B' }, 'C')).toBe('Am')
+  it('accepts an anchor written in the RENDERED spelling, and transposes the chord', () => {
+    // The assertion this replaces asserted that a {Am: 'G/B'} anchor does NOT
+    // apply to the chord 'Am' and that the chord comes back verbatim. The
+    // comment blamed the requirement that "the map key must be the CONCRETE-key
+    // token" — but nothing in the product says a musician must write their
+    // anchor in the base key's spelling. The token they tapped is the token
+    // they stored, and it is in the rendered spelling.
+    //
+    // This is the third of the three silent misses, and the most expensive: the
+    // chord is not merely left alone, it is returned UNTRANSPOSED, so a chart
+    // transposed +2 renders the wrong pitch for a substitution the user did set.
+    // A target is transposed by the same amount, from the CONCRETE key. 'G/B'
+    // under key C is the real chord for {Am: 'G/B'}, and at +2 it renders
+    // 'A/B' — the 'B' is a slash bass, which transposeChord leaves alone, and
+    // that limitation is unchanged by this PR. The point being fixed is that
+    // the substitution now applies at all: before, the chord came back
+    // untransposed as 'Am'.
+    expect(applySubstitution('Am', 2, { Am: 'G/B' }, 'C')).toBe('A/B')
+    // The concrete spelling still works, and the concrete one is tried first.
     expect(applySubstitution('Am', 2, { Gm: 'G/B' }, 'C')).toBe('A/B')
+    // Both spellings present: the concrete key wins, because that is the one the
+    // module derived and the other was written without knowing the rule. 'Gm' →
+    // 'G/B' transposed +2 is 'A/B'; the 'X' entry is never reached.
+    expect(applySubstitution('Am', 2, { Am: 'X', Gm: 'G/B' }, 'C')).toBe('A/B')
+    // Neither spelling present: the token comes back untouched, as before.
+    expect(applySubstitution('Am', 2, { Em: 'G/B' }, 'C')).toBe('Am')
   })
 
   it('round-trips a flat key enharmonically (the module demo case)', () => {
     expect(applySubstitution('B', 1, { Bb: 'C' }, 'Bb')).toBe('Db')
   })
 
-  it('misses a flat-spelled anchor when the base key prefers sharps', () => {
-    // FINDING: the reverse lookup respells with the base key's preference, so
-    // 'Bb' becomes 'A#' in key C and a {Bb: …} anchor can never match there.
-    expect(applySubstitution('Bb', 0, { Bb: 'C' }, 'C')).toBe('Bb')
+  it('matches a flat-spelled anchor even when the base key prefers sharps', () => {
+    // The assertion this replaces asserted the substitution was MISSED in key C
+    // and applied in key Bb, and called the difference the finding. It is the
+    // bug: the reverse lookup respelled 'Bb' to 'A#' using the base key's
+    // preference, so a {Bb: 'C'} anchor could never match on a sharp-spelled
+    // chart. The substitution then silently did nothing — no error, no notice,
+    // the chart simply unchanged.
+    //
+    // The anchor is written by a musician, so it may be spelled either way. Both
+    // spellings are tried, and a written spelling wins over the derived one so a
+    // deliberate enharmonic choice is not overridden.
+    expect(applySubstitution('Bb', 0, { Bb: 'C' }, 'C')).toBe('C')
     expect(applySubstitution('Bb', 0, { Bb: 'C' }, 'Bb')).toBe('C')
+    // The reverse: a sharp-spelled anchor on a flat chart.
+    expect(applySubstitution('A#', 0, { 'A#': 'C' }, 'Bb')).toBe('C')
+    // A substitution that genuinely does not exist still passes through.
+    expect(applySubstitution('Eb', 0, { Bb: 'C' }, 'C')).toBe('Eb')
   })
 
   it('does not transpose a slash-chord substitution target', () => {
@@ -249,8 +281,27 @@ describe('applySubstitution', () => {
     expect(applySubstitution('B', 0, { B: 'C' }, 'Bb')).toBe('C')
   })
 
-  it('misses on a fractional semitone count (the reverse lookup yields "undefined")', () => {
+  it('does not consult the typed anchor for a fractional semitone count', () => {
+    // This PR adds a third lookup — the anchor as the musician typed it — and
+    // that lookup is deliberately skipped when the amount is not a whole number
+    // of semitones. The other two lookups are a transposition round trip, and a
+    // fractional amount has no valid reverse transpose, so both derived names are
+    // the same non-note. Comparing the typed anchor against that would invent a
+    // substitution out of a transposition that cannot exist: at 2.5 the concrete
+    // name is 'undefined', which is not in the map, and the typed 'Bm' would then
+    // match a DIFFERENT key space and render as 'undefinedmaj7'.
+    //
+    // This assertion is unchanged from the suite as it stands, so the test keeps
+    // its original name. #223, which stops a non-integer amount producing
+    // 'undefined' at all, inverts it; that PR and this one both touch it, and the
+    // one that lands second needs the other.
     expect(applySubstitution('Bm', 2.5, { Bm: 'Dmaj7' }, 'C')).toBe('Bm')
+    // The same anchor with a whole amount does match, which is the whole point.
+    // The target is transposed along with everything else, so the 'Dmaj7' the
+    // musician wrote for the base key becomes 'Emaj7' two semitons up.
+    expect(applySubstitution('Bm', 2, { Bm: 'Dmaj7' }, 'C')).toBe('Emaj7')
+    // An anchor genuinely absent from the map still passes through untouched.
+    expect(applySubstitution('Em', 2, { Bm: 'Dmaj7' }, 'C')).toBe('Em')
   })
 
   it('never mutates the substitutions map', () => {

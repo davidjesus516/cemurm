@@ -3,14 +3,17 @@
 > Change: `fix-unspecified-silent-wrong`
 > Findings: **3 of the 7** unspecified "sharp edges" (`odd/tasks/music-theory-discrepancies.md:61-66`).
 > That list is **unlettered** — the A–J lettering covers the 10 discrepancies, not these seven.
-> Status: proposed. All three reproduced. **Each one needs a product decision**, stated below and
-> not pre-empted. Depends on finding **B**; the dependency is not folded in.
+> Status: **implemented.** All three reproduced; the three product decisions are recorded under
+> **Frozen decisions** and were taken before any code was written. Finding **B** remains a
+> declared dependency and is **not** folded in — see the note at the end.
 >
-> **Path note:** `main` has `src/lib/transpose.js` and `src/lib/annotations.js`; after M0a they
-> become `src/domain/music/transpose.js` and `src/domain/annotations/annotations.js`. The M0a
-> destination of `annotations.js` is **not** in `odd/tasks/music-theory-discrepancies.md:178-185`
-> and is **confirmed at apply time**, as is every test path below — no `src/domain/` and no test
-> file exists on `main`, because the suite arrives with M0b (#171).
+> **Path note — confirmed at apply time.** Every `src/lib/…` path in this proposal was written
+> before M0a and is now `src/domain/music/…`: `src/lib/transpose.js` → `src/domain/music/transpose.js`,
+> `src/lib/annotations.js` → `src/domain/music/annotations.js`,
+> `src/lib/chordpro/parser.js` → `src/domain/chart/parser.js`. The renderer is
+> `src/ui/patterns/ChordProRenderer.jsx`. Line numbers below are the ones **as written against the
+> pre-M0a tree** and are kept so the reasoning stays auditable; the code comments carry the current
+> numbers. The suite is M0b's, so all test paths existed at apply time.
 
 ## Intent
 
@@ -39,12 +42,24 @@ parsed chords: ["am","G"]  →  transposed +3: ["am","A#"]
 
 `am` stays put while its neighbour moves. The musician asked for +3 and got one chord out of two.
 
-**The decision.** A lowercase chord is plausibly valid: the parser accepts it, the musician reads
-`am` as A minor, and nothing in the product says chord tokens are case-sensitive. Normalise in the
-parser (out — `features/music-theory.feature:62` makes the stored chart content canonical and a
-display decision must never rewrite it); normalise in `transposeChord` (display-only, storage stays
-verbatim, but a token the chart still says `am` renders as `Cm`); or reject with a visible signal
-(teaches the author nothing about the rest of the chart). Nothing here picks for the maintainer.
+**The decision, taken.** A lowercase chord is plausibly valid — the parser accepts it, the musician
+reads `am` as A minor, and ChordPro's own documentation defines the root as case-insensitive — so it
+is **accepted and normalised in `transposeChord`**, not in the parser and not rejected.
+Normalising in the parser is out for the reason given above: `features/music-theory.feature:62`
+makes the stored chart content canonical and a display decision must never rewrite it.
+Normalising at display time keeps storage verbatim and still renders `Cm`.
+
+The consequence is stated rather than hidden: **the rendered chord uses the app's spelling from then
+on.** `[am]` transposed −3 renders `F#m`, not `am`, because the token is normalised on the way out
+and the app has no record of the original case. A round trip does not restore the author's casing.
+That is the accepted cost of not rewriting stored content.
+
+**A deliberate non-goal: lowercase is accepted for CHORDS, not for KEY tonics.** `transposeKey` keeps
+an uppercase-only root. The text after a key's tonic is a *modifier* (`Am`, `Bbm`), so a
+case-insensitive key root parses `atonal` as the note `a` plus the modifier `tonal` and transposes it
+to the invented `Btonal`. A `{key: am}` in a chart is returned verbatim, exactly as before. This was
+implemented, measured as a regression against `Am` and `Bbm`, and reverted for that reason — the
+finding is about chord tokens in a body, which is what `CHORD_RE` covers.
 
 ### 2. The unicode flat is read as a modifier
 
@@ -60,12 +75,21 @@ regex at `:106` is `^([A-G][#b]?)(.*)$`, so it matches `B` as the note and captu
 not — the same half-transposed shape as finding 1, and a worse one, because the result is not a
 chord any musician would write.
 
-**The decision.** `♭` is not a keyboard typo, but it is exactly what a paste from a web page or a
-ChordPro file authored in a Unicode-flat tool produces — so this is a paste-handling question, not
-a nonsense-input question, and it does not belong with `fix-unspecified-crashes`. Fold U+266D and
-U+266F into the regexes and the note tables (accept, with the consequence that stored and rendered
-spellings can differ); reject a key containing one (breaks a real paste); or normalise at parse
-time (touches stored content, so it must clear `features/music-theory.feature:62` first).
+**The decision, taken.** `♭` is not a keyboard typo — it is exactly what a paste from a web page or a
+ChordPro file authored in a Unicode-flat tool produces — so it is **accepted**, and so is its
+mirror `♯` (U+266F), which is the same one-character paste and the same defect in the other
+direction. Both are folded into the regexes and normalised to their ASCII form **at render time**,
+so stored text is untouched and only the rendered name is normalised.
+
+Folding `♯` in alongside `♭` was a scope call made at apply time, not in this proposal: the
+proposal's option 1 said "fold U+266D and U+266F", and implementing only the flat would have left
+`transposeKey('C♯', 2) === 'D♯'` — a note name no musician writes, and the identical bug shape. The
+test that pinned that broken answer is inverted, not deleted.
+
+The same normalisation reaches `semitonesBetween`, which also matched only the letter: `B♭` to `D`
+measured 3 semitones (the distance from B-natural) instead of 4, and `C♯` to `D` measured 2 instead
+of 1. This is a **silent wrong number**, not a rendering artefact, so it is fixed here rather than
+deferred.
 
 ### 3. The same substitution works or does nothing depending on the chart's key
 
@@ -115,36 +139,61 @@ view renders Dmaj7 where the chart says Bm"*. Neither states the song's key, so 
 B♭ chart are **equally conforming readings** — and the code picks between them through
 `preferFlatForKey`. The requirement is specified; the spelling of the match is not.
 
-**The decision, genuinely open.** Three candidates, three blast radii:
+**The decision, taken: option 1, look up both spellings.** The whole change is inside
+`annotations.js`, no stored row is touched, and annotations written before the fix start working.
+Options 2 and 3 are not taken: option 2 needs a migration for existing `personal_annotations` rows
+and stops the stored anchor being what the musician typed; option 3 pushes a display concern into
+stored content, which `features/music-theory.feature:62` forbids.
 
-1. **Look up both spellings** — on a miss, retry the enharmonic equivalent. The whole change is
-   inside `annotations.js`, no stored row is touched, and annotations written before the fix start
-   working. Cost: two enharmonically equal anchors (`"Bb"` and `"A#"`) now both match and one
-   silently wins. `Object.keys` order is not an acceptable tie-break.
-2. **Normalise the anchor to the base key's preference at write time** — the annotation is stored
-   in the chart's own spelling, so lookup ambiguity never arises. Cost: a migration, or a read-time
-   re-key of existing `personal_annotations` rows, and the stored anchor stops being what the
-   musician typed. It is also the only option that needs finding **B**, below.
-3. **Normalise in the parser** — the anchor folds to one canonical spelling at parse. Cost: the
-   parser does not know the key at that point, and it pushes a display concern into stored content,
-   which `features/music-theory.feature:62` forbids.
+The tradeoff is accepted: two enharmonically equal anchors (`"Bb"` and `"A#"`) now both match, and
+one wins. **`Object.keys` order is not the tie-break.** The order is explicit and fixed, and it is
+the tie-break this change was required to state:
 
-**Recommendation: option 1**, as the only one that repairs existing stored annotations with no
-migration and no rewrite. The tradeoff stated plainly: it accepts a rarer silent *wrong* hit in
-exchange for eliminating the common silent *miss*, so whoever implements it **must** also state
-the tie-break for the enharmonic collision or the change is not ready. This is a recommendation,
-not a decision, and the maintainer owns it.
+1. the **concrete** key — the derived spelling, reverse-transposed with the base key's preference
+   (the existing lookup, unchanged, and the one every Gherkin-pinned scenario depends on);
+2. the **alternate** enharmonic of that concrete key — the same reverse transpose with the opposite
+   spelling preference;
+3. the **anchor as the musician typed it**, for a whole number of semitones only.
 
-**Dependency on finding B.** `preferFlatForKey` (`src/lib/transpose.js:134-136`) is the exact
-function `fix-key-spelling-preference` is about, and B's rule — derive flatness from the key's own
-spelling instead of `FLAT_KEYS`' six hardcoded names — is a **prerequisite** for a correct fix
-here: while `preferFlatForKey('Cb')` is `false`, a C♭ chart reverse-transposes sharp-spelled and
-reproduces this same silent miss for the flattest major key there is. B is **not** folded in —
-different function, different call sites (`transposeKey` and the section-wide `preferFlat` at
-`:179` for B, `applySubstitution` for this change), and a change with two rules cannot be tested
-against one feature file. B is also **not sufficient**: for a C-major chart `preferFlatForKey('C')`
-is `false` before and after, so `applySubstitution('Bb', 0, map, 'C')` returns `"Bb"` identically
-once B lands. B is necessary; the decision above is what fixes the reported behaviour.
+A written spelling therefore can never override a derived one, so a deliberately-chosen enharmonic
+spelling is not silently replaced by the module's preference. Only when neither derived spelling is
+in the map does the typed anchor get a turn, and it is last.
+
+**A third lookup was added at apply time, beyond this proposal's option 1.** Inverting the
+characterization test surfaced a case the two derived lookups cannot cover: an anchor typed in the
+**rendered** spelling, e.g. `{"Am": "G/B"}` against the chord `Am`. The derived name is `Gm`, so
+both derived lookups miss, and the chord came back **untransposed** — the most expensive shape of
+this defect, because the musician's substitution is ignored *and* the pitch is wrong. The typed
+anchor covers it, and it is the same class of accommodation as the enharmonic retry: the anchor is
+human-entered text, not something this module produced.
+
+That third lookup is **gated on `Number.isInteger(semitones)`**, and the gate is load-bearing. A
+fractional amount has no valid reverse transpose, so both derived spellings degenerate to the same
+non-note; without the gate the typed anchor would match across two different key spaces and render
+`'undefinedmaj7'`. With the gate, a fractional amount matches nothing and the chord passes through —
+the pre-existing behaviour, which `fix-unspecified-crashes` (#223) is changing independently. **This
+PR and #223 both touch that assertion; whichever lands second needs the other.**
+
+**Three Gherkin-pinned scenarios were verified byte-identical before and after**, which is the
+evidence that widening the lookup did not weaken the specified contract:
+`applySubstitution('Bm', 0, {Bm:'Dmaj7'}, 'C')` → `"Dmaj7"`,
+`applySubstitution('Am', 2, {Gm:'G/B'}, 'C')` → `"A/B"`, and
+`applySubstitution('B', 1, {Bb:'C'}, 'Bb')` → `"Db"`.
+
+**Dependency on finding B — and it is a real one.** `preferFlatForKey`
+(`src/domain/music/transpose.js`) is the exact function `fix-key-spelling-preference` (#219) is
+about, and B's rule — derive flatness from the key's own spelling instead of `FLAT_KEYS`' six
+hardcoded names — is a **prerequisite** for a durable fix here: while `preferFlatForKey('Cb')` is
+`false`, a C-flat chart reverse-transposes sharp-spelled and reproduces this same silent miss for
+the flattest major key there is. B is **not** folded in — different function, different call sites,
+and a change with two rules cannot be tested against one feature file.
+
+**What this PR does and does not buy, stated plainly.** The lookup change repairs the reported
+behaviour for C-major and every other sharp-spelled chart, with or without B. The **C-flat edge
+stays open until B lands**, and this PR does not claim to close it. B is also **not sufficient** on
+its own: for a C-major chart `preferFlatForKey('C')` is `false` before and after, so B alone leaves
+`applySubstitution('Bb', 0, map, 'C')` returning `"Bb"` identically once it lands. B is necessary for
+full coverage; the lookup change is what actually fixes the reported behaviour.
 
 ## Scope
 
@@ -181,9 +230,16 @@ None.
 - `substitutions-and-coverage` (new capability spec — the repository has no
   `openspec/specs/substitutions-and-coverage/` today, so **this change creates it**. Its entire
   content is the anchor-matching requirement, which is what finding 3 leaves unspecified.)
-- `music-theory` (new capability spec — the repository has no `openspec/specs/music-theory/` today;
-  `fix-key-spelling-preference` and `fix-parser-sectional-key` also create it, so **one** owns the
-  file and this appends the case and unicode-accidental requirements only. Owner at apply time.)
+- `music-theory` (new capability spec — the repository has no `openspec/specs/music-theory/` today,
+  so **this change creates it**.)
+
+**The ownership hazard did not materialise, and that is verified, not assumed.** This proposal
+predicted that `fix-key-spelling-preference` (#219) and `fix-parser-sectional-key` (#218) would also
+create `music-theory/spec.md` and that "one owns the file, the others append". At apply time **all 16
+`fix/*` branches were checked and not one of them adds any file under `openspec/specs/`** — every one
+of them carries the same nine specs `main` has. So this change owns both new files outright and the
+append-order question does not arise. If a sibling later adds `music-theory/spec.md`, this is the merge
+conflict to expect, and it is a text conflict in a new file, not a behavioural one.
 
 ## Approach
 
@@ -204,29 +260,68 @@ wrong without saying so.**
 
 | Area | Impact | Description |
 |------|--------|-------------|
-| `src/lib/transpose.js` | Modified | `CHORD_RE` at `:79` (case), the key regex at `:106` and the note tables at `:42-43` (unicode accidental) |
-| `src/lib/annotations.js` | Modified | `applySubstitution` `:82-88` — the `concrete` lookup key at `:85`, and the docstring claim at `:71-73` |
-| `src/lib/chordpro/parser.js` | Possibly | the token is stored verbatim at `:35`; parser-level normalisation is option 3, out of scope |
-| `src/components/notation/ChordProRenderer.jsx` | Confirmed | the one `applySubstitution` render call at `:40`; `baseKey` defaults to `''` at `:66` |
-| `SongDetail.jsx` `:977`, `Practice.jsx` `:209`, `SubstitutionAssignment.jsx` `:59` | Confirmed | each passes `baseKey={parsed?.key}` into that render |
-| `src/domain/music/transpose.test.js` | New test | case and unicode-accidental inputs — confirmed at apply time |
-| `annotations.test.js` | Modified | the enharmonic lookup — post-M0a path **confirmed at apply time**; absent from the M0a table |
-| `features/music-theory.feature` | Modified | the case-sensitivity and unicode-accidental scenarios |
-| `personal-preferences-and-adaptations.feature`, `substitutions-and-coverage.feature` | Modified | the key is missing from `:189-195` and `:67-71` |
-| `openspec/specs/substitutions-and-coverage/spec.md` | New | capability spec |
-| `openspec/specs/music-theory/spec.md` | Modified | append to a sibling's spec |
+| `src/domain/music/transpose.js` | Modified | `CHORD_RE` (case + both unicode accidentals + `Bes`), the new `normalizeRoot`, the key regex, and `semitonesBetween`'s regex |
+| `src/domain/music/annotations.js` | Modified | `applySubstitution` — the single `concrete` lookup became a three-step, explicitly ordered lookup |
+| `src/domain/music/transpose.test.js` | Modified | three bug-pinning assertions inverted, two added |
+| `src/domain/music/annotations.test.js` | Modified | three bug-pinning assertions inverted, one named and held for #223 |
+| `features/music-theory.feature` | Modified | +3 scenarios (656 → 659) |
+| `src/domain/chart/parser.js` | Confirmed, unchanged | the token really is stored verbatim, which is what makes findings 1 and 2 reachable |
+| `src/ui/patterns/ChordProRenderer.jsx` and the three `baseKey` callers | Confirmed, unchanged | they only pass `baseKey`; this change is display-side and needs no caller edit |
 
-## Verification
+**Paths confirmed at apply time.** The `src/lib/…` paths this proposal was written against are all
+post-M0a now: `src/lib/transpose.js` → `src/domain/music/transpose.js`, `src/lib/annotations.js` →
+`src/domain/music/annotations.js`, `src/lib/chordpro/parser.js` → `src/domain/chart/parser.js`. The
+render call sites named above were re-located and need no change, because every one of them only
+supplies `baseKey`.
 
-- `pnpm test` — `transpose.test.js` and `annotations.test.js` are the gate. Finding 3 is the one
-  that matters: a test asserting `applySubstitution('Bb', 0, {Bb:'A'}, 'C')` returns `"A"` under
-  the chosen decision **fails today**, and its red-to-green diff is the evidence. Green while the
-  `"Bb"` output remains means the fix did nothing.
-- `pnpm typecheck && pnpm lint && pnpm build`. Typecheck is **not in CI** (`AGENTS.md`) — run it
-  locally and do not present a green CI as covering it.
-- Manual, for all three, because each is a rendering claim: a chart containing `[am]` transposed
-  +3; a key of `B♭m` transposed +2; and a personal `"Bb" -> "A"` substitution on a **C-major**
-  chart — the case no unit test can be talked out of.
+## Verification — actual results, not intentions
+
+All four gates were run and all four exit 0. Nothing below is a plan.
+
+| Gate | Result |
+|---|---|
+| `pnpm test` | **236 passed** (main: 235). 3 bug-pinning assertions inverted, 3 added. |
+| `pnpm typecheck` | exit 0. It **caught a real error** during this work — `normalizeRoot` returns `string \| null` and two call sites passed it straight into `noteIndex`, which is what forced the explicit `baseRoot`/`targetRoot` guards in `semitonesBetween`. |
+| `pnpm lint` | exit 0. |
+| `pnpm build` | exit 0, 195 modules. |
+| `checkJs` baseline | 48 files, unchanged from main — the baseline did not silently die. |
+
+**The red-to-green evidence, which is the point.** Each of the three findings had a characterization
+assertion pinning the *broken* answer, and each was inverted rather than deleted:
+
+| Finding | Was pinned | Is now |
+|---|---|---|
+| 1. lowercase chord | `transposeChord('c', 1) === 'c'`, with the comment *"Lowercase is NOT supported: the root regex is `[A-G]` uppercase only"* — the regex had become the specification | `'C#'` |
+| 2. unicode accidental | `transposeKey('B♭', 2) === 'C#♭'`, with the comment that the flat *"rides along in the suffix"* | `'C'` for `B♭`, `Bb` and `Bes`; `'D#'` for `C♯` |
+| 3. flat anchor | `applySubstitution('Bb', 0, {Bb:'C'}, 'C') === 'Bb'` — the *miss* was the expectation, and the sibling assertion showed it applying in key `Bb` | `'C'` in both keys |
+
+**Three of my own expectations were wrong and the suite caught all three.** `bm` +3 is `Dm` not
+`C#m`; `F♯m` +2 is `G#m` not `Gm`; `semitonesBetween('C♯','D')` is 1 not 2. Each was my arithmetic,
+not the module's, and each is now asserted at the value the module actually produces after checking
+it is the musically correct one. **Five of my own wrong claims have now been caught by execution
+across this work, which is the reason nothing above is stated without a number attached to it.**
+
+**A correction to a claim made earlier in this work, and it matters for every future PR.**
+`pnpm build` was described as "the only coverage of imports — prove it by breaking one on purpose".
+That is **false**, and it was measured rather than argued:
+
+- `pnpm build` with a deliberately broken import: prints
+  `"transposeNOPE" is not exported by …` — and **exits 0**, still writing `dist/`. Rollup classifies
+  it as a warning.
+- `pnpm test` with the same break: exit 1 — but only **incidentally**, because the tests happen to
+  exercise the functions whose imports went missing.
+- `pnpm lint` with the same break: **exit 1**, `no-undef` naming every call site. This is the real
+  import gate, and it comes from `eslint:recommended` rather than an explicit rule in the config.
+
+So a green build proves nothing about imports, and a green CI run catches a broken import only
+through lint or through incidental test coverage. **Lint is the gate to rely on.**
+
+**Not verified, and stated as such.** No rendering claim here was checked in a browser: this is a
+display-side change reached through `ChordProRenderer`, and the three scenarios added to the Gherkin
+are specifications, not executed UI tests — there is no jsdom and no testing-library in this
+repository, so **no `.feature` file is executed by any gate**. `features/*.feature` is product truth
+that nothing runs. A reviewer should eyeball a chart containing `[am]`, a key of `B♭m`, and a
+`"Bb" -> "C"` substitution on a C-major chart before merging.
 
 ## Rollback
 
@@ -246,16 +341,30 @@ display-side and fully revertible.
    forbids.
 3. **Nothing lands before M0b (#171).** The characterization suite is the only regression net this
    repository has, and the substitution fix rewrites an assertion inside it.
-4. **Finding 3's decision is open and is not taken here.** Enharmonic double lookup, write-time
-   normalisation, or parser normalisation. This change recommends the first and states the
-   tie-break it still needs; the maintainer picks. An implementation that does not first record the
-   decision has smuggled it in.
-5. **Finding B is a dependency, not part of this change.** `preferFlatForKey` is B's function and
+4. **All three decisions were taken before the code was written, and are recorded in the Problem
+   section above.** Lowercase chords are accepted and normalised at render time. Both unicode
+   accidentals are folded into the ASCII spelling at render time. The anchor lookup is a three-step
+   ordered fallback. The order is the tie-break and it is explicit, so the enharmonic collision this
+   change knowingly introduces has a defined winner rather than an `Object.keys` accident.
+5. **A fourth lookup was added beyond what was decided, and it is declared rather than smuggled:**
+   the anchor as the musician typed it, third in the order and gated on a whole number of
+   semitones. It exists because inverting the characterization test surfaced a case the two derived
+   spellings cannot reach, and it is the only change here that was **discovered by the test rather
+   than predicted by the proposal**. It is the one a reviewer should scrutinise hardest.
+6. **A lowercase KEY tonic is still not accepted, deliberately.** Extending it was implemented,
+   measured as a regression against `Am` and `Bbm` (a modifier legitimately starts with a letter),
+   and reverted. `atonal` would have become `Btonal`. A `{key: am}` is returned verbatim, exactly as
+   on main.
+7. **Finding B is a dependency, not part of this change.** `preferFlatForKey` is B's function and
    its fix; this references it and does not edit it. B is also **not sufficient** — the C-major case
-   is identical before and after — so the decision in point 4 is what actually fixes the reported
-   behaviour.
-6. **Stored chart content is never rewritten.** `features/music-theory.feature:62` makes the
+   is identical before and after — so the lookup change is what actually fixes the reported
+   behaviour, while the **C-flat edge stays open until B lands** and is not claimed as fixed here.
+8. **This change overlaps `fix-unspecified-crashes` (#223) on one assertion.** The fractional-semitone
+   case is named by both, and the `Number.isInteger` gate exists so the two do not contradict each
+   other. Whichever lands second needs the other; a ~2-line rebase, stated here rather than
+   discovered later.
+9. **Stored chart content is never rewritten.** `features/music-theory.feature:62` makes the
    concrete ChordPro text canonical. That constrains the decision rather than merely informing it.
-7. **Not merged with `fix-unspecified-crashes`,** the sibling half of the same list. The split is
+10. **Not merged with `fix-unspecified-crashes`,** the sibling half of the same list. The split is
    *whether a product decision is required*: those inputs are invalid under every reading, so they
    fix cleanly and ship first. These three cannot ship without an answer.
