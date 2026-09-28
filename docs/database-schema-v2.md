@@ -118,11 +118,18 @@ Personal chord substitutions are keyed to the CONCRETE chart chord (music-theory
 > and Congregation Projection patterns) never cross browser instances; a Realtime channel
 > with an anon SELECT policy would leak every active session to any anonymous subscriber.
 > Migration 0025 therefore adds ONE minimal capability row per (user, setlist) + an
-> unauthenticated polling RPC (`overlay_state`): the unguessable session uuid IS the
-> "audience_views-style expiring token" (§2.10.2), and `status` active|inactive IS the
+> unauthenticated polling RPC (`overlay_state`), and `status` active|inactive IS the
 > token window. The table is deny-by-default (authenticated lifecycle policies only) and
 > grants `overlay_state` EXECUTE to anon alone — the CEF source holds no JWT. Documented
 > deviation on the same pattern as 0023's `substitution_responses`.
+>
+> **Superseded in part by 0032.** 0025 made the row's `id` primary key the bearer.
+> The capability is now the dedicated `overlay_sessions.access_token` column, and the
+> RPC never accepts the primary key — 0025's own rationale ("one minimal capability
+> row") was right, its choice of which column carries the secret was not, because the
+> id is a URL path segment, a route parameter and a `localStorage` mirror rather than a
+> secret. Same pattern as `guardian_consents.revocation_token` (0017) and
+> `sharing_approval_token` (0020).
 
 ---
 
@@ -777,7 +784,7 @@ CREATE TABLE external_connections (
 Three places the future realtime layer plugs in — schema already carries the ids/payloads it needs, nothing more:
 
 1. **Shared setlist edits** (`setlist_items`, `setlist_collaborators`) — Supabase Realtime subscription on `setlist_id`; the conflict toast ("Julian is editing Song B") is client-layer advisory state expressed as a lock, not a DB row (`shared-setlist-collaboration`). `setlist_collaborators.can_edit` is the authority the realtime filter consults.
-2. **Live performance / projection sync** (`performances`, `service_blocks`, `audience_views`) — operator device and display follow the same row (slide index + current song) via a realtime channel; the persistent side is `service_blocks` + `outbox`. `obs-overlay` sessions map to `audience_views`-style expiring tokens: in Hito 5 (0025) the token is the `overlay_sessions.id` capability uuid and the window is the row's `status` (`active`|`inactive`), consumed by the public `overlay_state` polling RPC — see the §1.9 note.
+2. **Live performance / projection sync** (`performances`, `service_blocks`, `audience_views`) — operator device and display follow the same row (slide index + current song) via a realtime channel; the persistent side is `service_blocks` + `outbox`. `obs-overlay` sessions map to `audience_views`-style expiring tokens, and the window is the row's `status` (`active`|`inactive`), consumed by the public `overlay_state` polling RPC — see the §1.9 note. **Corrected by 0032:** 0025 used the `overlay_sessions.id` primary key as the capability uuid. That was the wrong bearer — the id is a URL path segment, a route parameter, and a `localStorage` mirror, so it is structurally exposed rather than secret. 0032 adds a dedicated `overlay_sessions.access_token` as the capability (the same pattern as `guardian_consents.revocation_token` in 0017 and `sharing_approval_token` in 0020) and leaves the primary key an ordinary identifier that the RPC never accepts. The practical gain is revocation: the token rotates within the row, so a leaked overlay URL dies without disabling the stream.
 3. **Offline merge on reconnect** — `outbox.seq` gives deterministic replay order; an edge function re-runs each `payload` against RLS and returns a `conflict` state for items the UI then surfaces (conflict resolution screen). This is the actual offline merge contract the suite needs — per-entity semantic merge rules are app logic, not schema.
 
 ---

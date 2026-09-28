@@ -67,7 +67,25 @@ comment on column public.overlay_sessions.access_token is
 -- (uuid), so the body is swapped in place under the same OID. The id-based door
 -- is therefore GONE, not deprecated — no second entry point survives that still
 -- accepts the primary key, and 0025's grants stay attached to this OID.
-create or replace function public.overlay_state(p_access_token uuid)
+-- DROP, THEN CREATE. This is not a style choice. PostgreSQL keys a function on
+-- (schema, name, argument TYPES) and REFUSES to rename an input parameter under
+-- CREATE OR REPLACE:
+--
+--     ERROR:  cannot change name of input parameter "p_session_id"
+--     HINT:   Use DROP FUNCTION overlay_state(uuid) first.
+--
+-- Both signatures are (uuid), so the types match and OR REPLACE still cannot do
+-- the job. Measured against the local stack, not assumed: the first version of
+-- this migration used OR REPLACE and failed to apply at all.
+--
+-- Dropping takes the function's grants with it, which is why the GRANT/REVOKE
+-- pair is repeated at the bottom of this migration. The gap between the two
+-- statements fails CLOSED — for an instant the function does not exist, so a
+-- caller gets "function does not exist" rather than reaching the old id-keyed
+-- body. A brief outage is the correct failure direction; a brief window in
+-- which a leaked id still reads the chart is not.
+drop function if exists public.overlay_state(uuid);
+create function public.overlay_state(p_access_token uuid)
 returns table (active boolean, title text, key text, body text,
                song_index integer, song_total integer, mode text)
 language plpgsql security definer set search_path = '' as $$
