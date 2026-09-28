@@ -79,10 +79,12 @@ const router = createBrowserRouter([
   },
   // Public overlay URL for the OBS Browser Source (Hito 5 #66). Deliberately
   // OUTSIDE AppLayout and the auth guards: the CEF source gets no nav chrome
-  // and no JWT — access is gated by the unguessable session uuid + the
-  // active/inactive status via the anon-visible overlay_state RPC.
+  // and no JWT — access is gated by a dedicated `overlay_sessions.access_token`
+  // capability column (0032) plus the active/inactive status, via the
+  // anon-visible overlay_state RPC. The param is that token, NOT the row's
+  // primary key: the id is an ordinary identifier and is not accepted by the RPC.
   {
-    path: '/overlay/:sessionId',
+    path: '/overlay/:token',
     element: <Overlay />,
   },
 ])

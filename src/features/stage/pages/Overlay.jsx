@@ -1,9 +1,10 @@
-// Public overlay page (Hito 5 #66): /overlay/:sessionId — the OBS Browser
+// Public overlay page (Hito 5 #66): /overlay/:token — the OBS Browser
 // Source URL. Polls the capability RPC overlay_state() every STATE_POLL_MS
 // and renders the chrome-free OverlayView. NO auth guard: the anon-visible
-// RPC serves an inactive row (zero song data) for unknown or inactive session
-// ids — the unguessable uuid IS the authorization. Any fetch failure renders
-// the inactive state; this page never crashes and never leaks song data.
+// RPC serves an inactive row (zero song data) for an unknown, rotated or
+// inactive token — the dedicated access_token IS the authorization, and the
+// row's primary key is not (0032). Any fetch failure renders the inactive
+// state; this page never crashes and never leaks song data.
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
@@ -22,7 +23,7 @@ const INACTIVE_STATE = {
 }
 
 export default function Overlay() {
-  const { sessionId } = useParams()
+  const { token } = useParams()
   const [state, setState] = useState(INACTIVE_STATE)
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function Overlay() {
     async function poll() {
       try {
         const { data, error } = await supabase.rpc('overlay_state', {
-          p_session_id: sessionId,
+          p_access_token: token,
         })
         if (cancelled) return
         setState(error ? INACTIVE_STATE : data?.[0] ?? INACTIVE_STATE)
@@ -46,7 +47,7 @@ export default function Overlay() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [sessionId])
+  }, [token])
 
   return <OverlayView state={state} />
 }

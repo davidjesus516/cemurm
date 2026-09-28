@@ -2,6 +2,22 @@
 
 Feature: `features/obs-overlay.feature` (8 scenarios) · Issue #66 · Branch `feat/hito5-obs` (base: `feat/hito5-midi` `e3732de`) · Stack: stacked-to-main, PR base `main`, Closes #66.
 
+> **The capability decision below CHANGED on 2026-09-27.** 0025 made the unguessable
+> session uuid the capability. That was wrong, and the correction is migration
+> **`0032_overlay_access_token.sql`**: the bearer is a dedicated
+> `overlay_sessions.access_token` column, and `overlay_state(p_access_token)` matches on
+> it instead of the row's PRIMARY KEY. The id is a structurally exposed identifier (a URL
+> path segment, a route parameter, a localStorage value), and — the part that was not
+> hypothetical — there was **no way to revoke a leaked overlay URL without visibly
+> stopping the stream**, because `status` was the token window and the id could not be
+> rotated (`enableOverlay` upserts on `('user_id','setlist_id')`, so a new id would break
+> the stable-URL contract).
+>
+> The original reasoning is kept below unchanged, because it explains why the id was
+> chosen and is the reason the correction was needed. Current record:
+> `odd/tasks/overlay-session-capability.md` and
+> `openspec/changes/fix-overlay-session-capability/proposal.md`.
+
 ## Objective
 
 A clean OBS Browser Source overlay for live streaming: stable overlay URL that shows the current song title, chords (on operator override), and setlist position — chrome-free, annotation-free, and valid ONLY while the operator authorizes the stream session.
@@ -12,7 +28,16 @@ External Display (#62) and Congregation Projection (#79) use client-only Broadca
 
 - Operator's app writes the current performance snapshot to a Supabase row (`overlay_sessions`).
 - The overlay is a PUBLIC URL (`/overlay/<sessionId>`) that polls a SECURITY DEFINER RPC `overlay_state(p_session_id)`.
-- The unguessable session uuid IS the capability: `anon` may call the RPC but gets NOTHING without a valid, ACTIVE session id — even the owner gets nothing when the session is inactive. This satisfies "valid only while I authorize the stream session", "inactive outside my session / no leak", and "disabled mid-stream → immediately inactive, no further data pushed" without building an auth flow for a CEF source.
+  **CHANGED in 0032:** the URL is `/overlay/<accessToken>` and the RPC is
+  `overlay_state(p_access_token)`; `sessionId` above is what 0025 shipped.
+- ~~The unguessable session uuid IS the capability~~ → **superseded in 0032: a dedicated
+  `access_token` column is the capability and the primary key is not.** `anon` may call
+  the RPC but gets NOTHING without a valid, ACTIVE token — even the owner gets nothing
+  when the session is inactive. This still satisfies "valid only while I authorize the
+  stream session", "inactive outside my session / no leak", and "disabled mid-stream →
+  immediately inactive, no further data pushed" without building an auth flow for a CEF
+  source; 0032 adds the fourth, which the uuid could not: revoking a leaked URL
+  (rotate the token) without ending the stream.
 
 ## Backend contract (0025 — `supabase/migrations/0025_overlay_sessions.sql`)
 
@@ -20,7 +45,8 @@ Table `public.overlay_sessions` — deny-by-default surface:
 
 | column | type | notes |
 | --- | --- | --- |
-| `id` | uuid pk default `gen_random_uuid()` | session id = overlay URL token (capability) |
+| `id` | uuid pk default `gen_random_uuid()` | session id — **CHANGED in 0032:** an ordinary identifier, NOT the overlay URL token |
+| `access_token` | uuid not null default `gen_random_uuid()` | **added by 0032** — the overlay URL token (the capability) |
 | `user_id` | uuid not null → auth.users | owner |
 | `setlist_id` | uuid not null → public.setlists | bound performance |
 | `status` | text not null default `'inactive'` | `'active'` \| `'inactive'` — enable/disable FLIP, never delete row |
@@ -39,9 +65,20 @@ Table `public.overlay_sessions` — deny-by-default surface:
   - Session missing OR `status <> 'active'` → single row `(false, '', '', '', 0, 0, '')`. **Never returns song data when inactive** — "no leak", "immediately serves inactive".
   - Active → the snapshot fields.
   - **`grant execute … to anon`** (and `revoke … from public`) — the CEF source has no JWT. The uuid is the capability; inactive ⇒ no data regardless of caller.
+  **CHANGED in 0032:** the grant shape is unchanged (`to anon` only, still revoked from
+  `public` and `authenticated`) and the empty-row contract is unchanged. What changed is
+  the bearer: the parameter is `p_access_token` and the lookup is on the `access_token`
+  column, so the id-based door no longer exists. Inactive ⇒ no data regardless of caller.
 - NOT transposing: overlay scope is "title, chords, setlist position" — the snapshot uses the chart as resolved by the stage (`song.body`), transpose is personal performance state and stays on the operator side.
 
 ## Client
+
+> The four lines below describe what PR #149 shipped, and the client contract has since
+> moved (0032): `enableOverlay` returns `{ id, accessToken }`, the localStorage mirror is
+> `cemurm:obs:token:<setlistId>` via `loadOverlayToken`/`saveOverlayToken`,
+> `OVERLAY_URL` takes the token, the route is `/overlay/:token` and
+> `rotateOverlayToken(setlistId)` is the new export. See
+> `odd/tasks/overlay-session-capability.md`.
 
 - `src/lib/overlay.js` — data layer:
   - `enableOverlay(setlistId, snapshot)` → upsert (onConflict `user_id,setlist_id`) status active + snapshot; returns row `id`.
