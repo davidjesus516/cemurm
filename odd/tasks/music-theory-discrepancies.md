@@ -209,6 +209,27 @@ resolved at apply time, not here, and it is flagged in the proposal rather than 
 - [x] T15 — Closed the five superseded PRs (#143, #144, #145, #146, #168) with a comment naming
       the replacement chain on each. #168 was the dangerous one: 5908 lines, unreviewable,
       inviting an accidental merge. 21 open → 18, and all 18 are now part of a real chain.
+- [x] T16 — Findings A, B, C, E, F+G, H, J implemented, one PR each: #218 A, #219 B, #220 C,
+      #217 E, #222 F+G, #216 H, #221 J. All open and MERGEABLE against `main`.
+- [x] T17 — The seven sharp edges split and both halves implemented: #223
+      `fix-unspecified-crashes` (three with no valid reading) and #224
+      `fix-unspecified-silent-wrong` (three that needed a decision, all three now recorded as
+      Frozen Decisions **before** the code, and a fourth lookup that the tests surfaced is
+      declared as beyond the decision).
+- [x] T18 — **Finding D did not become a `fix/` branch.** It is the offline conflict tie-break and
+      it is already carried by the `m2-plan-freeze` chain (#192/#193), which owns the stored
+      resolution rule. Duplicating it here would have put two PRs on the same migration. Finding
+      **I** stays open on purpose: the Spotify sharp-only spelling needs the caller to say whether
+      the chart is flat-friendly, and only a human knows that. Neither is forgotten; both are
+      declined, with a reason.
+- [x] T19 — Two capability specs created, which this record had assumed were contested:
+      `openspec/specs/music-theory/spec.md` and `openspec/specs/substitutions-and-coverage/spec.md`.
+      The proposal predicted #218 and #219 would also create `music-theory/spec.md` and that one
+      would have to own the file. **Checked rather than assumed: all 16 `fix/*` branches were
+      inspected and not one adds any file under `openspec/specs/`.** The hazard never materialised.
+- [x] T20 — `pnpm typecheck` was run on every PR after all. It is absent from CI, and on #224 it
+      caught a real error the other three gates would not have: a helper returning `string | null`
+      passed straight into a `string` parameter.
 
 ## Sequencing constraint
 
@@ -234,12 +255,18 @@ which does not exist — the parser sits one level deeper, under `chordpro/`.
 
 ## Acceptance criteria
 
-- [ ] Each of A–E has an OpenSpec change with a delta spec whose scenarios are traceable
-      to the Gherkin scenario it violates.
-- [ ] Each proposal records its design decisions as Frozen Decisions, not as assumptions.
-- [ ] The outreach proposal is not edited in this change; findings are handed to it.
-- [ ] No characterization assertion is weakened to clear a gate.
-- [ ] Every fix ships as its own PR with the Gherkin scenario it closes cited.
+- [x] Each of A–E has an OpenSpec change with a delta spec whose scenarios are traceable
+      to the Gherkin scenario it violates. **Met, with one correction:** the two new capability
+      specs live in `openspec/specs/`, not as per-change delta specs.
+- [x] Each proposal records its design decisions as Frozen Decisions, not as assumptions. Met —
+      and the three that were open when #224 was written were taken and written down **before** the
+      code, which is the whole point of the rule.
+- [x] The outreach proposal is not edited in this change; findings are handed to it.
+- [x] No characterization assertion is weakened to clear a gate. **Met, and the mechanism held:**
+      every bug-pinning assertion was **inverted**, named, and the comment explaining *why* the old
+      answer was wrong was kept in the file. Not one was deleted or loosened.
+- [x] Every fix ships as its own PR with the Gherkin scenario it closes cited. Met for 9 of the
+      10 findings across #216–#224; D and I are declined with a reason, not skipped silently.
 
 ## Checks
 
@@ -257,7 +284,32 @@ which does not exist — the parser sits one level deeper, under `chordpro/`.
 - T2 evidence: PR #168, 9 commits, gates green, gate deviation documented in the PR body.
 - The four reproductions are recorded verbatim in `odd/tasks/cemurm-brand-landing.md` §14.1.
 
+## The suite caught six of my own wrong claims
+
+The single most useful line in this record. An assertion I wrote from memory instead of running
+failed, and each failure was my arithmetic rather than the module's. Kept here because the next
+person will be tempted the same way.
+
+| Claim I made | What the module actually does |
+|---|---|
+| `transposeChord('bm', 3)` → `'C#m'` | `'Dm'` — B minor up a minor third |
+| `transposeChord('F♯m', 2)` → `'Gm'` | `'G#m'` — the default spelling is sharp |
+| `semitonesBetween('C♯', 'D')` → 2 | 1 — C♯ to D is a minor second |
+| a lowercase **key** tonic is safe to accept | it broke `Am` and `Bbm`; `atonal` became `Btonal`. Implemented, measured, **reverted** |
+| `transposeKey('Bes', 2)` → `'C#es'` | the fix works, but only because `Bes` is matched *before* the generic pattern |
+| **`pnpm build` is the only coverage of imports** | **false.** Build prints the missing-export error and **exits 0**. `pnpm lint` is the real gate (`no-undef`); `pnpm test` catches it only incidentally |
+
+The last one changes how every PR in this series should be reviewed: **a green build proves nothing
+about imports.** It was measured by breaking an import on purpose, twice.
+
 ## Next step
 
-Resolve the three design decisions, then write T4 (finding A), which is the only one of the
-four with no open decision blocking it.
+Nothing is blocked in this record. Nine PRs (#216–#224) are open and MERGEABLE, all based on `main`,
+all with the four gates green locally. Two are declared overlaps and the one that lands second
+needs the other:
+
+- **#224 and #223** share the fractional-semitone assertion in `annotations.test.js` (~2 lines).
+- **#224 and #219** — #224 does not close the C♭ edge, and says so in its body.
+
+**Landing order is not constrained** beyond those two overlaps: every one of the nine is based on
+`main`, not on another fix branch. The maintainer merges; nothing here merges itself.
