@@ -85,8 +85,8 @@ async function withReadThrough(key, fn) {
  * ponytail: single cache key — a filtered read overwrites the unfiltered
  * cache; acceptable until offline filtered reads matter (same note as
  * songs.js).
- * @param {import('./search.js').CatalogFilters} [filter]
- * @returns {Promise<import('./search.js').CatalogEntry[]>}
+ * @param {import('../../domain/library/search.js').CatalogFilters} [filter]
+ * @returns {Promise<import('../../domain/library/search.js').CatalogEntry[]>}
  */
 export function listPublicEntries(filter = {}) {
   return withErrorMapping(() => withReadThrough('publicLibrary:entries', async () => {

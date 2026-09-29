@@ -164,11 +164,11 @@ async function getSupabase() {
   if (!supabaseClient) supabaseClient = (await import('../supabase.js')).supabase
   return supabaseClient
 }
-/** @type {typeof import('../songs.js') | null} */
+/** @type {typeof import('./songs.js') | null} */
 let songsLib = null
 
 /**
- * @returns {Promise<typeof import('../songs.js')>}
+ * @returns {Promise<typeof import('./songs.js')>}
  */
 async function getSongs() {
   if (!songsLib) songsLib = await import('./songs.js')
@@ -405,7 +405,7 @@ async function approveMerge(userId, entry, targetId) {
     // those two), but it is a plain string here — the cast keeps the payload
     // honest about that runtime field without widening songs.js's SongInput.
     await updateSong(userId, targetId,
-      /** @type {Parameters<typeof import('../songs.js').updateSong>[2]} */ ({ [c.field]: c.chosen }), 'import')
+      /** @type {Parameters<typeof import('./songs.js').updateSong>[2]} */ ({ [c.field]: c.chosen }), 'import')
   }
 
   // 4. Audit the review — merge: canonical = target, group covers the flagged
@@ -438,7 +438,7 @@ async function approveSeparate(userId, entry) {
   // to '' — an import never declares a base key) and `license` is the 0028
   // songs_license_check vocabulary. songs.js itself is out of this slice.
   const created = await addSong(userId,
-    /** @type {Parameters<typeof import('../songs.js').addSong>[1]} */ (/** @type {unknown} */ ({
+    /** @type {Parameters<typeof import('./songs.js').addSong>[1]} */ (/** @type {unknown} */ ({
       title: parsed.title,
       key: null,
       body: parsed.chordpro,

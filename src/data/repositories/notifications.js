@@ -98,7 +98,7 @@ import { offlineGet, offlineSet } from '../../offline/cache.js'
 
 // ponytail: lazy import — supabase.js reads import.meta.env at eval time,
 // which is undefined in bare node (this module's demo runs there).
-/** @type {typeof import('./supabase.js').supabase | null} */
+/** @type {typeof import('../supabase.js').supabase | null} */
 let supabaseClient = null
 /**
  * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}

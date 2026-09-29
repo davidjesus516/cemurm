@@ -169,7 +169,7 @@ const CONNECTION_PREFIX = 'cemurm:spotify:connection:'
 
 // Lazy-imported Supabase client (same pattern as annotations.js/scaleCatalog:
 // this module stays import-safe in node — every DB helper resolves it on use).
-/** @type {typeof import('./supabase.js').supabase | null} */
+/** @type {typeof import('../supabase.js').supabase | null} */
 let supabaseClient = null
 /**
  * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}

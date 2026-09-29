@@ -157,7 +157,7 @@ import { enqueueOp } from '../../offline/queue.js'
  * @property {string | null} [substituteAssignmentId]
  */
 
-/** @type {typeof import('./supabase.js').supabase | null} */
+/** @type {typeof import('../supabase.js').supabase | null} */
 let supabaseClient = null
 /**
  * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}

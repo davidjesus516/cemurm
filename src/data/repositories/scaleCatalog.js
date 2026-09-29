@@ -23,7 +23,7 @@ let cache = null
 
 /**
  * Lazy-imported Supabase client (same pattern as annotations.js).
- * @type {typeof import('./supabase.js').supabase | null}
+ * @type {typeof import('../supabase.js').supabase | null}
  */
 let supabaseClient = null
 /**
