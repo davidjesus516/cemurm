@@ -1,3 +1,4 @@
+// @ts-check
 // Duplicate detection + dedupe decision audit (Hito 5 #78): data layer over
 // songs + song_duplicates (0028 opened the owner-scoped surface). Pure title
 // normalization is Node-safe; DB helpers lazy-import supabase like the rest
@@ -14,9 +15,47 @@
 // - getDuplicateGroup: the group row for the SongDetail badge (merged vs
 //   kept-separate state).
 
+/**
+ * Owned song identity the dedupe heuristic compares: id + title. The query
+ * below selects exactly those two columns, and the queue injects the same
+ * row set in tests/demo.
+ * @typedef {object} OwnedSongTitle
+ * @property {string} id
+ * @property {string} title
+ */
+
+/**
+ * song_duplicates row (0001:133, access opened by 0028) — one row per dedupe
+ * review. getDuplicateGroup selects these columns; recordDuplicateDecision
+ * inserts them. canonical_id set = merged, NULL = reviewed kept-separate.
+ * @typedef {object} RawSongDuplicatesRow
+ * @property {string} id
+ * @property {string[]} song_ids
+ * @property {string | null} canonical_id
+ * @property {string | null} merged_from
+ * @property {string | null} decided_by
+ * @property {string | null} decided_at
+ * @property {boolean} unmerge_ok
+ */
+
+/**
+ * Dedupe review decision. A group of ONE is legal (an import merged into its
+ * only flagged candidate still audits), so `songIds` is never empty at the
+ * call site that reaches the insert.
+ * @typedef {object} DuplicateDecision
+ * @property {string[]} songIds
+ * @property {string | null} [canonicalId]
+ * @property {string | null} [mergedFrom]
+ */
+
 // Lazy supabase (house pattern): the module graph stays Node-safe so the pure
 // demo runs without Vite env vars; DB helpers load the client on first use.
-let supabaseClient
+/** @type {typeof import('../supabase.js').supabase | null} */
+let supabaseClient = null
+
+/**
+ * @returns {Promise<import('@supabase/supabase-js').SupabaseClient>}
+ */
 async function getSupabase() {
   if (!supabaseClient) supabaseClient = (await import('../supabase.js')).supabase
   return supabaseClient
@@ -27,6 +66,10 @@ async function getSupabase() {
  * group, collapse to alphanumerics + spaces, trim.
  *   'Amazing Grace (traditional)' → 'amazing grace'
  *   'Imagine '                   → 'imagine'
+ * `unknown` because the body String()-coerces whatever it is handed (callers
+ * pass raw nullable row fields, never assume a string).
+ * @param {unknown} t
+ * @returns {string}
  */
 export function normalizeTitle(t) {
   return String(t || '')
@@ -39,6 +82,8 @@ export function normalizeTitle(t) {
 /**
  * The user's active song titles (id + title, created_by + not deleted) —
  * one query, consumed by the queue's per-entry detection.
+ * @param {string} userId
+ * @returns {Promise<OwnedSongTitle[]>}
  */
 export async function listOwnedSongTitles(userId) {
   const supabase = await getSupabase()
@@ -59,6 +104,11 @@ export async function listOwnedSongTitles(userId) {
  * itself (used when reviewing an existing song's group). `ownedTitles` is an
  * optional injected row set (tests/demo) — the production path performs the
  * single owned-titles query itself.
+ * @param {string} userId
+ * @param {string} title
+ * @param {string | null} excludeSongId
+ * @param {OwnedSongTitle[] | null} [ownedTitles]
+ * @returns {Promise<OwnedSongTitle[]>}
  */
 export async function findDuplicateCandidates(userId, title, excludeSongId, ownedTitles = null) {
   const query = String(title || '').trim()
@@ -87,6 +137,9 @@ export async function findDuplicateCandidates(userId, title, excludeSongId, owne
  * of ONE is legal: an import merged into its only flagged candidate still
  * audits the merge. The insert is owner-scoped by 0028 RLS (the group must
  * contain ≥1 owned song).
+ * @param {string} userId
+ * @param {DuplicateDecision} decision
+ * @returns {Promise<RawSongDuplicatesRow>}
  */
 export async function recordDuplicateDecision(userId, { songIds, canonicalId = null, mergedFrom = null }) {
   if (!Array.isArray(songIds) || !songIds.length) {
@@ -112,6 +165,8 @@ export async function recordDuplicateDecision(userId, { songIds, canonicalId = n
  * The duplicate-group row a song participates in (as member or canonical) —
  * merged vs kept-separate state for the SongDetail badge. Returns the most
  * recent group or null.
+ * @param {string} songId
+ * @returns {Promise<RawSongDuplicatesRow | null>}
  */
 export async function getDuplicateGroup(songId) {
   const supabase = await getSupabase()
@@ -128,6 +183,10 @@ export async function getDuplicateGroup(songId) {
 
 // Self-check: node -e "import('./src/data/repositories/duplicates.js').then(m => m.demo())"
 export async function demo() {
+  /**
+   * @param {unknown} cond
+   * @param {string} msg
+   */
   const assert = (cond, msg) => {
     if (!cond) throw new Error(`duplicates demo FAILED: ${msg}`)
   }
