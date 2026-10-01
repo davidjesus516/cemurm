@@ -83,11 +83,12 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **32 files on `main`**, highest `0033_feedback.sql`. The `0020`–`0022` window is
-**closed** — `0020_review_batch1.sql`, `0021_plan_freeze.sql` and `0022_projection.sql` are all on
-`main`. `0029` is taken as well (`0029_fail_closed_minors.sql`). `0032` is **claimed but not
-landed**: `0032_overlay_access_token.sql` rides in #225, so the next free number after `0033` is
-`0034` unless #225 lands first and takes it.
+Migrations: **33 files on `main`**, numbered `0001`–`0033` with **no gap in between**. The
+`0020`–`0022` window is **closed** — `0020_review_batch1.sql`, `0021_plan_freeze.sql` and
+`0022_projection.sql` are all on `main`. `0029` is taken as well (`0029_fail_closed_minors.sql`),
+and `0032` went with it (`0032_overlay_access_token.sql`, the OBS overlay capability token, landed
+in #225). **The next free number is `0034`,** and it is free unconditionally — nothing is claiming
+it any more.
 
 Before adding a migration, check every branch for a collision:
 `git branch -r | xargs -I{} git ls-tree --name-only {} -- supabase/migrations/`. Two cautions on
@@ -111,8 +112,9 @@ creates what an earlier one references must sort **before** it.
   matter, so take the next free number, `0034` today. `0033_feedback.sql` is the precedent for
   renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
 - **Must sort before an existing migration** → you cannot simply take `0034`. Land it in a genuinely
-  free earlier slot, or renumber what it depends on. `0032` is the only free-looking number below
-  `0033` and it is claimed by #225, so this case needs a decision rather than a guess.
+  free earlier slot, or renumber what it depends on. **There is no such slot left**: `0001`–`0033`
+  is contiguous, so every position below `0033` is taken. This case now always needs a decision
+  (renumber the dependency, or reorder the filenames) rather than a free number to drop into.
 
 Never commit an ad-hoc query script in `supabase/migrations/` (that's why `scripts/smoke/` is a
 sibling directory). Never push the seed with `supabase db push`.
