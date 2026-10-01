@@ -26,8 +26,20 @@ nothing. Tests are colocated as `<module>.test.js` beside the module under test,
 finding to report, never a reason to edit the source or weaken the assertion. "Verification"
 for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
 
-**Vitest is pinned to 3.2.7 deliberately.** Vitest 5 declares `vite ^6.4||^7||^8` as a peer and
-fails hard against Vite 5.4.21. Do not bump it without moving Vite first.
+**Vite and Vitest move as a pair, never one alone.** Vitest declares Vite as a peer, so a Vitest
+major fails hard against the Vite major it was not built for — Vitest 5 wants `vite ^6.4||^7||^8`
+and dies against Vite 5. That is why this was pinned at Vitest 3.2.7 / Vite 5.4.21 for so long:
+moving one without the other was guaranteed to break. #236 moved both together (Vite 6.4.3 /
+Vitest 5.0.2) and the suite passed unchanged. **The rule is the pairing, not the specific
+versions** — when one major moves, move the other in the same change and install for real.
+
+Verifying a dependency bump here takes one step that is easy to skip and that silently invalidates
+the result: a worktree symlinked to the repo's `node_modules` runs the *old* versions, so every gate
+passes against a dependency set nobody will ship. Install the new lockfile into a worktree with its
+**own** `node_modules` (`pnpm install --frozen-lockfile`, never `npm install`) and run the gates
+against that. Compare the built bundle before and after as well: a major bump can change output
+size with no gate noticing. For #236 the JS bundle moved +3.2 kB (+0.35%), and the >500 kB chunk
+warning was already there on Vite 5.
 
 ## CI does not run typecheck
 
