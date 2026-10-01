@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 // Chrome-free audience view for the OBS overlay (Hito 5 #66). Rendered by the
-// public /overlay/:sessionId page as it polls overlay_state(). This is a
+// public /overlay/:token page as it polls overlay_state(). This is a
 // STREAMING surface, not the stage: big title, small key, compact N / M
 // position chip and (on operator override) the chord chart. NEVER renders
 // performer annotations — sections of type 'comment' are skipped entirely

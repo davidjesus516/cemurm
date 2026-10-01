@@ -17,7 +17,7 @@ import {
   setOverlayMode,
   pushOverlayState,
   getOverlaySession,
-  loadOverlayId,
+  loadOverlayToken,
   OVERLAY_URL,
 } from '../../../data/repositories/overlay.js'
 
@@ -51,10 +51,10 @@ export default function StageMode() {
   const [completeError, setCompleteError] = useState('')
 
   // OBS overlay (Hito 5 #66): operator-side stream session state. The public
-  // /overlay/:sessionId page is driven by a server-backed row, so the local
-  // id + status live here only as the operator's control surface.
+  // /overlay/:token page is driven by a server-backed row, so the local
+  // access token + status live here only as the operator's control surface.
   const [streamOpen, setStreamOpen] = useState(false)
-  const [overlaySessionId, setOverlaySessionId] = useState(null)
+  const [overlayToken, setOverlayToken] = useState(null)
   const [overlayEnabled, setOverlayEnabled] = useState(false)
   const [overlayMode, setOverlayModeState] = useState('title')
   const [overlayBusy, setOverlayBusy] = useState(false)
@@ -225,7 +225,7 @@ export default function StageMode() {
   }, [song?.id, song?.isPdf, song?.objectKey])
 
   // ── OBS overlay (Hito 5 #66) ──────────────────────────────────────────────
-  // The public /overlay/:sessionId page (OBS Browser Source) mirrors this
+  // The public /overlay/:token page (OBS Browser Source) mirrors this
   // setlist's performance through a server-backed overlay_sessions row. The
   // snapshot pushes the CHART AS RESOLVED by the stage (song.body) — transpose
   // and capo are personal performance state and never reach the overlay.
@@ -244,26 +244,28 @@ export default function StageMode() {
     [index, songs.length, song, parsed],
   )
 
-  // Recover the session id + live status when the setlist loads: DB row first
+  // Recover the access token + live status when the setlist loads: DB row first
   // (source of truth), localStorage mirror as the offline fallback. While the
   // DB says nothing, the overlay stays disabled — a safe default; re-enabling
-  // from the panel refreshes the row anyway.
+  // from the panel refreshes the row anyway. The mirror holds the TOKEN under
+  // its own prefix (0032), so a `cemurm:obs:id:` value written by the id-based
+  // version is never read here.
   useEffect(() => {
     if (!setlist) return
     let cancelled = false
-    const localId = loadOverlayId(setlist.id)
-    setOverlaySessionId(localId ?? null)
+    const localToken = loadOverlayToken(setlist.id)
+    setOverlayToken(localToken ?? null)
     setOverlayEnabled(false)
     setOverlayModeState('title')
     async function restoreOverlay() {
       try {
         const session = await getOverlaySession(setlist.id)
         if (cancelled) return
-        setOverlaySessionId(session?.id ?? localId ?? null)
+        setOverlayToken(session?.access_token ?? localToken ?? null)
         setOverlayEnabled(session?.status === 'active')
         setOverlayModeState(session?.mode ?? 'title')
       } catch {
-        // DB read failed (offline/RLS) — keep the local-mirror id, stay
+        // DB read failed (offline/RLS) — keep the local-mirror token, stay
         // disabled; never block stage mode.
         if (cancelled) return
       }
@@ -291,18 +293,19 @@ export default function StageMode() {
     pushOverlayState(setlist.id, buildSnapshot())
   }, [setlist, song, buildSnapshot, overlayEnabled])
 
-  // Absolute URL for OBS: the relative OVERLAY_URL path + this origin.
+  // Absolute URL for OBS: the relative OVERLAY_URL path + this origin. The
+  // path segment is the access token (0032), never the row id.
   const overlayUrl =
-    overlaySessionId && typeof window !== 'undefined'
-      ? `${window.location.origin}${OVERLAY_URL(overlaySessionId)}`
+    overlayToken && typeof window !== 'undefined'
+      ? `${window.location.origin}${OVERLAY_URL(overlayToken)}`
       : ''
 
   async function handleEnableOverlay() {
     setOverlayError('')
     setOverlayBusy(true)
     try {
-      const { id } = await enableOverlay(setlist.id, buildSnapshot())
-      setOverlaySessionId(id)
+      const { accessToken } = await enableOverlay(setlist.id, buildSnapshot())
+      setOverlayToken(accessToken)
       setOverlayEnabled(true)
       setOverlayModeState('title')
     } catch (err) {
