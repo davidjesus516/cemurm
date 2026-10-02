@@ -24,10 +24,14 @@ jobs:
 
       - run: pnpm lint
 
+      # Type check sits BEFORE the visual gate, not after it. The gate exits 1
+      # on its first failing ratchet and is red on pristine main, which aborts
+      # the job: anything placed after it is silently skipped, which is how test
+      # and build have been reporting "skipped" instead of running.
+      - run: pnpm typecheck
+
       # Visual contract gate. Bash + grep only, so it needs no install step, and
-      # it deliberately sits after lint and before test. pnpm typecheck is NOT
-      # wired in here on purpose; see "Type checking is per-file opt-in" in
-      # AGENTS.md.
+      # it deliberately sits after lint and before test.
       - run: bash scripts/check-visual-contract.sh
 
       - run: pnpm test
