@@ -41,19 +41,16 @@ const miniBtnClass =
 const arrowBtn =
   'rounded border border-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary-elevated hover:bg-cem-elevated disabled:opacity-40'
 const dangerBtn =
-  'rounded-md border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-rose hover:bg-cem-elevated'
+  'rounded-md border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-amber hover:bg-cem-elevated'
 const miniInputClass =
   'w-full rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
 const keyBadge = 'rounded bg-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary-elevated'
 
-// Warning kind → dot color (validate_service_plan kinds: overrun, uncovered,
-// overlap, needs_work — messages render verbatim).
-const WARNING_DOT = {
-  overrun: 'bg-cem-amber',
-  overlap: 'bg-cem-rose',
-  uncovered: 'bg-cem-amber',
-  needs_work: 'bg-cem-sky',
-}
+// Every kind validate_service_plan returns (overrun, uncovered, overlap,
+// needs_work) is something the LEADDER must act on, so all four take the one
+// accent the palette has (check rule 02 retired the hue-per-severity dots; the
+// message next to the dot renders the kind verbatim and carries the meaning).
+const WARNING_DOT = 'bg-cem-amber'
 
 /** Block start = service start + start_offset_minutes (null when no service time). */
 function blockStartAt(service, block) {
@@ -196,7 +193,7 @@ function SwapSongForm({ serviceId, blockId, song, songs, onDone }) {
         ))}
       </select>
       <button type="submit" disabled={busy || !newSongId} className={miniBtnClass}>Swap</button>
-      {error && <span className="text-xs text-cem-rose">{error}</span>}
+      {error && <span className="text-xs text-cem-text">{error}</span>}
     </form>
   )
 }
@@ -277,7 +274,7 @@ function AssignForm({ serviceId, blockId, members, onDone }) {
         disabled={busy || !selected || !part.trim()} className={miniBtnClass}>
         {busy ? 'Assigning…' : 'Assign'}
       </button>
-      {error && <p className="text-xs text-cem-rose">{error}</p>}
+      {error && <p className="text-xs text-cem-text">{error}</p>}
     </div>
   )
 }
@@ -392,7 +389,7 @@ function BlockCard({ block, service, assignments, members, setlists, songs, isLe
           <div className="flex gap-2">
             <button type="submit" className={miniBtnClass}>Save</button>
           </div>
-          {error && <p className="text-xs text-cem-rose">{error}</p>}
+          {error && <p className="text-xs text-cem-text">{error}</p>}
         </form>
       )}
 
@@ -441,13 +438,13 @@ function BlockCard({ block, service, assignments, members, setlists, songs, isLe
                   <span className="rounded bg-cem-amber/10 px-1.5 py-0.5 text-xs text-cem-amber">substitute</span>
                 )}
                 {a.checkinAt ? (
-                  <span className="text-xs text-cem-emerald">Checked in {formatServiceWhen(a.checkinAt)}</span>
+                  <span className="text-xs text-cem-text">Checked in {formatServiceWhen(a.checkinAt)}</span>
                 ) : (
                   <span className="text-xs text-cem-secondary">Not checked in</span>
                 )}
                 {leaderEditable && (
                   <button type="button" onClick={() => handleUnassign(a)}
-                    className="text-xs font-medium text-cem-rose hover:underline">Remove</button>
+                    className="text-xs font-medium text-cem-amber hover:underline">Remove</button>
                 )}
               </li>
             ))}
@@ -459,7 +456,7 @@ function BlockCard({ block, service, assignments, members, setlists, songs, isLe
       </div>
 
       {error && !editOpen && (
-        <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-xs text-cem-rose">{error}</p>
+        <p className="mt-2 rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-xs text-cem-text">{error}</p>
       )}
     </li>
   )
@@ -679,7 +676,7 @@ export default function ServiceDetail() {
   if (!data) {
     return topError ? (
       <div>
-        <p className="rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{topError}</p>
+        <p className="rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{topError}</p>
         <Link to="/services" className="mt-4 inline-block text-sm font-medium text-cem-amber hover:underline">← Back to services</Link>
       </div>
     ) : null
@@ -712,7 +709,7 @@ export default function ServiceDetail() {
   return (
     <div className="mx-auto max-w-3xl">
       <Link to="/services" className="text-sm font-medium text-cem-amber hover:underline">← Back to services</Link>
-      {topError && <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{topError}</p>}
+      {topError && <p className="mt-3 rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{topError}</p>}
 
       {completed && (
         <p className="mt-3 rounded-md bg-cem-elevated px-3 py-2 text-sm text-cem-text">
@@ -768,7 +765,7 @@ export default function ServiceDetail() {
             <button type="submit" disabled={publishBusy} className={miniBtnClass}>
               {publishBusy ? 'Publishing…' : (service.status === 'published' ? 'Re-publish plan' : 'Publish plan')}
             </button>
-            {publishError && <p className="text-xs text-cem-rose">{publishError}</p>}
+            {publishError && <p className="text-xs text-cem-text">{publishError}</p>}
           </div>
         </form>
       )}
@@ -803,7 +800,7 @@ export default function ServiceDetail() {
           <ul className="mt-2 space-y-1">
             {warnings.map((w, i) => (
               <li key={`${w.kind}-${i}`} className="flex items-start gap-2 text-sm text-cem-text">
-                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${WARNING_DOT[w.kind] || 'bg-cem-secondary'}`} />
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${WARNING_DOT}`} />
                 {w.message}
               </li>
             ))}
@@ -817,7 +814,7 @@ export default function ServiceDetail() {
       {isLeader && (
         <section className="mt-6">
           <h2 className="text-lg font-semibold text-cem-text">Substitution requests</h2>
-          {subError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{subError}</p>}
+          {subError && <p className="mt-2 rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{subError}</p>}
           {subRequests.length === 0 ? (
             <p className="mt-2 text-sm text-cem-secondary">No substitution requests for this service yet.</p>
           ) : (
@@ -831,12 +828,15 @@ export default function ServiceDetail() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-cem-text">{req.part}</span>
                       <span className="rounded bg-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary-elevated">{req.original_name || 'member'}</span>
+                      {/* substitution_requests.status is 'open' | 'covered' |
+                          'closed' (0001_init.sql). Open is the one state the
+                          leader can still act on, so it keeps the accent; both
+                          resolved states are neutral chips and the rendered
+                          status text carries which one it is. */}
                       <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                        req.status === 'covered'
-                          ? 'bg-cem-emerald/10 text-cem-emerald'
-                          : req.status === 'open'
-                            ? 'bg-cem-amber/10 text-cem-amber'
-                            : 'bg-cem-elevated text-cem-secondary-elevated'
+                        req.status === 'open'
+                          ? 'bg-cem-amber/10 text-cem-amber'
+                          : 'bg-cem-elevated text-cem-secondary-elevated'
                       }`}>
                         {req.status}{req.scope === 'event' ? ' · event' : ''}
                       </span>
@@ -858,12 +858,15 @@ export default function ServiceDetail() {
                         {req.responses.map((r) => (
                           <li key={r.user_id} className="flex items-center gap-2 text-xs text-cem-text">
                             <span>{r.name || memberName(r.user_id) || `Member ${r.user_id.slice(0, 8)}`}</span>
+                            {/* substitution_responses.status is 'pending' | 'accepted' |
+                                'declined' (0023_substitutions.sql). Pending is
+                                the only unanswered one, so it keeps the accent;
+                                both answers are neutral chips with the status
+                                text rendered verbatim. */}
                             <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                              r.status === 'accepted'
-                                ? 'bg-cem-emerald/10 text-cem-emerald'
-                                : r.status === 'declined'
-                                  ? 'bg-cem-elevated text-cem-secondary-elevated'
-                                  : 'bg-cem-amber/10 text-cem-amber'
+                              r.status === 'pending'
+                                ? 'bg-cem-amber/10 text-cem-amber'
+                                : 'bg-cem-elevated text-cem-secondary-elevated'
                             }`}>{r.status}</span>
                           </li>
                         ))}
@@ -871,7 +874,7 @@ export default function ServiceDetail() {
                     )}
 
                     {req.status === 'covered' && (
-                      <p className="mt-2 text-xs font-medium text-cem-emerald">
+                      <p className="mt-2 text-xs font-medium text-cem-text">
                         Covered{accepted ? ` by ${accepted.name}` : ''}.
                       </p>
                     )}
@@ -981,7 +984,7 @@ export default function ServiceDetail() {
                         if (ctx.request_status === 'covered') {
                           return (
                             <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <span className="text-xs font-medium text-cem-emerald">Covered by {ctx.covered_name || 'a substitute'}.</span>
+                              <span className="text-xs font-medium text-cem-text">Covered by {ctx.covered_name || 'a substitute'}.</span>
                               {!completed && (
                                 <button type="button" onClick={() => handleReclaim(a)} className={miniBtnClass}>I&apos;m back</button>
                               )}
@@ -1005,7 +1008,7 @@ export default function ServiceDetail() {
               })}
             </ul>
           )}
-          {sheetError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{sheetError}</p>}
+          {sheetError && <p className="mt-2 rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{sheetError}</p>}
         </section>
       )}
 
@@ -1062,7 +1065,7 @@ export default function ServiceDetail() {
       {showHistory && (
         <section className="mt-3">
           <h2 className="text-lg font-semibold text-cem-text">Version history</h2>
-          {historyError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{historyError}</p>}
+          {historyError && <p className="mt-2 rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{historyError}</p>}
           {historyBusy ? (
             <p className="mt-2 text-sm text-cem-secondary">Loading…</p>
           ) : history.length === 0 ? (
@@ -1100,7 +1103,7 @@ export default function ServiceDetail() {
             </button>
           )}
         </div>
-        {reorderError && <p className="mt-2 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{reorderError}</p>}
+        {reorderError && <p className="mt-2 rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{reorderError}</p>}
         {displayBlocks.length === 0 ? (
           <p className="mt-2 text-sm text-cem-secondary">
             {versionedRead ? 'No blocks in the published version.' : 'No blocks yet.'}
@@ -1141,7 +1144,7 @@ export default function ServiceDetail() {
                 onChange={(e) => setAddDraft((p) => ({ ...p, startOffsetMinutes: e.target.value }))}
                 placeholder="Start offset (min)" className={`${miniInputClass} w-auto`} />
             </div>
-            {addError && <p className="text-xs text-cem-rose">{addError}</p>}
+            {addError && <p className="text-xs text-cem-text">{addError}</p>}
             <button type="submit" disabled={addingBusy} className={miniBtnClass}>
               {addingBusy ? 'Adding…' : 'Add block'}
             </button>

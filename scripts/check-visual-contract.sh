@@ -63,18 +63,36 @@ REPORT_CONFIG_TOKEN_COUNT=report
 # Measured against the working tree on the branch this gate landed on. Re-run
 # the script after lowering one; the printed count is the number to compare.
 #
-# 82 occurrences across 5 files: bg-black, text-white/*, border-white/*,
-# text-red-400. Tailwind's built-in palette, so they bypass the token layer
-# without ever being a "raw literal" in the CSS sense. Rule 01A covers raw
-# literals; this rule covers the token bypass.
-RATCHET_01B_MAX=82
-# 252 occurrences across 35 files, as the Tailwind class form
-# (cem-rose 177, cem-emerald 68, cem-sky 7, cem-coral 0). NOT zero: these four
+# 5 occurrences across 4 files, down from 92 (ceiling 82). Step 1 retired the
+# stage/projection surface: 87 were bg-black, text-white/*, border-white/*,
+# bg-white/* and ring-amber-500 on a projector or the musician's tablet, all
+# remapped onto an existing token with the opacity modifier kept — cem.stage.bg
+# (#000000) is Tailwind black exactly, and cem.amber (#f59e0b) is amber-500
+# exactly. What is left is NOT a stage site:
+#   * 4 modal scrims on tier-1 product surfaces -- bg-black/85 on
+#     ReportDialog.jsx (x2) and SongDetail.jsx, bg-black/50 on FeedbackForm.jsx.
+#     There is no scrim token, and adding one is palette growth, which rule 04
+#     exists to prevent and which this unit deliberately did not do. Note the
+#     stage surface's own scrim IS tokenised (StageMode.jsx uses
+#     bg-cem-stage-bg/85) because cem.stage.bg already is black -- the blocker
+#     for these four is the missing token in the cem namespace, not the value.
+#   * 1 text-red-400 on the foot-pedal error line in StageMode.jsx. No token
+#     equals Tailwind red-400 (#f87171): cem.rose is #f43f5e, so mapping it
+#     would trade a rule-01b occurrence for a rule-02 one, and cem.amber is a
+#     hue change to a live-performance surface. Both are worse than leaving it.
+RATCHET_01B_MAX=5
+# 234 occurrences across 36 files, as the Tailwind class form
+# (cem-rose 167, cem-emerald 63, cem-sky 4, cem-coral 0). NOT zero: these four
 # accents are declared in tailwind.config.js and used across the UI, they are
 # simply no longer part of the intended palette. Retiring them is a source
-# migration across 35 files, not a gate change, so this ceiling is what stops
-# the palette from growing until that migration lands.
-RATCHET_02_MAX=252
+# migration across 36 files, not a gate change, so this ceiling is what stops
+# the palette from growing until that migration lands. Step 1 paid down 40 of
+# them in features/services (Services.jsx 10, ServiceDetail.jsx 30): a hue
+# cannot code three states over a one-accent palette, so the label carries the
+# meaning and amber marks the one actionable state -- the shape already used by
+# the moderation chain in fa7f20f. 38 files carried the accents at the previous
+# ceiling; the two migrated files no longer do.
+RATCHET_02_MAX=234
 
 # ---------------------------------------------------------------------------
 # RULE 05 PARAMETERS  -- the WCAG 2.x contrast matrix
