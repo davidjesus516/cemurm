@@ -99,6 +99,51 @@
 
 ---
 
+## 10. El `include` de `tsconfig.json` no puede alcanzar ningún `.jsx`
+
+> Añadido 2026-10-01. Encontrado al portar la cadena de moderación (#274/#275). **La línea base de tipos cubre cero UI.**
+
+- **Evaluación**: `"include": ["src/domain", "src/data", "src/integrations", "src/lib", "src/offline"]`. `src/features` **no está**. Los 54 ficheros `.jsx` de `src/` no entran nunca en el programa de TypeScript, así que un `// @ts-check` sobre cualquiera de ellos es **inerte** y `tsc` sale con `0` igualmente.
+- **Cómo se probó, no se presupuso**: se añadió `const __probe = notDefinedAnywhere` a un `.jsx` con pragma y se corrió `npx tsc --noEmit` → `exit 0`, `0` errores. El pragma no está activo. Retirada la sonda, `0/0` otra vez. La primera afirmación de esta sesión fue la contraria ("el pragma ESTÁ ACTIVO") y la sonda la refutó; por eso el hallazgo existe.
+- **Por qué importa**: `AGENTS.md` afirma que el pragma por fichero "es el mecanismo entero" para ampliar la baseline. Es cierto para `.js` bajo los cinco directorios incluidos y **falso para los 54 JSX**. Un fichero nuevo de UI puede llevar pragma, salir verde, y no estar comprobado nunca.
+- **Defecto de verificación en la misma área**: `npx tsc --noEmit --listFiles | grep -c '/src/'` **no** prueba que un fichero concreto se esté comprobando. `--listFiles` lista el *programa*; añadir un pragma a un fichero ya incluido deja el conteo idéntico (siguió en 60). El conteo prueba que el programa está vivo, nada más. La única prueba real es una **sonda**: inyectar un error deliberado, confirmar que `tsc` lo reporta, retirarlo.
+- **Decisión — requiere una decisión explícita, ninguna de las dos es automática**: (a) **aceptar y documentar** que la baseline es solo de dominio/datos/infra y que la UI no tiene tipos, corrigiendo el texto de `AGENTS.md` para que deje de prometer lo que no hace; o (b) **cambiar el `include` deliberadamente**, con recuento medido de errores préalable. La opción (b) no es "poner `checkJs: true`": `AGENTS.md` lo prohíbe por razones medidas, y esas razones hay que **re-argumentar con los números actuales**, no anular. Empezar por (a) cuesta una línea y elimina la mentira; (b) es trabajo de verdad.
+- **No hacer**: añadir pragmas a `.jsx` creyendo que funcionan. Es el peor de los tres estados: parece cobertura y no la hay.
+
+## 11. El CI de `main` está rojo *y* ciego desde `6ee10f0`
+
+> Añadido 2026-10-01. Encontrado al drenar la cola. **El rojo se ve; la ceguera es lo que no se ve.**
+
+- **Evaluación**: desde el merge de #199 (`6ee10f0`), el workflow aborta en `bash scripts/check-visual-contract.sh`. Al abortar, `pnpm test` y `pnpm build` quedan `skipped` y **no se ejecutan**. Los errores que CI no puede mostrar son exactamente los que el gate aborta antes de descubrir.
+- **Defecto independiente y mayor**: **`pnpm typecheck` no está en CI en absoluto**. `ci.yml` corre install → lint → gate visual → test → build. Los errores de tipo viajan detrás de un check verde, y el finding #10 demuestra que además verde de `tsc` local tiene su propia trampilla.
+- **Por qué importa**: mientras tanto, los gates locales son **la verificación de registro**, no una comodidad. Eso es legítimo pero hay que decirlo: un PR puede estar verde en local y ciego en CI, y con el gate visual abortando, el ciego es el estado normal, no la excepción.
+- **Decisión**: (a) añadir `pnpm typecheck` al workflow — es una línea y cierra el agujero más grave; (b) decidir si el gate visual debe seguir abortando el pipeline antes de test y build, o solo reportar. Que un ratchet de deuda conocida rompa el CI entero oculta todos los demás fallos, que es el efecto observado desde hace varios merges.
+
+## 12. La cláusula 6 de `AGENTS.md` ("pedir revisor siempre") es inalcanzable
+
+> Añadido 2026-10-01. **Estructuralmente imposible, no un descuido de ejecución.**
+
+- **Evaluación**: `gh pr edit <n> --add-reviewer davidjesus516` sobre un PR **autorizado por** davidjesus516 sale `0`, imprime la URL, y **no crea nada**. Medido: #273 (propio) → `reviewRequests: []`; #194 (autor `Antony-F Figueroa`) → `reviewRequests: ["davidjesus516"]`, y ese sí notifica.
+- **Por qué importa**: combinado con `require_last_push_approval: true` del ruleset activo, un PR propio **no tiene ninguna vía de aprobación dentro de la plataforma** — solo `--admin`. La cláusula 6 dice "notifica, no esperes en silencio", y su mecanismo **reporta éxito sin accomplishir nada**. Es peor que no tenerla: genera la sensación de que se ha notificado.
+- **Decisión — requiere al mantenedor**: (a) **corregir la cláusula** para que describa el mecanismo real (un PR propio no se auto-revisa; hay que pedir revisión fuera de banda o aceptar `--admin` con la aprobación verbal como registro), o (b) **establecer otro canal de notificación** (comment en el PR mencionando a quien debe mirar, que sí es un disparador real). Lo que no es admisible es dejarla como está: es una directiva que no se puede cumplir.
+
+## 13. Deuda del gate visual: tres ratchets fallando en `main`
+
+> Añadido 2026-10-01. Medido en `main` @ `84a48f2`. **No es deuda de un PR: es deuda acumulada.**
+
+- **Evaluación**: `scripts/check-visual-contract.sh` falla en tres reglas sobre `main`: `01b` (utilities de la paleta Tailwind por defecto) 92 ocurrencias contra techo 82, **+10**; `02` (los cuatro acentos muertos: `coral`, `emerald`, `rose`, `sky`) 274 contra 252, **+22**; `06` (`text-cem-secondary` sobre relleno elevado) 1 ocurrencia.
+- **Por qué importa**: son **ratchets**, no umbrales. Subir el techo los convertiría en decorativos: la función de un ratchet es la de no dejar crecer la deuda, y mover el techo es exactamente no dejarla crecer. Además, con el CI abortando aquí (finding #11), esta deuda **es** la razón del rojo permanente, así que arreglar esto y el CI son el mismo problema en dos caras.
+- **Decisión — plan, no arreglo puntual**: reducir en pasos medidos y bajando los techos **a medida que baje el número**, nunca antes. El orden natural es `02` (los acentos muertos no tienen sustituto — la paleta es monocromo + un ámbar, así que un tono no puede codificar tres estados; el significado lo lleva la etiqueta), luego `01b`, luego `06`. Los tres tienen ya el remedio escrito en los comentarios del propio script.
+- **No hacer**: migrar esta deuda dentro de un PR de reparación de merges. Cada PR de código solo debe **no empeorarla**, y la cadena #274/#275 se verificó exactamente con ese criterio: mismas cifras que `main`.
+
+## 14. El `node_modules` del checkout principal está desfasado respecto al lockfile
+
+> Añadido 2026-10-01. No es un defecto de código: es un entorno que miente.
+
+- **Evaluación**: el `node_modules` del checkout principal tiene **vite 5.4.21 / vitest 3.2.7**, mientras el lockfile de `main` después de #236 exige vite `^6.4.3` / vitest `^5.0.2`.
+- **Por qué importa**: es exactamente la trampa que `AGENTS.md` documenta tras #236, instalada en el directorio de trabajo. Cualquier gate corrido ahí da verde **probando las versiones viejas** — y un bump de major puede cambiar el bundle sin que ninguna puerta lo note.
+- **Decisión**: `pnpm install --frozen-lockfile` en el checkout principal. No se hizo sin el visto bueno del mantenedor porque muta su entorno de trabajo. Mentre tanto, **cualquier verificación de dependencias va contra un worktree con su propio `node_modules`**, nunca con symlink al del repo.
+
 ## Estado de entrada
 
 Este backlog se creó a partir de hallazgos de revisión de ingeniería post-Hito 2 (2026-09-15, tras merge de PR #88–#99). Ningún ítem bloquea el desarrollo actual; todos son candidatos a planificarse en su hito correspondiente según `docs/mvp-scope.md`. Prioridad sugerida: #5 (solo si entra CI), #4 (Hito 4), #3 (Hito 4/5), #1 (post-Hito 3), #2 y #6 (no hacer — re-evaluar con datos).
@@ -109,3 +154,19 @@ los acompaña. Ambos cumplen la regla de entrada igual que los demás (el Gherki
 prioridad real es más alta que la de los ítems de Hito 4: **#7 hace que un escenario BDD especificado
 no pueda pasar en la app, y #8 puede romper un `supabase db reset`.** #7 tiene fixtures listos para
 verificar sin inventar datos en `test/music-theory-fixtures` (#226).
+
+**Los ítems 10 a 14 son también defectos medidos**, agregados el 2026-10-01 al drenar la cola de
+merges, y se leen como un bloque porque comparten una misma raíz: **una puerta que dice pasar sin
+comprobar lo que dice comprobar.** #10 es la más grave de todas — la línea base de tipos cubre
+cero UI y el pragma que `AGENTS.md` presenta como el mecanismo no funciona en 54 ficheros, con
+`exit 0`. #11 es la segunda: el CI está rojo *y* ciego, `pnpm typecheck` no está en él, y el rojo lo
+causa #13. #12 es una directiva de `AGENTS.md` estructuralmente inalcanzable. #14 no es un defecto de
+código sino un entorno que miente.
+
+Orden sugerido, por lo que desbloquea y no por severidad: **#11(a)** (una línea, añade
+`pnpm typecheck`), **#14** (desbloquea la verificación local honesta), **#10(a)** (corregir el texto de
+`AGENTS.md` para que deje de prometer cobertura de UI — una línea, y elimina la mentira), **#13**
+(el rojo permanente del CI), y después **#12** y la decisión de fondo de **#10(b)**, que son las dos
+que necesitan una decisión de producto y no solo una corrección.
+
+El registro de ejecución completo —incluidos los errores de proceso que costaron tiempo, para que no se repitan— está en `odd/tasks/merge-queue-drain-and-findings.md`.
