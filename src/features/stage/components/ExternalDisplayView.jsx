@@ -8,7 +8,7 @@
 export default function ExternalDisplayView({ state }) {
   if (!state) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white/60">
+      <div className="flex min-h-screen items-center justify-center bg-cem-stage-bg text-cem-stage-lyric/60">
         <p className="text-lg">Waiting for the primary device…</p>
       </div>
     )
@@ -18,16 +18,16 @@ export default function ExternalDisplayView({ state }) {
   const chordsOnly = state.mode === 'chords'
 
   return (
-    <div className="min-h-screen bg-black px-10 py-8 text-white">
+    <div className="min-h-screen bg-cem-stage-bg px-10 py-8 text-cem-stage-lyric">
       <h1 className="mb-6 text-center text-5xl font-bold tracking-tight">
         {state.title || 'Untitled'}
       </h1>
       {state.key && (
-        <p className="mb-6 text-center text-2xl text-white/70">Key {state.key}</p>
+        <p className="mb-6 text-center text-2xl text-cem-stage-lyric/70">Key {state.key}</p>
       )}
 
       {!sections.length ? (
-        <p className="text-center text-2xl text-white/50">No chord chart for this song.</p>
+        <p className="text-center text-2xl text-cem-stage-lyric/50">No chord chart for this song.</p>
       ) : (
         <div className="mx-auto max-w-4xl space-y-5 text-2xl leading-relaxed">
           {sections.map((section, i) => {
@@ -35,7 +35,7 @@ export default function ExternalDisplayView({ state }) {
               return (
                 <h2
                   key={i}
-                  className="pt-2 text-2xl font-bold uppercase tracking-widest text-white/70"
+                  className="pt-2 text-2xl font-bold uppercase tracking-widest text-cem-stage-lyric/70"
                 >
                   {section.lines[0]?.text}
                 </h2>
@@ -43,7 +43,7 @@ export default function ExternalDisplayView({ state }) {
             }
             if (section.type === 'comment') {
               return (
-                <p key={i} className="italic text-white/60">
+                <p key={i} className="italic text-cem-stage-lyric/60">
                   {section.lines.map((line) => line.text).join(' ')}
                 </p>
               )

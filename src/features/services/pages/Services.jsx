@@ -4,15 +4,23 @@ import { Link } from 'react-router-dom'
 import { listServices, createService, listBlockCounts } from '../../../data/repositories/services.js'
 import { getMyOrganizations } from '../../../data/repositories/orgRepertoire.js'
 
+// The palette is ONE accent over a monochrome ramp and the four dead accents
+// are ratcheted out by check rule 02, so a hue cannot code three statuses. The
+// badge LABEL carries the meaning (it renders the status verbatim); all three
+// are neutral chips. The three keys are kept because ServiceStatusBadge looks a
+// status up by name and falls back to `draft` for one it does not recognise —
+// a single constant would make that fallback depend on the object's shape.
+const NEUTRAL_STATUS = 'bg-cem-elevated text-cem-secondary-elevated'
+
 export const SERVICE_STATUS_STYLES = {
-  draft: 'bg-cem-elevated text-cem-secondary-elevated',
-  published: 'bg-cem-emerald/10 text-cem-emerald',
-  completed: 'bg-cem-sky/10 text-cem-sky',
+  draft: NEUTRAL_STATUS,
+  published: NEUTRAL_STATUS,
+  completed: NEUTRAL_STATUS,
 }
 
 export function ServiceStatusBadge({ status }) {
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${SERVICE_STATUS_STYLES[status] || SERVICE_STATUS_STYLES.draft}`}>
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${SERVICE_STATUS_STYLES[status] || NEUTRAL_STATUS}`}>
       {status}
     </span>
   )
@@ -70,7 +78,7 @@ function NewServiceForm({ organizations, onCreated }) {
         <input id="service-name" name="name" value={form.name}
           onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
           disabled={submitting} className={inputClass} />
-        {errors.name && <p className="mt-1 text-xs text-cem-rose">{errors.name}</p>}
+        {errors.name && <p className="mt-1 text-xs text-cem-text">{errors.name}</p>}
       </div>
       <div>
         <label htmlFor="service-org" className="block text-sm font-medium text-cem-text">Organization *</label>
@@ -84,7 +92,7 @@ function NewServiceForm({ organizations, onCreated }) {
             </option>
           ))}
         </select>
-        {errors.orgId && <p className="mt-1 text-xs text-cem-rose">{errors.orgId}</p>}
+        {errors.orgId && <p className="mt-1 text-xs text-cem-text">{errors.orgId}</p>}
       </div>
       <div>
         <label htmlFor="service-startsAt" className="block text-sm font-medium text-cem-text">Starts at (optional)</label>
@@ -92,7 +100,7 @@ function NewServiceForm({ organizations, onCreated }) {
           onChange={(e) => setForm((p) => ({ ...p, startsAt: e.target.value }))}
           disabled={submitting} className={inputClass} />
       </div>
-      {errors.form && <p className="rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{errors.form}</p>}
+      {errors.form && <p className="rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{errors.form}</p>}
       <button type="submit" disabled={submitting || organizations.length === 0} className={btn}>
         {submitting ? 'Creating…' : 'Create Service'}
       </button>
@@ -151,7 +159,7 @@ export default function Services() {
         </div>
       )}
 
-      {error && <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>}
+      {error && <p className="mt-3 rounded-md border-l-2 border-cem-amber bg-cem-elevated px-3 py-2 text-sm text-cem-text">{error}</p>}
 
       {loading ? (
         <p className="mt-6 text-sm text-cem-secondary">Loading services…</p>

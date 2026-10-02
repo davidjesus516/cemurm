@@ -39,7 +39,7 @@ const outlinedBtn = `${btn} border border-cem-elevated text-cem-text hover:bg-ce
 const miniBtn =
   'rounded-md border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60'
 const inputClass =
-  'w-full rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-amber-500'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber'
 
 const HEARTBEAT_MS = 3000
 const HEARTBEAT_STALE_MS = 9000

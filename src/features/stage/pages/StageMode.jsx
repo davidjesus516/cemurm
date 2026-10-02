@@ -389,17 +389,17 @@ export default function StageMode() {
 
   return (
     <div
-      className="fixed inset-0 flex flex-col overflow-y-auto bg-black text-white"
+      className="fixed inset-0 flex flex-col overflow-y-auto bg-cem-stage-bg text-cem-stage-lyric"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
       {/* Header — song progress + exit */}
-      <header className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
+      <header className="flex items-center justify-between gap-4 border-b border-cem-stage-lyric/10 px-4 py-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => navigate(`/setlists/${id}`)}
-            className="rounded border border-white/20 px-3 py-1 text-sm font-medium hover:bg-white/10"
+            className="rounded border border-cem-stage-lyric/20 px-3 py-1 text-sm font-medium hover:bg-cem-stage-lyric/10"
             aria-label="Exit stage mode"
           >
             ✕ Exit
@@ -416,7 +416,7 @@ export default function StageMode() {
         </div>
         <div className="text-center">
           <p className="text-sm font-bold">{song.title || 'Untitled'}</p>
-          <p className="text-xs text-white/60">
+          <p className="text-xs text-cem-stage-lyric/60">
             {index + 1} / {songs.length}
             {/* #76: PDF songs carry no chord data — show the DECLARED key
                 (no transpose applies); ChordPro shows the transposed one. */}
@@ -435,8 +435,8 @@ export default function StageMode() {
             className={`rounded border px-3 py-1 text-sm font-medium ${
               overlayEnabled
                 ? 'border-cem-emerald/40 text-cem-emerald hover:bg-cem-emerald/10'
-                : 'border-white/20 hover:bg-white/10'
-            } ${streamOpen ? 'bg-white/10' : ''}`}
+                : 'border-cem-stage-lyric/20 hover:bg-cem-stage-lyric/10'
+            } ${streamOpen ? 'bg-cem-stage-lyric/10' : ''}`}
           >
             📺 Stream
           </button>
@@ -444,7 +444,7 @@ export default function StageMode() {
               for them (scenario 4 + 7); the note replaces them (a new scan is
               the only way to change key). */}
           {song?.isPdf ? (
-            <span className="max-w-48 text-right text-[10px] leading-tight text-white/50">
+            <span className="max-w-48 text-right text-[10px] leading-tight text-cem-stage-lyric/50">
               PDF scans need a new scan to change key
             </span>
           ) : (
@@ -452,7 +452,7 @@ export default function StageMode() {
               <button
                 type="button"
                 onClick={() => setSemitones((s) => s - 1)}
-                className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
+                className="rounded border border-cem-stage-lyric/20 px-3 py-1 text-lg font-bold hover:bg-cem-stage-lyric/10"
                 aria-label="Transpose down"
               >
                 −
@@ -460,7 +460,7 @@ export default function StageMode() {
               <button
                 type="button"
                 onClick={() => setSemitones((s) => s + 1)}
-                className="rounded border border-white/20 px-3 py-1 text-lg font-bold hover:bg-white/10"
+                className="rounded border border-cem-stage-lyric/20 px-3 py-1 text-lg font-bold hover:bg-cem-stage-lyric/10"
                 aria-label="Transpose up"
               >
                 +
@@ -474,17 +474,17 @@ export default function StageMode() {
           over the stage chrome so the performer view stays unobstructed when
           collapsed. */}
       {streamOpen && (
-        <div className="absolute right-2 top-16 z-40 w-80 rounded-lg border border-white/10 bg-cem-surface p-3 text-sm text-cem-text shadow-xl">
+        <div className="absolute right-2 top-16 z-40 w-80 rounded-lg border border-cem-stage-lyric/10 bg-cem-surface p-3 text-sm text-cem-text shadow-xl">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-white">Stream</h2>
+            <h2 className="text-sm font-semibold text-cem-stage-lyric">Stream</h2>
             {overlayEnabled ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-cem-emerald/15 px-2 py-0.5 text-xs font-medium text-cem-emerald">
                 <span className="h-1.5 w-1.5 rounded-full bg-cem-emerald" aria-hidden="true" />
                 Broadcasting
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/50">
-                <span className="h-1.5 w-1.5 rounded-full bg-white/30" aria-hidden="true" />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-cem-stage-lyric/10 px-2 py-0.5 text-xs font-medium text-cem-stage-lyric/50">
+                <span className="h-1.5 w-1.5 rounded-full bg-cem-stage-lyric/30" aria-hidden="true" />
                 Inactive
               </span>
             )}
@@ -506,7 +506,7 @@ export default function StageMode() {
           {overlayEnabled && (
             <>
               <div className="mt-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                <p className="text-xs font-medium uppercase tracking-wider text-cem-stage-lyric/50">
                   Overlay mode
                 </p>
                 <div className="mt-1 flex gap-1">
@@ -517,7 +517,7 @@ export default function StageMode() {
                     className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 ${
                       overlayMode === 'title'
                         ? 'bg-cem-amber text-cem-base'
-                        : 'border border-white/20 text-white/70 hover:bg-white/10'
+                        : 'border border-cem-stage-lyric/20 text-cem-stage-lyric/70 hover:bg-cem-stage-lyric/10'
                     }`}
                   >
                     Title only
@@ -529,7 +529,7 @@ export default function StageMode() {
                     className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 ${
                       overlayMode === 'chords'
                         ? 'bg-cem-amber text-cem-base'
-                        : 'border border-white/20 text-white/70 hover:bg-white/10'
+                        : 'border border-cem-stage-lyric/20 text-cem-stage-lyric/70 hover:bg-cem-stage-lyric/10'
                     }`}
                   >
                     Title + chords
@@ -538,7 +538,7 @@ export default function StageMode() {
               </div>
 
               <div className="mt-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                <p className="text-xs font-medium uppercase tracking-wider text-cem-stage-lyric/50">
                   OBS Browser Source URL
                 </p>
                 <div className="mt-1 flex gap-1">
@@ -546,13 +546,13 @@ export default function StageMode() {
                     readOnly
                     value={overlayUrl}
                     onFocus={(e) => e.target.select()}
-                    className="min-w-0 flex-1 rounded-md border border-white/20 bg-black px-2 py-1.5 text-xs text-white/80"
+                    className="min-w-0 flex-1 rounded-md border border-cem-stage-lyric/20 bg-cem-stage-bg px-2 py-1.5 text-xs text-cem-stage-lyric/80"
                     aria-label="OBS Browser Source URL"
                   />
                   <button
                     type="button"
                     onClick={handleCopyUrl}
-                    className="rounded-md border border-white/20 px-2 py-1.5 text-xs font-medium hover:bg-white/10"
+                    className="rounded-md border border-cem-stage-lyric/20 px-2 py-1.5 text-xs font-medium hover:bg-cem-stage-lyric/10"
                   >
                     {overlayCopied ? 'Copied ✓' : 'Copy'}
                   </button>
@@ -587,12 +587,12 @@ export default function StageMode() {
             {transposed.sections.map((section, i) => (
               <div key={i}>
                 {section.type === 'section' && (
-                  <h2 className="mb-1 text-lg font-bold uppercase tracking-wider text-white/70">
+                  <h2 className="mb-1 text-lg font-bold uppercase tracking-wider text-cem-stage-lyric/70">
                     {section.lines[0]?.text}
                   </h2>
                 )}
                 {section.type === 'comment' && (
-                  <p className="italic text-white/60">{section.lines.map((line) => line.text).join(' ')}</p>
+                  <p className="italic text-cem-stage-lyric/60">{section.lines.map((line) => line.text).join(' ')}</p>
                 )}
                 {section.type === 'lyrics' && (
                   <div className="space-y-1">
@@ -631,45 +631,45 @@ export default function StageMode() {
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-white/60">No chord chart for this song.</p>
+          <p className="text-cem-stage-lyric/60">No chord chart for this song.</p>
         </div>
       )}
 
       {/* Footer — navigation buttons (touch-friendly) */}
-      <footer className="flex items-center justify-between border-t border-white/10 px-4 py-4">
+      <footer className="flex items-center justify-between border-t border-cem-stage-lyric/10 px-4 py-4">
         <button
           type="button"
           onClick={() => goTo(index - 1)}
           disabled={songs.length <= 1}
-          className="rounded-lg border border-white/20 px-6 py-3 text-lg font-medium hover:bg-white/10 disabled:opacity-40"
+          className="rounded-lg border border-cem-stage-lyric/20 px-6 py-3 text-lg font-medium hover:bg-cem-stage-lyric/10 disabled:opacity-40"
         >
           ← Prev
         </button>
         <div className="flex flex-col items-center gap-1">
           {!supported ? (
-            <span className="text-xs text-white/40">No foot pedal (browser lacks HID)</span>
+            <span className="text-xs text-cem-stage-lyric/40">No foot pedal (browser lacks HID)</span>
           ) : connected ? (
-            <span className="text-sm text-white/50">🎛 Foot pedal</span>
+            <span className="text-sm text-cem-stage-lyric/50">🎛 Foot pedal</span>
           ) : (
             <>
               <button
                 type="button"
                 onClick={pair}
                 disabled={pairing}
-                className="rounded border border-white/20 px-3 py-1 text-sm hover:bg-white/10 disabled:opacity-50"
+                className="rounded border border-cem-stage-lyric/20 px-3 py-1 text-sm hover:bg-cem-stage-lyric/10 disabled:opacity-50"
               >
                 {pairing ? 'Pairing…' : '🎛 Pair foot pedal'}
               </button>
               {error && <span className="text-xs text-red-400">{error}</span>}
             </>
           )}
-          <span className="text-sm text-white/60">Swipe or use ← → / PgUp PgDn</span>
+          <span className="text-sm text-cem-stage-lyric/60">Swipe or use ← → / PgUp PgDn</span>
         </div>
         <button
           type="button"
           onClick={() => goTo(index + 1)}
           disabled={songs.length <= 1}
-          className="rounded-lg border border-white/20 px-6 py-3 text-lg font-medium hover:bg-white/10 disabled:opacity-40"
+          className="rounded-lg border border-cem-stage-lyric/20 px-6 py-3 text-lg font-medium hover:bg-cem-stage-lyric/10 disabled:opacity-40"
         >
           Next →
         </button>
@@ -678,26 +678,26 @@ export default function StageMode() {
       {/* Post-show completion: mark played/skipped, add encores, complete the gig */}
       {finishing && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/85 p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-cem-stage-bg/85 p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setFinishing(false) }}
         >
           <form
             onSubmit={handleComplete}
-            className="mt-8 w-full max-w-xl rounded-lg border border-white/10 bg-cem-surface p-4 text-cem-text shadow-xl"
+            className="mt-8 w-full max-w-xl rounded-lg border border-cem-stage-lyric/10 bg-cem-surface p-4 text-cem-text shadow-xl"
           >
-            <h2 className="text-lg font-semibold text-white">Finish gig</h2>
-            <p className="mt-1 text-sm text-white/60">
+            <h2 className="text-lg font-semibold text-cem-stage-lyric">Finish gig</h2>
+            <p className="mt-1 text-sm text-cem-stage-lyric/60">
               Mark what was actually played. Skipped songs are recorded separately and never
               tagged as played.
             </p>
 
             {openGigs.length > 1 && (
-              <label className="mt-3 block text-sm text-white/70">
+              <label className="mt-3 block text-sm text-cem-stage-lyric/70">
                 Gig
                 <select
                   value={gigId}
                   onChange={(e) => setGigId(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-white/20 bg-black px-3 py-2 text-sm text-white"
+                  className="mt-1 block w-full rounded-md border border-cem-stage-lyric/20 bg-cem-stage-bg px-3 py-2 text-sm text-cem-stage-lyric"
                 >
                   {openGigs.map((g) => (
                     <option key={g.id} value={g.id}>
@@ -712,7 +712,7 @@ export default function StageMode() {
               {songs.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-white/10 px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-md border border-cem-stage-lyric/10 px-3 py-2"
                 >
                   <span className="text-sm">{s.title || 'Untitled'}</span>
                   <div className="flex gap-1">
@@ -726,7 +726,7 @@ export default function StageMode() {
                             ? st === 'played'
                               ? 'bg-cem-emerald text-cem-base'
                               : 'bg-cem-rose text-cem-base'
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                            : 'bg-cem-stage-lyric/10 text-cem-stage-lyric/70 hover:bg-cem-stage-lyric/20'
                         }`}
                       >
                         {st}
@@ -738,12 +738,12 @@ export default function StageMode() {
             </ul>
 
             <div className="mt-4">
-              <p className="text-sm font-medium text-white/70">Encores (played outside the setlist)</p>
+              <p className="text-sm font-medium text-cem-stage-lyric/70">Encores (played outside the setlist)</p>
               <div className="mt-1 flex gap-2">
                 <select
                   value={encoreId}
                   onChange={(e) => setEncoreId(e.target.value)}
-                  className="flex-1 rounded-md border border-white/20 bg-black px-3 py-2 text-sm text-white"
+                  className="flex-1 rounded-md border border-cem-stage-lyric/20 bg-cem-stage-bg px-3 py-2 text-sm text-cem-stage-lyric"
                   aria-label="Encore song"
                 >
                   <option value="">Add a song…</option>
@@ -755,7 +755,7 @@ export default function StageMode() {
                   type="button"
                   onClick={addEncore}
                   disabled={!encoreId}
-                  className="rounded-md border border-white/20 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-40"
+                  className="rounded-md border border-cem-stage-lyric/20 px-3 py-2 text-sm hover:bg-cem-stage-lyric/10 disabled:opacity-40"
                 >
                   Add
                 </button>
@@ -773,7 +773,7 @@ export default function StageMode() {
                         <button
                           type="button"
                           onClick={() => setEncores((prev) => prev.filter((x) => x !== songId))}
-                          className="text-white/50 hover:text-white"
+                          className="text-cem-stage-lyric/50 hover:text-cem-stage-lyric"
                           aria-label={`Remove ${title}`}
                         >
                           ✕
@@ -794,7 +794,7 @@ export default function StageMode() {
                 type="button"
                 onClick={() => setFinishing(false)}
                 disabled={completing}
-                className="rounded-md border border-white/20 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                className="rounded-md border border-cem-stage-lyric/20 px-4 py-2 text-sm hover:bg-cem-stage-lyric/10 disabled:opacity-50"
               >
                 Cancel
               </button>
