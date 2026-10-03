@@ -4,7 +4,27 @@
 > Fuente: revisión de ingeniería del estado post-Hito 2 (monorepo SPA Vite/React + Supabase hosted, `pnpm`, sin CI).
 > Regla de entrada: cada ítem se implementa solo cuando su hito/feature BDD lo requiere — YAGNI activo.
 
+> **Status review 2026-09-30 (against `main` = `762a040`).** Every item below was re-verified
+> against the tree before being touched. **Closed with evidence: #1, #3, #7, #8. Open, decision
+> intact: #2, #4, #6. Premise now false, decision stands: #5. Not verifiable from the repo: #9.**
+> Closed items keep their original text and gain a dated note — the reasoning is the record.
+> Nothing was deleted, and no item was closed on a claim I could not check.
+
 ## 1. TypeScript migration (classes/interfaces at minimum)
+
+> ✅ **PARTIALLY CLOSED 2026-09-30 — the prescribed first step shipped; the migration was correctly
+> not attempted.** The decision was "NO ahora. Re-evaluar al cierre de Hito 3… Si se hace: JSDoc +
+> `checkJs` primero (cero coste de build), luego tipos en `lib/` de dominio solamente." Hito 3 closed
+> 2026-09-19, which fired the trigger, and that is exactly what shipped:
+> `odd/tasks/ts-checkjs-baseline.md` (2026-09-23) established the JSDoc + per-file `// @ts-check`
+> baseline, and `jsdoc-libs-baseline.md` + `jsdoc-libs-s09-s11-v2.md` grew it to **47 opted-in
+> files**. `typescript@^7.0.2` and a `typecheck` script are in `package.json`.
+>
+> **The second half of the decision still stands and should not be quietly retired:** full TS is
+> still rejected, and "no convertir pages/components/hooks a TS" is unchanged. Note that the
+> original candidate list (`src/lib/{transpose,annotations,songs,setlists}.js`) no longer exists
+> at those paths — the relocation moved all four. See `AGENTS.md` §"Type checking is per-file
+> opt-in" for the live baseline and for why global `checkJs` stays off.
 
 - **Evaluación**: el codebase es JS/JSX plano (131 módulos). Migrar a TS completo es un cambio de todo el árbol sin valor de usuario directo; el coste es alto justo antes de Hito 3 (colaboración). El mínimo viable pedido (classes/interfaces) solo tiene sentido en librerías de dominio: `src/lib/{transpose,annotations,songs,setlists}.js` son los candidatos naturales ya que concentran lógica pura con invariantes (tonalidades, anclas, versiones).
 - **Decisión**: NO ahora. Re-evaluar al cierre de Hito 3 o si `docs/technical-spec.md` lo exige. Si se hace: JSDoc + `checkJs` primero (cero coste de build), luego tipos en `lib/` de dominio solamente.
@@ -17,15 +37,58 @@
 
 ## 3. Cloudflare R2 buckets implementation
 
+> ✅ **CLOSED 2026-09-30 — the trigger fired in Hito 5 and the design shipped, via the Supabase
+> Storage option this item already named.** The decision deferred R2 "al hito que introduzca
+> binarios (Hito 4/5)" and specified "bucket privado + presigned URLs…, políticas RLS como
+> delimitador de autorización, sin claves en el cliente (o Supabase Storage, más integrado)".
+> PDF scan charts are those binaries (Hito 5 #76), and `0027_pdf_chart_storage.sql` implements
+> precisely that shape: one **private** `charts` bucket, **owner-folder RLS** on `storage.objects`
+> (first path segment must be `auth.uid()`), and reads only through
+> `storage-object createSignedUrl` — the file states `public` may never be flipped. No keys in the
+> client.
+>
+> **So the "Cloudflare R2" in this item's title is now historical.** Object storage exists and is
+> Supabase's, not R2's. The R2 row that remains in `docs/technical-spec.md` §7 is part of that
+> document's *deployment plan*, not a statement of state.
+
 - **Evaluación**: R2 (u Object Storage equivalente) aplica cuando existan archivos de usuario grandes: PDF scans (`pdf-scan-charts`, Hito 5), exports (`export-and-sharing`, Hito 6), imports URL (Hito 4). Hoy no hay assets binarios fuera del bundle. La tabla `outbox` y la capa offline no tocan almacenamiento de objetos.
 - **Decisión**: DIFERIR al hito que introduzca binarios (Hito 4/5). Diseño a preparar entonces: bucket privado + presigned URLs vía edge function (o Supabase Storage, más integrado), políticas RLS como delimitador de autorización, sin claves en el cliente.
 
 ## 4. API rate limiting
 
+> 🔶 **STILL OPEN, and its trigger has now fired — 2026-09-30.** The decision deferred this to
+> "Hito 4 (primera superficie no autenticada/consultable)". Hito 4 shipped (public library,
+> profiles, contributions). **Nothing was built:** there is no application-level rate limiting
+> anywhere in `src/` or `supabase/`, and the only limit in the stack is GoTrue's own
+> `[auth.rate_limit]` block in `supabase/config.toml`, which is the "gateway" case this item's own
+> evaluation describes. The decision text is left intact — it is still correct — but the
+> deferral has expired, so this is now a live item rather than a scheduled one.
+>
+> One correction to the evaluation's framing: it assumed "toda la API es Supabase PostgREST". That
+> is still true for data, but the *storage* surface added in Hito 5 is a second unauthenticated
+> path (`createSignedUrl`), and the enrichment clients (MusicBrainz, LRCLIB) call third-party APIs
+> whose limits the app does not own. Whether those change the scope is a judgement call, recorded
+> here rather than made silently.
+
 - **Evaluación**: hoy toda la API es Supabase PostgREST — el rate limiting lo pone el plan de Supabase (gateway). La superficie expuesta que merece límites propios es la futura API pública (Hito 4: biblioteca pública, perfiles) y cualquier endpoint sin auth. No existe backend propio donde instalar límites.
 - **Decisión**: DIFERIR a Hito 4 (primera superficie no autenticada/consultable). Implementación esperada: gateway/edge level (Cloudflare o Supabase platform limits) + validación en edge functions si se añaden; nunca en el cliente.
 
 ## 5. GitHub secret-keys usage
+
+> 🔶 **PREMISE NOW FALSE, DECISION STANDS — 2026-09-30.** The evaluation opens "hoy NO hay CI ni
+> despliegue (no existe `.github/workflows` con jobs de build; el único workflow es el runner de
+> lint-and-build de formato PR? — verificar)". **That uncertainty is resolved and the answer is
+> the opposite: `.github/workflows/ci.yml` exists and runs on push to `main` and every PR** —
+> `install --frozen-lockfile → lint → check-visual-contract.sh → test → build`. So the item's
+> trigger ("ACCIÓN PENDIENTE solo cuando exista CI/CD") has fired.
+>
+> The **rule** is unaffected and remains correct: never commit `service_role` or a deploy factor;
+> rotate on leak; use GitHub Secrets for any deploy token. Those secrets are still not needed,
+> because there is still no deploy pipeline — CI builds and tests, it does not ship.
+>
+> **Not verified:** whether any GitHub Secret is currently configured, and what the ruleset
+> requires. Those live in repository settings, not in the tree, and reading them is outside what
+> this review can establish from `main`. Recorded as unverified rather than assumed.
 
 - **Evaluación**: hoy NO hay CI ni despliegue (no existe `.github/workflows` con jobs de build; el único workflow es el runner de lint-and-build de formato PR? — verificar). No se necesitan secrets de GitHub mientras no haya pipeline. Los secretos reales (Supabase URL/anon key) son públicos por diseño (PWA cliente); la service_role y claves de entorno viven en `.env.local` gitignored y `supabase/config.toml`.
 - **Decisión**: ACCIÓN PENDIENTE solo cuando exista CI/CD (Hito 3+): usar GitHub Secrets para cualquier token de despliegue; GitGuardian ya corre y pasa (escaneo activo en PRs). Regla: jamás committed de service_role / factor de despliegue; rotar si se filtra.
@@ -36,6 +99,32 @@
 - **Decisión**: NO construir imágenes para la app. Si en Hito 5/6 aparece servicio auxiliar (import pipeline, worker), evaluar ahí: imagen liviana + registry + CI. Para el PWA: static hosting (Cloudflare Pages / Netlify / Supabase hosting) con build en CI.
 
 ## 7. La vista de grados no renderiza ningún numeral
+
+> ✅ **CLOSED 2026-09-30 — fixed, and both mechanisms this item identified are gone.** This was
+> written as a measured defect, not a hypothesis, and the measurement was right. Verified against
+> `main` = `762a040`:
+>
+> 1. **The map/renderer key mismatch is gone.** The item diagnosed `buildDegreeMap` keying by the
+>    concrete chord (`Dm`) while the renderer looked up the transposed one (`Em`). In degree-view
+>    mode both sides now use the **same untransposed string**: `ChordProRenderer.jsx:33-41` looks up
+>    `degreeMap[segment.chord]`, where `segment.chord` comes straight from `toSegments(line)`
+>    reading the parsed chord (`:20`) — and in degree-view mode the rendered chord is *also*
+>    `segment.chord`; the `applySubstitution(...)` branch only runs when `degreeView` is false.
+>    Same key on both sides at any offset, including the demo account's `transpose_offset = 2`.
+> 2. **The map is actually populated now.** `resolveDegree` (`degreeResolver.js:267`) is `async`
+>    and calls `findScaleByName(ctx.scaleName)`, i.e. it consults the `scale_catalog` table
+>    directly. The old synchronous map that "never got filled" is gone, and the item's
+>    "así que los datos no son el bloqueo" reading was correct.
+> 3. **The downstream `qualityForDegree` defect is fixed** — `0cf6907` (finding E, PR #218) —
+>    and `resolveDegree:281` now prefers the chord's own spelling:
+>    `explicit ? explicit.triad : qualityForDegree(...)`, which is the *"Musician override wins
+>    over derived quality"* scenario.
+> 4. **The prediction about `fix/degree-quality-derivation` (#217) is confirmed**: the fix was
+>    correct but not observable in browser until the mechanism above was fixed. It now is.
+>
+> The verification trap this item recorded — the demo seed ships `transpose_offset = 2, capo = 1`,
+> so anyone measuring must set the offset to 0 explicitly and restore it after — still applies to
+> anything that re-measures this.
 
 > Añadido 2026-09-28. **Defecto medido, no hipótesis**: leído en la app corriendo, no deducido.
 
@@ -49,13 +138,34 @@
 
 ## 8. Numeración de migrations: 0029 está reclamado dos veces
 
+> ✅ **CLOSED 2026-09-30 — the collision happened, was resolved, and is now settled in the tree.**
+> The item predicted the exact failure and asked to "renumerar una de las dos antes de que
+> aterrice, y agregar el smoke que falta". Both happened:
+>
+> - `0029` went to the guardian family: `0029_fail_closed_minors.sql`, landing with
+>   `0030_date_of_birth_step.sql` and `0031_guardian_consent_email.sql` in **#203**.
+> - The feedback migration therefore moved `0020` → `0029` → **`0033_feedback.sql`** (#228).
+> - **The missing smoke test was added**: `scripts/smoke/0033-feedback.sql` exists, so the
+>   "única migration desde 0022 que no lo trae" gap is closed. `scripts/smoke/` now holds 13 files,
+>   `0021`–`0033`.
+> - `main` is contiguous `0001`–`0033` with **no gap**, and the next free number is `0034`,
+>   unconditionally. The `0020`–`0022` window this repo spent a cycle worrying about is closed.
+>
+> **Left unverified, and it still needs a real database to settle:** the note that
+> `supabase_migrations.schema_migrations` is *empty* in the local DB while the schema reflects the
+> chain. That claim was not re-checked here — it needs `supabase db reset` plus a catalogue query,
+> and this review made no DB changes. It is not blocking, and it is not closed either.
+
 > Añadido 2026-09-28. Encontrado al numerar `0032_overlay_access_token.sql`.
 
 - **Evaluación**: `0029` está tomado por dos cambios **sin relación**: `0029_feedback.sql` en los cuatro branches de `m2-feedback` (`feat/m2-feedback-data{,-v2}`, `feat/m2-feedback-ui{,-v2}`) y `0029_fail_closed_minors.sql` en los branches de guardian (`origin/fix/fail-closed-minors`, `origin/feat/guardian-consent-db`, `origin/feat/guardian-email`). `0030` y `0031` también están ocupados. El AGENTS.md advierte de esta carrera y ya se materializó.
 - **Por qué importa**: `supabase db reset` ejecuta los `.sql` **por orden de nombre**, así que dos archivos con el mismo prefijo de versión tienen un **orden relativo arbitrario**, y el ledger de migraciones se keyea por ese número. Si ambos aterrizan, uno puede no aplicarse o aplicarse en el orden que no le toca.
 - **Defecto secundario en la misma área**: `0029_feedback.sql` (#190) llega **sin smoke test**, siendo la única migration desde 0022 que no lo trae. La convención se sostiene sin excepción desde ahí.
 - **Decisión**: planificar. Renumerar una de las dos antes de que aterrice, y agregar el smoke que falta. No es urgente mientras ninguna de las dos haya aterrizado; es urgente en cuanto la primera lo haga.
-- **Relacionado**: `supabase_migrations.schema_migrations` está **vacía** en la base local aunque el schema refleja las 27 migrations de `main` (verificado objeto por objeto, 0019→0028, sin drift). El CLI no puede responder qué está aplicado porque no hay ledger. No bloquea nada del flujo actual (`db reset` + smoke), pero cualquier herramienta que pregunte "qué falta" recibe una respuesta falsa.
+- **Relacionado**: `supabase_migrations.schema_migrations` está **vacía** en la base local aunque el schema refleja las 27 migrations de `main` (verificado objeto por objeto, 0019→0028, sin drift). El CLI no puede responder qué está aplicado porque no hay ledger. No bloquea nada del flujo actual (`db reset` + smoke), pero cualquier herramienta que pregunte "qué falta" recibe una respuesta falsa. *(Las 27 migrations
+y el rango `0019→0028` de esta línea eran el estado el 2026-09-28; hoy `main` tiene 33,
+`0001`–`0033`. El resto de la observación — el ledger vacío — sigue **sin verificar**: necesita
+`supabase db reset` y una consulta de catálogo, y esta revisión no tocó la base de datos.)*
 
 ## 9. El ruleset bloquea los pushes al upstream — requiere una cuenta con `admin`
 
@@ -96,6 +206,19 @@
 - **Nota de proceso**: la primera vez que se redactó este diagnóstico se generalizó desde una muestra
   de seis branches y se afirmó que el repo estaba congelado. Era falso, y la forma de evitarlo es la
   misma que en el resto del trabajo: **enumerar, no muestrear.**
+
+> ⚪ **NOT RE-VERIFIED 2026-09-30 — this item's state lives outside the repository, so nothing in it
+> was re-measured.** Rulesets, `bypass_actors`, branch protection and GitGuardian check
+> configuration live in **repository settings**, not in `main`. No file in the working tree records
+> them, so this review could neither confirm the blockage is still active nor confirm it was
+> resolved. The readings quoted above — ruleset `PR` / id `24085467`, the declined push, the six
+> post-ruleset commits — are the **2026-09-28 measurements, carried forward unchanged**.
+>
+> Two things *are* verifiable from the tree. `main` has moved to `762a040`, and **no rule file in
+> the repo documents this ruleset**. So the "first priority recommendation of this whole backlog"
+> framing below is inherited text, not a current ranking — confirm it in repository settings before
+> acting on it. And resolving it needs a session with `admin`: it is not a documentation task and
+> was not attempted here.
 
 ---
 
@@ -139,6 +262,17 @@
 ## 14. El `node_modules` del checkout principal está desfasado respecto al lockfile
 
 > Añadido 2026-10-01. No es un defecto de código: es un entorno que miente.
+>
+> ⚠️ **Actualizado 2026-10-02 — la premisa ya no se cumple en este checkout.** Re-medido:
+> `node_modules` tiene **vite 6.4.3 / vitest 5.0.2**, ya sincronizado con el lockfile. La
+> sincronización ocurrió durante la verificación de la ronda 2 de
+> `odd/tasks/docs-sync-current-state.md`: los enlaces de `node_modules` se actualizaron a las
+> 22:00, un segundo antes de arrancar `pnpm test`, y el writer **no** ejecutó `pnpm install` —
+> lo más probable es la verificación de dependencias que pnpm hace antes de correr un script, o
+> un actor concurrente; no se pudo distinguir. Los gates de esa ronda corren ya contra las
+> versiones nuevas, así que el "entorno que miente" queda cerrado para este checkout y la
+> decisión de instalar aquí queda sin objeto. Confirmar el estado sigue siendo decisión del
+> mantenedor; el resto del ítem se conserva tal como se midió el 2026-10-01.
 
 - **Evaluación**: el `node_modules` del checkout principal tiene **vite 5.4.21 / vitest 3.2.7**, mientras el lockfile de `main` después de #236 exige vite `^6.4.3` / vitest `^5.0.2`.
 - **Por qué importa**: es exactamente la trampa que `AGENTS.md` documenta tras #236, instalada en el directorio de trabajo. Cualquier gate corrido ahí da verde **probando las versiones viejas** — y un bump de major puede cambiar el bundle sin que ninguna puerta lo note.
@@ -154,6 +288,30 @@ los acompaña. Ambos cumplen la regla de entrada igual que los demás (el Gherki
 prioridad real es más alta que la de los ítems de Hito 4: **#7 hace que un escenario BDD especificado
 no pueda pasar en la app, y #8 puede romper un `supabase db reset`.** #7 tiene fixtures listos para
 verificar sin inventar datos en `test/music-theory-fixtures` (#226).
+
+> ⚠️ **This section is superseded 2026-09-30 (against `main` = `762a040`).** Kept verbatim as the
+> record of what the backlog looked like when it was written; both paragraphs below now describe a
+> state that no longer exists.
+>
+> **The suggested priority is void.** Of the six items it ranked, **four are now closed** (#1
+> partially, #3, #7, #8 — each closed with dated evidence above) and **two had their triggers fire
+> without being built** (#5's trigger was CI, which exists; #4's trigger was Hito 4, which shipped).
+> #2 and #6 remain "no hacer — re-evaluar con datos", which is still correct and is the only part of
+> the list that survives unchanged. #9 is not verifiable from the repo — see its note above.
+>
+> **The "items 7 and 8 are of another class" paragraph is now history, not a warning.** Both were
+> measured defects and both were real; both are **fixed and merged**, which is the highest-priority
+> outcome this section ever asked for. #7's stated consequence — a specified BDD scenario
+> (`features/music-theory.feature:65,72`) that could not pass in the app — no longer holds. #8's
+> stated consequence — that it could break a `supabase db reset` — was averted by the renumbering to
+> `0033_feedback.sql`; `main` is contiguous `0001`–`0033`. Neither `#226`'s fixtures nor
+> `test/music-theory-fixtures` is what resolved them; the fixes landed through other units.
+>
+> **What actually needs a decision now, in this backlog:** #2 and #6 remain closed-by-default
+> decisions awaiting data, #4 is an expired deferral with nothing built against it, and #9 needs an
+> `admin` session outside the repo. None of them is a documentation task, and none is being
+> scheduled from here. The sequencing authority for what comes next is `docs/master-plan.md` §6, not
+> this file.
 
 **Los ítems 10 a 14 son también defectos medidos**, agregados el 2026-10-01 al drenar la cola de
 merges, y se leen como un bloque porque comparten una misma raíz: **una puerta que dice pasar sin
