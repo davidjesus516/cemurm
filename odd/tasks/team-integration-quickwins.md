@@ -22,8 +22,25 @@ administration, risk, change configuration, development environment).
       note that `pnpm typecheck` is NOT wired into CI. Commit `8aef3fc`.
 - [x] T3 — Push + PR #279 opened, label `type:chore` applied.
 - [ ] T4 — CODEOWNERS for `supabase/migrations/` and `.github/workflows/` (pending).
-- [ ] T5 — Verify/configure `main` branch protection (pending: needs explicit remote-operation
-      authorization for GitHub settings).
+- [x] T5a — Branch protection audited + Etapa A applied (ruleset `PR` id 24085467):
+      `dismiss_stale_reviews_on_push` false→true, PUT full-body, verified by full-file diff
+      (only that flag + `updated_at` changed; 7 rules, GitGuardian required check, `strict`,
+      both bypass actors byte-identical). 2026-10-02 20:34 -04.
+- [ ] T5b (Etapa B) — Add `lint-and-build` to `required_status_checks`. **Blocked on #278
+      merging**: the visual gate fails on every branch today, so activating this first would
+      block all PRs. When unblocked (run from a checkout, ruleset 24085467):
+
+      ```bash
+      gh api repos/davidjesus516/cemurm/rulesets/24085467 > rs.json
+      jq '(.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks)
+          += [{"context":"lint-and-build"}]' rs.json > rs-new.json
+      gh api repos/davidjesus516/cemurm/rulesets/24085467 --method PUT --input rs-new.json
+      # verify: the context list must read ["GitGuardian Security Checks", "lint-and-build"]
+      ```
+
+- [ ] T5c (Etapa C) — User decision pending: remove the admin bypass (`RepositoryRole 5`,
+      `bypass_mode: always`) and identify the Integration `1549082` that currently bypasses
+      every rule (403 via API; name shows in Settings → Rules → ruleset PR).
 - [ ] T6 — Measure onboarding zero-to-code < 15 min with a real team member (pending: team
       access must exist first).
 - [ ] T7 — Grant teammates access with roles (pending: user decision on who/what role).
@@ -43,7 +60,9 @@ administration, risk, change configuration, development environment).
 ## Findings worth keeping
 
 1. **CI on `main` is permanently red** and skips `test`/`build` — fixed by open PR #278
-   (green). Merge order: #278 → #277 (typecheck; failed only on the gate, typecheck itself
+   (green). Root cause of how it landed: `lint-and-build` was **never a required status
+   check** (only GitGuardian was), and the admin bypass let #274/#275 merge anyway.
+   Merge order: #278 → #277 (typecheck; failed only on the gate, typecheck itself
    passed) → #279.
 2. **The repo cannot satisfy its own review rule yet**: PR #279 has `reviewDecision:
    REVIEW_REQUIRED` under `require_last_push_approval`, but author == reviewer ==
@@ -62,5 +81,6 @@ administration, risk, change configuration, development environment).
 
 ## Next step
 
-User decision needed: teammate accounts + roles (T7), and explicit authorization for
-GitHub settings/branch-protection changes (T5).
+Etapa B (required check `lint-and-build`) activates only after #278 merges; T5c (admin
+bypass + Integration 1549082) and T7 (teammate accounts/roles) await user decisions.
+Merge order unchanged: #278 → #277 → #279.
