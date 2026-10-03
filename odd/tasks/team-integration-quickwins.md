@@ -3,8 +3,10 @@
 **Feature**: team-integration (security + separation of duties for full team integration)
 **Branch**: `feat/team-integration-quickwins` · **PR**: #279
 **Date**: 2026-10-02
-**Delivery strategy**: `single-pr` (30 authored changed lines, far under the 400-line budget)
-**RDD**: on (global) · assess → `medium` (`configuration_change`), `review_due: false` (`under_budget`)
+**Delivery strategy**: `single-pr` (147 authored changed lines across 4 paths after the
+Etapa-C record and CODEOWNERS — still under the 400-line budget)
+**RDD**: on (global) · assess → `medium` (`configuration_change`), 4 paths / 147 lines,
+`review_due: false` (`under_budget`)
 
 ## Objective
 
@@ -21,7 +23,13 @@ administration, risk, change configuration, development environment).
 - [x] T2 — `.github/pull_request_template.md` encoding the existing PR rules and the explicit
       note that `pnpm typecheck` is NOT wired into CI. Commit `8aef3fc`.
 - [x] T3 — Push + PR #279 opened, label `type:chore` applied.
-- [ ] T4 — CODEOWNERS for `supabase/migrations/` and `.github/workflows/` (pending).
+- [x] T4 — `.github/CODEOWNERS` for `supabase/migrations/` and `.github/workflows/`
+      (`@davidjesus516`), both paths verified to exist; commit `d9b81ae`. GitHub-side
+      validation via GraphQL `Repository.codeowners` reads the default branch, so it
+      resolves only after #279 merges. **Etapa D (`require_code_owner_review`)
+      deliberately deferred until a second code owner exists**: with a single owner, that
+      owner's own PRs touching these paths could never collect code-owner approval
+      (last-push rule), i.e. a self-lockout.
 - [x] T5a — Branch protection audited + Etapa A applied (ruleset `PR` id 24085467):
       `dismiss_stale_reviews_on_push` false→true, PUT full-body, verified by full-file diff
       (only that flag + `updated_at` changed; 7 rules, GitGuardian required check, `strict`,
@@ -42,7 +50,11 @@ administration, risk, change configuration, development environment).
       PUT verified by diff: exactly two deltas — `RepositoryRole 5` dropped from
       `bypass_actors` and the `update` rule dropped; everything else byte-identical
       (`dismiss_stale_reviews_on_push` stays `true` from Etapa A). Remaining bypass: only
-      `Integration:1549082` (still unidentified — name shows in Settings → Rules → ruleset PR).
+      `Integration:1549082`, identified 2026-10-03 via GraphQL
+      `Repository.ruleset(databaseId: 24085467).bypassActors` → **App `opencode-agent`
+      ("OpenCode Agent")**, `bypassMode: ALWAYS` — the OpenCode↔GitHub integration itself,
+      which today could push to main, force-push, or merge without approval/checks.
+      Whether to drop this last bypass is the user's pending decision.
 
       **The `update` removal was a forced companion of the bypass removal, decided by an
       empirical probe on disposable branches (temporary rulesets + branches, all deleted
@@ -106,8 +118,9 @@ administration, risk, change configuration, development environment).
 
 ## Next step
 
-Etapa B (required check `lint-and-build`) activates only after #278 merges. Remaining from
-T5c: identify Integration `1549082` in Settings → Rules → ruleset PR (only remaining
-bypass actor) and decide whether it keeps it. T7 (teammate accounts/roles) still awaits the
-user; merge order unchanged: #278 → #277 → #279 — and now PR merges need Antony's approval
-(last-push-approval + no bypass), which is exactly the intended separation.
+Review requested from `Antony-Figueroa` on #278 (2026-10-03) — his approval is now the
+merge-order gate: #278 → #277 → #279, re-requesting/rebasing each next PR after the
+previous merge (strict + stale-dismiss make approvals non-transferable). Etapa B
+(required check `lint-and-build`) activates the moment #278 lands. Awaiting user decisions:
+(a) drop the `opencode-agent` bypass (last remaining actor), (b) T7 teammate accounts/roles
+(unblocks T6, the second approver for #277/#279, and Etapa D).
