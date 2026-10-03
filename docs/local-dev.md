@@ -26,7 +26,17 @@ Re-applies `0001_init.sql` (48 tables) + `0002_rls_core.sql` (RLS) + `seed.sql` 
 
 ## Seed identities
 
-`supabase/seed.sql` creates two confirmed users — `demo@cemurm.app` and `isolation@cemurm.app`. The password is the plaintext in the `crypt()` call inside that file.
+`supabase/seed.sql` creates **three** confirmed users — `demo@cemurm.app`, `isolation@cemurm.app`
+and `outsider@cemurm.app` — and **all three share the password `password1234`**. The plaintext is
+`password1234`; the file stores it as `crypt('password1234', gen_salt('bf'))`, so the plaintext
+inside that `crypt()` call *is* the password.
+
+> **Correction (2026-09-30).** This line previously read "creates two confirmed users" and "the
+> password is the plaintext in the `crypt()` call inside that file" — technically true but
+> unusable, because it made you go read the SQL to learn a password you need in order to log in.
+> The count was verified against `supabase/seed.sql` on `main` (three `crypt('password1234', …)`
+> calls) and the password is now stated outright. `AGENTS.md` carries the same three users with
+> their fixture roles.
 
 ## Environment variables
 
