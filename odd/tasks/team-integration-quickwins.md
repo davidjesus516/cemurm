@@ -78,7 +78,15 @@ administration, risk, change configuration, development environment).
       pushes, so `update` was redundant for protection and only harmful for merges.
 - [ ] T6 — Measure onboarding zero-to-code < 15 min with a real team member (pending: team
       access must exist first).
-- [ ] T7 — Grant teammates access with roles (pending: user decision on who/what role).
+- [x] T7a — Role policy decided (2026-10-03): **write = `davidjesus516` + `Antony-Figueroa`**
+      (the only active workflow participants — approval capacity is exactly these two, and
+      last-push-approval means every PR needs the *other* one to approve). **Albany +
+      Gabriel = QA, not yet integrated into the workflow.** GitHub has no QA role; the
+      onboarding mapping is `triage` (labels, issues, PR metadata — no code push, no
+      approvals) unless the user specifies otherwise.
+- [ ] T7b — Invitations: **none sent, none needed today** (Albany/Gabriel not yet in the
+      workflow; Jesus Pereira's role not specified). When onboarding starts: needs their
+      GitHub usernames from the user — that also starts T6 (zero-to-code < 15 min).
 
 ## Verification evidence (observed, not assumed)
 
@@ -126,5 +134,6 @@ Review requested from `Antony-Figueroa` on #278 (2026-10-03) — his approval is
 merge-order gate: #278 → #277 → #279, re-requesting/rebasing each next PR after the
 previous merge (strict + stale-dismiss make approvals non-transferable). Etapa B
 (required check `lint-and-build`) activates the moment #278 lands. Bypass state: **zero
-actors** (Etapa C complete). Remaining user decision: T7 teammate accounts/roles —
-unblocks T6, the second approver for #277/#279, and Etapa D.
+actors** (Etapa C complete). Team access: **write = david + Antony only** (T7a decided;
+no invitations today — Albany/Gabriel onboard as QA→triage later, which also starts T6).
+The pipeline now waits externally on Antony's approval of #278.
