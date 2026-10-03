@@ -6,12 +6,15 @@
 > onboarding, empty states and celebration triggers remain current** and are still cited by
 > `docs/ux-spec.md` and `docs/wireframes.md` by section number.
 >
-> **Do not delete this file.** It carries eleven live cross-references from `README.md`,
-> `docs/ux-spec.md` and `docs/wireframes.md`, and it is the only record of the mascot and the voice.
+> **Do not delete this file.** It carries live cross-references from `README.md`,
+> `docs/ux-spec.md` and `docs/wireframes.md` — **14** in total as of 2026-09-30 (1 + 8 + 5; the
+> earlier figure of eleven undercounted them) — and it is the only record of the mascot and the
+> voice.
 >
 > **Created:** 2026-09-06
-> **Updated:** 2026-09-28
-> **Superseded in part by:** `skills/cemurm-visual-system/`, merged as `5547150`
+> **Updated:** 2026-09-30 (supersession banner added 2026-09-28 in #238; cross-reference count
+> corrected 2026-09-30)
+> **Superseded in part by:** `skills/cemurm-visual-system/`, merged as `5547150` (PR #235)
 
 ## Which sections are dead, and by what
 
