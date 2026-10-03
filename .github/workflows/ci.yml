@@ -32,4 +32,6 @@ jobs:
 
       - run: pnpm test
 
+      - run: pnpm test:gherkin
+
       - run: pnpm build
