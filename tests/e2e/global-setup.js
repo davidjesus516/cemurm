@@ -24,9 +24,11 @@ export default async function globalSetup() {
   console.log('[global-setup] Starting Supabase stack...');
 
   // Start Supabase (manages Docker Compose internally)
+  // POSTGRES_PASSWORD can be overridden via env var for CI/security; default is Supabase local dev default
+  const postgresPassword = process.env.POSTGRES_PASSWORD || 'postgres';
   execSync('supabase start', {
     stdio: 'inherit',
-    env: { ...process.env, POSTGRES_PASSWORD: 'postgres' },
+    env: { ...process.env, POSTGRES_PASSWORD: postgresPassword },
   });
 
   console.log('[global-setup] Waiting for Supabase health...');
