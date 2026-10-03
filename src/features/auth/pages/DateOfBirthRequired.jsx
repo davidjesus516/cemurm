@@ -98,7 +98,9 @@ export default function DateOfBirthRequired({ onSuccess, onRetry, readFailed = f
         know which features apply to you.
       </p>
 
-      <div className="mt-4 rounded-md bg-cem-elevated px-3 py-2 text-sm text-cem-secondary">
+      {/* Rule 06: prose, not a chip. cem.text (9.90:1) is the sentence token;
+          cem.secondary on cem.elevated is 4.04:1, under the AA floor. */}
+      <div className="mt-4 rounded-md bg-cem-elevated px-3 py-2 text-sm text-cem-text">
         Your date of birth is stored on the server and is never shown back to
         you or to anyone else. If you are under 18, the next screen asks a
         parent or guardian for consent.

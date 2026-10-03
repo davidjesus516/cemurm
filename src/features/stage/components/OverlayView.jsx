@@ -19,8 +19,8 @@ export default function OverlayView({ state }) {
   // subtle note, ZERO song data — nothing to leak mid-stream.
   if (!state || state.active !== true) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <p className="text-white/50">Overlay inactive</p>
+      <div className="flex min-h-screen items-center justify-center bg-cem-stage-bg">
+        <p className="text-cem-stage-lyric/50">Overlay inactive</p>
       </div>
     )
   }
@@ -30,12 +30,12 @@ export default function OverlayView({ state }) {
   const songTotal = Number(state.song_total)
 
   return (
-    <div className="flex min-h-screen flex-col bg-black px-10 py-10 text-white">
+    <div className="flex min-h-screen flex-col bg-cem-stage-bg px-10 py-10 text-cem-stage-lyric">
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="text-5xl font-bold tracking-tight">{state.title || 'Untitled'}</h1>
-        {state.key && <p className="text-2xl text-white/70">Key {state.key}</p>}
+        {state.key && <p className="text-2xl text-cem-stage-lyric/70">Key {state.key}</p>}
         {songTotal > 0 && (
-          <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-base font-semibold text-white/80">
+          <span className="rounded-full border border-cem-stage-lyric/20 bg-cem-stage-lyric/10 px-3 py-1 text-base font-semibold text-cem-stage-lyric/80">
             {Number(state.song_index) + 1} / {state.song_total}
           </span>
         )}
@@ -43,7 +43,7 @@ export default function OverlayView({ state }) {
 
       {chordsMode &&
         (!sections.length ? (
-          <p className="mt-10 text-center text-2xl text-white/60">No chord chart for this song.</p>
+          <p className="mt-10 text-center text-2xl text-cem-stage-lyric/60">No chord chart for this song.</p>
         ) : (
           <main className="mx-auto mt-10 w-full max-w-4xl flex-1 space-y-5 pb-10 text-3xl leading-relaxed">
             {sections.map((section, i) => {
@@ -51,7 +51,7 @@ export default function OverlayView({ state }) {
                 return (
                   <h2
                     key={i}
-                    className="pt-2 text-2xl font-bold uppercase tracking-widest text-white/70"
+                    className="pt-2 text-2xl font-bold uppercase tracking-widest text-cem-stage-lyric/70"
                   >
                     {section.lines[0]?.text}
                   </h2>

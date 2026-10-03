@@ -10,7 +10,7 @@ const subLine = 'text-cem-secondary'
 
 export default function SlideView({ slide, settings }) {
   const scale = settings?.fontScale ?? 1
-  const contrast = settings?.highContrast ? 'bg-cem-base text-white' : ''
+  const contrast = settings?.highContrast ? 'bg-cem-base text-cem-stage-lyric' : ''
 
   if (!slide) {
     return (
