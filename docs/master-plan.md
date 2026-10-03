@@ -18,7 +18,7 @@ Prose in this repo has drifted. These are the facts, checked against git and cod
 | **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:watch`, `typecheck` |
 | **CI on `main`** | `install --frozen-lockfile → lint → check:visual-contract.sh → test → build` |
 | `src/` layout on `main` | post-relocation: `app/`, `components/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/`, `offline/`, `ui/`. `src/components/` holds only `projection/SlideView.jsx`, which has no importers |
-| Feature files | **42**, 656 scenarios |
+| Feature files | **45**, 713 scenarios |
 | Migrations on `main` | 27 files, `0001`–`0020`, then a gap at `0021` only, then `0022`–`0028` |
 | Hito 5 merged | 6 migrations + PRs #147, #148, #155, #156, #159, #165, #166 |
 
