@@ -54,7 +54,11 @@ administration, risk, change configuration, development environment).
       `Repository.ruleset(databaseId: 24085467).bypassActors` → **App `opencode-agent`
       ("OpenCode Agent")**, `bypassMode: ALWAYS` — the OpenCode↔GitHub integration itself,
       which today could push to main, force-push, or merge without approval/checks.
-      Whether to drop this last bypass is the user's pending decision.
+      **Removed the same day after user approval (2026-10-02 21:29 -04, full-body PUT,
+      diff shows exactly that actor block disappearing): `bypass_actors` is now `[]` —
+      zero bypass on `main`, for humans and apps alike.** Re-adding it (if ever needed)
+      is a 30-second Settings edit; the agent's git/gh operations in this workflow run on
+      the user's local credentials, not on that app, so nothing in the flow depended on it.
 
       **The `update` removal was a forced companion of the bypass removal, decided by an
       empirical probe on disposable branches (temporary rulesets + branches, all deleted
@@ -121,6 +125,6 @@ administration, risk, change configuration, development environment).
 Review requested from `Antony-Figueroa` on #278 (2026-10-03) — his approval is now the
 merge-order gate: #278 → #277 → #279, re-requesting/rebasing each next PR after the
 previous merge (strict + stale-dismiss make approvals non-transferable). Etapa B
-(required check `lint-and-build`) activates the moment #278 lands. Awaiting user decisions:
-(a) drop the `opencode-agent` bypass (last remaining actor), (b) T7 teammate accounts/roles
-(unblocks T6, the second approver for #277/#279, and Etapa D).
+(required check `lint-and-build`) activates the moment #278 lands. Bypass state: **zero
+actors** (Etapa C complete). Remaining user decision: T7 teammate accounts/roles —
+unblocks T6, the second approver for #277/#279, and Etapa D.
