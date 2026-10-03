@@ -38,9 +38,28 @@ administration, risk, change configuration, development environment).
       # verify: the context list must read ["GitGuardian Security Checks", "lint-and-build"]
       ```
 
-- [ ] T5c (Etapa C) — User decision pending: remove the admin bypass (`RepositoryRole 5`,
-      `bypass_mode: always`) and identify the Integration `1549082` that currently bypasses
-      every rule (403 via API; name shows in Settings → Rules → ruleset PR).
+- [x] T5c (Etapa C) — Admin bypass removed (2026-10-02 20:59 -04, ruleset 24085467). Full-body
+      PUT verified by diff: exactly two deltas — `RepositoryRole 5` dropped from
+      `bypass_actors` and the `update` rule dropped; everything else byte-identical
+      (`dismiss_stale_reviews_on_push` stays `true` from Etapa A). Remaining bypass: only
+      `Integration:1549082` (still unidentified — name shows in Settings → Rules → ruleset PR).
+
+      **The `update` removal was a forced companion of the bypass removal, decided by an
+      empirical probe on disposable branches (temporary rulesets + branches, all deleted
+      after; probe PR #280 marked disposable):**
+
+      | Probe scenario | Result |
+      |---|---|
+      | `update`, empty bypass → normal merge | ✗ blocked |
+      | `update`, empty bypass → `--admin` merge | ✗ `Cannot update this protected ref` |
+      | `update`, bypass = RepositoryRole 5 → normal merge | ✗ blocked (UI shows the bypass checkbox) |
+      | `update`, bypass = RepositoryRole 5 → `--admin` merge | ✓ merged |
+      | `pull_request` only → direct push, no bypass | ✗ `Changes must be made through a pull request` |
+
+      Conclusion: with `update` active, only bypass-listed actors could merge, and only with
+      explicit bypass — so removing the admin bypass while keeping `update` would have locked
+      out every human (including the repo owner). `pull_request` alone already blocks direct
+      pushes, so `update` was redundant for protection and only harmful for merges.
 - [ ] T6 — Measure onboarding zero-to-code < 15 min with a real team member (pending: team
       access must exist first).
 - [ ] T7 — Grant teammates access with roles (pending: user decision on who/what role).
@@ -64,13 +83,19 @@ administration, risk, change configuration, development environment).
    check** (only GitGuardian was), and the admin bypass let #274/#275 merge anyway.
    Merge order: #278 → #277 (typecheck; failed only on the gate, typecheck itself
    passed) → #279.
-2. **The repo cannot satisfy its own review rule yet**: PR #279 has `reviewDecision:
+2. **The `update` rule was silently breaking separation**: added to the ruleset in its
+   2026-09-29 update, it blocked PR merges for every actor not in the bypass list —
+   `Antony-Figueroa` (write) merged #235 on 2026-09-28 and has been unable to merge since.
+   Only `davidjesus516` could merge, and only with explicit bypass (`--admin`). Probe-proven
+   matrix recorded under T5c; fixed by dropping the rule (`pull_request` covers direct
+   pushes) when the admin bypass was removed.
+3. **The repo cannot satisfy its own review rule yet**: PR #279 has `reviewDecision:
    REVIEW_REQUIRED` under `require_last_push_approval`, but author == reviewer ==
    `davidjesus516`, so the reviewer request is a silent no-op and no approval is obtainable
    until a second account has access. This is the concrete "separation" gap the plan targets.
-3. AGENTS.md still points at `src/lib/supabase.js`; the real file is `src/data/supabase.js`
+4. AGENTS.md still points at `src/lib/supabase.js`; the real file is `src/data/supabase.js`
    (known finding; `.env.example` uses the real path).
-4. Secrets scan over tracked files: clean. `.gitignore` covers `.env*`. Resend key lives only
+5. Secrets scan over tracked files: clean. `.gitignore` covers `.env*`. Resend key lives only
    in Supabase Vault (`service_role`); seed `password1234` is a documented local fixture.
 
 ## Deviations
@@ -81,6 +106,8 @@ administration, risk, change configuration, development environment).
 
 ## Next step
 
-Etapa B (required check `lint-and-build`) activates only after #278 merges; T5c (admin
-bypass + Integration 1549082) and T7 (teammate accounts/roles) await user decisions.
-Merge order unchanged: #278 → #277 → #279.
+Etapa B (required check `lint-and-build`) activates only after #278 merges. Remaining from
+T5c: identify Integration `1549082` in Settings → Rules → ruleset PR (only remaining
+bypass actor) and decide whether it keeps it. T7 (teammate accounts/roles) still awaits the
+user; merge order unchanged: #278 → #277 → #279 — and now PR merges need Antony's approval
+(last-push-approval + no bypass), which is exactly the intended separation.
