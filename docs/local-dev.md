@@ -124,6 +124,14 @@ Nothing else in the repo ever holds this value. `public.read_resend_api_key()` (
 
 **With no key the local stack is still a working stack:** the function answers `503 {"error":"email_not_configured"}` and sends nothing. That is the normal local state, and it is the reason this work unit is deliverable without credentials. There is no mock send anywhere in the function.
 
+**The from-address — `RESEND_FROM`.** The function sends from `CEMURM <guardian@cemurm.app>` by default, and Resend only accepts a from-address on a **verified domain**. Without one — or to test without buying one — override it per environment:
+
+```env
+RESEND_FROM=onboarding@resend.dev
+```
+
+in `supabase/functions/.env`, under the same rules as `SITE_URL` below: gitignored, read once at `supabase start`, restart the stack after editing. Resend's test sender delivers **only to the account's own email address** — every other recipient gets `403` — which is enough to smoke-test locally with a guardian address that is your Resend account. Production keeps the default: verify the domain in Resend (DNS SPF/DKIM), then rely on `guardian@cemurm.app` or set `RESEND_FROM` with `supabase secrets set`.
+
 ### 2. `SITE_URL` — the app origin (not a secret)
 
 The guardian link is absolute, so the function needs to know where the PWA lives. It does **not** read the request's `Origin` header: a spoofed origin would put a working approval link in a stranger's domain.
