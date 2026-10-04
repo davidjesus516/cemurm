@@ -81,15 +81,12 @@ jobs:
       - name: Run database migrations and seed
         run: npx supabase db reset
 
-      - name: Extract anon key
+      - name: Extract anon key (local Supabase deterministic key)
         id: extract-keys
         run: |
-          ANON_KEY=$(npx supabase status --output json 2>/dev/null | jq -r '.services[] | select(.name=="API") | .anon_key')
-          if [ -z "$ANON_KEY" ] || [ "$ANON_KEY" = "null" ]; then
-            echo "Failed to extract anon key"
-            exit 1
-          fi
-          echo "anon-key=$ANON_KEY" >> $GITHUB_OUTPUT
+          # Local Supabase uses a fixed JWT secret, so the anon key is always:
+          # eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          echo "anon-key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0" >> $GITHUB_OUTPUT
 
       - name: Start Vite dev server
         run: |
