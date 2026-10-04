@@ -67,8 +67,8 @@ jobs:
 
       - name: Wait for Supabase health
         run: |
-          for i in {1..30}; do
-            if curl -sf http://localhost:54321/health > /dev/null; then
+          for i in {1..90}; do
+            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
               echo "Supabase is healthy"
               exit 0
             fi
@@ -101,7 +101,7 @@ jobs:
 
       - name: Wait for Vite dev server
         run: |
-          for i in {1..30}; do
+          for i in {1..90}; do
             if curl -sf http://localhost:5173 > /dev/null; then
               echo "Vite dev server is ready"
               exit 0
@@ -157,8 +157,8 @@ jobs:
 
       - name: Wait for Supabase health
         run: |
-          for i in {1..30}; do
-            if curl -sf http://localhost:54321/health > /dev/null; then
+          for i in {1..90}; do
+            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
               echo "Supabase is healthy"
               exit 0
             fi
@@ -181,7 +181,7 @@ jobs:
 
       - name: Wait for Vite dev server
         run: |
-          for i in {1..30}; do
+          for i in {1..90}; do
             if curl -sf http://localhost:5173 > /dev/null; then
               echo "Vite dev server is ready"
               exit 0
@@ -267,8 +267,8 @@ jobs:
 
       - name: Wait for Supabase health
         run: |
-          for i in {1..30}; do
-            if curl -sf http://localhost:54321/health > /dev/null; then
+          for i in {1..90}; do
+            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
               echo "Supabase is healthy"
               exit 0
             fi
@@ -291,7 +291,7 @@ jobs:
 
       - name: Wait for Vite dev server
         run: |
-          for i in {1..30}; do
+          for i in {1..90}; do
             if curl -sf http://localhost:5173 > /dev/null; then
               echo "Vite dev server is ready"
               exit 0
@@ -377,8 +377,8 @@ jobs:
 
       - name: Wait for Supabase health
         run: |
-          for i in {1..30}; do
-            if curl -sf http://localhost:54321/health > /dev/null; then
+          for i in {1..90}; do
+            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
               echo "Supabase is healthy"
               exit 0
             fi
@@ -401,7 +401,7 @@ jobs:
 
       - name: Wait for Vite dev server
         run: |
-          for i in {1..30}; do
+          for i in {1..90}; do
             if curl -sf http://localhost:5173 > /dev/null; then
               echo "Vite dev server is ready"
               exit 0
