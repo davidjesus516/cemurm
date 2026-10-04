@@ -185,6 +185,9 @@ jobs:
           echo "Supabase failed to become healthy"
           exit 1
 
+      - name: Run database migrations and seed
+        run: npx supabase db reset
+
       - name: Start Vite dev server
         run: |
           nohup pnpm dev > vite.log 2>&1 &
@@ -300,6 +303,9 @@ jobs:
           echo "Supabase failed to become healthy"
           exit 1
 
+      - name: Run database migrations and seed
+        run: npx supabase db reset
+
       - name: Start Vite dev server
         run: |
           nohup pnpm dev > vite.log 2>&1 &
@@ -414,6 +420,9 @@ jobs:
           done
           echo "Supabase failed to become healthy"
           exit 1
+
+      - name: Run database migrations and seed
+        run: npx supabase db reset
 
       - name: Start Vite dev server
         run: |
