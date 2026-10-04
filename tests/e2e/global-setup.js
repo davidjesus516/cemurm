@@ -2,7 +2,7 @@
 
 import { execSync } from 'node:child_process';
 
-async function waitForSupabaseHealth(maxRetries = 30, intervalMs = 2000) {
+async function waitForSupabaseHealth(maxRetries = 100, intervalMs = 2000) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       const status = execSync('supabase status --output json', {
