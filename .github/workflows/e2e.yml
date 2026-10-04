@@ -64,8 +64,6 @@ jobs:
 
       - name: Start Supabase stack
         run: npx supabase start
-        env:
-          POSTGRES_PASSWORD: postgres
 
       - name: Wait for Supabase health
         run: |
@@ -156,8 +154,6 @@ jobs:
 
       - name: Start Supabase stack
         run: npx supabase start
-        env:
-          POSTGRES_PASSWORD: postgres
 
       - name: Wait for Supabase health
         run: |
@@ -268,8 +264,6 @@ jobs:
 
       - name: Start Supabase stack
         run: npx supabase start
-        env:
-          POSTGRES_PASSWORD: postgres
 
       - name: Wait for Supabase health
         run: |
@@ -380,8 +374,6 @@ jobs:
 
       - name: Start Supabase stack
         run: npx supabase start
-        env:
-          POSTGRES_PASSWORD: postgres
 
       - name: Wait for Supabase health
         run: |
