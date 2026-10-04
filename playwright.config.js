@@ -5,8 +5,10 @@ import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Load .env.test for test runtime (written by global-setup)
-dotenv.config({ path: '.env.test' });
+// Load the developer's local env for test runs. `dotenv.config` does not
+// override variables that are already set, so the CI workflow's `env:`
+// block (which carries VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY) wins.
+dotenv.config({ path: '.env.local' });
 
 function resolvePath(relativePath) {
   return join(__dirname, relativePath);
@@ -47,8 +49,11 @@ export default defineConfig({
           args: ['--enable-features=WebHID,WebMIDI'],
         },
       },
-      grep: /@chromium-only/,
-      grepInvert: /@chromium-only/,
+      // No `grep` and no `grepInvert` here: a test must match `grep` AND not
+      // match `grepInvert`, so setting both to the same regex made chromium
+      // select nothing. `@chromium-only` means "chromium only", which is
+      // expressed by excluding it from firefox and webkit below and leaving
+      // chromium unfiltered so untagged tests still run.
     },
     {
       name: 'firefox',

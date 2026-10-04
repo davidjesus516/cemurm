@@ -1,11 +1,6 @@
 /* global process */
 
 import { execSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function waitForSupabaseHealth(maxRetries = 30, intervalMs = 2000) {
   for (let i = 0; i < maxRetries; i++) {
@@ -35,26 +30,25 @@ export default async function globalSetup() {
   });
 
   console.log('[global-setup] Waiting for Supabase health...');
-  const status = await waitForSupabaseHealth();
+  await waitForSupabaseHealth();
 
   console.log('[global-setup] Running supabase db reset...');
   execSync('supabase db reset', { stdio: 'inherit' });
 
-  console.log('[global-setup] Verifying seed data...');
-  // Verify 3 users, demo setlist, songs exist via supabase status or direct query
-  // (Supabase CLI doesn't have a direct verify command; we trust db reset)
-
-  console.log('[global-setup] Extracting anon key...');
-  const anonKey = status.services.find((s) => s.name === 'API')?.anon_key;
-  if (!anonKey) {
-    throw new Error('Failed to extract anon key from supabase status');
+  // The fixtures authenticate as ordinary users against the anon key, so a
+  // missing key fails later as a confusing 401 from GoTrue. Fail here instead.
+  // `playwright.config.js` loads .env.local before this runs, and dotenv does
+  // not override variables the CI workflow already set.
+  const missing = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'].filter(
+    (name) => !process.env[name]
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing ${missing.join(' and ')}. ` +
+        'Create .env.local at the repository root with both values ' +
+        '(see docs/local-dev.md), or let the CI workflow supply them.'
+    );
   }
-
-  console.log('[global-setup] Writing .env.test...');
-  const envContent = `VITE_SUPABASE_URL=http://127.0.0.1:54321
-VITE_SUPABASE_ANON_KEY=${anonKey}
-`;
-  writeFileSync(join(__dirname, '.env.test'), envContent);
 
   console.log('[global-setup] Global setup complete.');
 }
