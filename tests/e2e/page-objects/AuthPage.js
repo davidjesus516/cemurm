@@ -14,7 +14,7 @@ export class AuthPage extends BasePage {
    * @param {import('@playwright/test').Page} page
    */
   constructor(page) {
-    super(page, '/login');
+    super(page, '/auth');
   }
 
   /**
@@ -111,7 +111,7 @@ export class AuthPage extends BasePage {
     await this.page.click(selectors.auth.logoutButton);
     
     // Wait for redirect to login
-    await this.waitForUrl('**/login');
+    await this.waitForUrl('**/auth');
     await this.waitForLoad();
   }
 
@@ -154,7 +154,7 @@ export class AuthPage extends BasePage {
    * @returns {Promise<void>}
    */
   async expectOnLoginPage() {
-    await this.waitForUrl('**/login');
+    await this.waitForUrl('**/auth');
     await this.page.waitForSelector(selectors.auth.loginEmail, { state: 'visible', timeout: 5000 });
   }
 

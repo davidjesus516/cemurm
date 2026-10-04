@@ -107,8 +107,12 @@ export class ChordRenderer {
     
     // Find the transpose input or buttons
     const transposeInput = transposeControl.locator('[data-testid="transpose-input"], input[type="number"]');
-    const incrementBtn = transposeControl.locator('[data-testid="transpose-up"], button:has-text("+")');
-    const decrementBtn = transposeControl.locator('[data-testid="transpose-down"], button:has-text("-")');
+    // StageMode.jsx labels these buttons "Transpose up" / "Transpose down"
+    // (aria-label, lines 456 and 464). Matching the glyph did not work: the
+    // down button renders U+2212 MINUS SIGN while `has-text("-")` is ASCII
+    // U+002D, so the two never matched.
+    const incrementBtn = transposeControl.locator('[data-testid="transpose-up"], button[aria-label="Transpose up"]');
+    const decrementBtn = transposeControl.locator('[data-testid="transpose-down"], button[aria-label="Transpose down"]');
     
     if (await transposeInput.count() > 0) {
       // Direct input
