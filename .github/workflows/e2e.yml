@@ -20,95 +20,17 @@ env:
 
 jobs:
   setup:
-    name: Setup Supabase & Dev Server
+    name: Setup — emit deterministic anon key
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     outputs:
-      anon-key: ${{ steps.extract-keys.outputs.anon-key }}
+      anon-key: ${{ steps.emit-key.outputs.anon-key }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Restore pnpm store cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            pnpm-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Restore Playwright browser cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium firefox webkit
-
-      - name: Start Supabase stack
-        run: npx supabase start
-
-      - name: Wait for Supabase health
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
-              echo "Supabase is healthy"
-              exit 0
-            fi
-            echo "Waiting for Supabase... ($i/30)"
-            sleep 2
-          done
-          echo "Supabase failed to become healthy"
-          exit 1
-
-      - name: Run database migrations and seed
-        run: npx supabase db reset
-
-      - name: Extract anon key (local Supabase deterministic key)
-        id: extract-keys
+      - name: Emit deterministic anon key
+        id: emit-key
         run: |
           # Local Supabase uses a fixed JWT secret, so the anon key is always:
-          # eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
           echo "anon-key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0" >> $GITHUB_OUTPUT
-
-      - name: Start Vite dev server
-        run: |
-          nohup pnpm dev > vite.log 2>&1 &
-          echo $! > vite.pid
-        env:
-          VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: ${{ steps.extract-keys.outputs.anon-key }}
-
-      - name: Wait for Vite dev server
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:5173 > /dev/null; then
-              echo "Vite dev server is ready"
-              exit 0
-            fi
-            echo "Waiting for Vite... ($i/30)"
-            sleep 2
-          done
-          echo "Vite dev server failed to start"
-          cat vite.log
-          exit 1
 
   e2e-chromium:
     name: E2E Chromium
@@ -149,46 +71,8 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      - name: Start Supabase stack
-        run: npx supabase start
-
-      - name: Wait for Supabase health
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
-              echo "Supabase is healthy"
-              exit 0
-            fi
-            echo "Waiting for Supabase... ($i/30)"
-            sleep 2
-          done
-          echo "Supabase failed to become healthy"
-          exit 1
-
-      - name: Run database migrations and seed
-        run: npx supabase db reset
-
-      - name: Start Vite dev server
-        run: |
-          nohup pnpm dev > vite.log 2>&1 &
-          echo $! > vite.pid
-        env:
-          VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
-
-      - name: Wait for Vite dev server
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:5173 > /dev/null; then
-              echo "Vite dev server is ready"
-              exit 0
-            fi
-            echo "Waiting for Vite... ($i/30)"
-            sleep 2
-          done
-          echo "Vite dev server failed to start"
-          cat vite.log
-          exit 1
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests (Chromium)
         run: pnpm test:e2e:ci --project=chromium
@@ -259,46 +143,8 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      - name: Start Supabase stack
-        run: npx supabase start
-
-      - name: Wait for Supabase health
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
-              echo "Supabase is healthy"
-              exit 0
-            fi
-            echo "Waiting for Supabase... ($i/30)"
-            sleep 2
-          done
-          echo "Supabase failed to become healthy"
-          exit 1
-
-      - name: Run database migrations and seed
-        run: npx supabase db reset
-
-      - name: Start Vite dev server
-        run: |
-          nohup pnpm dev > vite.log 2>&1 &
-          echo $! > vite.pid
-        env:
-          VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
-
-      - name: Wait for Vite dev server
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:5173 > /dev/null; then
-              echo "Vite dev server is ready"
-              exit 0
-            fi
-            echo "Waiting for Vite... ($i/30)"
-            sleep 2
-          done
-          echo "Vite dev server failed to start"
-          cat vite.log
-          exit 1
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps firefox
 
       - name: Run E2E tests (Firefox)
         run: pnpm test:e2e:ci --project=firefox
@@ -369,46 +215,8 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      - name: Start Supabase stack
-        run: npx supabase start
-
-      - name: Wait for Supabase health
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:54321/auth/v1/health > /dev/null; then
-              echo "Supabase is healthy"
-              exit 0
-            fi
-            echo "Waiting for Supabase... ($i/30)"
-            sleep 2
-          done
-          echo "Supabase failed to become healthy"
-          exit 1
-
-      - name: Run database migrations and seed
-        run: npx supabase db reset
-
-      - name: Start Vite dev server
-        run: |
-          nohup pnpm dev > vite.log 2>&1 &
-          echo $! > vite.pid
-        env:
-          VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
-
-      - name: Wait for Vite dev server
-        run: |
-          for i in {1..90}; do
-            if curl -sf http://localhost:5173 > /dev/null; then
-              echo "Vite dev server is ready"
-              exit 0
-            fi
-            echo "Waiting for Vite... ($i/30)"
-            sleep 2
-          done
-          echo "Vite dev server failed to start"
-          cat vite.log
-          exit 1
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps webkit
 
       - name: Run E2E tests (WebKit)
         run: pnpm test:e2e:ci --project=webkit
