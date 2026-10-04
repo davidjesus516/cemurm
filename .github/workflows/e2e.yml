@@ -89,9 +89,6 @@ jobs:
             exit 1
           fi
           echo "anon-key=$ANON_KEY" >> $GITHUB_OUTPUT
-          # Write .env.test for playwright config
-          echo "VITE_SUPABASE_URL=http://127.0.0.1:54321" > .env.test
-          echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> .env.test
 
       - name: Start Vite dev server
         run: |
@@ -114,13 +111,6 @@ jobs:
           echo "Vite dev server failed to start"
           cat vite.log
           exit 1
-
-      - name: Upload .env.test as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: env-test
-          path: .env.test
-          retention-days: 1
 
   e2e-chromium:
     name: E2E Chromium
@@ -161,12 +151,6 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      - name: Download .env.test artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: env-test
-          path: .
-
       - name: Start Supabase stack
         run: npx supabase start
         env:
@@ -194,7 +178,7 @@ jobs:
           echo $! > vite.pid
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
 
       - name: Wait for Vite dev server
         run: |
@@ -214,7 +198,7 @@ jobs:
         run: pnpm test:e2e:ci --project=chromium
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
 
       - name: Upload Playwright report
         if: always()
@@ -279,12 +263,6 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      - name: Download .env.test artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: env-test
-          path: .
-
       - name: Start Supabase stack
         run: npx supabase start
         env:
@@ -312,7 +290,7 @@ jobs:
           echo $! > vite.pid
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
 
       - name: Wait for Vite dev server
         run: |
@@ -332,7 +310,7 @@ jobs:
         run: pnpm test:e2e:ci --project=firefox
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
 
       - name: Upload Playwright report
         if: always()
@@ -397,12 +375,6 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      - name: Download .env.test artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: env-test
-          path: .
-
       - name: Start Supabase stack
         run: npx supabase start
         env:
@@ -430,7 +402,7 @@ jobs:
           echo $! > vite.pid
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
 
       - name: Wait for Vite dev server
         run: |
@@ -450,7 +422,7 @@ jobs:
         run: pnpm test:e2e:ci --project=webkit
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+          VITE_SUPABASE_ANON_KEY: ${{ needs.setup.outputs.anon-key }}
 
       - name: Upload Playwright report
         if: always()
