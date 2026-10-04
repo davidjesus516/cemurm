@@ -41,12 +41,26 @@ export class BasePage {
    * @returns {Promise<void>}
    */
   async waitForLoad() {
-    await waitForNetworkIdle(this.page);
-    
+    await this.waitForNetworkIdle();
+
     // Subclasses can override keySelector to wait for a specific element
     if (this.keySelector) {
       await this.page.locator(this.keySelector).waitFor({ state: 'visible', timeout: 10000 });
     }
+  }
+
+  /**
+   * Wait for the network to settle
+   *
+   * Also available as a method because page objects call
+   * `this.waitForNetworkIdle()`, which resolved to `undefined` while the helper
+   * was only a module-level import - a TypeError on the first call of every
+   * method that used it.
+   *
+   * @returns {Promise<void>}
+   */
+  async waitForNetworkIdle() {
+    await waitForNetworkIdle(this.page);
   }
 
   /**
