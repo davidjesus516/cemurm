@@ -234,22 +234,105 @@ covered by the single method.
   `supabase stop --help` documents the flag as *"Deletes all data volumes after
   stopping."* The adjacent comment claimed it preserved them.
 
-## Known pre-existing condition on this chain
+## Chain rebase onto `origin/main` (decision D1, taken)
 
-`bash scripts/check-visual-contract.sh` fails on the chain with three ratchets
-over ceiling (01b: 92 vs 82; 02: 274 vs 252). This is **not** caused by these
-changes, and the chain does not touch `src/` at all relative to its fork point:
+The pre-existing condition recorded above — the chain carrying the pre-paydown
+`scripts/check-visual-contract.sh` and the pre-paydown `src/`, which failed
+rules 01b (92 vs 82) and 02 (274 vs 252) — is now **resolved**.
 
-- The chain forked at `e849738`, where the gate already failed.
-- `origin/main` is 7 commits ahead (`3c15950`) and is **green** — 10 rules, 0
-  failing. Main paid the debt down and ratcheted the ceilings to 5 and 234.
-- The chain therefore carries the pre-paydown `scripts/check-visual-contract.sh`
-  and the pre-paydown `src/`.
+Main's 7 commits since the fork change 15 files: the visual paydown, three new
+`docs/` files, the handbook generator, and the tightened ratchet. **No commit
+changes `package.json`, `pnpm-lock.yaml`, `playwright.config.js` or `tests/`.**
+The changed-file sets of main and the chain are disjoint, so the rebase had no
+possible conflict — confirmed before rebasing, not after.
 
-Rebasing the stack onto current `origin/main` should resolve it. That is left
-undone because it moves the base of all six PRs — a decision, not a fix.
+| Slice | before | after |
+|---|---|---|
+| pr1 | `7398b42` | `9dd12c0` |
+| pr2 | `05098e2` | `e47a6c5` |
+| pr3 | `e7066ca` | `37e2143` |
+| pr4 | `d09ba20` | `ee06e8f` |
+| pr5 | `749e153` | `3297edc` |
+| pr6 | `6a13d1a` | `6e2f761` |
+
+### The visual gate, measured
+
+`visual contract: OK (10 rules checked, 0 failing)` — previously three ratchets
+over ceiling.
+
+### Gates after the rebase, on the head
+
+| Gate | Result |
+|---|---|
+| `pnpm install --frozen-lockfile` | lockfile already up to date |
+| `bash scripts/check-visual-contract.sh` | **OK**, 0 failing |
+| `pnpm lint` | clean, `--max-warnings 0` |
+| `pnpm typecheck` | exit 0 |
+| `pnpm test` | 307 passed (9 files) |
+| `pnpm build` | built, 914.64 kB / 250.21 kB gzip |
+| `tsc --listFiles \| grep -c 'cemurm/src/'` | 60 (baseline alive) |
+| `playwright test --list` | 18 / 18 / 18 on all three projects, **all six slices** |
+
+**A consequence worth naming:** main paid the visual debt down and restored
+`test` and `build` in CI. On these six PRs they were `skipped` while the gate
+was red, so they had never actually run in CI. They run now. All green locally.
+
+### Two corrections to my own earlier verification
+
+- **`git cherry <local> <remote>` is one-directional.** It answers "what would a
+  force-push destroy" and nothing else. Run that way it reported clean on all six
+  slices while `docs(odd)` `9dd12c0` was missing from pr2–pr6 on the remote. The
+  reverse question — `git cherry <remote> <local>` — is what exposed it.
+  A one-sided safety check is not a safety check.
+- **A successful rebase does not prove an earlier commit propagated.** This is
+  the second time on this chain. Only `git log --format=%s <base>..<head>`
+  comparing subjects, or `merge-base --is-ancestor`, shows what actually landed.
+
+Verified after the rebase: no commit lost on any slice (`git cherry` destructive
+count 0/0/0/0/0/0 against freshly fetched remote refs), the CodeQL autofix
+`2452194` is still an ancestor of pr6, and the uncommitted WIP on `README.md` and
+`docs/local-dev.md` round-tripped byte-for-byte (sha256) with `stash@{0}` intact.
+
+## GitGuardian findings — a false positive, and one real dedup
+
+| PR | finding | source |
+|---|---|---|
+| #288 | 1 secret | `POSTGRES_PASSWORD: 'postgres'` in `playwright.config.js`, removed from the tree in `c4d8370` but still present in the commit that added it |
+| #297 | 5 secrets | `POSTGRES_PASSWORD: postgres` × 5 in `.github/workflows/e2e.yml` |
+
+The count matches the occurrences exactly. `postgres` is the Supabase **local
+development** default: published in Supabase's own documentation, identical for
+every fork and every run, and protecting a container that only exists for the
+lifetime of a CI job. There is no credential to leak.
+
+Four of the five were pure duplication — the workflow already declares
+`POSTGRES_PASSWORD` at the top level, which GitHub Actions applies to every step
+of every job, so the four step-level `env:` blocks repeated the literal for no
+effect. Removed in `bb307eb`: 8 deletions, 0 insertions, and the parsed YAML
+still resolves to `workflow env {POSTGRES_PASSWORD: postgres}` with no step
+overriding it, so `tests/e2e/global-setup.js:28` reads the same value.
+
+**This check is informational, not blocking.** Both PRs report
+`mergeStateStatus: BLOCKED` with `reviewDecision: REVIEW_REQUIRED` — the
+blocker is the required human approval, not GitGuardian.
+
+Note that GitGuardian scans **commits, not the tree**. Removing the lines does
+not clear the historical findings, and clearing them would mean rewriting five
+commits of an unreviewed PR to silence a non-blocking check over a value Supabase
+publishes. That is disproportionate. Whether to add a narrow
+`.gitguardian.yaml` allowlist is a maintainer call, because it is a
+repo-wide security-policy change.
+
+## Known pre-existing conditions, unresolved
+
+- **Docker Hub rate limit.** The `Setup Supabase & Dev Server` job cannot pass in
+  CI: `toomanyrequests: Rate exceeded` on ~10 unauthenticated Supabase image
+  pulls per job across 4 jobs. Shared anonymous Docker Hub IP pool. Reproduced
+  on run `37230649214`, attempts 1 and 2. Decision D3 is open.
+- **`GitGuardian Security Checks`** — see above.
 
 ## Next step
 
-Take the page-object strategy decision, then either instrument the application
-or trim the harness to what is reachable.
+Take the page-object strategy decision (D2): instrument the application with the
+453 missing `data-testid`s, or trim the harness to the 28 coverable scenarios.
+Then the Docker rate-limit decision (D3), then the GitGuardian allowlist call.
