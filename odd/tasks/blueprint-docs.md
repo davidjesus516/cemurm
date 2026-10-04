@@ -87,18 +87,49 @@ Three genuine gaps remain:
 
 ## Task checklist
 
-- [ ] **T1 — `docs/security.md`.** Route: delegated (writer trigger — source-dispersed content
+- [x] **T1 — `docs/security.md`.** Route: delegated (writer trigger — source-dispersed content
       requiring multi-file reading). Trigger evidence: reads `AGENTS.md`, `docs/local-dev.md`,
-      migrations, and `src/lib/supabase.js`; writing prepares on that reading.
-- [ ] **T2 — `docs/decisions.md`.** Route: delegated (same writer as T1 — one writer for the
-      paired docs).
-- [ ] **T3 — viewer generator + template.** Route: delegated (writer trigger — 2+ non-trivial
+      migrations, and the Supabase client; writing prepares on that reading.
+      Done — 282 lines, 7 sections, commit `23127b6`.
+- [x] **T2 — `docs/decisions.md`.** Route: delegated (same writer as T1 — one writer for the
+      paired docs). Done — 228 lines, ADR-001..010, commit `23127b6`.
+- [x] **T3 — viewer generator + template.** Route: delegated (writer trigger — 2+ non-trivial
       files, design work against the taste skill).
-- [ ] **T4 — designed sections (design system / decisions / architecture).** Route: delegated
+      Done — `scripts/build-docs-viewer.mjs` (1979 lines, Node ESM, zero dependencies). Run
+      command lives in the script header: `node scripts/build-docs-viewer.mjs` (no npm script
+      on purpose — `package.json` is outside the edit surface). It embeds the markdown
+      renderer, the `tokens.css` parser, the ADR parser, the `SKILL.md` tier-table extractor,
+      the `src/` import scan, the page template and the routing script.
+- [x] **T4 — designed sections (design system / decisions / architecture).** Route: delegated
       (same writer thread as T3).
+      Done — `docs/handbook.html`, generated only (4225 lines, 577.2 KiB): 16 doc pages, the
+      three designed sections, 9 links to the existing HTML visualizations. Verification:
+      double-run sha256 identical (`349e904a…c988d9f`); `grep -c 'ADR-0'` = 37;
+      `grep -c '#f59e0b\|--cem-accent'` = 25; 12 unique external URLs (5 clickable, 2 of them
+      the font pair, the rest document content); `bash scripts/check-visual-contract.sh` →
+      `visual contract: OK (10 rules checked, 0 failing)` — note that gate scans `src/` only
+      and does **not** cover `docs/*.html`. Routing, theme bootstrap and the <768px top-bar
+      fallback were verified headlessly (colour-marker probe per route + pixel checks).
 - [ ] **T5 — gates + slice commits + PRs.** Route: inline for git state, delegated for the
       full gate run.
+      Not started in this session: `pnpm lint|test|typecheck|build` were deliberately not run
+      (they would exercise `src/`, which carries another session's uncommitted changes), and
+      nothing was committed — the session sits on `feat/landing-page`, not `feat/blueprint-docs`.
+      The visual contract gate *was* run (see T4).
 
 ## Progress log
 
 - 2026-10-04 — Feature document created; branch `feat/blueprint-docs` cut from `main`.
+- 2026-10-04 — **T3/T4 landed (uncommitted).** Added `scripts/build-docs-viewer.mjs` and its
+  generated `docs/handbook.html`; updated this record. Sources parsed at build time: 16
+  `docs/*.md` (5232 lines), 48 tokens from `skills/cemurm-visual-system/assets/tokens.css`,
+  ADR-001..010 from `docs/decisions.md`, the four-row Decision Gates table from
+  `skills/cemurm-visual-system/SKILL.md`, and a live `src/` scan (145 files, 10 folders, 29
+  cross-folder import edges, 17 Supabase-client importers — 2 of them outside `src/data/`).
+  Findings recorded in the output rather than smoothed over: `src/domain/music/degreeResolver.js`
+  imports `src/data/repositories/scaleCatalog.js` (one outward edge from the pure layer), and
+  `features`/`hooks` import `src/app/providers/useAuth.jsx` 30 times (shared provider, not a
+  layer). Determinism, link/id integrity (20 pages, 413 ids, 0 broken internal links), zero
+  hex outside the token layer and the responsive fallback were all verified; see T4 for the
+  command output. Not run: `pnpm lint|test|typecheck|build` (their scope is `src/`, which
+  holds another session's uncommitted work) — T5 still owes them, plus the slice commits.
