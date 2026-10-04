@@ -28,12 +28,23 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+# Written by tests/e2e/global-setup.js and loaded by playwright.config.js.
+# Carries the local Supabase anon key, so it must never be committed.
+.env.test
 
 # Supabase
 .supabase/
 
 # Test coverage
 coverage/
+
+# Playwright (tests/e2e)
+# Generated locally by playwright.config.js; the HTML report embeds test
+# source and console output, so it must never be committed.
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
 
 # Misc
 *.tsbuildinfo
