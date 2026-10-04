@@ -1,7 +1,7 @@
 // Authentication fixtures for Playwright E2E tests
-/* global process */
 
 import { demoUser, isolationUser, outsiderUser } from './users.js';
+import { supabaseApiUrl, supabaseAnonKey, supabaseStorageKey } from '../utils/supabase-url.js';
 
 /**
  * Login via the Supabase Auth API (programmatic login)
@@ -11,10 +11,10 @@ import { demoUser, isolationUser, outsiderUser } from './users.js';
  * @returns {Promise<{accessToken: string, refreshToken: string, expiresIn: number, user: any}>}
  */
 export async function loginViaApi(request, user) {
-  const response = await request.post('http://127.0.0.1:54321/auth/v1/token?grant_type=password', {
+  const response = await request.post(`${supabaseApiUrl()}/auth/v1/token?grant_type=password`, {
     headers: {
       'Content-Type': 'application/json',
-      apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+      apikey: supabaseAnonKey(),
     },
     data: {
       email: user.email,
@@ -53,19 +53,28 @@ export async function injectSession(page, user, session) {
   // Navigate to the app first to set up localStorage context
   await page.goto('/');
 
+  // GoTrue returns `expires_in` (seconds from now) but auth-js persists
+  // `expires_at` (absolute unix seconds) and discards a stored session that
+  // lacks it: GoTrueClient._isValidSession requires access_token,
+  // refresh_token and expires_at, and removes the session if any is missing.
+  const expiresIn = session.expiresIn || 3600;
+  const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
+  const storageKey = supabaseStorageKey();
+
   // Inject the session into localStorage (Supabase client stores session here)
   await page.evaluate(
-    ([accessToken, refreshToken, expiresIn, userData]) => {
+    ([key, accessToken, refreshToken, ttl, expiresAtSeconds, userData]) => {
       const sessionData = {
         access_token: accessToken,
         refresh_token: refreshToken,
-        expires_in: expiresIn,
+        expires_in: ttl,
+        expires_at: expiresAtSeconds,
         token_type: 'bearer',
         user: userData,
       };
-      localStorage.setItem('supabase.auth.token', JSON.stringify(sessionData));
+      localStorage.setItem(key, JSON.stringify(sessionData));
     },
-    [session.accessToken, session.refreshToken, session.expiresIn, session.user]
+    [storageKey, session.accessToken, session.refreshToken, expiresIn, expiresAt, session.user]
   );
 
   // Reload to apply the session
@@ -80,7 +89,7 @@ export async function injectSession(page, user, session) {
  * @returns {Promise<void>}
  */
 export async function loginViaUi(page, user) {
-  await page.goto('/login');
+  await page.goto('/auth');
   await page.waitForLoadState('networkidle');
 
   await page.fill('[data-testid="login-email"]', user.email);
@@ -101,7 +110,7 @@ export async function logoutViaUi(page) {
   // Open user menu and click logout
   await page.click('[data-testid="user-menu"]');
   await page.click('[data-testid="logout-button"]');
-  await page.waitForURL('**/login', { timeout: 5000 });
+  await page.waitForURL('**/auth', { timeout: 5000 });
 }
 
 /**
@@ -123,10 +132,11 @@ export async function clearAuthState(page) {
  * @returns {Promise<any|null>}
  */
 export async function getCurrentSession(page) {
-  return page.evaluate(() => {
-    const stored = localStorage.getItem('supabase.auth.token');
+  const storageKey = supabaseStorageKey();
+  return page.evaluate((key) => {
+    const stored = localStorage.getItem(key);
     return stored ? JSON.parse(stored) : null;
-  });
+  }, storageKey);
 }
 
 /**

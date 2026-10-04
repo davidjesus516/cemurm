@@ -11,7 +11,6 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:gherkin": "vitest run src/test/gherkin",
     "typecheck": "tsc --noEmit",
     "check:visual": "bash scripts/check-visual-contract.sh",
     "test:e2e": "playwright test --ui",

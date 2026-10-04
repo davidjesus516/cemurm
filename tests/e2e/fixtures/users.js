@@ -9,10 +9,10 @@
  * @property {string} displayName
  * @property {string} username
  * @property {string} [instrument]
- * @property {string} orgId
- * @property {string} orgName
+ * @property {string|null} orgId - null when the seed creates no membership
+ * @property {string|null} orgName
  * @property {string|null} branchId
- * @property {'org_owner'|'org_member'} role
+ * @property {'org_owner'|'org_member'|null} role
  * @property {boolean} isDemo
  */
 
@@ -55,6 +55,12 @@ export const isolationUser = {
 
 /**
  * Outsider user - pending collaborator on Demo Setlist (accepted_at IS NULL)
+ *
+ * seed.sql creates exactly two org_memberships rows: demo and isolation.
+ * Outsider exists only as an auth user, a profile, a date_of_birth, and the
+ * *pending* setlist collaborator. There is no org membership, so the org
+ * fields are null rather than borrowed from the isolation user.
+ *
  * UUID: 10000000-0000-0000-0000-000000000003
  * @type {TestUser}
  */
@@ -64,10 +70,10 @@ export const outsiderUser = {
   password: 'password1234',
   displayName: 'Outsider User',
   username: 'outsider',
-  orgId: '10000000-0000-0000-0000-0000000000a2',
-  orgName: 'Isolation Org',
+  orgId: null,
+  orgName: null,
   branchId: null,
-  role: 'org_member',
+  role: null,
   isDemo: false,
 };
 
