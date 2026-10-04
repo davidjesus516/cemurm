@@ -145,8 +145,109 @@ Plus targeted structural checks recorded per task below.
 
 ## Verification evidence
 
-Recorded in the commit that closes each task; see the table in
-`odd/tasks/e2e-chain-ci-unblock.md` for the packaging half.
+The repository gates are necessary but **not sufficient** here: `tsconfig.json`
+includes only `src/{domain,data,integrations,lib,offline}`, so
+`tsc --listFiles | grep -c 'tests/e2e'` is `0` and `pnpm typecheck` reads none of
+the files this change touches. Every fix was therefore checked directly.
+
+### Gates, on all six slices
+
+| Slice | `pnpm lint` | `pnpm typecheck` | `pnpm test` | `playwright test --list --project=chromium` |
+|---|---|---|---|---|
+| pr1 #288 | 0 | 0 | 307 passed | 18 tests |
+| pr2 #289 | 0 | 0 | 307 passed | 18 tests |
+| pr3 #290 | 0 | 0 | 307 passed | 18 tests |
+| pr4 #291 | 0 | 0 | 307 passed | 18 tests |
+| pr5 #295 | 0 | 0 | 307 passed | 18 tests |
+| pr6 #297 | 0 | 0 | 307 passed | 18 tests |
+
+### Test selection, measured before and after
+
+`playwright test --list` does not run `globalSetup`, so it reports exactly what
+each project would select. Run against the pre-fix config checked out from
+`HEAD` alongside the fixed one:
+
+| Project | Before | After |
+|---|---|---|
+| chromium | **0 tests** | 18 tests |
+| firefox | 18 tests | 18 tests |
+| webkit | 18 tests | 18 tests |
+
+This is the whole of blocker 1 in the #288 review, measured rather than argued.
+`--list` also confirms the asymmetry is gone: `@chromium-only` is excluded from
+firefox and webkit only.
+
+### UUIDs, against the real Postgres `uuid_in`
+
+The fixtures were driven with a stubbed request so the real
+`generateFixtureUuid` output could be captured without writing to the
+development database. Generated ids:
+
+```
+30001000-0000-4000-8000-000000000101   song
+30001300-0000-4000-8000-000000000101   setlist
+30001500-0000-4000-8000-000000000101   gig
+30001600-0000-4000-8000-000000000101   venue
+```
+
+```
+-- new form
+select '30001000-0000-4000-8000-000000000101'::uuid;   -- OK
+
+-- old form
+select '30000600-0000-4000-8000-s000000000101'::uuid;
+ERROR:  invalid input syntax for type uuid
+```
+
+Disjoint from `seed.sql`, which occupies `30000000-*` (setlists), `30000600-*`
+(songs), `30000700-*` (song_versions) and `30000800-*` (chart_files).
+
+The shared-prefix defect was real and is now closed: `song_versions` and
+`venues` both passed `'v'`, so both produced
+`30000600-0000-4000-8000-v000000000101` — byte-identical.
+
+### Storage key, against the SDK's own derivation
+
+`supabase-url.js` reproduces `supabase-js` `dist/index.cjs:647`:
+
+| `VITE_SUPABASE_URL` | harness | supabase-js | match |
+|---|---|---|---|
+| `http://127.0.0.1:54321` | `sb-127-auth-token` | `sb-127-auth-token` | yes |
+| `http://localhost:54321` | `sb-localhost-auth-token` | `sb-localhost-auth-token` | yes |
+| `https://abc.supabase.co` | `sb-abc-auth-token` | `sb-abc-auth-token` | yes |
+
+### BasePage.waitForNetworkIdle
+
+Exercised directly against a stub page: `typeof this.waitForNetworkIdle` is
+`function`, and both it and `waitForLoad()` reach
+`page.waitForLoadState('networkidle')`. 15 call sites across 5 page objects are
+covered by the single method.
+
+### Two corrections to the #288 review
+
+- **`expires_at`**: the review said a session without it "is treated as expired
+  and attempts a refresh". The mechanism is worse and simpler.
+  `GoTrueClient._isValidSession` requires `access_token`, `refresh_token` **and**
+  `expires_at`, and `_removeSession()` discards the stored session when the
+  check fails — it is rejected, not refreshed.
+- **`supabase stop --no-backup`**: confirmed destructive from the CLI itself.
+  `supabase stop --help` documents the flag as *"Deletes all data volumes after
+  stopping."* The adjacent comment claimed it preserved them.
+
+## Known pre-existing condition on this chain
+
+`bash scripts/check-visual-contract.sh` fails on the chain with three ratchets
+over ceiling (01b: 92 vs 82; 02: 274 vs 252). This is **not** caused by these
+changes, and the chain does not touch `src/` at all relative to its fork point:
+
+- The chain forked at `e849738`, where the gate already failed.
+- `origin/main` is 7 commits ahead (`3c15950`) and is **green** — 10 rules, 0
+  failing. Main paid the debt down and ratcheted the ceilings to 5 and 234.
+- The chain therefore carries the pre-paydown `scripts/check-visual-contract.sh`
+  and the pre-paydown `src/`.
+
+Rebasing the stack onto current `origin/main` should resolve it. That is left
+undone because it moves the base of all six PRs — a decision, not a fix.
 
 ## Next step
 
