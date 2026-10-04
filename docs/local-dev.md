@@ -1,6 +1,13 @@
 # CEMURM — Local Development (Supabase stack)
 
-The app runs against a **local Supabase stack** (PostgreSQL 17, GoTrue auth, owner-scoped RLS). This project is NOT linked to a hosted Supabase project — verification and development are local-only today.
+The app runs against a **local Supabase stack** (PostgreSQL 17, GoTrue auth, owner-scoped RLS) for development. There is also a **hosted Supabase project** for production/staging:
+
+| Environment | URL | Anon/Publishable Key |
+|---|---|---|
+| **Local (dev)** | `http://127.0.0.1:54321` | from `supabase status` |
+| **Hosted (prod/staging)** | `https://kspnacfcietqikbufcka.supabase.co` | `sb_publishable_F8S9vCVT-HoVRa31p-Bn7g_e3t3lCw1` |
+
+**Development uses the local stack by default.** The hosted project is for CI/CD, staging, and production. Both run the same migrations (`supabase/migrations/`) and seed.
 
 ## Prerequisites
 
