@@ -1,0 +1,468 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+  POSTGRES_PASSWORD: postgres
+
+jobs:
+  setup:
+    name: Setup Supabase & Dev Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      anon-key: ${{ steps.extract-keys.outputs.anon-key }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Restore pnpm store cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Start Supabase stack
+        run: npx supabase start
+        env:
+          POSTGRES_PASSWORD: postgres
+
+      - name: Wait for Supabase health
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:54321/health > /dev/null; then
+              echo "Supabase is healthy"
+              exit 0
+            fi
+            echo "Waiting for Supabase... ($i/30)"
+            sleep 2
+          done
+          echo "Supabase failed to become healthy"
+          exit 1
+
+      - name: Run database migrations and seed
+        run: npx supabase db reset
+
+      - name: Extract anon key
+        id: extract-keys
+        run: |
+          ANON_KEY=$(npx supabase status --output json 2>/dev/null | jq -r '.services[] | select(.name=="API") | .anon_key')
+          if [ -z "$ANON_KEY" ] || [ "$ANON_KEY" = "null" ]; then
+            echo "Failed to extract anon key"
+            exit 1
+          fi
+          echo "anon-key=$ANON_KEY" >> $GITHUB_OUTPUT
+          # Write .env.test for playwright config
+          echo "VITE_SUPABASE_URL=http://127.0.0.1:54321" > .env.test
+          echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> .env.test
+
+      - name: Start Vite dev server
+        run: |
+          nohup pnpm dev > vite.log 2>&1 &
+          echo $! > vite.pid
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: ${{ steps.extract-keys.outputs.anon-key }}
+
+      - name: Wait for Vite dev server
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:5173 > /dev/null; then
+              echo "Vite dev server is ready"
+              exit 0
+            fi
+            echo "Waiting for Vite... ($i/30)"
+            sleep 2
+          done
+          echo "Vite dev server failed to start"
+          cat vite.log
+          exit 1
+
+      - name: Upload .env.test as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-test
+          path: .env.test
+          retention-days: 1
+
+  e2e-chromium:
+    name: E2E Chromium
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Restore pnpm store cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Download .env.test artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: env-test
+          path: .
+
+      - name: Start Supabase stack
+        run: npx supabase start
+        env:
+          POSTGRES_PASSWORD: postgres
+
+      - name: Wait for Supabase health
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:54321/health > /dev/null; then
+              echo "Supabase is healthy"
+              exit 0
+            fi
+            echo "Waiting for Supabase... ($i/30)"
+            sleep 2
+          done
+          echo "Supabase failed to become healthy"
+          exit 1
+
+      - name: Start Vite dev server
+        run: |
+          nohup pnpm dev > vite.log 2>&1 &
+          echo $! > vite.pid
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+
+      - name: Wait for Vite dev server
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:5173 > /dev/null; then
+              echo "Vite dev server is ready"
+              exit 0
+            fi
+            echo "Waiting for Vite... ($i/30)"
+            sleep 2
+          done
+          echo "Vite dev server failed to start"
+          cat vite.log
+          exit 1
+
+      - name: Run E2E tests (Chromium)
+        run: pnpm test:e2e:ci --project=chromium
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-chromium
+          path: playwright-report
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-chromium
+          path: test-results
+          retention-days: 7
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-chromium
+          path: test-results/**/trace.zip
+          retention-days: 7
+
+  e2e-firefox:
+    name: E2E Firefox
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Restore pnpm store cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Download .env.test artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: env-test
+          path: .
+
+      - name: Start Supabase stack
+        run: npx supabase start
+        env:
+          POSTGRES_PASSWORD: postgres
+
+      - name: Wait for Supabase health
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:54321/health > /dev/null; then
+              echo "Supabase is healthy"
+              exit 0
+            fi
+            echo "Waiting for Supabase... ($i/30)"
+            sleep 2
+          done
+          echo "Supabase failed to become healthy"
+          exit 1
+
+      - name: Start Vite dev server
+        run: |
+          nohup pnpm dev > vite.log 2>&1 &
+          echo $! > vite.pid
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+
+      - name: Wait for Vite dev server
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:5173 > /dev/null; then
+              echo "Vite dev server is ready"
+              exit 0
+            fi
+            echo "Waiting for Vite... ($i/30)"
+            sleep 2
+          done
+          echo "Vite dev server failed to start"
+          cat vite.log
+          exit 1
+
+      - name: Run E2E tests (Firefox)
+        run: pnpm test:e2e:ci --project=firefox
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-firefox
+          path: playwright-report
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-firefox
+          path: test-results
+          retention-days: 7
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-firefox
+          path: test-results/**/trace.zip
+          retention-days: 7
+
+  e2e-webkit:
+    name: E2E WebKit
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Restore pnpm store cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Download .env.test artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: env-test
+          path: .
+
+      - name: Start Supabase stack
+        run: npx supabase start
+        env:
+          POSTGRES_PASSWORD: postgres
+
+      - name: Wait for Supabase health
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:54321/health > /dev/null; then
+              echo "Supabase is healthy"
+              exit 0
+            fi
+            echo "Waiting for Supabase... ($i/30)"
+            sleep 2
+          done
+          echo "Supabase failed to become healthy"
+          exit 1
+
+      - name: Start Vite dev server
+        run: |
+          nohup pnpm dev > vite.log 2>&1 &
+          echo $! > vite.pid
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+
+      - name: Wait for Vite dev server
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:5173 > /dev/null; then
+              echo "Vite dev server is ready"
+              exit 0
+            fi
+            echo "Waiting for Vite... ($i/30)"
+            sleep 2
+          done
+          echo "Vite dev server failed to start"
+          cat vite.log
+          exit 1
+
+      - name: Run E2E tests (WebKit)
+        run: pnpm test:e2e:ci --project=webkit
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: $(cat .env.test | grep VITE_SUPABASE_ANON_KEY | cut -d'=' -f2)
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-webkit
+          path: playwright-report
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-webkit
+          path: test-results
+          retention-days: 7
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-webkit
+          path: test-results/**/trace.zip
+          retention-days: 7
