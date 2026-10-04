@@ -42,8 +42,12 @@ test.describe('@smoke E2E Harness Fixtures', () => {
       expect(outsiderUser.password).toBe('password1234');
       expect(outsiderUser.displayName).toBe('Outsider User');
       expect(outsiderUser.username).toBe('outsider');
-      expect(outsiderUser.orgId).toBe('10000000-0000-0000-0000-0000000000a2');
-      expect(outsiderUser.role).toBe('org_member');
+      // seed.sql creates org_memberships for demo and isolation only.
+      // Asserting null here is the point: it pins the fixture to the seed, so
+      // filling these in later without adding the membership fails here.
+      expect(outsiderUser.orgId).toBeNull();
+      expect(outsiderUser.orgName).toBeNull();
+      expect(outsiderUser.role).toBeNull();
       expect(outsiderUser.isDemo).toBe(false);
     });
 

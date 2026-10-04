@@ -1,7 +1,7 @@
 // Centralized selectors for CEMURM E2E tests
 // Using data-testid attributes for stable selection
 
-/** @type {const} */
+/** @type {Record<string, any>} */
 export const selectors = {
   // Auth pages
   auth: {

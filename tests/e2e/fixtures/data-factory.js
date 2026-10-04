@@ -1,8 +1,9 @@
 // Data factory fixtures for creating test data with fixed UUIDs
 // Uses deterministic UUIDs in the 30000... range reserved for test fixtures (per AGENTS.md)
-/* global process, Buffer */
+/* global Buffer */
 
 import { demoUser, demoOrgId, demoBranchId } from './users.js';
+import { restUrl, supabaseAnonKey } from '../utils/supabase-url.js';
 
 // UUID counters for deterministic generation
 let songCounter = 100;
@@ -13,14 +14,38 @@ let chartFileCounter = 100;
 let songVersionCounter = 100;
 
 /**
- * Generate a deterministic UUID in the 30000600-... range for test fixtures
- * @param {string} prefix
- * @param {number} counter
+ * Third-group ranges, one per fixture family.
+ *
+ * seed.sql occupies 30000000-* (setlists), 30000600-* (songs),
+ * 30000700-* (song_versions) and 30000800-* (chart_files). Giving each
+ * factory family its own third group keeps fixture rows disjoint from seed
+ * rows and keeps the families from colliding with each other.
+ * @type {Record<string, string>}
+ */
+const FIXTURE_RANGE = {
+  song: '1000',
+  chartFile: '1100',
+  songVersion: '1200',
+  setlist: '1300',
+  setlistItem: '1400',
+  gig: '1500',
+  venue: '1600',
+};
+
+/**
+ * Generate a deterministic UUID for a fixture row.
+ *
+ * The final group is always exactly 12 hex characters - Postgres `uuid_in`
+ * rejects any other length - so the family is encoded in the third group
+ * rather than prefixed onto the counter.
+ *
+ * @param {keyof typeof FIXTURE_RANGE} family
+ * @param {number} counter - Monotonically increasing counter for the family
  * @returns {string}
  */
-function generateFixtureUuid(prefix, counter) {
+function generateFixtureUuid(family, counter) {
   const suffix = counter.toString().padStart(12, '0');
-  return `30000600-0000-4000-8000-${prefix}${suffix}`;
+  return `3000${FIXTURE_RANGE[family]}-0000-4000-8000-${suffix}`;
 }
 
 /**
@@ -41,19 +66,19 @@ function generateFixtureUuid(prefix, counter) {
  */
 export async function createSong(request, options, accessToken) {
   songCounter++;
-  const songId = generateFixtureUuid('s', songCounter);
-  const chartFileId = generateFixtureUuid('c', chartFileCounter++);
-  const songVersionId = generateFixtureUuid('v', songVersionCounter++);
+  const songId = generateFixtureUuid('song', songCounter);
+  const chartFileId = generateFixtureUuid('chartFile', chartFileCounter++);
+  const songVersionId = generateFixtureUuid('songVersion', songVersionCounter++);
 
   const orgId = options.orgId ?? demoOrgId;
   const branchId = options.branchId ?? demoBranchId;
   const ownerId = options.ownerId ?? demoUser.id;
 
   // Create the song
-  const songResponse = await request.post('http://127.0.0.1:54321/rest/v1/songs', {
+  const songResponse = await request.post(restUrl('songs'), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+      apikey: supabaseAnonKey(),
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
@@ -75,10 +100,10 @@ export async function createSong(request, options, accessToken) {
 
   // Create chart file if content provided
   if (options.chartContent) {
-    const chartResponse = await request.post('http://127.0.0.1:54321/rest/v1/chart_files', {
+    const chartResponse = await request.post(restUrl('chart_files'), {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+        apikey: supabaseAnonKey(),
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
       },
@@ -98,10 +123,10 @@ export async function createSong(request, options, accessToken) {
     }
 
     // Create song version
-    const versionResponse = await request.post('http://127.0.0.1:54321/rest/v1/song_versions', {
+    const versionResponse = await request.post(restUrl('song_versions'), {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+        apikey: supabaseAnonKey(),
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
       },
@@ -144,16 +169,16 @@ export async function createSong(request, options, accessToken) {
  */
 export async function createSetlist(request, options, accessToken) {
   setlistCounter++;
-  const setlistId = generateFixtureUuid('l', setlistCounter);
+  const setlistId = generateFixtureUuid('setlist', setlistCounter);
 
   const orgId = options.orgId ?? demoOrgId;
   const branchId = options.branchId ?? demoBranchId;
   const ownerId = options.ownerId ?? demoUser.id;
 
-  const setlistResponse = await request.post('http://127.0.0.1:54321/rest/v1/setlists', {
+  const setlistResponse = await request.post(restUrl('setlists'), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+      apikey: supabaseAnonKey(),
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
@@ -178,12 +203,12 @@ export async function createSetlist(request, options, accessToken) {
   if (options.songIds && options.songIds.length > 0) {
     for (let i = 0; i < options.songIds.length; i++) {
       setlistCounter++;
-      const itemId = generateFixtureUuid('i', setlistCounter);
+      const itemId = generateFixtureUuid('setlistItem', setlistCounter);
 
-      const itemResponse = await request.post('http://127.0.0.1:54321/rest/v1/setlist_items', {
+      const itemResponse = await request.post(restUrl('setlist_items'), {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+          apikey: supabaseAnonKey(),
           'Content-Type': 'application/json',
           Prefer: 'return=representation',
         },
@@ -225,16 +250,16 @@ export async function createSetlist(request, options, accessToken) {
  */
 export async function createGig(request, options, accessToken) {
   gigCounter++;
-  const gigId = generateFixtureUuid('g', gigCounter);
+  const gigId = generateFixtureUuid('gig', gigCounter);
 
   const orgId = options.orgId ?? demoOrgId;
   const branchId = options.branchId ?? demoBranchId;
   const ownerId = options.ownerId ?? demoUser.id;
 
-  const gigResponse = await request.post('http://127.0.0.1:54321/rest/v1/gigs', {
+  const gigResponse = await request.post(restUrl('gigs'), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+      apikey: supabaseAnonKey(),
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
@@ -272,14 +297,14 @@ export async function createGig(request, options, accessToken) {
  */
 export async function createVenue(request, options, accessToken) {
   venueCounter++;
-  const venueId = generateFixtureUuid('v', venueCounter);
+  const venueId = generateFixtureUuid('venue', venueCounter);
 
   const ownerId = options.ownerId ?? demoUser.id;
 
-  const venueResponse = await request.post('http://127.0.0.1:54321/rest/v1/venues', {
+  const venueResponse = await request.post(restUrl('venues'), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      apikey: process.env.VITE_SUPABASE_ANON_KEY || '',
+      apikey: supabaseAnonKey(),
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
