@@ -73,17 +73,21 @@ Three genuine gaps remain:
 
 ## Acceptance criteria
 
-- [ ] `docs/security.md` answers authentication, authorization, secrets, env vars, data
+- [x] `docs/security.md` answers authentication, authorization, secrets, env vars, data
       protection, and file-upload rules, with every claim traceable to an existing file.
-- [ ] `docs/decisions.md` holds one ADR per in-force decision, each with context / decision /
+- [x] `docs/decisions.md` holds one ADR per in-force decision, each with context / decision /
       alternatives / reason / consequences.
-- [ ] The viewer renders every `docs/*.md` from the generated output; no documentation content
-      is duplicated by hand.
-- [ ] The design-system section shows hex values read from `assets/tokens.css`.
-- [ ] Viewer opens offline from the filesystem with no console errors.
-- [ ] `bash scripts/check-visual-contract.sh` PASS; `pnpm lint && pnpm test && pnpm typecheck
+- [x] The viewer renders every `docs/*.md` from the generated output; no documentation content
+      is duplicated by hand. — 16 docs, 5232 source lines, generated at build time.
+- [x] The design-system section shows hex values read from `assets/tokens.css`. — 48 tokens
+      parsed; the 41 required ones are fail-loud.
+- [ ] Viewer opens offline from the filesystem with no console errors. — routing/theme/
+      responsive verified headlessly by the writer; **not yet confirmed by the maintainer in a
+      real browser.** Open `docs/handbook.html` by double-click to close this.
+- [x] `bash scripts/check-visual-contract.sh` PASS; `pnpm lint && pnpm test && pnpm typecheck
       && pnpm build` all pass.
 - [ ] Work-unit commit per slice, conventional commit message, PR opened with reviewer.
+      — commits done (`95eb423`, `39c47a6`); PRs still to open.
 
 ## Task checklist
 
@@ -110,12 +114,21 @@ Three genuine gaps remain:
       `visual contract: OK (10 rules checked, 0 failing)` — note that gate scans `src/` only
       and does **not** cover `docs/*.html`. Routing, theme bootstrap and the <768px top-bar
       fallback were verified headlessly (colour-marker probe per route + pixel checks).
-- [ ] **T5 — gates + slice commits + PRs.** Route: inline for git state, delegated for the
-      full gate run.
-      Not started in this session: `pnpm lint|test|typecheck|build` were deliberately not run
-      (they would exercise `src/`, which carries another session's uncommitted changes), and
-      nothing was committed — the session sits on `feat/landing-page`, not `feat/blueprint-docs`.
-      The visual contract gate *was* run (see T4).
+- [x] **T5 — gates + slice commits.** Route: inline for git state, delegated for the full
+      gate run.
+      **Branch collision:** another session checked out `feat/landing-page` mid-task, so both
+      original commits landed there (`23127b6`, `3de48d4`) stacked under four landing commits.
+      Resolved by cutting a worktree at `cemurm-worktrees/blueprint-docs` and cherry-picking
+      both onto `feat/blueprint-docs` as `95eb423` and `39c47a6`. `feat/landing-page` was left
+      untouched — its history still carries the originals and is not ours to rewrite.
+      `pnpm install --frozen-lockfile` in the fresh worktree (no dep delta vs `main`), then all
+      five gates run there and green:
+      `pnpm lint` exit 0 · `pnpm typecheck` exit 0 · `pnpm test` exit 0 — 9 files, **307
+      tests** · `pnpm build` exit 0 — `dist/`, 914.57 kB JS + 32.17 kB CSS, the >500 kB chunk
+      warning pre-existing on `main` · `bash scripts/check-visual-contract.sh` exit 0 — 10
+      rules, 0 failing.
+      Confirmed `npx eslint scripts/ --ext js,jsx` → "No files matching the pattern", so
+      `build-docs-viewer.mjs` is outside lint's reach by config, not by an ignore rule.
 
 ## Progress log
 
@@ -133,3 +146,45 @@ Three genuine gaps remain:
   hex outside the token layer and the responsive fallback were all verified; see T4 for the
   command output. Not run: `pnpm lint|test|typecheck|build` (their scope is `src/`, which
   holds another session's uncommitted work) — T5 still owes them, plus the slice commits.
+- 2026-10-04 — **Branch collision resolved.** Another session switched the shared working
+  tree to `feat/landing-page` mid-task, so `23127b6` and `3de48d4` landed there under four
+  landing commits. Both were cherry-picked onto `feat/blueprint-docs` in a dedicated worktree
+  (`cemurm-worktrees/blueprint-docs`) as `95eb423` / `39c47a6`. `feat/landing-page` was left
+  untouched — its history still carries the originals, and rewriting it would destroy another
+  session's in-flight work.
+- 2026-10-04 — **All five gates green** in that worktree: lint, typecheck, test (9 files,
+  307 tests), build, visual contract.
+
+## Findings raised (not fixed here — they need their own authorization)
+
+1. **`AGENTS.md` claims "implemented RLS is owner-scoped only." That is stale.** Migrations
+   `0016`, `0018` and `0019` ship live org/branch-scoped policies. `docs/database-schema-v2.md`
+   §3.1 is genuinely still a *design target* for the unimplemented rows, while its own header
+   says `Status: IMPLEMENTED` — so the document contradicts itself and `AGENTS.md` overstates
+   the correction. `docs/security.md` §7 records both rather than propagating either.
+2. **Path drift.** `AGENTS.md` and `docs/local-dev.md` both cite `src/lib/supabase.js`; the
+   real path is `src/data/supabase.js` (`src/lib/` holds only `storage.js`). Same class of
+   drift in `README.md:14` (hosted Supabase URL), `CONTRIBUTING.md` (a `src/store/` Zustand
+   layer that does not exist), `docs/local-dev.md:29` ("two confirmed users" — there are
+   three), and the `0027` migration header.
+3. **The handbook's light palette is invented, not tokenized.** `assets/tokens.css` defines a
+   dark ramp only. The viewer ships a `[data-theme="light"]` block whose hex values
+   (`#efedea`, `#f5f3f1`, `#fbfaf9`, `#e4e1dd`) were authored for this page and are not
+   project tokens. Either promote them into `tokens.css` as a real light ramp, or drop the
+   toggle. As shipped, the light mode is a proposal.
+4. **`AGENTS.md` cites `odd/tasks/cemurm-brand-landing.md §12.1` for the characterization-test
+   strategy — that file no longer exists.** ADR-006 rests instead on the delivery-agreement
+   clause, `docs/master-plan.md`, and the live `// FINDING:` markers in the test files.
+5. **The visual gate does not cover `docs/*.html`.** `scripts/check-visual-contract.sh` sets
+   `SRC_DIR="src"`, so none of the nine generated HTML visualizations are scanned. The
+   handbook self-enforces token discipline because the generator owns every colour literal,
+   but a green gate does not cover them — do not cite it as if it did.
+6. **`scripts/build-docs-viewer.mjs` is outside ESLint's reach.** The config matches `.js`/
+   `.jsx` only (`npx eslint scripts/ --ext js,jsx` → "No files matching the pattern"). The
+   generator ships unlinted by construction; consider a `scripts` override in the ESLint
+   config if that matters.
+7. **`VITE_SPOTIFY_CLIENT_SECRET` is public by construction.** Every `VITE_*` variable is
+   inlined into the browser bundle. It is a mock-mode default and documented as such, but the
+   name implies a secret it cannot be.
+8. **Stale test counts.** `docs/master-plan.md` says 7 files / 235 tests; the tree has 9 files
+   / 307 tests as of this run.
