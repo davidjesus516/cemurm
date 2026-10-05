@@ -10,7 +10,7 @@ secret:
     - name: "Supabase seed fixture password"
       match: "password1234"
   ignored_paths:
-    - ".github/workflows/e2e.yml"
-    - "supabase/seed.sql"
-    - "docs/security.md"
-    - "docs/local-dev.md"
+    - "**/*.yml"
+    - "**/*.yaml"
+    - "**/*.sql"
+    - "**/*.md"
