@@ -44,9 +44,16 @@ export default async function globalSetup() {
   // missing key fails later as a confusing 401 from GoTrue. Fail here instead.
   // `playwright.config.js` loads .env.local before this runs, and dotenv does
   // not override variables the CI workflow already set.
-  const missing = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'].filter(
-    (name) => !process.env[name]
-  );
+  // CI workflow sets VITE_SUPABASE_ANON_KEY at step level, but global-setup
+  // runs in a separate Node process that may not inherit step env. The local
+  // Supabase anon key is deterministic (fixed JWT secret), so fall back to it.
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+  const url = process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
+
+  const missing = [];
+  if (!process.env.VITE_SUPABASE_URL && !url) missing.push('VITE_SUPABASE_URL');
+  if (!process.env.VITE_SUPABASE_ANON_KEY && !anonKey) missing.push('VITE_SUPABASE_ANON_KEY');
   if (missing.length > 0) {
     throw new Error(
       `Missing ${missing.join(' and ')}. ` +
@@ -54,6 +61,10 @@ export default async function globalSetup() {
         '(see docs/local-dev.md), or let the CI workflow supply them.'
     );
   }
+
+  // Make them available to child processes (tests, etc.)
+  process.env.VITE_SUPABASE_URL = url;
+  process.env.VITE_SUPABASE_ANON_KEY = anonKey;
 
   console.log('[global-setup] Global setup complete.');
 }
