@@ -13,14 +13,7 @@
     "test:watch": "vitest",
     "test:gherkin": "vitest run src/test/gherkin",
     "typecheck": "tsc --noEmit",
-    "check:visual": "bash scripts/check-visual-contract.sh",
-    "test:e2e": "playwright test --ui",
-    "test:e2e:ci": "playwright test --workers=1",
-    "test:e2e:chromium": "playwright test --project=chromium",
-    "test:e2e:firefox": "playwright test --project=firefox",
-    "test:e2e:webkit": "playwright test --project=webkit",
-    "test:e2e:debug": "playwright test --debug",
-    "test:e2e:headed": "playwright test --headed"
+    "check:visual": "bash scripts/check-visual-contract.sh"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
@@ -39,8 +32,6 @@
     "tailwindcss": "^3.4.4",
     "typescript": "^7.0.2",
     "vite": "^6.4.3",
-    "vitest": "^5.0.2",
-    "@playwright/test": "^1.47.0",
-    "playwright": "^1.47.0"
+    "vitest": "^5.0.2"
   }
 }
