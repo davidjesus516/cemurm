@@ -2,7 +2,12 @@
 
 import { execSync } from 'node:child_process';
 
-async function waitForSupabaseHealth(maxRetries = 100, intervalMs = 2000) {
+async function waitForSupabaseHealth(maxRetries = 300, intervalMs = 2000) {
+  // Only these services are required for E2E tests to run.
+  // studio, edge-runtime, vector, inbucket, storage-api, logflare, analytics
+  // often lack Docker health checks and would block indefinitely.
+  const required = new Set(['api', 'db', 'auth']);
+
   for (let i = 0; i < maxRetries; i++) {
     try {
       const status = execSync('supabase status --output json', {
@@ -10,14 +15,16 @@ async function waitForSupabaseHealth(maxRetries = 100, intervalMs = 2000) {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
       const parsed = JSON.parse(status);
-      const allHealthy = parsed.services.every((s) => s.status === 'healthy');
-      if (allHealthy) return parsed;
+      const requiredHealthy = parsed.services
+        .filter((s) => required.has(s.name))
+        .every((s) => s.status === 'healthy');
+      if (requiredHealthy) return parsed;
     } catch {
       // ignore, retry
     }
     await new Promise(r => setTimeout(r, intervalMs));
   }
-  throw new Error('Supabase services did not become healthy within timeout');
+  throw new Error('Required Supabase services (api, db, auth) did not become healthy within timeout');
 }
 
 export default async function globalSetup() {
