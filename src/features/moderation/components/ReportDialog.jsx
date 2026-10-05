@@ -45,7 +45,7 @@ export default function ReportDialog({ entry, reasons, onSubmit, onClose, alread
   if (submitted) {
     return (
       <div
-        className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/85 p-4"
+        className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-cem-base/90 p-4"
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div className="mt-8 w-full max-w-md rounded-lg border border-cem-elevated bg-cem-surface p-4 text-cem-text shadow-xl">
@@ -67,7 +67,7 @@ export default function ReportDialog({ entry, reasons, onSubmit, onClose, alread
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/85 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-cem-base/90 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <form

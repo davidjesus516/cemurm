@@ -25,7 +25,7 @@ const CONSENT_STATEMENT =
 const inputClass =
   'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent disabled:bg-cem-elevated'
 
-const inputErrorClass = 'border-cem-rose/40'
+const inputErrorClass = 'border-cem-elevated'
 
 export default function GuardianConsentRequired({ onSuccess }) {
   const { user } = useAuth()
@@ -128,7 +128,7 @@ export default function GuardianConsentRequired({ onSuccess }) {
       )}
 
       {phase === 'no_email' && (
-        <div role="alert" className="mt-4 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
+        <div role="alert" className="mt-4 rounded-md bg-cem-elevated/60 px-3 py-2 text-sm text-cem-text">
           <p className="font-medium">Your request is recorded, but the email did not go out.</p>
           <p className="mt-1 text-cem-secondary">
             {guardianEmail.trim()} was not reached, so nobody can confirm yet. Retry the send below
@@ -138,7 +138,7 @@ export default function GuardianConsentRequired({ onSuccess }) {
       )}
 
       {phase === 'confirmed' && (
-        <div role="status" className="mt-4 rounded-md bg-cem-emerald/10 px-3 py-2 text-sm text-cem-emerald">
+        <div role="status" className="mt-4 rounded-md bg-cem-elevated/60 px-3 py-2 text-sm text-cem-text">
           Your guardian confirmed consent. Unlocking your account…
         </div>
       )}
@@ -173,7 +173,7 @@ export default function GuardianConsentRequired({ onSuccess }) {
           className="mt-6 space-y-4 rounded-lg bg-cem-surface p-6 shadow"
         >
           {formError && (
-            <p role="alert" className="rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
+            <p role="alert" className="rounded-md bg-cem-elevated/60 px-3 py-2 text-sm text-cem-text">
               {formError}
             </p>
           )}
@@ -197,7 +197,7 @@ export default function GuardianConsentRequired({ onSuccess }) {
               className={`${inputClass} ${errors.guardianName ? inputErrorClass : ''}`}
             />
             {errors.guardianName && (
-              <p className="mt-1 text-xs text-cem-rose">{errors.guardianName}</p>
+              <p className="mt-1 text-xs text-cem-text">{errors.guardianName}</p>
             )}
           </div>
 
@@ -220,7 +220,7 @@ export default function GuardianConsentRequired({ onSuccess }) {
               className={`${inputClass} ${errors.guardianEmail ? inputErrorClass : ''}`}
             />
             {errors.guardianEmail && (
-              <p className="mt-1 text-xs text-cem-rose">{errors.guardianEmail}</p>
+              <p className="mt-1 text-xs text-cem-text">{errors.guardianEmail}</p>
             )}
           </div>
 

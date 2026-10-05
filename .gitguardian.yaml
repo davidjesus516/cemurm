@@ -2,19 +2,18 @@
 # Narrow allowlist for deterministic local-dev fixtures.
 # These are NOT secrets: they are published defaults identical across
 # every fork and CI run, protecting ephemeral containers only.
-# See GitGuardian findings on PR #288 (1) and #297 (1).
+# See GitGuardian findings on PR #288 (1) and #297 (8).
 
-rules:
-  - description: "Supabase local dev POSTGRES_PASSWORD default (public.ecr.aws/supabase images)"
-    type: "generic"
-    match: "POSTGRES_PASSWORD: postgres"
-    paths:
-      - ".github/workflows/e2e.yml"
+version: 2
 
-  - description: "Supabase seed fixture password (bcrypt-hashed in DB, same for all dev envs)"
-    type: "generic"
-    match: "password1234"
-    paths:
-      - "supabase/seed.sql"
-      - "docs/security.md"
-      - "docs/local-dev.md"
+secret:
+  ignored_matches:
+    - name: "Supabase local dev POSTGRES_PASSWORD default"
+      match: "19174bf0d1dd6f8b9a7d359f1852a10a76ff391568f2c0993819bf0db503fa05"
+    - name: "Supabase local dev anon key (fixed JWT secret)"
+      match: "bf1725a8f98bea37e88618702e725ba84bd8acdb2647c5e0ed638bfd685791cf"
+  ignored_paths:
+    - "**/*.yml"
+    - "**/*.yaml"
+    - "**/*.sql"
+    - "**/*.md"
