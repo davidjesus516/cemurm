@@ -1,6 +1,13 @@
 # CEMURM — Local Development (Supabase stack)
 
-The app runs against a **local Supabase stack** (PostgreSQL 17, GoTrue auth, owner-scoped RLS). This project is NOT linked to a hosted Supabase project — verification and development are local-only today.
+The app runs against a **local Supabase stack** (PostgreSQL 17, GoTrue auth, owner-scoped RLS) for development. There is also a **hosted Supabase project** for production/staging:
+
+| Environment | URL | Anon/Publishable Key |
+|---|---|---|
+| **Local (dev)** | `http://127.0.0.1:54321` | from `supabase status` |
+| **Hosted (prod/staging)** | `https://kspnacfcietqikbufcka.supabase.co` | `sb_publishable_F8S9vCVT-HoVRa31p-Bn7g_e3t3lCw1` |
+
+**Development uses the local stack by default.** The hosted project is for CI/CD, staging, and production. Both run the same migrations (`supabase/migrations/`) and seed.
 
 ## Prerequisites
 
@@ -123,6 +130,14 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres \
 Nothing else in the repo ever holds this value. `public.read_resend_api_key()` (migration 0031) reads it from `vault.decrypted_secrets` and is granted to **`service_role` only** — `anon` and `authenticated` get `permission denied for function read_resend_api_key`, and the smoke asserts it on `PUBLIC`, `anon` and `authenticated`. Not in `supabase/config.toml` (it is tracked), not in a `VITE_` variable (that ships to every browser).
 
 **With no key the local stack is still a working stack:** the function answers `503 {"error":"email_not_configured"}` and sends nothing. That is the normal local state, and it is the reason this work unit is deliverable without credentials. There is no mock send anywhere in the function.
+
+**The from-address — `RESEND_FROM`.** The function sends from `CEMURM <guardian@cemurm.app>` by default, and Resend only accepts a from-address on a **verified domain**. Without one — or to test without buying one — override it per environment:
+
+```env
+RESEND_FROM=onboarding@resend.dev
+```
+
+in `supabase/functions/.env`, under the same rules as `SITE_URL` below: gitignored, read once at `supabase start`, restart the stack after editing. Resend's test sender delivers **only to the account's own email address** — every other recipient gets `403` — which is enough to smoke-test locally with a guardian address that is your Resend account. Production keeps the default: verify the domain in Resend (DNS SPF/DKIM), then rely on `guardian@cemurm.app` or set `RESEND_FROM` with `supabase secrets set`.
 
 ### 2. `SITE_URL` — the app origin (not a secret)
 
