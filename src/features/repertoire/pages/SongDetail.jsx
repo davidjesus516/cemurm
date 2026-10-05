@@ -1095,7 +1095,7 @@ export default function SongDetail() {
 
       {publishOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/85 p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-cem-base/90 p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setPublishOpen(false) }}
         >
           <form
