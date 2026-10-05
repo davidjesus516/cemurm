@@ -2,29 +2,25 @@
 
 import { execSync } from 'node:child_process';
 
-async function waitForSupabaseHealth(maxRetries = 300, intervalMs = 2000) {
-  // Only these services are required for E2E tests to run.
-  // studio, edge-runtime, vector, inbucket, storage-api, logflare, analytics
-  // often lack Docker health checks and would block indefinitely.
-  const required = new Set(['api', 'db', 'auth']);
+async function waitForSupabaseHealth(maxRetries = 180, intervalMs = 2000) {
+  // Use HTTP health checks instead of `supabase status` Docker health,
+  // which is unreliable in CI (services like api/db/auth don't report
+  // 'healthy' even when running). Endpoints verified locally:
+  // - /auth/v1/health (GoTrue) -> 200
+  // - /rest/v1/ (PostgREST) -> 200
+  const apiBase = 'http://127.0.0.1:54321';
 
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const status = execSync('supabase status --output json', {
-        encoding: 'utf-8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      const parsed = JSON.parse(status);
-      const requiredHealthy = parsed.services
-        .filter((s) => required.has(s.name))
-        .every((s) => s.status === 'healthy');
-      if (requiredHealthy) return parsed;
+      const auth = execSync(`curl -sf ${apiBase}/auth/v1/health`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const rest = execSync(`curl -sf ${apiBase}/rest/v1/`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
+      if (auth && rest) return;
     } catch {
       // ignore, retry
     }
     await new Promise(r => setTimeout(r, intervalMs));
   }
-  throw new Error('Required Supabase services (api, db, auth) did not become healthy within timeout');
+  throw new Error('Supabase HTTP health endpoints (auth, rest) did not become healthy within timeout');
 }
 
 export default async function globalSetup() {
