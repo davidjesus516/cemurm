@@ -76,12 +76,10 @@ jobs:
       - name: Start Supabase stack (shared for all browser jobs)
         id: supabase-start
         run: |
-          # Start Supabase in background, capture container network
-          supabase start --host-only
-          # The local stack binds to 127.0.0.1:54321 on the host
-          # For CI containers, we need the Docker host IP
-          HOST_IP=$(ip route | awk '/default/ {print $3}')
-          echo "host=$HOST_IP" >> $GITHUB_OUTPUT
+          # Start Supabase stack (manages Docker Compose internally)
+          supabase start
+          # In GitHub Actions runner, containers bind to localhost
+          echo "host=127.0.0.1" >> $GITHUB_OUTPUT
 
       - name: Wait for Supabase health
         run: |
