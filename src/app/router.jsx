@@ -1,4 +1,6 @@
+import { Suspense, lazy } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { DesignPageSkeleton } from '../features/design/components/skeleton.jsx'
 import AppLayout from './AppLayout.jsx'
 import {
   RedirectIfAuthed,
@@ -35,6 +37,12 @@ import Moderation from '../features/moderation/pages/Moderation.jsx'
 import Storage from '../features/settings/pages/Storage.jsx'
 import Settings from '../features/settings/pages/Settings.jsx'
 import NotFound from '../features/shell/pages/NotFound.jsx'
+
+// Design-system demo (/design). LAZY on purpose: it pulls in Motion (the spring
+// engine behind the 35 interaction components), and no product route should pay
+// for it. A static import here would put the motion library in the chunk every
+// route loads, which is exactly what the ADR in docs/decisions.md warned about.
+const DesignSystem = lazy(() => import('../features/design/pages/DesignSystem.jsx'))
 
 const router = createBrowserRouter([
   {
@@ -86,6 +94,24 @@ const router = createBrowserRouter([
       // BroadcastChannel from the operator's device. Verified by loading the URL:
       // it renders "Projection ready — waiting for the operator" without
       // redirecting to /auth.
+      // Design-system demo (/design): the living style guide — tokens,
+      // type, controls, icons, plus the 35 spring-driven interaction
+      // components. OUTSIDE the auth guards deliberately: it is a static
+      // review surface with no data access and no repository calls, so it
+      // must open even mid-audit without a session. Not in the product nav
+      // on purpose — the nav is product wayfinding, this is a design tool;
+      // reach it by URL.
+      {
+        path: '/design',
+        element: (
+          // A page skeleton, not a text placeholder: the loading state has the
+          // same shape as the page it replaces, which is what stops the layout
+          // from jumping when the chunk lands.
+          <Suspense fallback={<DesignPageSkeleton />}>
+            <DesignSystem />
+          </Suspense>
+        ),
+      },
       { path: '/projection/display', element: <ProjectionDisplay /> },
       // The guardian's confirm link (Hito 4, 0031). Deliberately OUTSIDE
       // RequireAuth and outside RequireGuardianConsent: a guardian has no
