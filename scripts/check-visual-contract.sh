@@ -54,6 +54,7 @@ RULE_04_PALETTE_GROWTH=enforcing
 RULE_05A_TEXT_CONTRAST=enforcing
 RULE_05B_PALETTE_CONTRAST=report
 RULE_06_SECONDARY_ON_RAISED_FILL=enforcing
+RULE_07_GHOST_TAILWIND_UTILITY=enforcing
 REPORT_STAGEMODE_CHROME=report
 REPORT_CONFIG_TOKEN_COUNT=report
 
@@ -808,6 +809,52 @@ count_06="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
 verify 06 "$RULE_06_SECONDARY_ON_RAISED_FILL" \
   "no text-cem-secondary on an elevated/hover fill" "$count_06" || true
 note "use text-cem-secondary-elevated (5.38:1) on a raised fill, or text-cem-text for sentences."
+
+# ---------------------------------------------------------------------------
+# RULE 07 -- no unresolved interpolation inside a Tailwind arbitrary utility
+# ---------------------------------------------------------------------------
+# WHY, and the failure is invisible until a build. Tailwind v3 scans SOURCE TEXT
+# for complete class strings. It never evaluates an interpolation and never
+# parses JavaScript, so it cannot see a class assembled at runtime, and it cannot
+# tell that a candidate string sits inside a comment. Both shapes are the same
+# defect: a utility that does not exist.
+#
+#   * QUOTED IN A COMMENT. holdButton.jsx documented the upstream glow bug by
+#     quoting its interpolated shadow utility in the header comment. Tailwind
+#     harvested the class out of the comment and generated a rule for it,
+#     carrying a literal ${GLOW} into --tw-shadow-color. esbuild warned three
+#     times and the invalid rule shipped in dist/. A comment can never affect
+#     rendering, so the honest reading is a documentation bug that became a
+#     build bug.
+#   * COMPOSED AT RUNTIME. animations.jsx ClickSpark built a `bg-cem-` class from
+#     a token name for its colour probe. Tailwind generated nothing from that
+#     line; it worked only because one particular token happened to exist in the
+#     stylesheet from another file's complete literal. The two tokens that did
+#     not exist resolved the probe to transparent and rendered the spark
+#     invisible — no warning, no failed build, no error of any kind.
+#
+# The second shape is the reason this rule exists at all: nothing in the
+# source code alerts you, the build passes, and the component renders wrong.
+# Grep for both shapes in src/ and fail the gate if found.
+#
+# Pattern 1: template literal inside arbitrary utility: `bg-[${...}]`
+# Pattern 2: interpolation inside comment that Tailwind can harvest: `${...}`
+: >"$TMP_DIR/findings"
+grep -rE 'bg-\[\$\{[^}]+\}\]' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
+  | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
+grep -rE 'text-\[\$\{[^}]+\}\]' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
+  | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
+grep -rE 'border-\[\$\{[^}]+\}\]' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
+  | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
+# Comment-harvested interpolations (Tailwind scans comments too)
+grep -rE '\$\{[^}]+\}' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
+  | grep -E '(bg-|text-|border-|ring-|shadow-|fill-|stroke-)\[.*\$\{' \
+  | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
+count_07="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
+verify 07 "$RULE_07_GHOST_TAILWIND_UTILITY" \
+  "no unresolved interpolation inside Tailwind arbitrary utility" "$count_07" || true
+note "write complete class strings in source; compose tokens via CSS custom properties at runtime instead"
+
 
 # ---------------------------------------------------------------------------
 # REPORT-ONLY -- StageMode.jsx chrome

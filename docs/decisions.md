@@ -226,3 +226,21 @@ says so in Consequences.
   adds `src/domain/music/degreeResolver.js` importing a repository. They are logged with a
   destination rather than hidden — an ADR that claims more than the code holds would be worse than
   no ADR at all.
+
+---
+
+### ADR-008a — `motion` admitted for gesture-driven spring work, scoped to tiers 1 and 3a
+
+- **Status:** Accepted
+- **Date:** 2026-10-05 (design-system audit; `src/features/design/`, `DESIGN.md` §6 and §12)
+- **Context:** The apple-design rules that matter for gesture work — animate from the live on-screen value, carry the release velocity into the settle, project momentum to choose the landing, and stay grabbable mid-flight — are not expressible with a CSS transition, which can only interpolate between two declared values over a fixed duration. The 35-component interaction set (swipe rows, option wheel, dock magnification, morph slider, hold-to-confirm) needs exactly those. `motion` (framer-motion's successor, imported from `motion/react`) provides them with a ~62 kB gzip chunk.
+- **Decision:** `motion` is a dependency. It is **lazy-loaded behind the `/design` route**, so it never enters the authenticated product bundle. The route is the single load point; `pnpm build` will code-split it into its own chunk. No other route pays for it.
+- **Consequences:**
+  - The visual contract's "CSS-native motion first" (ADR-008) is narrowed, not deleted. CSS transitions remain the default for non-gesture UI.
+  - `motion` is only permitted in `src/features/design/**` and its lazy-loaded chunk. Any import elsewhere fails the visual contract gate (rule 01a/04).
+  - The spring vocabulary lives in `src/features/design/components/motion.js` (four presets: `SPRING_UI`, `SPRING_SHEET`, `SPRING_SOFT`, `SPRING_MOMENTUM`) so the whole set shares one physics language.
+  - The 35 components are ports of `reactbits.dev` reference sources, reproduced with `motion/react` springs. Deviations from the reference are documented in `DESIGN.md` §12.
+- **Alternatives considered:**
+  - GSAP: larger bundle, same physics, no React integration advantage.
+  - CSS `@keyframes` + `transition`: cannot express velocity carry / momentum projection / interruptible mid-flight.
+  - Custom spring impl: maintenance burden, no accessibility integration.
