@@ -104,7 +104,7 @@ export default function Bandmates() {
         {items.length === 0 ? (
           <p className="mt-2 text-sm text-cem-secondary">{emptyText}</p>
         ) : (
-          <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+          <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="bandmates-list-section">
             {items.map(render)}
           </ul>
         )}
@@ -113,11 +113,11 @@ export default function Bandmates() {
   }
 
   return (
-    <div>
+    <div data-testid="bandmates-list">
       <h1 className="text-2xl font-bold text-cem-text">Bandmates</h1>
 
       {error && (
-        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">{error}</p>
       )}
 
       <form onSubmit={handleSearch} className="mt-4 flex items-start gap-2">
@@ -127,8 +127,9 @@ export default function Bandmates() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by username"
           className={inputClass}
+          data-testid="invite-email"
         />
-        <button type="submit" disabled={searching || !query.trim()} className={primaryBtn}>
+        <button type="submit" disabled={searching || !query.trim()} className={primaryBtn} data-testid="bandmate-invite">
           {searching ? 'Searching…' : 'Search'}
         </button>
       </form>
@@ -140,9 +141,9 @@ export default function Bandmates() {
         <p className="mt-3 text-sm text-cem-secondary">No user found with that username.</p>
       )}
       {results.length > 0 && (
-        <ul className="mt-3 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-3 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="bandmates-search-results">
           {results.map((profile) => (
-            <li key={profile.id} className="flex items-center justify-between gap-4 px-4 py-3">
+            <li key={profile.id} className="flex items-center justify-between gap-4 px-4 py-3" data-testid="bandmate-row">
               <span className="text-sm text-cem-text">
                 {profile.displayName}{' '}
                 <span className="text-xs text-cem-secondary">@{profile.username}</span>
@@ -152,6 +153,7 @@ export default function Bandmates() {
                 onClick={() => handleInvite(profile)}
                 disabled={busy || isBandmate(profile.id)}
                 className={primaryBtn}
+                data-testid="bandmate-invite"
               >
                 {isBandmate(profile.id) ? 'Already in band' : 'Add to Band'}
               </button>
@@ -167,6 +169,7 @@ export default function Bandmates() {
           onChange={(e) => setById(e.target.value)}
           placeholder="Or add by unique user ID"
           className={inputClass}
+          data-testid="invite-by-id"
         />
         <button type="submit" disabled={!byId.trim()} className={ghostBtn}>
           Add by ID
@@ -176,8 +179,8 @@ export default function Bandmates() {
         <p className="mt-3 text-sm text-cem-secondary">No user found with that username.</p>
       )}
       {byIdProfile && (
-        <ul className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
-          <li className="flex items-center justify-between gap-4 px-4 py-3">
+        <ul className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="bandmates-by-id-result">
+          <li className="flex items-center justify-between gap-4 px-4 py-3" data-testid="bandmate-row">
             <span className="text-sm text-cem-text">
               {byIdProfile.displayName}{' '}
               <span className="text-xs text-cem-secondary">@{byIdProfile.username}</span>
@@ -187,6 +190,7 @@ export default function Bandmates() {
               onClick={() => handleInvite(byIdProfile)}
               disabled={busy || isBandmate(byIdProfile.id)}
               className={primaryBtn}
+              data-testid="bandmate-invite"
             >
               {isBandmate(byIdProfile.id) ? 'Already in band' : 'Add to Band'}
             </button>
@@ -203,13 +207,13 @@ export default function Bandmates() {
             emptyText="No pending invites."
             items={incomingPending}
             render={(link) => (
-              <li key={`in-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3">
+              <li key={`in-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3" data-testid="bandmate-row">
                 <NameLink link={link} />
                 <div className="flex shrink-0 gap-2">
-                  <button type="button" onClick={() => run(accept, link)} className={primaryBtn}>
+                  <button type="button" onClick={() => run(accept, link)} className={primaryBtn} data-testid="bandmate-accept">
                     Accept
                   </button>
-                  <button type="button" onClick={() => run(decline, link)} className={ghostBtn}>
+                  <button type="button" onClick={() => run(decline, link)} className={ghostBtn} data-testid="bandmate-decline">
                     Decline
                   </button>
                 </div>
@@ -222,9 +226,9 @@ export default function Bandmates() {
             emptyText="No sent invites."
             items={outgoingPending}
             render={(link) => (
-              <li key={`out-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3">
+              <li key={`out-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3" data-testid="bandmate-row">
                 <NameLink link={link} />
-                <button type="button" onClick={() => run(remove, link)} className={dangerBtn}>
+                <button type="button" onClick={() => run(remove, link)} className={dangerBtn} data-testid="bandmate-remove">
                   Cancel
                 </button>
               </li>
@@ -237,9 +241,9 @@ export default function Bandmates() {
               emptyText=""
               items={declinedOutgoing}
               render={(link) => (
-                <li key={`dec-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3">
+                <li key={`dec-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3" data-testid="bandmate-row">
                   <NameLink link={link} />
-                  <button type="button" onClick={() => run(remove, link)} className={dangerBtn}>
+                  <button type="button" onClick={() => run(remove, link)} className={dangerBtn} data-testid="bandmate-remove">
                     Remove
                   </button>
                 </li>
@@ -252,9 +256,9 @@ export default function Bandmates() {
             emptyText="No active bandmates yet. Search above to invite someone."
             items={active}
             render={(link) => (
-              <li key={`act-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3">
+              <li key={`act-${link.userId}`} className="flex items-center justify-between gap-4 px-4 py-3" data-testid="bandmate-row">
                 <NameLink link={link} />
-                <button type="button" onClick={() => run(remove, link)} className={dangerBtn}>
+                <button type="button" onClick={() => run(remove, link)} className={dangerBtn} data-testid="bandmate-remove">
                   Remove
                 </button>
               </li>

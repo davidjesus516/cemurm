@@ -29,7 +29,6 @@ export const selectors = {
     setlistsLink: '[data-testid="nav-setlists"]',
     gigsLink: '[data-testid="nav-gigs"]',
     libraryLink: '[data-testid="nav-library"]',
-    theoryLink: '[data-testid="nav-theory"]',
     stageLink: '[data-testid="nav-stage"]',
     profileLink: '[data-testid="nav-profile"]',
     settingsLink: '[data-testid="nav-settings"]',
@@ -132,19 +131,6 @@ export const selectors = {
     fullscreenToggle: '[data-testid="stage-fullscreen"]',
   },
 
-  // Offline
-  offline: {
-    indicator: '[data-testid="offline-indicator"]',
-    onlineBadge: '[data-testid="online-badge"]',
-    offlineBadge: '[data-testid="offline-badge"]',
-    syncStatus: '[data-testid="sync-status"]',
-    queueDepth: '[data-testid="queue-depth"]',
-    offlinePage: '[data-testid="offline-page"]',
-    cachedContent: '[data-testid="cached-content"]',
-    syncButton: '[data-testid="sync-trigger"]',
-    conflictDialog: '[data-testid="conflict-dialog"]',
-  },
-
   // Bandmates / Collaboration
   bandmates: {
     list: '[data-testid="bandmates-list"]',
@@ -155,18 +141,6 @@ export const selectors = {
     memberRow: '[data-testid="bandmate-row"]',
     memberRole: '[data-testid="bandmate-role"]',
     removeButton: '[data-testid="bandmate-remove"]',
-  },
-
-  // Comments
-  comments: {
-    thread: '[data-testid="comment-thread"]',
-    comment: '[data-testid="comment"]',
-    replyButton: '[data-testid="comment-reply"]',
-    replyInput: '[data-testid="reply-input"]',
-    replySubmit: '[data-testid="reply-submit"]',
-    mentionButton: '[data-testid="comment-mention"]',
-    resolveButton: '[data-testid="comment-resolve"]',
-    unresolveButton: '[data-testid="comment-unresolve"]',
   },
 
   // Public Library
@@ -189,15 +163,6 @@ export const selectors = {
     repertoire: '[data-testid="profile-repertoire"]',
     followedArtists: '[data-testid="profile-followed"]',
     settingsButton: '[data-testid="profile-settings"]',
-  },
-
-  // Theory
-  theory: {
-    reference: '[data-testid="theory-reference"]',
-    scaleLookup: '[data-testid="scale-lookup"]',
-    chordLookup: '[data-testid="chord-lookup"]',
-    fretboard: '[data-testid="interactive-fretboard"]',
-    intervalTrainer: '[data-testid="interval-trainer"]',
   },
 
   // Common UI

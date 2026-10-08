@@ -55,36 +55,41 @@ export default function GigForm({ venues, setlists, createVenue, initial, onSubm
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm" data-testid="gig-form">
       <Field id="gig-name" label="Name *" error={errors.name}>
         <input id="gig-name" name="name" value={form.name}
           onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-          disabled={submitting} className={`${inputClass} ${errors.name ? 'border-cem-rose/40' : ''}`} />
+          disabled={submitting} className={`${inputClass} ${errors.name ? 'border-cem-rose/40' : ''}`}
+          data-testid="gig-name-input" />
       </Field>
       <Field id="gig-scheduledAt" label="Date and time *" error={errors.scheduledAt}>
         <input id="gig-scheduledAt" name="scheduledAt" type="datetime-local" value={form.scheduledAt}
           onChange={(e) => setForm((p) => ({ ...p, scheduledAt: e.target.value }))}
-          disabled={submitting} className={`${inputClass} ${errors.scheduledAt ? 'border-cem-rose/40' : ''}`} />
+          disabled={submitting} className={`${inputClass} ${errors.scheduledAt ? 'border-cem-rose/40' : ''}`}
+          data-testid="gig-date-input" />
       </Field>
       <Field id="gig-venue" label="Venue">
         <VenueAutocomplete venues={venues} value={form.venueName}
-          onChange={(venueName) => setForm((p) => ({ ...p, venueName }))} disabled={submitting} />
+          onChange={(venueName) => setForm((p) => ({ ...p, venueName }))} disabled={submitting} data-testid="gig-venue-autocomplete" />
       </Field>
       <Field id="gig-setlist" label="Setlist">
         <select id="gig-setlist" name="setlistId" value={form.setlistId}
-          onChange={(e) => setForm((p) => ({ ...p, setlistId: e.target.value }))} disabled={submitting} className={inputClass}>
+          onChange={(e) => setForm((p) => ({ ...p, setlistId: e.target.value }))} disabled={submitting} className={inputClass}
+          data-testid="gig-setlist-select">
           <option value="">No setlist</option>
           {setlists.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </Field>
       <div className="flex gap-2">
         <button type="submit" disabled={submitting}
-          className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60">
+          className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
+          data-testid="gig-submit">
           {submitting ? 'Saving…' : submitLabel || 'Save'}
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel} disabled={submitting}
-            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60">
+            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+            data-testid="gig-cancel">
             Cancel
           </button>
         )}

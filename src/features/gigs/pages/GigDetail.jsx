@@ -65,32 +65,34 @@ export default function GigDetail() {
   return (
     <div className="mx-auto max-w-2xl">
       <Link to="/gigs" className="text-sm font-medium text-cem-amber hover:underline">← Back to gigs</Link>
-      {error && <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>}
+      {error && <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">{error}</p>}
 
       <div className="mt-3 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-cem-text">{gig.name}</h1>
-          <p className="mt-1 text-sm text-cem-secondary">{formatWhen(gig.scheduledAt)}</p>
-          <div className="mt-1"><StatusBadge status={gig.status} /></div>
+          <h1 className="text-2xl font-bold text-cem-text" data-testid="gig-detail-name">{gig.name}</h1>
+          <p className="mt-1 text-sm text-cem-secondary" data-testid="gig-detail-date">{formatWhen(gig.scheduledAt)}</p>
+          <div className="mt-1" data-testid="gig-detail-status"><StatusBadge status={gig.status} /></div>
         </div>
         {showActions && (
           <div className="flex flex-wrap justify-end gap-2">
             {gig.status === 'planned' && (
-              <button type="button" onClick={() => runAction(confirmGig)} className={`${btn} bg-cem-emerald text-cem-base hover:bg-cem-emerald/90`}>Confirm</button>
+              <button type="button" onClick={() => runAction(confirmGig)} className={`${btn} bg-cem-emerald text-cem-base hover:bg-cem-emerald/90`} data-testid="gig-checkin">Confirm</button>
             )}
             {gig.status === 'cancelled' && (
-              <button type="button" onClick={() => runAction(reopenGig)} className={`${btn} border border-cem-emerald/40 text-cem-emerald hover:bg-cem-emerald/10`}>Reopen</button>
+              <button type="button" onClick={() => runAction(reopenGig)} className={`${btn} border border-cem-emerald/40 text-cem-emerald hover:bg-cem-emerald/10`} data-testid="gig-reopen">Reopen</button>
             )}
             {gig.status !== 'cancelled' && (
-              <button type="button" onClick={() => runAction(cancelGig)} className={`${btn} border border-cem-elevated text-cem-secondary-elevated hover:bg-cem-elevated`}>Cancel</button>
+              <button type="button" onClick={() => runAction(cancelGig)} className={`${btn} border border-cem-elevated text-cem-secondary-elevated hover:bg-cem-elevated`} data-testid="gig-cancel">Cancel</button>
             )}
-            <button type="button" onClick={() => { setEditing(true); setError('') }} className={outlined}>Edit</button>
+            <button type="button" onClick={() => { setEditing(true); setError('') }} className={outlined} data-testid="gig-edit">Edit</button>
           </div>
         )}
       </div>
 
-      <div className="mt-4 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 text-sm shadow-sm">
+      <div className="mt-4 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 text-sm shadow-sm" data-testid="gig-detail-venue">
         <p className="flex justify-between gap-4"><span className="text-cem-secondary">Venue</span><span className="text-right text-cem-text">{venueLine}</span></p>
+      </div>
+      <div className="mt-4 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 text-sm shadow-sm" data-testid="gig-detail-setlist">
         <p className="flex justify-between gap-4"><span className="text-cem-secondary">Setlist</span>
           <span className="text-right text-cem-text">{setlist ? <Link to={`/setlists/${setlist.id}`} className="font-medium text-cem-amber hover:underline">{setlist.name}</Link> : '—'}</span>
         </p>
