@@ -55,7 +55,8 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 // is read from RESEND_FROM; the default is the production from (verified
 // domain), and local test mode overrides it with Resend's test sender.
 const FROM_NAME = 'CEMURM'
-const FROM_ADDRESS = Deno.env.get('RESEND_FROM') || 'guardian@cemurm.app'
+const FROM_ADDRESS_RAW = Deno.env.get('RESEND_FROM')
+const FROM_ADDRESS = normalizeFromAddress(FROM_ADDRESS_RAW) ?? 'guardian@cemurm.app'
 
 type CorsHeaders = Record<string, string>
 
@@ -110,6 +111,20 @@ function escapeHtml(value: string): string {
 /** Trim a caller-supplied base URL and strip any trailing slash. */
 function normalizeSiteUrl(raw: string): string {
   return raw.trim().replace(/\/+$/, '')
+}
+
+/**
+ * Validate and normalize the Resend FROM address.
+ * Rejects empty/whitespace-only values (which would interpolate as `CEMURM <   >`).
+ * Returns the trimmed address on success, or null if missing/invalid.
+ */
+function normalizeFromAddress(raw: string | undefined): string | null {
+  const trimmed = (raw ?? '').trim()
+  if (!trimmed) return null
+  // Basic email format sanity check — not RFC-perfect, but catches
+  // whitespace-only and obviously malformed values before Resend 403s.
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) return null
+  return trimmed
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -194,6 +209,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // missing variable at a time is not left guessing. Both guards are typed
     // 503s and neither sends anything.
     return fail('app_url_not_configured', 503, 'SITE_URL is not set for this environment; the Resend key has not been read yet')
+  }
+
+  // Validate FROM_ADDRESS if explicitly set — whitespace-only or malformed
+  // would interpolate as `CEMURM <   >` and hit Resend 403 domain-not-verified.
+  // We fail loudly here (like SITE_URL) instead of silently falling back to
+  // the unverified default.
+  const fromAddressEnv = Deno.env.get('RESEND_FROM')
+  if (fromAddressEnv !== undefined && normalizeFromAddress(fromAddressEnv) === null) {
+    return fail('invalid_from_address', 503, 'RESEND_FROM is set but invalid (empty, whitespace-only, or malformed email)')
   }
 
   // D5: the key comes from Vault, never from this file, never from a VITE_

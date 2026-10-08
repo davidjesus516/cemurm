@@ -22,7 +22,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Install Deno for edge function type-checking (supabase/functions/)
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - run: pnpm lint
+
+      # Edge function type-check: catches import/export, TS syntax, and config
+      # issues in supabase/functions/** before they reach deploy.
+      - run: deno check supabase/functions/**/*.ts
 
       # Type check sits BEFORE the visual gate, not after it. The gate exits 1
       # on its first failing ratchet and is red on pristine main, which aborts
