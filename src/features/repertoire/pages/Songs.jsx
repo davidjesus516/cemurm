@@ -140,6 +140,7 @@ export default function Songs() {
             <button
               type="button"
               onClick={() => { setShowForm(true); setError(''); setUrlPrefill(null) }}
+              data-testid="song-create"
               className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
             >
               Add Song
@@ -226,11 +227,13 @@ export default function Songs() {
             value={search}
             onChange={handleSearch}
             placeholder="Search by title or chord…"
+            data-testid="songs-search"
             className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
           />
           <select
             value={keyFilter}
             onChange={(e) => setKeyFilter(e.target.value)}
+            data-testid="songs-filter-key"
             className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
           >
             <option value="">All keys</option>
@@ -285,17 +288,18 @@ export default function Songs() {
             : filtersActive ? 'No results — try adjusting your filters.' : 'No songs yet. Add your first song above.'}
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="songs-list">
           {visible.map((song) => {
             const matched = matchedChords(song, search)
             return (
-              <li key={song.id} className="flex items-center justify-between px-4 py-3">
+              <li key={song.id} data-testid="song-row" className="flex items-center justify-between px-4 py-3">
                 <div>
                   <Link
                     to={`/songs/${song.id}`}
+                    data-testid="song-view"
                     className="text-sm font-medium text-cem-text hover:text-cem-amber"
                   >
-                    {song.title}
+                    <span data-testid="song-title">{song.title}</span>
                   </Link>
                   <StatusBadge status={song.status} />
                   {matched.length > 0 && (
@@ -325,6 +329,7 @@ export default function Songs() {
                       <button
                         type="button"
                         onClick={() => startEdit(song)}
+                        data-testid="song-edit"
                         className="text-xs font-medium text-cem-amber hover:underline"
                       >
                         Edit
@@ -341,6 +346,7 @@ export default function Songs() {
                   <button
                     type="button"
                     onClick={() => handleDelete(song)}
+                    data-testid="song-delete"
                     className="text-xs font-medium text-cem-rose hover:underline"
                   >
                     Delete

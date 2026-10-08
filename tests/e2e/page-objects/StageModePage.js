@@ -5,7 +5,6 @@
 
 import { BasePage } from './BasePage.js';
 import { selectors } from '../utils/selectors.js';
-import { OfflineIndicator } from './components/OfflineIndicator.js';
 
 /**
  * Page object for Stage Mode (live performance view)
@@ -25,17 +24,6 @@ export class StageModePage extends BasePage {
    */
   get keySelector() {
     return selectors.stage.container;
-  }
-
-  /**
-   * OfflineIndicator component for monitoring connection status
-   * @type {OfflineIndicator}
-   */
-  get offlineIndicator() {
-    if (!this._offlineIndicator) {
-      this._offlineIndicator = new OfflineIndicator(this.page);
-    }
-    return this._offlineIndicator;
   }
 
   /**

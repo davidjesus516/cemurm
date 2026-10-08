@@ -88,6 +88,7 @@ export default function Setlists() {
               type="button"
               onClick={togglePcoPicker}
               className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated"
+              data-testid="setlist-import-pco"
             >
               Import from Planning Center
             </button>
@@ -97,6 +98,7 @@ export default function Setlists() {
               type="button"
               onClick={() => { setShowForm(true); setError('') }}
               className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+              data-testid="setlist-create"
             >
               New Setlist
             </button>
@@ -162,6 +164,7 @@ export default function Setlists() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Setlist name (e.g. Friday Gig)"
             className="w-full max-w-sm rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+            data-testid="setlist-name-input"
           />
           <button
             type="submit"
@@ -182,7 +185,7 @@ export default function Setlists() {
       )}
 
       {error && (
-        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">{error}</p>
       )}
 
       {loading ? (
@@ -190,14 +193,15 @@ export default function Setlists() {
       ) : setlists.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No setlists yet. Create your first one above.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="setlists-list">
           {setlists.map((setlist) => (
-            <li key={setlist.id} className="flex items-center justify-between gap-4 px-4 py-3">
+            <li key={setlist.id} className="flex items-center justify-between gap-4 px-4 py-3" data-testid="setlist-row">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Link
                     to={`/setlists/${setlist.id}`}
                     className="text-sm font-medium text-cem-text hover:text-cem-amber"
+                    data-testid="setlist-name"
                   >
                     {setlist.name}
                   </Link>
@@ -221,6 +225,7 @@ export default function Setlists() {
                   type="button"
                   onClick={() => handleDuplicate(setlist)}
                   className="text-xs font-medium text-cem-amber hover:underline"
+                  data-testid="setlist-duplicate"
                 >
                   Duplicate
                 </button>
@@ -229,6 +234,7 @@ export default function Setlists() {
                     type="button"
                     onClick={() => handleDelete(setlist)}
                     className="text-xs font-medium text-cem-rose hover:underline"
+                    data-testid="setlist-delete"
                   >
                     Delete
                   </button>

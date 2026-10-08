@@ -24,10 +24,10 @@ export function formatWhen(iso) {
 
 export default function GigCard({ gig, venueName }) {
   return (
-    <li className="flex items-center justify-between gap-4 px-4 py-3">
+    <li className="flex items-center justify-between gap-4 px-4 py-3" data-testid="gig-card">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <Link to={`/gigs/${gig.id}`} className="text-sm font-medium text-cem-text hover:text-cem-amber">{gig.name}</Link>
+          <Link to={`/gigs/${gig.id}`} className="text-sm font-medium text-cem-text hover:text-cem-amber" data-testid="gig-name">{gig.name}</Link>
           <StatusBadge status={gig.status} />
         </div>
         <p className="mt-0.5 text-xs text-cem-secondary">

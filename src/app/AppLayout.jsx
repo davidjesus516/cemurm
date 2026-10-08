@@ -5,19 +5,19 @@ import { useNotifications } from '../hooks/shared/useNotifications.js'
 import FeedbackForm from '../features/feedback/components/FeedbackForm.jsx'
 
 const navLinks = [
-  { to: '/', label: 'Home' },
-  { to: '/songs', label: 'Repertoire' },
-  { to: '/library', label: 'Library' },
-  { to: '/moderation', label: 'Moderation' },
-  { to: '/setlists', label: 'Setlists' },
-  { to: '/gigs', label: 'Gigs' },
-  { to: '/bandmates', label: 'Bandmates' },
-{ to: '/organizations', label: 'Organizations' },
-  { to: '/services', label: 'Services' },
-  { to: '/rehearsals', label: 'Rehearsals' },
-  { to: '/notifications', label: 'Notifications' },
-  { to: '/settings', label: 'Settings' },
-  { to: '/settings/storage', label: 'Storage' },
+  { to: '/', label: 'Home', testId: 'nav-home' },
+  { to: '/songs', label: 'Repertoire', testId: 'nav-songs' },
+  { to: '/library', label: 'Library', testId: 'nav-library' },
+  { to: '/moderation', label: 'Moderation', testId: 'nav-moderation' },
+  { to: '/setlists', label: 'Setlists', testId: 'nav-setlists' },
+  { to: '/gigs', label: 'Gigs', testId: 'nav-gigs' },
+  { to: '/bandmates', label: 'Bandmates', testId: 'nav-bandmates' },
+  { to: '/organizations', label: 'Organizations', testId: 'nav-organizations' },
+  { to: '/services', label: 'Services', testId: 'nav-services' },
+  { to: '/rehearsals', label: 'Rehearsals', testId: 'nav-rehearsals' },
+  { to: '/notifications', label: 'Notifications', testId: 'nav-notifications' },
+  { to: '/settings', label: 'Settings', testId: 'nav-settings' },
+  { to: '/settings/storage', label: 'Storage', testId: 'nav-storage' },
 ]
 
 const linkClass = ({ isActive }) =>
@@ -59,7 +59,7 @@ function AppLayout() {
           <div className="flex items-center gap-4">
             <nav className="flex gap-4">
               {navLinks.map((link) => (
-                <NavLink key={link.to} to={link.to} end={link.to === '/' || link.to === '/settings'} className={linkClass}>
+                <NavLink key={link.to} to={link.to} end={link.to === '/' || link.to === '/settings'} className={linkClass} data-testid={link.testId}>
                   <span className="flex items-center gap-1.5">
                     {link.label}
                     {link.to === '/notifications' && user && <UnreadBadge />}
@@ -70,6 +70,7 @@ function AppLayout() {
             <button
               type="button"
               onClick={() => setFeedbackOpen(true)}
+              data-testid="feedback-button"
               className="text-sm font-medium text-cem-secondary hover:text-cem-text"
             >
               Feedback
@@ -80,13 +81,14 @@ function AppLayout() {
                 <button
                   type="button"
                   onClick={handleSignOut}
+                  data-testid="logout-button"
                   className="text-sm font-medium text-cem-secondary hover:text-cem-text"
                 >
                   Log Out
                 </button>
               </div>
             ) : (
-              <NavLink to="/auth" end className={linkClass}>
+              <NavLink to="/auth" end className={linkClass} data-testid="login-button">
                 Sign In
               </NavLink>
             )}

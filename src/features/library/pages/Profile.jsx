@@ -47,12 +47,12 @@ export default function Profile() {
 
   return (
     <div>
-      <Link to="/library" className="text-sm text-cem-secondary hover:text-cem-amber">
+      <Link to="/library" className="text-sm text-cem-secondary hover:text-cem-amber" data-testid="profile-back-link">
         ← Back to library
       </Link>
 
       <div className="mt-3">
-        <h1 className="text-2xl font-bold text-cem-text">{contributorName}</h1>
+        <h1 className="text-2xl font-bold text-cem-text" data-testid="profile-username">{contributorName}</h1>
         <p className="mt-1 text-sm text-cem-secondary">
           Public profile — published songs this musician contributed to the library.
         </p>
@@ -60,9 +60,9 @@ export default function Profile() {
 
       <div className="mt-3 flex items-center justify-between gap-4">
         <p className="text-sm text-cem-secondary">
-          <span className="font-medium text-cem-text">{followers}</span>{' '}
+          <span className="font-medium text-cem-text" data-testid="profile-followers">{followers}</span>{' '}
           {followers === 1 ? 'follower' : 'followers'} ·{' '}
-          <span className="font-medium text-cem-text">{following}</span> following
+          <span className="font-medium text-cem-text" data-testid="profile-following">{following}</span> following
         </p>
         {canFollow && (
           <button
@@ -74,6 +74,7 @@ export default function Profile() {
                 ? 'rounded-md bg-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-hover disabled:opacity-60'
                 : 'rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60'
             }
+            data-testid={isFollowing ? 'profile-unfollow' : 'profile-follow'}
           >
             {isFollowing ? 'Unfollow' : 'Follow'}
           </button>
@@ -81,13 +82,13 @@ export default function Profile() {
       </div>
 
       {followsError && (
-        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">
           {followsError}
         </p>
       )}
 
       {error && (
-        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">{error}</p>
       )}
 
       {loading ? (
@@ -97,11 +98,11 @@ export default function Profile() {
           This musician hasn&apos;t published any songs yet.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="profile-repertoire">
           {mine.map((entry) => (
             <li key={entry.id} className="px-4 py-3">
               <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-medium text-cem-text">{entry.title}</span>
+                <span className="truncate text-sm font-medium text-cem-text" data-testid="profile-song-title">{entry.title}</span>
                 <LicenseBadge license={entry.license} />
               </div>
               <p className="mt-0.5 text-xs text-cem-secondary">

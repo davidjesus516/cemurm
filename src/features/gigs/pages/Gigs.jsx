@@ -25,7 +25,9 @@ export default function Gigs() {
         <h1 className="text-2xl font-bold text-cem-text">Gigs</h1>
         {!showForm && (
           <button type="button" onClick={() => { setShowForm(true); setError('') }}
-            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90">
+            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            data-testid="gig-create"
+          >
             Add Gig
           </button>
         )}
@@ -38,14 +40,14 @@ export default function Gigs() {
         </div>
       )}
 
-      {error && <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>}
+      {error && <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">{error}</p>}
 
       {loading ? (
         <p className="mt-6 text-sm text-cem-secondary">Loading gigs…</p>
       ) : gigs.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No gigs yet. Plan your first one above.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="gigs-list">
           {gigs.map((gig) => <GigCard key={gig.id} gig={gig} venueName={venueById.get(gig.venueId)?.name || ''} />)}
         </ul>
       )}

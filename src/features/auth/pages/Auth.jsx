@@ -120,7 +120,7 @@ function Auth() {
   }
 
   function renderField(name, label, options = {}) {
-    const { type = 'text', autoComplete } = options
+    const { type = 'text', autoComplete, 'data-testid': testId } = options
     const hasError = Boolean(errors[name])
     return (
       <div>
@@ -136,6 +136,7 @@ function Auth() {
           onChange={handleChange}
           disabled={isSubmitting}
           aria-invalid={hasError}
+          data-testid={testId}
           className={`${inputClass} ${hasError ? inputErrorClass : ''}`}
         />
         {hasError && <p className="mt-1 text-xs text-cem-text">{errors[name]}</p>}
@@ -199,6 +200,7 @@ function Auth() {
                   onChange={handleChange}
                   disabled={isSubmitting}
                   className="sr-only"
+                  data-testid="dob-input"
                 />
                 Under 18
               </label>
@@ -217,6 +219,7 @@ function Auth() {
                   onChange={handleChange}
                   disabled={isSubmitting}
                   className="sr-only"
+                  data-testid="dob-input"
                 />
                 18 or older
               </label>
@@ -230,20 +233,27 @@ function Auth() {
           </div>
         )}
 
-        {renderField('email', 'Email', { type: 'email', autoComplete: 'email' })}
+        {renderField('email', 'Email', { 
+          type: 'email', 
+          autoComplete: 'email',
+          'data-testid': isSignUp ? 'register-email' : 'login-email'
+        })}
         {renderField('password', 'Password', {
           type: 'password',
           autoComplete: isSignUp ? 'new-password' : 'current-password',
+          'data-testid': isSignUp ? 'register-password' : 'login-password'
         })}
         {isSignUp &&
           renderField('passwordConfirm', 'Confirm password', {
             type: 'password',
             autoComplete: 'new-password',
+            'data-testid': 'register-confirm-password'
           })}
 
         <button
           type="submit"
           disabled={isSubmitting}
+          data-testid={isSignUp ? 'register-submit' : 'login-submit'}
           className="w-full rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
         >
           {isSubmitting
@@ -261,6 +271,7 @@ function Auth() {
         <button
           type="button"
           onClick={() => switchMode(isSignUp ? 'signin' : 'signup')}
+          data-testid={isSignUp ? 'login-button' : 'register-button'}
           className="font-medium text-cem-amber hover:underline"
         >
           {isSignUp ? 'Sign in' : 'Create an account'}

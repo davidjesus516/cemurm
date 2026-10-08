@@ -389,6 +389,7 @@ export default function StageMode() {
 
   return (
     <div
+      data-testid="stage-container"
       className="fixed inset-0 flex flex-col overflow-y-auto bg-cem-stage-bg text-cem-stage-lyric"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
@@ -416,7 +417,7 @@ export default function StageMode() {
         </div>
         <div className="text-center">
           <p className="text-sm font-bold">{song.title || 'Untitled'}</p>
-          <p className="text-xs text-cem-stage-lyric/60">
+          <p className="text-xs text-cem-stage-lyric/60" data-testid="stage-song-progress">
             {index + 1} / {songs.length}
             {/* #76: PDF songs carry no chord data — show the DECLARED key
                 (no transpose applies); ChordPro shows the transposed one. */}
@@ -582,7 +583,7 @@ export default function StageMode() {
           />
         </div>
       ) : song?.body && transposed ? (
-        <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-6">
+        <div data-testid="stage-chord-display" className="mx-auto w-full max-w-3xl flex-1 px-6 py-6">
           <div className="space-y-3 text-xl leading-relaxed md:text-2xl">
             {transposed.sections.map((section, i) => (
               <div key={i}>
@@ -641,6 +642,7 @@ export default function StageMode() {
           type="button"
           onClick={() => goTo(index - 1)}
           disabled={songs.length <= 1}
+          data-testid="stage-prev-song"
           className="rounded-lg border border-cem-stage-lyric/20 px-6 py-3 text-lg font-medium hover:bg-cem-stage-lyric/10 disabled:opacity-40"
         >
           ← Prev
@@ -669,6 +671,7 @@ export default function StageMode() {
           type="button"
           onClick={() => goTo(index + 1)}
           disabled={songs.length <= 1}
+          data-testid="stage-next-song"
           className="rounded-lg border border-cem-stage-lyric/20 px-6 py-3 text-lg font-medium hover:bg-cem-stage-lyric/10 disabled:opacity-40"
         >
           Next →

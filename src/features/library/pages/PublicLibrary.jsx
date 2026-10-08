@@ -47,10 +47,10 @@ function PublicSongCard({ entry, pending, added, mine, onAdd, onReport }) {
   const label = added ? 'Added ✓' : pending ? 'Adding…' : 'Add to repertoire'
 
   return (
-    <li className="flex items-center justify-between px-4 py-3">
+    <li className="flex items-center justify-between px-4 py-3" data-testid="library-song-card">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium text-cem-text">{entry.title}</span>
+          <span className="truncate text-sm font-medium text-cem-text" data-testid="library-song-title">{entry.title}</span>
           <LicenseBadge license={entry.license} />
         </div>
         <p className="mt-0.5 text-xs text-cem-secondary">
@@ -72,6 +72,7 @@ function PublicSongCard({ entry, pending, added, mine, onAdd, onReport }) {
           onClick={() => onReport(entry)}
           disabled={Boolean(mine)}
           className="rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-secondary-elevated hover:bg-cem-elevated disabled:opacity-40"
+          data-testid="library-report"
         >
           Report
         </button>
@@ -84,6 +85,7 @@ function PublicSongCard({ entry, pending, added, mine, onAdd, onReport }) {
               ? 'bg-cem-elevated text-cem-secondary-elevated'
               : 'bg-cem-amber text-cem-base hover:bg-cem-amber/90 disabled:opacity-50'
           }`}
+          data-testid="library-import"
         >
           {label}
         </button>
@@ -155,11 +157,12 @@ export default function PublicLibrary() {
         <h1 className="text-2xl font-bold text-cem-text">Public Library</h1>
       </div>
 
-      <div className="mt-3 flex gap-4 text-sm font-medium">
+      <div className="mt-3 flex gap-4 text-sm font-medium" data-testid="library-tabs">
         <button
           type="button"
           onClick={() => setTab('catalog')}
           className={tab === 'catalog' ? 'border-b-2 border-cem-amber text-cem-amber' : 'text-cem-secondary'}
+          data-testid="library-tab-catalog"
         >
           Catalog
         </button>
@@ -167,6 +170,7 @@ export default function PublicLibrary() {
           type="button"
           onClick={() => setTab('mine')}
           className={tab === 'mine' ? 'border-b-2 border-cem-amber text-cem-amber' : 'text-cem-secondary'}
+          data-testid="library-tab-mine"
         >
           My contributions
         </button>
@@ -174,13 +178,14 @@ export default function PublicLibrary() {
           type="button"
           onClick={() => setTab('following')}
           className={tab === 'following' ? 'border-b-2 border-cem-amber text-cem-amber' : 'text-cem-secondary'}
+          data-testid="library-tab-following"
         >
           Following
         </button>
       </div>
 
       {activeError && (
-        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{activeError}</p>
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">{activeError}</p>
       )}
 
       {tab === 'catalog' ? (
@@ -192,11 +197,13 @@ export default function PublicLibrary() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by title, artist or genre…"
               className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+              data-testid="library-search"
             />
             <select
               value={licenseFilter}
               onChange={(e) => setLicenseFilter(e.target.value)}
               className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+              data-testid="library-filter-license"
             >
               {LICENSE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -213,7 +220,7 @@ export default function PublicLibrary() {
               {filtersActive ? 'No results — try adjusting your filters.' : 'The public library is empty.'}
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="library-grid">
               {visible.map((entry) => (
                 <PublicSongCard
                   key={entry.id}
@@ -237,7 +244,7 @@ export default function PublicLibrary() {
               Follow musicians to see their new contributions here.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="library-grid">
               {feed.entries.map((entry) => (
                 <PublicSongCard
                   key={entry.id}
@@ -259,12 +266,12 @@ export default function PublicLibrary() {
           ) : mine.length === 0 ? (
             <p className="mt-6 text-sm text-cem-secondary">You haven&apos;t contributed any songs yet.</p>
           ) : (
-            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="library-grid">
               {mine.map((entry) => (
-                <li key={entry.id} className="flex items-center justify-between px-4 py-3">
+                <li key={entry.id} className="flex items-center justify-between px-4 py-3" data-testid="library-song-card">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-cem-text">{entry.title}</span>
+                      <span className="truncate text-sm font-medium text-cem-text" data-testid="library-song-title">{entry.title}</span>
                       <LicenseBadge license={entry.license} />
                     </div>
                     <p className="mt-0.5 text-xs text-cem-secondary">
@@ -278,6 +285,7 @@ export default function PublicLibrary() {
                     onClick={() => withdrawEntry(entry.id)}
                     disabled={withdrawingEntryId === entry.id}
                     className="ml-4 shrink-0 rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-50"
+                    data-testid="library-withdraw"
                   >
                     {withdrawingEntryId === entry.id ? 'Withdrawing…' : 'Withdraw'}
                   </button>

@@ -340,7 +340,7 @@ export default function SetlistDetail() {
       </Link>
 
       {error && (
-        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>
+        <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose" data-testid="error-message">{error}</p>
       )}
 
       {notice && (
@@ -396,7 +396,7 @@ export default function SetlistDetail() {
             </button>
           </form>
         ) : (
-          <h1 className="text-2xl font-bold text-cem-text">{setlist.name}</h1>
+          <h1 className="text-2xl font-bold text-cem-text" data-testid="setlist-detail-title">{setlist.name}</h1>
         )}
         {!editingName && setlist.isOwner && (
           <button
@@ -448,6 +448,7 @@ export default function SetlistDetail() {
         <Link
           to={`/setlists/${setlist.id}/stage`}
           className="rounded-md border border-cem-amber px-4 py-2 text-sm font-medium text-cem-amber hover:bg-cem-amber/10"
+          data-testid="setlist-stage-mode"
         >
           ▶ Stage Mode
         </Link>
@@ -460,6 +461,7 @@ export default function SetlistDetail() {
             onClick={handleExportOnSong}
             disabled={busy}
             className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+            data-testid="setlist-export-pdf"
           >
             Export for OnSong
           </button>
@@ -479,6 +481,7 @@ export default function SetlistDetail() {
             type="button"
             onClick={() => setShowPicker((v) => !v)}
             className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90"
+            data-testid="setlist-add-song"
           >
             {showPicker ? 'Hide picker' : 'Add Song'}
           </button>
@@ -692,7 +695,7 @@ export default function SetlistDetail() {
       {itemIds.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No songs in this setlist yet. Add one above.</p>
       ) : (
-        <ol className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ol className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm" data-testid="setlist-songs">
           {itemIds.map((songId, index) => {
             const song = setlist.songs.find((s) => s.id === songId)
             const lock = collab.locks[songId]
@@ -701,6 +704,7 @@ export default function SetlistDetail() {
               <li
                 key={songId}
                 data-song-id={songId}
+                data-testid="setlist-song-item"
                 className={`flex items-center justify-between px-4 py-3 ${
                   highlightedSong === songId ? 'bg-cem-amber/20' : ''
                 }`}
@@ -795,7 +799,7 @@ export default function SetlistDetail() {
                   </div>
                 </div>
                 {setlist.canEdit && !lockedByOther && (
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2" data-testid="song-reorder">
                     <button
                       type="button"
                       onClick={() => handleMove(index, 0)}
@@ -827,6 +831,7 @@ export default function SetlistDetail() {
                       type="button"
                       onClick={() => handleRemove(songId)}
                       className="ml-1 text-xs font-medium text-cem-rose hover:underline"
+                      data-testid="setlist-remove-song"
                     >
                       Remove
                     </button>
