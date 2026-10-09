@@ -202,6 +202,74 @@ The failing count did **not** move; the non-failing count moved 10 → 11. Rule 
 was proven to fail on purpose first, which is the only way its `PASS` is worth
 anything.
 
+### U4 — ADR-006 gets machine teeth (landed)
+
+`scripts/check-test-integrity.sh`, wired into `ci.yml` between `pnpm lint` and
+`pnpm test`. bash + grep only, same doctrine as the visual gate: a check that needs
+the suite to run cannot report that the suite is lying about what it ran.
+
+Deliberate design decisions, each one a way this gate could be made to lie:
+
+| Decision | Why |
+|---|---|
+| File set is `*.test.*` / `*.spec.*` under `src/` only | `foo.skip` on a domain object or a `.todo` payload key is not a silenced test. A gate that blocks CI on those gets bypassed. |
+| Pattern anchors to `it`/`test`/`describe`/`suite` + modifier | A bare `\.skip` matches any object with a skip method, which in an orchestration-heavy domain tree is not rare. |
+| Comment lines filtered, same `COMMENT_PATTERN` as visual rule 03 | These files will document this rule in prose. A gate that blocks CI on its own documentation is a gate that gets bypassed. |
+| Missing `src/` fails at setup | A partial checkout must not produce a vacuous pass. |
+| The rule label names `.only`/`.skip`/`.todo`, **not** "no silenced test" | The gate does not catch every way to skip a test, and a label that claims it does is the exact defect this script exists to remove. |
+
+The comment filter was verified against a fixture that *contains* the forbidden
+spellings in prose (`// never use describe.skip here`, `/* ... it.skip ... */`) plus
+non-test lookalikes (`payload.skip()`, `obj.it.skip()`). None were reported; the
+real `describe.only` / `it.skip` / `test.todo` on adjacent lines were. A gate that
+cannot tell its own documentation from its own violation has no findings a reviewer
+will trust.
+
+### Two measured holes, named rather than papered over
+
+While building this, two silencing shapes were checked against the running Vitest
+rather than assumed:
+
+| Shape | Measured on Vitest 5.0.2 | Caught? |
+|---|---|---|
+| `xit(...)` / `xdescribe(...)` | `typeof vitest.xit === 'undefined'` — **does not exist** | n/a, and correctly not targeted |
+| `test.skipIf(cond)` | `typeof vitest.test.skipIf === 'function'` — **real** | **no** |
+| `it.concurrent.only(...)` | `typeof vitest.test.concurrent === 'function'` — **real** | **no** |
+
+Both probes were run by a temporary file under `src/domain/`, executed, and deleted;
+`git status -- src/` is clean of them. `skipIf` does not end at the modifier, and
+`concurrent` sits between the API name and the modifier, so neither matches the
+anchored pattern. They are declared as **KNOWN LIMITS** in the script header rather
+than left to be discovered.
+
+They were *not* added, deliberately. Catching them needs a pattern loose enough to
+risk matching `test.concurrent` and `skipIf` in non-skipping positions, and a gate
+that blocks CI on a false positive is a gate that gets bypassed — a worse outcome
+than a named hole. The honest label and the declared limits are the deliverable;
+widening the rule is a decision for whoever owns ADR-006.
+
+This is also why the `xit` line is worth having: without it the omission looks like
+an oversight. With it, it is a measurement.
+
+### Verification
+
+Both directions, plus the wiring:
+
+```
+fixtures WITH describe.only / it.skip / test.todo   → FAIL  1 rule, 2 occurrences, EXIT=1
+fixtures clean, prose + lookalikes present          → PASS  0 occurrences,             EXIT=0
+cemurm tree (14 test files, none silenced)          → PASS  0 occurrences,             EXIT=0
+invoked from another cwd                             → PASS, resolves paths from $SCRIPT_DIR
+```
+
+On the real tree:
+
+```
+bash scripts/check-test-integrity.sh → PASS  01  no .only/.skip/.todo in src/ tests  0 occurrences
+                                       test files scanned: 14
+                                       test integrity: OK  (1 rule checked, 0 failing)
+```
+
 ## Deviations
 
 - **`AGENTS.md` is stale after U2.** Its section "CI does not run typecheck" is no
@@ -213,6 +281,23 @@ anything.
   verdict is untrustworthy anyway — but `pnpm build` has no such excuse and is the
   stronger place for it. Flagged rather than decided unilaterally.
 
-## Open
+## Result
 
-- U4 — not yet landed at the time this section was written.
+Four units, four commits, no product code touched. Final CI step order:
+
+```
+install → typecheck → lint → test-integrity → test → test:gherkin → build → visual-contract
+```
+
+`pnpm test` and `pnpm build` are now preceded by no gate that can hide them, with one
+named exception above. The visual gate's verdict is unchanged and still red on rule
+07; it is now legible rather than load-bearing on the steps behind it.
+
+## Next
+
+- Rule 07 (`SubstitutionAssignment.jsx`) needs a real source fix in a
+  `src/features/services/**` change. Out of scope here and deliberately left red.
+- `AGENTS.md` "CI does not run typecheck" needs one edit.
+- Decide whether ADR-006 should cover `skipIf` and `it.concurrent.only`.
+- `src/features` is still outside `tsconfig.json` `include`, so U2 type-checks the
+  domain/data/integrations/offline layer and nothing else.
