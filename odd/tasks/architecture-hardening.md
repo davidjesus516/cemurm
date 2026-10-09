@@ -60,15 +60,29 @@ leverage).
 ## Checklist
 
 - [x] **AH-0** Set up isolated worktree + feature branch from `origin/main` (6a8f414)
-- [ ] **AH-1** Add `no-restricted-imports` blocking `../../data` inside `src/domain`; correct the
+- [x] **AH-1** Add `no-restricted-imports` blocking `../../data` inside `src/domain`; correct the
       RLS claim in `AGENTS.md`
-- [ ] **AH-2** Move `src/data/repositories/scaleCatalog.js` → `src/domain/music/scaleCatalog.js`
-      (156 LOC, zero imports — verified pure); update importers
-- [ ] **AH-3** Move the `annotations.js` network read out of the domain into `src/data/`
+- [x] **AH-2** ~~Move `scaleCatalog.js` into `src/domain`~~ — **abandoned, premise was false.**
+      `scaleCatalog.js` does I/O (reads the `scale_catalog` table). Moving it would have *added*
+      a leak. Instead `degreeResolver.js` no longer looks scales up: it receives them.
+- [x] **AH-3** Move the `annotations.js` network read out of the domain into `src/data/`
 - [ ] **AH-4** Injectable client seam + characterization tests for `src/data/repositories/**`
+      (started: `annotations.test.js` added)
 - [ ] **AH-5** Injectable store seam + characterization tests for `src/offline/**`
 - [ ] **AH-6** `0034_` server-side outbox: table + drain, giving idempotency and ordering to
       replace `last-write-wins`
+
+## Deviations from the original plan
+
+1. **AH-2 was planned as a file move and became a signature change.** The move was justified by
+   the claim that `scaleCatalog.js` was pure (156 LOC, "zero imports"). It was not — it reads
+   the `scale_catalog` table via a lazy `await import('../supabase.js')`. The claim came from a
+   `grep` on `from ...` clauses, which cannot see a dynamic import. Decision taken with the
+   maintainer: **Option A**, inject the scale instead of moving the file.
+2. **`scaleCatalog.js` stays where it is.** It is a correct data-layer module.
+3. **A second lint rule was required.** `no-restricted-imports` inspects only static import
+   declarations, so the `annotations.js` dynamic leak was invisible to it. A `no-restricted-syntax`
+   selector on `ImportExpression` closes that. Neither rule is redundant.
 
 ## Acceptance criteria
 
@@ -94,11 +108,38 @@ node /tmp/opencode/arch-graph2.mjs   # re-measure the dependency graph
 - **AH-0** — done. Worktree at `cemurm-worktrees/architecture-hardening`, branch
   `feat/architecture-hardening`, from `origin/main` (6a8f414). Isolated from the uncommitted
   `feat/design-infrastructure` work in the main checkout.
+- **AH-3** — done, commit `0c556bc`. Network read moved to
+  `src/data/repositories/annotations.js`; three feature pages repointed; first characterization
+  test added under `src/data/repositories/**`.
+- **AH-1 + AH-2** — done, commit `3ad8213`. Scale injected into `degreeResolver`, boundary
+  enforced by two eslint rules, `AGENTS.md` RLS claim corrected.
+- **AH-4** — in progress, `annotations.test.js` landed inside `0c556bc`.
 
 ## Verification evidence
 
-_(filled per task as each closes)_
+| Commit | Tests | typecheck | lint | build | visual | gherkin |
+|---|---|---|---|---|---|---|
+| `0c556bc` | 354 / 15 files | clean | clean | ok | OK (10 rules, 0 failing) | — |
+| `3ad8213` | 355 / 15 files | clean | clean | ok | OK (10 rules, 0 failing) | 41 |
+
+**Domain purity, measured after `3ad8213`** with a whole-file import regex that resolves paths
+(catches `await import(...)`, unlike a `from`-clause grep):
+
+```
+src/domain/** files:          21
+edges domain -> other layer:    0     ← was 2 (degreeResolver.js:10, annotations.js:20)
+edges domain -> domain:        11     (intra-domain, allowed)
+```
+
+**RED observed before GREEN**, as required. `pnpm lint` failed on exactly the two known leaks
+before the source was fixed, which is what proved the rules actually bite.
+
+**One self-check assertion authored wrong and corrected**: `resolveDegree(..., 'Fm', C_MAJOR)`
+was expected to be `'ii'`; F is the 4th degree of C major, so the correct answer is `'iv'`. The
+demo failed, and the expectation was corrected to the true value — this was a newly authored
+assertion, not a characterization test weakened to pass.
 
 ## Next step
 
-AH-1.
+AH-4 — characterization tests for the remaining repositories, using the client seam that
+`annotations.test.js` already demonstrates.
