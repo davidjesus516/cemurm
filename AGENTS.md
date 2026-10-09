@@ -13,6 +13,7 @@ pnpm preview     # serve dist/
 pnpm lint        # ESLint — --max-warnings 0, --report-unused-disable-directives
 pnpm test        # Vitest run — characterization tests, node environment
 pnpm test:watch  # Vitest watch mode
+pnpm test:gherkin  # Vitest run over src/test/gherkin/ — BDD scenarios, separate tier
 pnpm typecheck   # tsc --noEmit  (see "Type checking" below)
 ```
 
@@ -41,16 +42,34 @@ against that. Compare the built bundle before and after as well: a major bump ca
 size with no gate noticing. For #236 the JS bundle moved +3.2 kB (+0.35%), and the >500 kB chunk
 warning was already there on Vite 5.
 
-## CI does not run typecheck
+## What CI actually runs
 
-`.github/workflows/ci.yml` (push to `main` + every PR) runs pnpm 11 / Node 22:
+`.github/workflows/ci.yml` (push to `main` + every PR) runs pnpm 11 / Node 22, in this order:
 
 ```
-pnpm install --frozen-lockfile → pnpm lint → bash scripts/check-visual-contract.sh → pnpm test → pnpm build
+pnpm install --frozen-lockfile
+→ pnpm lint
+→ pnpm typecheck
+→ bash scripts/check-visual-contract.sh
+→ pnpm test
+→ pnpm test:gherkin
+→ pnpm build
 ```
 
-**`pnpm typecheck` is absent from CI.** Type errors ship with a green check. Run it locally
-before you claim a change is done.
+**Step order is load-bearing, not cosmetic.** The job fails fast, so a step placed *after* the
+visual gate never executes when the gate goes red — it would report success while proving
+nothing. #277 added `pnpm typecheck` deliberately *before* the gate for that reason, and #287
+added `pnpm test:gherkin`. **When you add a CI step, put it before `check-visual-contract.sh`.**
+
+`pnpm typecheck` was absent from CI until #277 (merged 2026-10-07); before that it genuinely had
+to be run locally. It is in CI now. `pnpm test:gherkin` is a separate Vitest tier over
+`src/test/gherkin/` — it is not part of `pnpm test`, and its scenarios are BDD coverage that
+`pnpm test` does not reach.
+
+**`supabase/functions/**` is still outside every gate.** No `tsc` (its `include` has no
+`supabase` path), no ESLint (`--ext js,jsx` never enumerates `.ts`), and no Deno step as of
+`main` = `6a8f414`. Changes there carry no static check until #314 lands — see #312. A green
+check there means nothing yet.
 
 ## Type checking is per-file opt-in
 
