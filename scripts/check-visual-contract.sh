@@ -5,8 +5,8 @@
 # WHAT THIS IS FOR
 # The visual system defines a small, deliberate token palette and a chrome-free
 # projector surface. Those rules are only real if something refuses to let them
-# drift. This script is that something. It runs in CI between `pnpm lint` and
-# `pnpm test`, and it is runnable locally.
+# drift. This script is that something. It runs in CI as the LAST step, after
+# `pnpm build`, and it is runnable locally.
 #
 # HOW TO SET A RULE ENFORCING OR REPORT-ONLY
 # Every rule is driven by ONE declaration in the RULE MODES block below. Set a
