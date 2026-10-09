@@ -109,6 +109,41 @@ bash scripts/check-visual-contract.sh → FAILED (1 failing, 10 non-failing), ru
 The last line is the point of U1 in one row: it is unchanged in content, and now it
 costs nothing downstream.
 
+### U2 — `pnpm typecheck` wired into CI (landed)
+
+`tsc --noEmit` was absent from `ci.yml`, so a type error shipped behind a green
+check. The comment above the step records what it currently covers, because
+"typecheck runs" reads as far stronger coverage than it is: `tsconfig.json` sets
+`allowJs` with global `checkJs` deliberately OFF, and only files carrying a
+`// @ts-check` pragma are checked. `src/features` is not in `include`, so **no UI
+`.jsx` is type-checked**. That gap is stated in the workflow file itself, where the
+next person will read it, rather than left for a reader to assume.
+
+Placed before lint: a type error names the actual defect, and a lint run over the
+same file adds noise rather than signal.
+
+Verification at this commit:
+
+```
+npx tsc --noEmit            → exit 0
+pnpm lint                   → exit 0
+pnpm test                   → 14 files, 348 tests passed
+```
+
+Measured coverage claim behind the comment: 47 real files are checked — 24 in
+`src/data`, 12 in `src/domain`, 6 in `src/integrations`, 4 in `src/offline`, 1 in
+`src/lib`. `tsc --noEmit` is therefore **not** a no-op; it was before this record
+misreported it as one.
+
+### Docs that this unit makes stale — not in the edit surface
+
+`AGENTS.md` carries a section titled **"CI does not run typecheck"**, which U2 ends.
+It is not an authorised edit surface for this record, so it is left alone and named
+here instead. `odd/tasks/music-theory-discrepancies.md` (T20) carries the same claim
+("It is absent from CI, and on #224 it caught a real error the other three gates
+would not have"); that sentence stays true as history but must not be read as
+current state.
+
 ## Open
 
-- U2, U3, U4 — not yet landed at the time this section was written.
+- U3, U4 — not yet landed at the time this section was written.
