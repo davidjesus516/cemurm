@@ -8,7 +8,8 @@ import { usePublicLibrary } from '../../library/hooks/usePublicLibrary.js'
 import { parseChordPro } from '../../../domain/chart/parser.js'
 import { capoLabel, initialSemitones, transposeKey, transposeParsed } from '../../../domain/music/transpose.js'
 import { listAnnotations } from '../../../data/repositories/annotations.js'
-import { resolveDegree } from '../../../domain/music/degreeResolver.js'
+import { resolveDegree, parseKeyContext } from '../../../domain/music/degreeResolver.js'
+import { findScaleByName } from '../../../data/repositories/scaleCatalog.js'
 import { buildCommentTree, formatAnchor } from '../../../data/repositories/comments.js'
 import { computeReadiness } from '../../../domain/chart/readiness.js'
 import { approvePublicSharing, getConsentStatus } from '../../../data/repositories/minors.js'
@@ -417,10 +418,18 @@ export default function SongDetail() {
         }
       }
 
+      // The scale is resolved once, here, and handed to the domain. This page
+      // orchestrates — the repository fetches, the domain computes. degreeResolver
+      // is pure and never reaches for the catalog itself.
+      const keyCtx = parseKeyContext(parsed.key)
+      const scale = keyCtx ? await findScaleByName(keyCtx.scaleName) : null
+
       const map = {}
-      for (const chord of allChords) {
-        const numeral = await resolveDegree(parsed.key, chord)
-        if (numeral) map[chord] = numeral
+      if (scale) {
+        for (const chord of allChords) {
+          const numeral = resolveDegree(keyCtx, chord, scale)
+          if (numeral) map[chord] = numeral
+        }
       }
 
       if (!cancelled) setDegreeMap(map)

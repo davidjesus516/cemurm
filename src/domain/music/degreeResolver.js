@@ -7,17 +7,18 @@
 // Quality derives from the scale intervals, NOT hardcoded major/minor
 // assumptions (BDD: "Quality derives from the scale").
 
-import { findScaleByName } from '../../data/repositories/scaleCatalog.js'
-
 /**
- * The catalog row this module derives degrees from, imported from the
- * repository rather than mirrored. That import is safe here — unlike every
- * earlier slice in this baseline — because scaleCatalog.js is annotated in
- * THIS same change: the symbol below resolves against the real
- * `@typedef Scale` in src/data/repositories/scaleCatalog.js (the DDL-typed
- * `scale_catalog` row), not against an untyped file that would silently
- * degrade it to `any`.
- * @typedef {import('../../data/repositories/scaleCatalog.js').Scale} CatalogScale
+ * What degree resolution needs from a scale: its id (echoed back in DegreeInfo)
+ * and its semitone intervals — the entire musical content of the answer.
+ *
+ * Declared structurally rather than imported from
+ * src/data/repositories/scaleCatalog.js. This module used to import that
+ * repository and look the scale up itself, which made pure music theory perform
+ * a network read to resolve a name. It now states what it requires instead of
+ * pointing at whoever happens to supply it: the dependency points inward, and a
+ * catalog row satisfies this by shape.
+ *
+ * @typedef {{ id: string, intervals: number[] }} ResolvableScale
  */
 
 /**
@@ -119,7 +120,7 @@ const ROMAN_MINOR = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii']
  * Determine whether a chord root matches a scale degree.
  * Returns the degree (1-based) or null if no match.
  * @param {number | null} tonicSemitone
- * @param {CatalogScale['intervals']} scaleIntervals
+ * @param {ResolvableScale['intervals']} scaleIntervals
  * @param {number | null} chordRootSemitone
  * @returns {number | null}
  */
@@ -145,7 +146,7 @@ function rootToDegree(tonicSemitone, scaleIntervals, chordRootSemitone) {
  *
  * Returns: 'major', 'minor', 'diminished', 'augmented', or 'power' (for
  * pentatonic/chromatic where tertian analysis is less meaningful).
- * @param {CatalogScale['intervals']} intervals
+ * @param {ResolvableScale['intervals']} intervals
  * @param {number} degree
  * @returns {DegreeQuality | null}
  */
@@ -262,15 +263,17 @@ export function parseKeyContext(keyString) {
  *
  * @param {string | KeyContext} keyContext - { tonic: 'E', scaleName: 'Phrygian dominant' } or parsed key string
  * @param {string | null | undefined} concreteChord - The chord string (e.g. "E7", "F", "Bm")
- * @returns {Promise<string | null>} Roman numeral string or null if unresolvable
+ * @param {ResolvableScale | null | undefined} scale - The already-resolved scale.
+ *   Callers look it up (src/data/repositories/scaleCatalog.js); this module never
+ *   fetches anything, so it is synchronous.
+ * @returns {string | null} Roman numeral string or null if unresolvable
  */
-export async function resolveDegree(keyContext, concreteChord) {
+export function resolveDegree(keyContext, concreteChord, scale) {
   if (!concreteChord) return null
 
   const ctx = typeof keyContext === 'string' ? parseKeyContext(keyContext) : keyContext
   if (!ctx) return null
 
-  const scale = await findScaleByName(ctx.scaleName)
   if (!scale) return null
 
   const tonicSemitone = noteToSemitone(ctx.tonic)
@@ -291,15 +294,15 @@ export async function resolveDegree(keyContext, concreteChord) {
  * Returns { degree, numeral, quality, scaleId } or null.
  * @param {string | KeyContext} keyContext - Parsed key string or { tonic, scaleName }
  * @param {string | null | undefined} concreteChord
- * @returns {Promise<DegreeInfo | null>}
+ * @param {ResolvableScale | null | undefined} scale - The already-resolved scale; see resolveDegree.
+ * @returns {DegreeInfo | null}
  */
-export async function resolveDegreeInfo(keyContext, concreteChord) {
+export function resolveDegreeInfo(keyContext, concreteChord, scale) {
   if (!concreteChord) return null
 
   const ctx = typeof keyContext === 'string' ? parseKeyContext(keyContext) : keyContext
   if (!ctx) return null
 
-  const scale = await findScaleByName(ctx.scaleName)
   if (!scale) return null
 
   const tonicSemitone = noteToSemitone(ctx.tonic)
@@ -317,7 +320,7 @@ export async function resolveDegreeInfo(keyContext, concreteChord) {
 }
 
 // Self-check: node -e "import('./src/domain/music/degreeResolver.js').then(m => m.demo())"
-export async function demo() {
+export function demo() {
   /**
    * @param {unknown} actual
    * @param {unknown} expected
@@ -336,9 +339,13 @@ export async function demo() {
   assert(parseKeyContext('E Phrygian dominant'), { tonic: 'E', scaleName: 'Phrygian dominant' }, 'parseKeyContext exotic')
   assert(parseKeyContext(''), null, 'parseKeyContext empty')
 
-  // Without Supabase, degree resolution returns null (catalog not loaded).
-  const deg = await resolveDegree({ tonic: 'C', scaleName: 'Major' }, 'G')
-  assert(deg, null, 'no catalog → null')
+  // No scale → null. This used to assert "Supabase was unreachable", which
+  // depended on the environment rather than on the argument. The scale is a
+  // parameter now, so the check is deterministic and can also be positive.
+  const C_MAJOR = { id: 'major', intervals: [0, 2, 4, 5, 7, 9, 11] }
+  assert(resolveDegree({ tonic: 'C', scaleName: 'Major' }, 'G', null), null, 'no scale → null')
+  assert(resolveDegree({ tonic: 'C', scaleName: 'Major' }, 'G', C_MAJOR), 'V', 'G is the fifth of C major')
+  assert(resolveDegree({ tonic: 'C', scaleName: 'Major' }, 'Fm', C_MAJOR), 'iv', 'explicit minor triad wins over the scale at degree 4')
 
-  console.log('degreeResolver demo OK: 5 asserts (parseKeyContext, graceful null)')
+  console.log('degreeResolver demo OK: 8 asserts (parseKeyContext, injected scale, graceful null)')
 }

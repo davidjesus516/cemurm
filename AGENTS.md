@@ -173,7 +173,7 @@ sibling directory). Never push the seed with `supabase db push`.
 
 Env (`.env.local`, gitignored): `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are the only required vars — `src/lib/supabase.js` throws without both. Local API is `http://127.0.0.1:54321`. Optional live-provider flags (default = mock, no silent fallback): `VITE_SPOTIFY_CLIENT_ID`, `VITE_SPOTIFY_CLIENT_SECRET`, `VITE_MUSICBRAINZ_LIVE=true`, `VITE_LRCLIB_LIVE=true`.
 
-Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-v2.md` is the model/design origin. Its §3.1 org/branch visibility matrix is a **design target, not live** — implemented RLS is owner-scoped only.
+Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-v2.md` is the model/design origin. Its §3.1 org/branch visibility matrix **is live**, not a design target: `organizations → branches → org_memberships` branching is implemented across 27 policies in `0016_org_repertoire_model.sql`, resolved through `private.is_org_member(uid, org_id)` and `private.session_org_ids()` (`0002_rls_core.sql:14,154,284`). Rows carry both `org_id` and `branch_id`. Owner-scoped policies in `0002_rls_core.sql` are the legacy base, not the whole story — an earlier version of this file claimed the opposite.
 
 ## Architecture notes that aren't obvious from filenames
 
@@ -247,6 +247,8 @@ which carries the same visual language, is available everywhere.
 - Components `PascalCase.jsx`; hooks `camelCase` with `use` prefix; utilities `camelCase`.
 - Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Merge is always a human decision.
 - ESLint's `no-unused-vars` uses `varsIgnorePattern: '^[A-Z_]'`, so uppercase bindings (JSX components) are exempt from the unused check — don't "fix" that by renaming.
+- **The domain boundary is machine-enforced.** `.eslintrc.cjs` scopes `no-restricted-imports` to `src/domain/**`, blocking `../../data`, `../../app`, `../../offline`, `../../features`, `../../integrations`, `../../hooks`, `../../ui` and `../../lib`. A second `no-restricted-syntax` rule covers the dynamic form, because `no-restricted-imports` inspects only static declarations and `await import('../../data/supabase.js')` slipped straight past it. **Both rules are load-bearing** — removing either re-opens a real leak.
+- **`src/domain/**` performs no I/O.** A domain module that needs data receives it as an argument; `degreeResolver.js` is the worked example — it takes the resolved scale rather than importing `scaleCatalog.js` to look it up. Put the read in `src/data/repositories/` and let the feature orchestrate. Measured 2026-10-09: 21 domain files, 0 outbound edges to any other layer.
 - **`CONTRIBUTING.md` was stale** (it said `npm install`, `npm run lint`, and listed a `src/store/` Zustand layer); corrected 2026-09-30. If you see that text anywhere else, it is drift: use pnpm and the layout above.
 
 ## Delivery workflow (standing authorization)
