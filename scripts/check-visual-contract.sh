@@ -28,8 +28,9 @@
 #
 # SCOPE
 # Colours are scanned in src/ only. The sanctioned home for a raw colour
-# literal is the token declaration in tailwind.config.js and the token
-# stylesheet the skill owns; neither is scanned, by design.
+# literal is the token declaration in tailwind.config.js; neither that file nor
+# src/ is scanned against the other, by design. Rule 08 is the one exception: it
+# reads a single declaration line in the skill, not a palette.
 #
 # DEPENDENCIES
 # bash and grep only. No package installs, no test runner, no build step. This
@@ -55,6 +56,7 @@ RULE_05A_TEXT_CONTRAST=enforcing
 RULE_05B_PALETTE_CONTRAST=report
 RULE_06_SECONDARY_ON_RAISED_FILL=enforcing
 RULE_07_GHOST_TAILWIND_UTILITY=enforcing
+RULE_08_SKILL_TOKEN_SOURCE=enforcing
 REPORT_STAGEMODE_CHROME=report
 REPORT_CONFIG_TOKEN_COUNT=report
 
@@ -202,6 +204,7 @@ cd "$REPO_ROOT"
 
 SRC_DIR="src"
 TAILWIND_CONFIG="tailwind.config.js"
+SKILL_FILE="skills/cemurm-visual-system/SKILL.md"
 STAGEMODE_PAGE="src/features/stage/pages/StageMode.jsx"
 OVERLAY_FILES=(
   "src/features/stage/pages/Overlay.jsx"
@@ -216,7 +219,7 @@ TMP_DIR="$(mktemp -d)"
 cleanup() { rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
-for required in "$SRC_DIR" "$TAILWIND_CONFIG"; do
+for required in "$SRC_DIR" "$TAILWIND_CONFIG" "$SKILL_FILE"; do
   if [ ! -e "$required" ]; then
     printf 'FAIL  setup    expected path missing: %s\n' "$required" >&2
     printf 'FAIL  setup    run this from a CEMURM checkout, not a partial copy\n' >&2
@@ -854,6 +857,60 @@ count_07="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
 verify 07 "$RULE_07_GHOST_TAILWIND_UTILITY" \
   "no unresolved interpolation inside Tailwind arbitrary utility" "$count_07" || true
 note "write complete class strings in source; compose tokens via CSS custom properties at runtime instead"
+
+# ---------------------------------------------------------------------------
+# RULE 08 -- the skill's declared token source is the file this gate reads
+# ---------------------------------------------------------------------------
+# WHY THIS RULE EXISTS. Every colour rule above takes its palette from
+# $TAILWIND_CONFIG and from nothing else -- rule 04's walk parses that file,
+# and rule 05 reads the hex values it produced. The skill is the document a
+# maintainer is handed before adding a token, so if the skill and the gate
+# disagree about where tokens live, one of the two is wrong and neither says so.
+#
+# That is not hypothetical. The skill's Hard Rule 1 named "the token
+# declarations and assets/tokens.css"; the gate reads tailwind.config.js and
+# contains zero references to either the skill directory or that stylesheet.
+# The stylesheet is imported by nothing and declares a DIFFERENT ramp
+# (--cem-bg #0c0a09 against cem.base #0f172a). A maintainer following the skill
+# literally would edit a file that changes nothing that ships. Fixing the prose
+# stops the divergence once; this rule stops it returning.
+#
+# MECHANISM. SKILL.md carries one machine-readable line,
+# `token-source: <path>`, which is the machine-readable form of Hard Rule 1. The
+# check compares it against $TAILWIND_CONFIG. Reading one declared line is
+# cheaper than reading a palette, and a line a human must keep in sync with a
+# sentence is a line that cannot drift: the sentence is the rule's force, this is
+# its address.
+#
+# A MISSING declaration is not a passing declaration. If the line is absent the
+# count is 1, for the same reason rule 05a treats an unreadable anchor token as a
+# failure: an enforcing rule that prints PASS over a check that never ran is
+# worse than no rule, because it looks like coverage.
+: >"$TMP_DIR/findings"
+skill_source_regex='^[[:space:]]*token-source:[[:space:]]*([^[:space:]]+)'
+declared_source=""
+while IFS= read -r line; do
+  if [[ "$line" =~ $skill_source_regex ]]; then
+    declared_source="${BASH_REMATCH[1]}"
+    break
+  fi
+done <"$SKILL_FILE"
+# The declaration is written inside a fenced code block, so backticks can be part
+# of a copy-pasted path; strip them before comparing rather than making the author
+# remember to leave them out.
+declared_source="${declared_source//\`/}"
+
+if [ -z "$declared_source" ]; then
+  printf '%s: no "token-source:" declaration; the skill must name the file this gate reads\n' \
+    "$SKILL_FILE" >>"$TMP_DIR/findings"
+elif [ "$declared_source" != "$TAILWIND_CONFIG" ]; then
+  printf '%s: declares token source "%s", but this gate reads every colour from "%s"\n' \
+    "$SKILL_FILE" "$declared_source" "$TAILWIND_CONFIG" >>"$TMP_DIR/findings"
+fi
+count_08="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
+verify 08 "$RULE_08_SKILL_TOKEN_SOURCE" \
+  "skill declares the token source this gate reads" "$count_08" || true
+note "gate reads $TAILWIND_CONFIG; skill declares ${declared_source:-<none declared>}"
 
 
 # ---------------------------------------------------------------------------

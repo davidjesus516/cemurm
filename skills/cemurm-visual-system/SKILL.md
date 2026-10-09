@@ -16,8 +16,10 @@ spacing, radius, elevation, motion or dark-mode decision — and before reviewin
 
 ## Hard Rules
 
-1. **No raw colour literals in `src/`.** Colours live in the token declarations and
-   `assets/tokens.css`, nowhere else.
+1. **No raw colour literals in `src/`.** Colours live in the `cem.*` scale declared
+   in `tailwind.config.js` and nowhere else. That config is the single token
+   source; `bash scripts/check-visual-contract.sh` reads every colour rule from it
+   and from no other file.
 2. **One accent, ever.** `cem.amber` at full saturation on the logo mark, the primary CTA, and
    the active or selected state. Nowhere else. A new colour token is a deliberate review, never
    a side effect.
@@ -29,6 +31,17 @@ spacing, radius, elevation, motion or dark-mode decision — and before reviewin
 6. **Tailwind stays 3.4.19.** Never flip `checkJs`, never bump Tailwind to 4.
 7. **Run `bash scripts/check-visual-contract.sh` and report its output.** A visual change is
    not done until the gate passes.
+
+## Declared Token Source
+
+```
+token-source: tailwind.config.js
+```
+
+That line is the machine-readable form of Hard Rule 1, and
+`scripts/check-visual-contract.sh` fails as **rule 08** if it ever names a file
+other than the one the gate itself parses. Declare the token source here; do not
+restate it in prose somewhere the gate cannot read it.
 
 ## Decision Gates
 
@@ -45,7 +58,8 @@ If it is read at distance in a dark room, it is tier 3. If it is touched, it is 
 
 1. Name the tier. State it in the report.
 2. Read only the reference for that tier.
-3. Consume tokens. Never inline a value the token layer already expresses.
+3. Consume tokens from `tailwind.config.js`. Never inline a value the token layer
+   already expresses.
 4. Run the gate. Fix violations in the source, never by loosening the check.
 
 ## Output Contract
@@ -58,4 +72,7 @@ suspect is wrong, with evidence. Never present a green gate as covering a rule i
 - `references/apple-macos-visual-language.md` — tiers 1 and 2, with HIG provenance
 - `references/tier-3-performance-surfaces.md` — tiers 3a and 3b
 - `references/toolchain-options.md` — libraries, motion, external skills
-- `assets/tokens.css` — the token layer
+- `assets/tokens.css` — **NON-AUTHORITATIVE.** Design rationale for the ramp:
+  where the warm dark steps and the amber come from, and what was rejected. Not
+  the token source (that is `tailwind.config.js`), not imported by the app, and
+  read by no gate. Read it for the *why*; do not copy a value out of it.

@@ -144,6 +144,75 @@ here instead. `odd/tasks/music-theory-discrepancies.md` (T20) carries the same c
 would not have"); that sentence stays true as history but must not be read as
 current state.
 
+### U3 — the skill points at the file the gate actually reads (landed)
+
+Three surfaces, one correction:
+
+| Surface | Change |
+|---|---|
+| `SKILL.md` Hard Rule 1 | Names `tailwind.config.js` as the single `cem.*` source and states the gate reads it. |
+| `SKILL.md` new "Declared Token Source" | One machine-readable `token-source:` line — Hard Rule 1's address. |
+| `SKILL.md` References | `assets/tokens.css` relabelled **NON-AUTHORITATIVE**: rationale, not a layer; read for the *why*, do not copy a value out. |
+| `assets/tokens.css` | `STATUS: proposal` replaced by a banner stating it is not the source, not imported, not read by any gate, superseded for enforcement. **Nothing deleted** — the provenance is the point of the file. |
+| `check-visual-contract.sh` | New **rule 08**, enforcing: the skill's declared token source and `$TAILWIND_CONFIG` must be the same file. |
+
+Rule 08 is `enforcing`, added to the RULE MODES block in numeric order, placed after
+rule 07, and written in the script's existing idiom: `verify` for the verdict,
+`note` for the state, `$TMP_DIR/findings` for the detail, `|| true` at the call
+site because `set -e` would otherwise abort on the `1` return.
+
+The `for required in ...` startup check now includes `SKILL_FILE`, so a partial
+checkout fails at setup with the same message shape as a missing `src/`, rather
+than producing a rule 08 that cannot read anything.
+
+**A missing declaration is a failure, not a pass.** This is the one design decision
+in the rule that matters. An enforcing rule that prints `PASS` over a check that
+never ran is worse than no rule, because it reads as coverage — the exact defect
+class this record exists to close. It mirrors how rule 05a refuses to score an
+unreadable anchor token.
+
+Both failure modes were exercised before the rule was committed:
+
+```
+CASE 1  token-source -> assets/tokens.css
+  FAIL  08  skill declares the token source this gate reads    1 occurrence
+          skills/cemurm-visual-system/SKILL.md: declares token source
+          "assets/tokens.css", but this gate reads every colour from "tailwind.config.js"
+CASE 2  token-source line deleted
+  FAIL  08  skill declares the token source this gate reads    1 occurrence
+          skills/cemurm-visual-system/SKILL.md: no "token-source:" declaration;
+          the skill must name the file this gate reads
+          gate reads tailwind.config.js; skill declares <none declared>
+restored
+  PASS  08  skill declares the token source this gate reads    0 occurrences
+```
+
+Verification at this commit:
+
+```
+npx tsc --noEmit            → exit 0
+pnpm lint                   → exit 0
+pnpm test                   → 14 files, 348 tests passed
+bash scripts/check-visual-contract.sh → FAILED (1 failing, 11 non-failing)
+                                        the 1 failing is rule 07, pre-existing
+                                        11 non-failing = the 10 before, plus rule 08
+```
+
+The failing count did **not** move; the non-failing count moved 10 → 11. Rule 08
+was proven to fail on purpose first, which is the only way its `PASS` is worth
+anything.
+
+## Deviations
+
+- **`AGENTS.md` is stale after U2.** Its section "CI does not run typecheck" is no
+  longer true. Outside this unit's edit surface; recorded above, not edited.
+- **`check-test-integrity.sh` sits before `pnpm test`** (U4), by instruction. That
+  is the one placement in this record that partially gives up U1's principle: a
+  trip there still marks the test steps `SKIPPED`. The mitigation is that the check
+  is a static scan of the test files themselves, so a trip means the suite's own
+  verdict is untrustworthy anyway — but `pnpm build` has no such excuse and is the
+  stronger place for it. Flagged rather than decided unilaterally.
+
 ## Open
 
-- U3, U4 — not yet landed at the time this section was written.
+- U4 — not yet landed at the time this section was written.
