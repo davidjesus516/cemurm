@@ -252,10 +252,54 @@ export function confirmGuardianConsent({ userId, token }) {
 }
 
 /**
+ * THE GUARDIAN'S HALF of the 0034 handshake (RPC
+ * public.approve_guardian_public_sharing_by_token, `anon`-granted, `security
+ * definer`). Called from /guardian/approve with NO session: the emailed
+ * `?user=…&token=…&email=…` triple IS the authority, and the RPC flips exactly
+ * one 'active' consent's public_sharing_approved to true. There is no other
+ * write path to that column, so this call is the whole of what a token can do.
+ *
+ * ⚠ ONE MESSAGE FOR EVERY FAILURE. The server raises the single string
+ * 'Consent not found or already finalized.' for a wrong token, an unknown
+ * account, a wrong email, an already-approved consent, a revoked one and a
+ * no-longer-active consent alike (0034:32-40), so the endpoint cannot be used
+ * to learn whether a token, an account, an email or a consent exists. That
+ * string is in USER_ERRORS and therefore re-thrown verbatim; callers must
+ * render it as written and must NOT add a branch that guesses a more specific
+ * cause.
+ *
+ * The token+email pair is a one-shot secret. It is passed to the RPC and
+ * nowhere else — never logged, never interpolated into an error, never
+ * returned.
+ *
+ * Void on success. The minor's next ledger read (getConsentStatus, which
+ * RequireGuardianConsent re-runs on every mount) is what unlocks public
+ * sharing — there is nothing to refresh on this side.
+ * @param {{ userId: string, token: string, email: string }} input
+ * @returns {Promise<void>}
+ */
+export function approveGuardianPublicSharingByToken({ userId, token, email }) {
+  return withErrorMapping(async () => {
+    const { error } = await supabase.rpc('approve_guardian_public_sharing_by_token', {
+      p_user_id: userId,
+      p_revocation_token: token,
+      p_guardian_email: email,
+    })
+    if (error) throw error
+  })
+}
+
+/**
  * Mark public sharing as guardian-approved on the caller's ACTIVE consent
- * (RPC only, scenario 4). Void on success — publishing becomes allowed.
+ * (RPC only, scenario 4). DEPRECATED: this is the minor self-approval path that
+ * 0017 shipped and 0034 supersedes. It will raise "Consent is only required for
+ * minors" when called by a minor, because the minor is not a guardian and
+ * cannot provide the guardian_email witness. Kept only for the transition
+ * window so pre-0034 bundles don't fail on a dropped function. New code should
+ * use the guardian-driven approveGuardianPublicSharingByToken instead.
  * @param {string} userId
  * @returns {Promise<void>}
+ * @deprecated Use approveGuardianPublicSharingByToken (guardian-driven)
  */
 export function approvePublicSharing(userId) {
   return withErrorMapping(async () => {

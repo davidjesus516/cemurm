@@ -28,6 +28,7 @@ import Projection from '../features/projection/pages/Projection.jsx'
 import ProjectionDisplay from '../features/projection/pages/ProjectionDisplay.jsx'
 import Auth from '../features/auth/pages/Auth.jsx'
 import GuardianConfirm from '../features/auth/pages/GuardianConfirm.jsx'
+import GuardianApprove from '../features/auth/pages/GuardianApprove.jsx'
 import Practice from '../features/repertoire/pages/Practice.jsx'
 import PublicLibrary from '../features/library/pages/PublicLibrary.jsx'
 import Profile from '../features/library/pages/Profile.jsx'
@@ -94,6 +95,10 @@ const router = createBrowserRouter([
       // existed. Inside AppLayout, beside /auth, because it is an ordinary
       // signed-out page that happens to carry a one-shot capability.
       { path: '/guardian/confirm', element: <GuardianConfirm /> },
+      // The guardian's approve public sharing link (Hito 4, 0034). Same
+      // placement logic as /guardian/confirm: login-less, capability-based,
+      // outside auth guards so the emailed link works without an account.
+      { path: '/guardian/approve', element: <GuardianApprove /> },
       { path: '*', element: <NotFound /> },
     ],
   },

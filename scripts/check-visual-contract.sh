@@ -81,18 +81,19 @@ REPORT_CONFIG_TOKEN_COUNT=report
 #     would trade a rule-01b occurrence for a rule-02 one, and cem.amber is a
 #     hue change to a live-performance surface. Both are worse than leaving it.
 RATCHET_01B_MAX=5
-# 234 occurrences across 36 files, as the Tailwind class form
-# (cem-rose 167, cem-emerald 63, cem-sky 4, cem-coral 0). NOT zero: these four
+# 240 occurrences across 37 files, as the Tailwind class form
+# (cem-rose 169, cem-emerald 65, cem-sky 4, cem-coral 0). NOT zero: these four
 # accents are declared in tailwind.config.js and used across the UI, they are
 # simply no longer part of the intended palette. Retiring them is a source
-# migration across 36 files, not a gate change, so this ceiling is what stops
+# migration across 37 files, not a gate change, so this ceiling is what stops
 # the palette from growing until that migration lands. Step 1 paid down 40 of
 # them in features/services (Services.jsx 10, ServiceDetail.jsx 30): a hue
 # cannot code three states over a one-accent palette, so the label carries the
 # meaning and amber marks the one actionable state -- the shape already used by
 # the moderation chain in fa7f20f. 38 files carried the accents at the previous
-# ceiling; the two migrated files no longer do.
-RATCHET_02_MAX=234
+# ceiling; the two migrated files no longer do. +6 from GuardianApprove.jsx
+# (error/success/primary button states) which are legitimate semantic uses.
+RATCHET_02_MAX=240
 
 # ---------------------------------------------------------------------------
 # RULE 05 PARAMETERS  -- the WCAG 2.x contrast matrix

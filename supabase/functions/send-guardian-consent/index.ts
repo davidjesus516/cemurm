@@ -212,13 +212,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── 4. THE LINKS ─────────────────────────────────────────────────────────
-  // One capability, two verbs. The guardian's single link offers confirm, and
-  // the same token drives revoke later; both pages read it from the URL and
-  // immediately strip it with history.replaceState so the token does not
+  // One capability, three verbs. The guardian's single token offers confirm,
+  // approve public sharing, and revoke. All three pages read it from the URL
+  // and immediately strip it with history.replaceState so the token does not
   // survive in the address bar, a bookmark, or a Referer header.
   const capability = encodeURIComponent(consent.revocation_token)
+  const guardianEmailParam = encodeURIComponent(consent.guardian_email)
   const confirmUrl = `${siteUrl}/guardian/confirm?user=${encodeURIComponent(userId)}&token=${capability}`
-  const revokeUrl = `${siteUrl}/guardian/revoke?user=${encodeURIComponent(userId)}&token=${capability}`
+  const approveSharingUrl = `${siteUrl}/guardian/approve?user=${encodeURIComponent(userId)}&token=${capability}&email=${guardianEmailParam}`
+  const revokeUrl = `${siteUrl}/guardian/revoke?user=${encodeURIComponent(userId)}&token=${capability}&email=${guardianEmailParam}`
 
   // ── 5. THE MESSAGE ───────────────────────────────────────────────────────
   // Rendered from the LEDGER, not from the request: the text the guardian reads
@@ -230,6 +232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     consentText: escapeHtml(consent.consent_text),
     consentVersion: escapeHtml(consent.consent_version),
     confirmUrl,
+    approveSharingUrl,
     revokeUrl,
   })
 
@@ -274,9 +277,10 @@ function renderEmail(input: {
   consentText: string
   consentVersion: string
   confirmUrl: string
+  approveSharingUrl: string
   revokeUrl: string
 }): string {
-  const { guardianName, consentText, consentVersion, confirmUrl, revokeUrl } = input
+  const { guardianName, consentText, consentVersion, confirmUrl, approveSharingUrl, revokeUrl } = input
   const button = 'display:inline-block;padding:12px 20px;border-radius:6px;background:#f59e0b;color:#1a1a1a;font-weight:600;text-decoration:none'
   const link = 'color:#b45309'
 
@@ -297,6 +301,9 @@ function renderEmail(input: {
       </blockquote>
       <p style="margin:0 0 20px">
         <a href="${confirmUrl}" style="${button}">I approve this consent</a>
+      </p>
+      <p style="margin:0 0 20px">
+        <a href="${approveSharingUrl}" style="${button}">I approve public sharing of their contributions</a>
       </p>
       <p style="margin:0 0 24px;font-size:13px;color:#78716c;line-height:1.5">
         If you did not expect this, or you want to stop the participation later,
