@@ -840,18 +840,19 @@ note "use text-cem-secondary-elevated (5.38:1) on a raised fill, or text-cem-tex
 # source code alerts you, the build passes, and the component renders wrong.
 # Grep for both shapes in src/ and fail the gate if found.
 #
-# Pattern 1: template literal inside arbitrary utility: `bg-[${...}]`
-# Pattern 2: interpolation inside comment that Tailwind can harvest: `${...}`
+# ONE PATTERN, and the bracket is where it all happens. A ghost utility is an
+# arbitrary value that Tailwind cannot resolve, so the interpolation has to be
+# INSIDE the brackets. This rule's first version did not require that, and the
+# over-broad tail of it matched `text-[10px] font-medium ${ROLE_STYLE[...]}` in
+# SubstitutionAssignment.jsx:142 -- a COMPLETE arbitrary utility followed, later
+# on the same line, by an interpolation that resolves to complete class literals
+# declared twenty lines above. The build emitted all of them; the gate called it
+# a ghost anyway. A gate that reports a green build as broken teaches its readers
+# to ignore it, so the match is now positional: `[`, anything that is not `]`,
+# then `${`. Same targets, none of the bystanders.
 : >"$TMP_DIR/findings"
-grep -rE 'bg-\[\$\{[^}]+\}\]' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
-  | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
-grep -rE 'text-\[\$\{[^}]+\}\]' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
-  | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
-grep -rE 'border-\[\$\{[^}]+\}\]' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
-  | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
-# Comment-harvested interpolations (Tailwind scans comments too)
-grep -rE '\$\{[^}]+\}' --include='*.jsx' --include='*.js' src/ 2>/dev/null \
-  | grep -E '(bg-|text-|border-|ring-|shadow-|fill-|stroke-)\[.*\$\{' \
+GHOST_UTILITY_PATTERN='(bg|text|border|ring|shadow|fill|stroke)-\[[^]]*\$\{'
+grep -rE "$GHOST_UTILITY_PATTERN" --include='*.jsx' --include='*.js' src/ 2>/dev/null \
   | grep -vE "$COMMENT_PATTERN" >>"$TMP_DIR/findings" || true
 count_07="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
 verify 07 "$RULE_07_GHOST_TAILWIND_UTILITY" \

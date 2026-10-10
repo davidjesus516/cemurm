@@ -290,14 +290,49 @@ install → typecheck → lint → test-integrity → test → test:gherkin → 
 ```
 
 `pnpm test` and `pnpm build` are now preceded by no gate that can hide them, with one
-named exception above. The visual gate's verdict is unchanged and still red on rule
-07; it is now legible rather than load-bearing on the steps behind it.
+named exception above. The visual gate is green: 12 rules checked, 0 failing. Rule
+07 shipped red and shipped wrongly — U5 below is the correction.
+
+### U5 — rule 07's match was positional, and it was the gate that was wrong
+
+The record above left rule 07 red on `SubstitutionAssignment.jsx:142` and called it
+a source defect. It is not. The line reads:
+
+```jsx
+<span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${ROLE_STYLE[block.role] || ROLE_STYLE.candidate}`}>
+```
+
+`ROLE_STYLE` (lines 28–30) holds three complete class strings. `pnpm build` was run
+and the emitted CSS contains `border-cem-elevated`, `bg-cem-amber/10`,
+`text-cem-secondary-elevated` and `text-cem-amber`. Tailwind scans source text, so
+it finds each value where it is declared and the composition renders.
+
+The original pattern was `(bg|text|border|ring|shadow|fill|stroke)-[.*\$\{`: it
+matched a utility prefix, a bracket, **anything at all**, then an interpolation. On
+that line it started at `text-[`, walked past the closed `]`, and picked up a `${`
+that had nothing to do with the utility. A ghost utility is by definition an
+arbitrary value Tailwind cannot resolve, so the interpolation has to be *inside*
+the brackets. One pattern replaced four:
+
+```bash
+GHOST_UTILITY_PATTERN='(bg|text|border|ring|shadow|fill|stroke)-\[[^]]*\$\{'
+```
+
+The `SubstitutionAssignment.jsx` line is the standing regression case: widen the
+match again and this gate goes red on it.
+
+Proof the rule still bites — a throwaway probe with three real ghosts
+(`bg-[${color}]`, `shadow-[0_0_20px_${GLOW}]`, `text-[calc(${size}px)]`) produced
+`FAIL 07 … 3 occurrences` and exit 1. Removing it returned the gate to exit 0.
+
+**Still open, and this fix did not touch it:** `$COMMENT_PATTERN` filters lines
+whose content begins with a comment marker, which excludes the comment-harvested
+shape the rule's own header describes. That half of rule 07 is inert today.
 
 ## Next
 
-- Rule 07 (`SubstitutionAssignment.jsx`) needs a real source fix in a
-  `src/features/services/**` change. Out of scope here and deliberately left red.
 - `AGENTS.md` "CI does not run typecheck" needs one edit.
 - Decide whether ADR-006 should cover `skipIf` and `it.concurrent.only`.
+- Rule 07's comment half is inert; see the note above.
 - `src/features` is still outside `tsconfig.json` `include`, so U2 type-checks the
   domain/data/integrations/offline layer and nothing else.
