@@ -1,0 +1,216 @@
+---
+# Spike Hardware Provisioning Playbook
+# Ejecutar: ansible-playbook -i inventory.yml provision.yml --ask-vault-pass
+
+- name: Provision iOS Devices (via libimobiledevice / Xcode)
+  hosts: ios_devices
+  gather_facts: no
+  tasks:
+    - name: Verify device connectivity
+      command: idevice_id -l
+      register: idevice_list
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Check iOS version
+      command: ideviceinfo -k ProductVersion
+      register: ios_version
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Install test apps (RhythmGame, P2P test)
+      command: >
+        ideviceinstaller -i {{ spike_build_dir }}/build/ios/RhythmGame.app
+        && ideviceinstaller -i {{ spike_build_dir }}/build/ios/p2p_test.app
+      delegate_to: localhost
+      environment:
+        SPIKE_BUILD_DIR: "{{ lookup('env', 'SPIKE_BUILD_DIR') }}"
+      ignore_errors: yes
+
+    - name: Enable developer mode (iOS 16+)
+      command: idevicediagnostics enable
+      delegate_to: localhost
+      ignore_errors: yes
+
+- name: Provision Android Devices (via ADB)
+  hosts: android_devices
+  gather_facts: no
+  tasks:
+    - name: Verify ADB connectivity
+      command: adb devices -l
+      register: adb_devices
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Check Android version
+      command: adb shell getprop ro.build.version.release
+      register: android_version
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Install test APKs
+      command: >
+        adb install -r {{ spike_build_dir }}/build/android/RhythmGame.apk
+        && adb install -r {{ spike_build_dir }}/build/android/p2p_test.apk
+      delegate_to: localhost
+      environment:
+        SPIKE_BUILD_DIR: "{{ lookup('env', 'SPIKE_BUILD_DIR') }}"
+
+    - name: Grant audio permissions
+      command: >
+        adb shell pm grant com.example.rhythmgame android.permission.RECORD_AUDIO
+        && adb shell pm grant com.example.rhythmgame android.permission.MODIFY_AUDIO_SETTINGS
+      delegate_to: localhost
+
+    - name: Disable battery optimization for test apps
+      command: >
+        adb shell dumpsys deviceidle whitelist +com.example.rhythmgame
+        && adb shell dumpsys deviceidle whitelist +com.example.p2ptest
+      delegate_to: localhost
+
+- name: Provision Windows Devices (via WinRM / SSH)
+  hosts: windows_devices
+  gather_facts: yes
+  tasks:
+    - name: Install Visual Studio Build Tools (if missing)
+      win_chocolatey:
+        name: visualstudio2022buildtools
+        state: present
+      when: ansible_os_family == 'Windows'
+
+    - name: Install Rust toolchain (for cpal)
+      win_chocolatey:
+        name: rust
+        state: present
+
+    - name: Copy test binaries
+      win_copy:
+        src: "{{ spike_build_dir }}/build/windows/"
+        dest: "C:\\spike\\bin\\"
+      environment:
+        SPIKE_BUILD_DIR: "{{ lookup('env', 'SPIKE_BUILD_DIR') }}"
+
+    - name: Configure MMCSS for audio priority
+      win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile
+        name: SystemResponsiveness
+        data: 0
+        type: dword
+      when: ansible_os_family == 'Windows'
+
+- name: Provision Network Infrastructure (Ubiquiti APs + Router)
+  hosts: network_infrastructure
+  gather_facts: yes
+  tasks:
+    - name: Configure AP Primary (U6-Lite)
+      community.network.ui_command:
+        provider: "{{ ubiquiti_provider }}"
+        commands:
+          - set wireless radio0 channel 36
+          - set wireless radio0 htmode HT80
+          - set wireless radio0 txpower 20
+          - set wireless default_radio0 ssid "SpikeTest"
+          - set wireless default_radio0 encryption psk2
+          - set wireless default_radio0 key "{{ spike_wifi_password }}"
+          - commit wireless
+      when: inventory_hostname == 'ap-primary'
+
+    - name: Configure AP Secondary (U6-Lite)
+      community.network.ui_command:
+        provider: "{{ ubiquiti_provider }}"
+        commands:
+          - set wireless radio0 channel 44
+          - set wireless radio0 htmode HT80
+          - set wireless radio0 txpower 20
+          - set wireless default_radio0 ssid "SpikeTest"
+          - set wireless default_radio0 encryption psk2
+          - set wireless default_radio0 key "{{ spike_wifi_password }}"
+          - commit wireless
+      when: inventory_hostname == 'ap-secondary'
+
+    - name: Install tc/netem on router
+      apt:
+        name: iproute2
+        state: present
+      when: inventory_hostname == 'router'
+
+    - name: Configure netem script for chaos testing
+      copy:
+        dest: /usr/local/bin/spike-netem.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Spike netem chaos injection
+          # Usage: spike-netem.sh [on|off|status] [loss%] [delay_ms] [jitter_ms]
+          
+          IFACE="eth0"
+          ACTION="${1:-status}"
+          LOSS="${2:-10}"
+          DELAY="${3:-5}"
+          JITTER="${4:-2}"
+          
+          case "$ACTION" in
+            on)
+              tc qdisc add dev "$IFACE" root netem loss "${LOSS}%" delay "${DELAY}ms" "${JITTER}ms" distribution normal
+              echo "Netem ON: loss=${LOSS}%, delay=${DELAY}ms±${JITTER}ms"
+              ;;
+            off)
+              tc qdisc del dev "$IFACE" root 2>/dev/null || true
+              echo "Netem OFF"
+              ;;
+            status)
+              tc qdisc show dev "$IFACE"
+              ;;
+            *)
+              echo "Usage: $0 [on|off|status] [loss%] [delay_ms] [jitter_ms]"
+              exit 1
+              ;;
+          esac
+      when: inventory_hostname == 'router'
+
+- name: Provision Linux CI Runners
+  hosts: linux_runners
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Install GitHub Actions self-hosted runner
+      shell: |
+        cd /opt
+        RUNNER_VERSION="2.317.0"
+        curl -o actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -L \
+          https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+        tar xzf actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+        ./config.sh --url https://github.com/davidjesus516/cemurm --token ${{ GH_RUNNER_TOKEN }} --labels spike-linux,spike-router --unattended
+        sudo ./svc.sh install
+        sudo ./svc.sh start
+      args:
+        creates: /opt/actions-runner/.runner
+      environment:
+        GH_RUNNER_TOKEN: "{{ lookup('env', 'GH_RUNNER_TOKEN') }}"
+
+    - name: Install Emscripten (macOS runner)
+      when: inventory_hostname == 'spike-macos'
+      shell: |
+        git clone https://github.com/emscripten-core/emsdk.git /opt/emsdk
+        cd /opt/emsdk
+        ./emsdk install 3.1.50
+        ./emsdk activate 3.1.50
+      args:
+        creates: /opt/emsdk/upstream/emscripten
+
+- name: Verify All Devices Ready
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Ping test
+      ping:
+
+    - name: Report device status
+      debug:
+        msg: "{{ inventory_hostname }} ({{ device_type }}) - READY"
+      when: device_type is defined
