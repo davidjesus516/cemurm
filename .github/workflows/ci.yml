@@ -24,18 +24,28 @@ jobs:
 
       - run: pnpm lint
 
-      # Type check sits BEFORE the visual gate, not after it. The gate exits 1
-      # on its first failing ratchet and is red on pristine main, which aborts
-      # the job: anything placed after it is silently skipped, which is how test
-      # and build have been reporting "skipped" instead of running.
+      # Type check. It runs here, after lint and before the gates, because the
+      # visual gate below exits 1 under `set -euo pipefail`: anything placed
+      # after it is marked SKIPPED, and a reviewer cannot tell a real downstream
+      # failure from a check that never ran. That is why the gate itself runs
+      # LAST rather than here.
       - run: pnpm typecheck
 
-      # Visual contract gate. Bash + grep only, so it needs no install step, and
-      # it deliberately sits after lint and before test.
-      - run: bash scripts/check-visual-contract.sh
+      # ADR-006 with machine teeth. `.only`, `.skip` and `.todo` are not a
+      # failing run, they are a green run that tested less, so nothing in the
+      # suite could see them. Bash + grep only, same as the visual gate.
+      - run: bash scripts/check-test-integrity.sh
 
       - run: pnpm test
 
       - run: pnpm test:gherkin
 
       - run: pnpm build
+
+      # Visual contract gate. Bash + grep only, so it needs no install step, and
+      # it deliberately runs LAST rather than before test and build: a gate that
+      # precedes them exits 1 under set -euo pipefail, which marks test and
+      # build SKIPPED, and a reviewer cannot tell a real downstream failure from
+      # a check that never ran. Run after them, its FAIL lines sit next to a
+      # known-green test and build instead of hiding them.
+      - run: bash scripts/check-visual-contract.sh
