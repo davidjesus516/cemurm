@@ -11,7 +11,7 @@ import { listAnnotations } from '../../../domain/music/annotations.js'
 import { resolveDegree } from '../../../domain/music/degreeResolver.js'
 import { buildCommentTree, formatAnchor } from '../../../data/repositories/comments.js'
 import { computeReadiness } from '../../../domain/chart/readiness.js'
-import { approvePublicSharing, getConsentStatus } from '../../../data/repositories/minors.js'
+import { getConsentStatus } from '../../../data/repositories/minors.js'
 import ChordProRenderer, { sectionAnchorId } from '../../../ui/patterns/ChordProRenderer.jsx'
 import PdfChartViewer from '../../../ui/patterns/PdfChartViewer.jsx'
 import { useSpotifyEnrichment } from '../hooks/useSpotifyEnrichment.js'
@@ -249,7 +249,6 @@ export default function SongDetail() {
   // (migration 0017). The route gate guarantees an ACTIVE consent; the only
   // open question is guardian approval of public sharing.
   const [consentStatus, setConsentStatus] = useState(null)
-  const [approvingSharing, setApprovingSharing] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
   const [commentAnchor, setCommentAnchor] = useState(null)
   const [replyingTo, setReplyingTo] = useState(null)
@@ -530,29 +529,12 @@ export default function SongDetail() {
     }
   }
 
-  // Hito 4: guardian approval of public sharing — called from the inline
-  // "Approve public sharing" action when the minor's ACTIVE consent hasn't
-  // been approved yet. The RPC records the approval; we re-read the ledger
-  // so the publish button unlocks immediately.
-  async function handleApproveSharing() {
-    if (!user) return
-    if (!window.confirm('Approve public sharing of this contribution? Your guardian can revoke this later via the emailed link.')) return
-    setApprovingSharing(true)
-    setContributionError('')
-    try {
-      await approvePublicSharing(user.id)
-      const row = await getConsentStatus(user.id)
-      setConsentStatus(row)
-    } catch (err) {
-      setContributionError(err.message)
-    } finally {
-      setApprovingSharing(false)
-    }
-  }
-
   // Minor publish gate: disabled (helper text) unless an ACTIVE consent with
   // public-sharing approval exists. The server stays the authority — this is
   // UX so minors see the reason before the RPC rejects them.
+  // Since 0034 public sharing approval is GUARDIAN-DRIVEN via the emailed
+  // link (/guardian/approve). The minor cannot self-approve; the deprecated
+  // RPC will raise "Consent is only required for minors" if called.
   const minorCanPublish =
     !isMinor || (consentStatus?.status === 'active' && consentStatus?.publicSharingApproved)
   const sharingNeedsApproval =
@@ -785,14 +767,9 @@ export default function SongDetail() {
                   Guardian approval required for public sharing
                 </span>
                 {sharingNeedsApproval && (
-                  <button
-                    type="button"
-                    onClick={handleApproveSharing}
-                    disabled={approvingSharing}
-                    className="rounded-md border border-cem-amber/40 px-3 py-1 text-xs font-medium text-cem-amber hover:bg-cem-amber/10 disabled:opacity-50"
-                  >
-                    {approvingSharing ? 'Approving…' : 'Approve public sharing'}
-                  </button>
+                  <span className="text-xs text-cem-secondary">
+                    Guardian approval needed — an email was sent to your guardian
+                  </span>
                 )}
               </span>
             ) : (
