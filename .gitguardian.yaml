@@ -1,16 +1,21 @@
 # .gitguardian.yaml
 # Narrow allowlist for deterministic local-dev fixtures.
+# These are NOT secrets: they are published defaults identical across
+# every fork and CI run, protecting ephemeral containers only.
+# See GitGuardian findings on PR #288 (1) and #297 (8).
 
 version: 2
 
 secret:
   ignored_matches:
     - name: "Supabase local dev POSTGRES_PASSWORD default"
-      match: "POSTGRES_PASSWORD:\\s*postgres"
+      match: "POSTGRES_PASSWORD: postgres"
+    - name: "Supabase local dev anon key (fixed JWT secret)"
+      match: "bf1725a8f98bea37e88618702e725ba84bd8acdb2647c5e0ed638bfd685791cf"
     - name: "Supabase seed fixture password"
       match: "password1234"
   ignored_paths:
-    - "**/*.yml"
-    - "**/*.yaml"
-    - "**/*.sql"
-    - "**/*.md"
+    - ".github/workflows/e2e.yml"
+    - "supabase/seed.sql"
+    - "docs/security.md"
+    - "docs/local-dev.md"
