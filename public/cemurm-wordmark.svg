@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 116 28" width="116" height="28" role="img" aria-label="CEMURM">
+  <rect x="0" y="2" width="24" height="24" rx="7" fill="#f59e0b"/>
+  <g fill="#0f172a">
+    <ellipse cx="8" cy="19.4" rx="4" ry="3" transform="rotate(-18 8 19.4)"/>
+    <rect x="11.2" y="7" width="1.8" height="12.4"/>
+    <path d="M13 7c3.4 1.3 4.9 3.6 4.2 6.6-.2.9-1 1.4-1.8 1.1-.7-.2-1-.9-.8-1.6.5-1.7.1-3-1.6-3.8V7z"/>
+  </g>
+  <text x="32" y="20" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="17" font-weight="700" letter-spacing="0.5" fill="#0f172a">CEMURM</text>
+</svg>
