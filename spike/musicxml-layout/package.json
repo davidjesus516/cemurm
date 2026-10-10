@@ -1,0 +1,24 @@
+{
+  "name": "spike-musicxml-layout",
+  "version": "0.0.0-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --mode spike",
+    "test:corpus-load": "vitest run tests/corpus-load.test.ts",
+    "test:perf": "vitest run tests/perf.test.ts",
+    "test:visual-parity": "vitest run tests/visual-parity.test.ts",
+    "test:stress": "vitest run tests/stress.test.ts"
+  },
+  "dependencies": {
+    "verovio-wasm": "file:./wasm"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "pixelmatch": "^5.3.0",
+    "pngjs": "^7.0.0",
+    "@types/pngjs": "^6.0.4"
+  }
+}
