@@ -6,7 +6,7 @@ import { EMAIL_RE, getSession } from '../../../data/repositories/auth.js'
 const inputClass =
   'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent disabled:bg-cem-elevated'
 
-const inputErrorClass = 'border-cem-rose/40'
+const inputErrorClass = 'border-cem-elevated'
 
 function Auth() {
   const { signIn, signUp } = useAuth()
@@ -138,7 +138,7 @@ function Auth() {
           aria-invalid={hasError}
           className={`${inputClass} ${hasError ? inputErrorClass : ''}`}
         />
-        {hasError && <p className="mt-1 text-xs text-cem-rose">{errors[name]}</p>}
+        {hasError && <p className="mt-1 text-xs text-cem-text">{errors[name]}</p>}
       </div>
     )
   }
@@ -160,7 +160,7 @@ function Auth() {
         className="mt-6 space-y-4 rounded-lg bg-cem-surface p-6 shadow"
       >
         {formError && (
-          <p role="alert" className="rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
+          <p role="alert" className="rounded-md bg-cem-elevated/60 px-3 py-2 text-sm text-cem-text">
             {formError}
           </p>
         )}
@@ -225,7 +225,7 @@ function Auth() {
               <p className="mt-1 text-xs text-cem-secondary">Guardian consent will be required.</p>
             )}
             {errors.ageDeclaration && (
-              <p className="mt-1 text-xs text-cem-rose">{errors.ageDeclaration}</p>
+              <p className="mt-1 text-xs text-cem-text">{errors.ageDeclaration}</p>
             )}
           </div>
         )}

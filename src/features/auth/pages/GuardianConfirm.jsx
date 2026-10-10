@@ -117,7 +117,7 @@ export default function GuardianConfirm() {
     return (
       <div className="mx-auto max-w-md">
         <h1 className="text-2xl font-bold text-cem-text">This link is incomplete</h1>
-        <div role="alert" className="mt-4 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
+        <div role="alert" className="mt-4 rounded-md bg-cem-elevated/60 px-3 py-2 text-sm text-cem-text">
           <p className="font-medium">This link is missing part of what it needs to work.</p>
           <p className="mt-1 text-cem-secondary">
             Ask your child to resend the request from their account, and open the newest email
@@ -139,7 +139,7 @@ export default function GuardianConfirm() {
       {phase === 'confirmed' && (
         <div
           role="status"
-          className="mt-4 rounded-md bg-cem-emerald/10 px-3 py-2 text-sm text-cem-emerald"
+          className="mt-4 rounded-md bg-cem-elevated/60 px-3 py-2 text-sm text-cem-text"
         >
           <p className="font-medium">Your consent is recorded.</p>
           <p className="mt-1 text-cem-secondary">
@@ -150,7 +150,7 @@ export default function GuardianConfirm() {
       )}
 
       {phase === 'failed' && (
-        <div role="alert" className="mt-4 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">
+        <div role="alert" className="mt-4 rounded-md bg-cem-elevated/60 px-3 py-2 text-sm text-cem-text">
           <p className="font-medium">{failure}</p>
           <p className="mt-1 text-cem-secondary">
             Consent is recorded once and cannot be confirmed a second time. If you did not open this
