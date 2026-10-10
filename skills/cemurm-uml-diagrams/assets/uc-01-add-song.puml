@@ -1,0 +1,45 @@
+@startuml uc01
+skinparam shadowing false
+skinparam ArrowStyle none
+skinparam ArrowColor #8B8FA3
+skinparam defaultFontColor #E2E4E9
+skinparam nodesep 60
+skinparam ranksep 100
+skinparam rectangle {
+  BorderColor #4A5068
+  BackgroundColor #232733
+  FontColor #E2E4E9
+  FontStyle bold
+}
+skinparam usecase {
+  BorderColor #4A5068
+  BackgroundColor #232733
+  FontColor #E2E4E9
+  DiamondColor #4A5068
+}
+skinparam actor {
+  BorderColor #E2E4E9
+  FontColor #E2E4E9
+}
+
+left to right direction
+
+actor "Músico\n<<actor>>" as Musician
+
+rectangle "CEMURM" {
+
+  usecase "Agregar una canción\nal repertorio\n[UC1]" as UC1
+
+  usecase "Validar el archivo\nde acordes\n[UC2]" as UC2
+  usecase "Calcular readiness\n[UC3]" as UC3
+  usecase "Adjuntar escaneo PDF\n[UC4]" as UC4
+}
+
+Musician -- UC1
+Musician -- UC4
+
+UC1 ..> UC2 : <<include>>
+UC1 ..> UC3 : <<include>>
+UC1 ..> UC4 : <<extend>>
+
+@enduml
