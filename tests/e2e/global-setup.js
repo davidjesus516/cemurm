@@ -2,14 +2,14 @@
 
 import { execSync } from 'node:child_process';
 
-const IS_CI = process.env.CI === 'true';
-
-async function waitForSupabaseHealthHttp(apiBase, maxRetries = 30, intervalMs = 2000) {
+async function waitForSupabaseHealth(maxRetries = 180, intervalMs = 2000) {
   // Use HTTP health checks instead of `supabase status` Docker health,
   // which is unreliable in CI (services like api/db/auth don't report
   // 'healthy' even when running). Endpoints verified locally:
   // - /auth/v1/health (GoTrue) -> 200
   // - /rest/v1/ (PostgREST) -> 200
+  const apiBase = 'http://127.0.0.1:54321';
+
   for (let i = 0; i < maxRetries; i++) {
     try {
       const auth = execSync(`curl -sf ${apiBase}/auth/v1/health`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
@@ -24,22 +24,10 @@ async function waitForSupabaseHealthHttp(apiBase, maxRetries = 30, intervalMs = 
 }
 
 export default async function globalSetup() {
-  const url = process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
-  const anonKey = process.env.VITE_SUPABASE_ANON_KEY ||
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+  console.log('[global-setup] Starting Supabase stack...');
 
-  if (IS_CI) {
-    // In CI, the setup job already started Supabase and ran db reset.
-    // Just verify the stack is reachable via the provided URL.
-    console.log('[global-setup] CI mode: verifying shared Supabase stack...');
-    await waitForSupabaseHealthHttp(url);
-    console.log('[global-setup] Supabase stack verified.');
-    return;
-  }
-
-  // Local development: start/ensure Supabase stack and reset DB
-  console.log('[global-setup] Local mode: starting Supabase stack...');
-
+  // Start Supabase (manages Docker Compose internally)
+  // POSTGRES_PASSWORD can be overridden via env var for CI/security; default is Supabase local dev default
   const postgresPassword = process.env.POSTGRES_PASSWORD || 'postgres';
   execSync('supabase start', {
     stdio: 'inherit',
@@ -47,10 +35,32 @@ export default async function globalSetup() {
   });
 
   console.log('[global-setup] Waiting for Supabase health...');
-  await waitForSupabaseHealthHttp(url);
+  await waitForSupabaseHealth();
 
   console.log('[global-setup] Running supabase db reset...');
   execSync('supabase db reset', { stdio: 'inherit' });
+
+  // The fixtures authenticate as ordinary users against the anon key, so a
+  // missing key fails later as a confusing 401 from GoTrue. Fail here instead.
+  // `playwright.config.js` loads .env.local before this runs, and dotenv does
+  // not override variables the CI workflow already set.
+  // CI workflow sets VITE_SUPABASE_ANON_KEY at step level, but global-setup
+  // runs in a separate Node process that may not inherit step env. The local
+  // Supabase anon key is deterministic (fixed JWT secret), so fall back to it.
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+  const url = process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
+
+  const missing = [];
+  if (!process.env.VITE_SUPABASE_URL && !url) missing.push('VITE_SUPABASE_URL');
+  if (!process.env.VITE_SUPABASE_ANON_KEY && !anonKey) missing.push('VITE_SUPABASE_ANON_KEY');
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing ${missing.join(' and ')}. ` +
+        'Create .env.local at the repository root with both values ' +
+        '(see docs/local-dev.md), or let the CI workflow supply them.'
+    );
+  }
 
   // Make them available to child processes (tests, etc.)
   process.env.VITE_SUPABASE_URL = url;
