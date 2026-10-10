@@ -1,0 +1,44 @@
+@startuml uc03
+skinparam shadowing false
+skinparam ArrowStyle none
+skinparam ArrowColor #8B8FA3
+skinparam defaultFontColor #E2E4E9
+skinparam nodesep 60
+skinparam ranksep 100
+skinparam rectangle {
+  BorderColor #4A5068
+  BackgroundColor #232733
+  FontColor #E2E4E9
+  FontStyle bold
+}
+skinparam usecase {
+  BorderColor #4A5068
+  BackgroundColor #232733
+  FontColor #E2E4E9
+  DiamondColor #4A5068
+}
+skinparam actor {
+  BorderColor #E2E4E9
+  FontColor #E2E4E9
+}
+
+left to right direction
+
+actor "Miembro de la banda\n<<actor>>" as Musician
+
+rectangle "CEMURM" {
+
+  usecase "Comentar una canción\ncompartida\n[UC1]" as UC1
+
+  usecase "Anclar a una sección\no a una versión\n[UC2]" as UC2
+  usecase "Resolver el hilo\ncuando el cambio ya está\n[UC3]" as UC3
+  usecase "Escribir una anotación\npersonal\n[UC4]" as UC4
+}
+
+Musician -- UC1
+
+UC1 ..> UC2 : <<include>>
+UC1 ..> UC3 : <<extend>>
+UC1 ..> UC4 : <<extend>>
+
+@enduml

@@ -52,3 +52,7 @@ CEMURM/
 /.agents
 /.claude
 .playwright-mcp/
+
+# Python bytecode (docs/uml tooling)
+__pycache__/
+*.pyc
