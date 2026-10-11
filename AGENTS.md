@@ -103,7 +103,7 @@ TypeScript is **7.0.2** (not 5.x). Two quirks already cost time:
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **13 files**, one per migration from `0021_plan_freeze.sql` through
+`scripts/smoke/*.sql` — **13 files**, one per migration from `0034_plan_freeze.sql` through
 `0033_feedback.sql` (an earlier version of this line said "6 files, `0023`–`0028`", which was true
 before the plan-freeze, projection, minors, DOB, guardian-email, overlay-token and feedback smokes
 landed; re-count rather than trusting it). They are **not** in CI and **not** wired to any pnpm
@@ -126,8 +126,8 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. (`README.md` and `docs/technical-spec.md` used to name a hosted project URL; that text was corrected on 2026-09-30.)
 
 Migrations: **33 files on `main`**, numbered `0001`–`0033` with **no gap in between**. The
-`0020`–`0022` window is **closed** — `0020_review_batch1.sql`, `0021_plan_freeze.sql` and
-`0022_projection.sql` are all on `main`. `0029` is taken as well (`0029_fail_closed_minors.sql`),
+`0020`–`0022` window is **closed** — `0020_review_batch1.sql`, `0034_plan_freeze.sql` and
+`0035_projection.sql` are all on `main`. `0029` is taken as well (`0029_fail_closed_minors.sql`),
 and `0032` went with it (`0032_overlay_access_token.sql`, the OBS overlay capability token, landed
 in #225). **The next free number is `0034`,** and it is free unconditionally — nothing is claiming
 it any more.
@@ -143,7 +143,7 @@ that check, both learned the hard way:
   `0033_feedback.sql`, while `0029` was taken in the meantime by an unrelated migration. "It was
   free when I looked" was true twice and false both times.
 - A number free on `main` is not free *for you*. `0021` stayed free for the whole life of the four
-  Hito 5 branches, which is why `0021_plan_freeze.sql` merged without a renumber — and that merge
+  Hito 5 branches, which is why `0034_plan_freeze.sql` merged without a renumber — and that merge
   is what closed it. A slot is consumed when the PR carrying it lands, not when you pick it.
 
 Filename order is the dependency order, so placement is a constraint, not a formality: `supabase db
