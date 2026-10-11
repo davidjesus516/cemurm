@@ -23,15 +23,13 @@
 //     status-mark) are static until asked, and freeze under reduced motion.
 //   * Hit targets are 44px and every press answers on pointer-DOWN.
 
-import { useCallback, useRef, useState } from 'react'
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react'
+import { useState } from 'react'
+import { motion, useSpring, useTransform } from 'motion/react'
 import {
   SPRING_MOMENTUM,
   SPRING_SHEET,
   SPRING_SOFT,
   SPRING_UI,
-  clamp,
-  projectMomentum,
   usePrefersReducedMotion,
 } from './motion.js'
 

@@ -12,9 +12,10 @@
 //     as Dock, MorphSlider, HoldButton.
 //   * `projectMomentum` from `./motion.js` — repo's spring-bias helper,
 //     same precedent as WakeSlider, SwipeRow.
-//   * discrete-readings: `fill`, `box`, `tick`, `word`, `rule` from zetaOf,
-//     VISUAL_DURATION, RULE_END, SWELL — exact same formulae the reference uses,
-//     so the check animates on-screen with the expected acceleration/decay.
+//   * discrete-readings: `fill`, `box`, `tick`, `word`, `rule` derived from the
+//     same constants the reference uses — VISUAL_DURATION, RULE_END, SWELL —
+//     applied by `readings()`, so the check animates on-screen with the expected
+//     acceleration/decay.
 //   * `StrikeSide` (left / center / right / none): check‑mark rotation and rule‑line
 //     origin driven by this enum, matching the reference's four CSS origin values.
 //   * controlled / uncontrolled: `checked` prop takes priority; when undefined the
@@ -57,7 +58,6 @@ const SWELL = 0.35
 const TICK_PATH = 'M1.75 12l3.18 3.19L21 4l-3.38-3.38L18.72.53L12 7.05l-5.72-5.72L4.5 9.88l1.06 1.06L2 20l4.94-4.94L1.75 12z'
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v))
-const zetaOf = (bounce) => bounce <= 0 ? 1 : -Math.log(bounce) / Math.sqrt(Math.PI ** 2 + Math.log(bounce) ** 2)
 
 const readings = (t, doneOpacity, strikeLag) => {
   const held = clamp01(t)

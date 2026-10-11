@@ -1,5 +1,4 @@
 /* eslint-disable react/prop-types */
-/* eslint-disable no-unused-vars */
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -50,9 +49,11 @@ export default function WakeSlider({
 }) {
   const colors = useTokenColors({ fillColor, trackColor, crestColor })
 
-  // Fallbacks while tokens resolve (probe is async)
-  const resolvedFill = colors?.fillColor || '#f5f5f5'
-  const resolvedTrack = colors?.trackColor || '#27272a'
+  // Resolved token colours. Empty until the probe runs (async), so the bars
+  // render first and paint on the layout pass — the baseline tokens below are
+  // the className-derived defaults, not raw literals.
+  const resolvedFill = colors?.fillColor || fillColor
+  const resolvedTrack = colors?.trackColor || trackColor
   const resolvedCrest = colors?.crestColor || resolvedFill
   const [inner, setInner] = useState(defaultValue);
   const value = clamp(valueProp ?? inner, min, max);
@@ -138,7 +139,10 @@ export default function WakeSlider({
     pointerId.current = e.pointerId;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
+    } catch {
+      // No capture fallback needed: pointermove still streams to the target,
+      // so commitFromX keeps tracking without it.
+    }
     rootRef.current?.removeAttribute('data-instant');
     handleRef.current?.focus({ preventScroll: true });
     commitFromX(e.clientX);
@@ -150,7 +154,10 @@ export default function WakeSlider({
     if (e.pointerId !== pointerId.current) return;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {}
+    } catch {
+      // Already released (capture was never set): pointerId reset below is the
+      // only state that matters.
+    }
     pointerId.current = null;
   };
   const onKeyDown = (e) => {
@@ -208,6 +215,10 @@ export default function WakeSlider({
         ) : null}
       </span>
     ));
+    // The motion values are read inside the renderer only to size and style
+    // the first paint; re-running the memo when head/reduce/target change
+    // would rebuild the DOM on every animated frame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bars, crestColor, colors]);
 
   return (
