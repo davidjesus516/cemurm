@@ -199,7 +199,7 @@ import { supabase } from '../supabase.js'
  */
 
 /**
- * One row of list_plan_versions (0021_plan_freeze.sql), newest first.
+ * One row of list_plan_versions (0034_plan_freeze.sql), newest first.
  * @typedef {object} PlanVersion
  * @property {number} version_number
  * @property {string} status

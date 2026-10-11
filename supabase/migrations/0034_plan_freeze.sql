@@ -1,4 +1,4 @@
--- 0021: Published Plan Freeze (Hito 5 — features/published-plan-freeze.feature).
+-- 0034: Published Plan Freeze (Hito 5 — features/published-plan-freeze.feature).
 --
 -- Publishing a service plan freezes exactly what members execute:
 --   · publish_plan        — leader-only; snapshots the live plan into a version,

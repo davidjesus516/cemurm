@@ -85,7 +85,7 @@ All four branches exist, are pushed, and are unmerged. Verified after `git fetch
 **The 0020–0022 gap is not deliberate.** No ADR or decision record reserves those numbers.
 It is a numbering race between parallel branches, each of which picked the next number from
 whatever `main` looked like when it forked: `0020_feedback` (in-app-feedback),
-`0021_plan_freeze`, `0022_projection`. An earlier version of this plan called the gap
+`0034_plan_freeze`, `0035_projection`. An earlier version of this plan called the gap
 "deliberate — do not renumber"; that was an inference from the missing files, and it was
 wrong.
 
@@ -98,8 +98,8 @@ wrong.
 | Migration | Touches | Depends on 0023–0028? |
 |---|---|---|
 | `0020_feedback` | nothing from that range | no |
-| `0021_plan_freeze` | `setlist_items`, `service_change_log` (both ≤0019) | no |
-| `0022_projection` | `chart_files`, `song_versions` (0001), `service_change_log` (0019) | no |
+| `0034_plan_freeze` | `setlist_items`, `service_change_log` (both ≤0019) | no |
+| `0035_projection` | `chart_files`, `song_versions` (0001), `service_change_log` (0019) | no |
 
 Renumbering them to `0029+` would be **wrong**: it would run them *after* `0023`–`0028`,
 which is the opposite of the order they were authored for. In filename order they land at
@@ -147,7 +147,7 @@ Verified both ways on a clean database:
 | with #172's `d31888b` (`create or replace`) | ✅ `0001`–`0028`, 0 errors |
 
 **`#172` is therefore a hard prerequisite for any slice that adds a migration**, and for any
-fresh `db reset` on `main` as it stands. `0021_plan_freeze` (#179) is stacked on it for that
+fresh `db reset` on `main` as it stands. `0034_plan_freeze` (#179) is stacked on it for that
 reason. The `1ee9615` patch on `feat/hito5-in-app-feedback` guards the same line and is a no-op
 once #172 lands.
 

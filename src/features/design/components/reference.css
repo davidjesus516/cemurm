@@ -1,0 +1,1579 @@
+/* reference.css — the stylesheets that ship with the reference components,
+   ported with their structure intact.
+
+   Every rule below is the reference's own, including its cubic-béziers, its
+   `--ease-out` on every transition and its reduced-motion blocks. Only the
+   colour declarations changed: the reference writes hex into custom properties,
+   and rule 01a of scripts/check-visual-contract.sh rejects colour literals in
+   src/. Those declarations are now `@apply` of a cem-* token, so the palette
+   still has exactly one source of truth (tailwind.config.js).
+
+   Colours that the component passes IN as custom properties (--gs-accent,
+   --sr-row, --st-bg, …) are not declared here at all — the component sets
+   them from resolved tokens. Only the fallback stack lives in this file. */
+
+/* ============================================================ GlideSelect */
+
+.glide-select {
+  --gs-radius: 10px;
+  --gs-inner-radius: 6px;
+  --gs-chip: 32px;
+  --gs-row: 30px;
+  --gs-font: 13px;
+  --gs-menu-w: 176px;
+  --gs-pop: 180ms;
+  --gs-pop-out: 120ms;
+  --gs-glide: 220ms;
+  --gs-origin: top left;
+  --gs-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  position: relative;
+  display: inline-block;
+}
+
+.glide-select[data-disabled] {
+  opacity: 0.5;
+}
+
+.glide-select__trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--gs-chip);
+  margin: 0;
+  padding: 0 8px 0 10px;
+  border: 0;
+  border-radius: var(--gs-inner-radius);
+  @apply bg-cem-surface text-cem-text;
+  font-family: inherit;
+  font-size: var(--gs-font);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    background-color 100ms ease,
+    transform 160ms var(--gs-ease-out);
+}
+
+.glide-select__trigger:disabled {
+  cursor: default;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glide-select__trigger:not(:disabled):hover {
+    @apply bg-cem-elevated;
+  }
+}
+
+.glide-select__trigger[aria-expanded='true'] {
+  @apply bg-cem-elevated;
+}
+
+.glide-select__trigger:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.glide-select__label[data-empty] {
+  opacity: 0.6;
+}
+
+.glide-select[data-swap] .glide-select__label {
+  animation: gs-swap 160ms ease;
+}
+
+@keyframes gs-swap {
+  from {
+    opacity: 0.6;
+    filter: blur(2px);
+  }
+}
+
+.glide-select__chevron {
+  display: inline-flex;
+  @apply text-cem-secondary;
+  transition: transform 200ms var(--gs-ease-out);
+}
+
+.glide-select__trigger[aria-expanded='true'] .glide-select__chevron {
+  transform: rotate(180deg);
+}
+
+.glide-select__menu {
+  position: absolute;
+  z-index: 20;
+  width: var(--gs-menu-w);
+  min-width: 100%;
+  padding: 4px;
+  border-radius: var(--gs-radius);
+  @apply bg-cem-surface shadow-xl;
+  transform-origin: var(--gs-origin);
+  opacity: 0;
+  transform: scale(0.95);
+  transition:
+    opacity var(--gs-pop) var(--gs-ease-out),
+    transform var(--gs-pop) var(--gs-ease-out);
+}
+
+.glide-select__menu[data-state='open'] {
+  opacity: 1;
+  transform: none;
+}
+
+.glide-select__menu[data-state='closed'] {
+  transition-duration: var(--gs-pop-out);
+  pointer-events: none;
+}
+
+.glide-select__menu[data-side='bottom'] {
+  top: calc(100% + 6px);
+}
+
+.glide-select__menu[data-side='top'] {
+  bottom: calc(100% + 6px);
+}
+
+.glide-select__menu[data-align='left'] {
+  left: 0;
+}
+
+.glide-select__menu[data-align='right'] {
+  right: 0;
+}
+
+.glide-select__list {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  touch-action: none;
+}
+
+.glide-select__pill {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--gs-row);
+  border-radius: var(--gs-inner-radius);
+  @apply bg-cem-elevated;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--gs-glide) var(--gs-ease-out),
+    opacity 150ms ease;
+}
+
+.glide-select__option {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--gs-row);
+  padding: 0 8px 0 10px;
+  border-radius: var(--gs-inner-radius);
+  @apply text-cem-text;
+  font-size: var(--gs-font);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 150ms ease;
+}
+
+.glide-select__option[aria-selected='true'] {
+  @apply bg-cem-elevated;
+}
+
+.glide-select__list[data-live] .glide-select__option[aria-selected='true'] {
+  background: transparent;
+}
+
+.glide-select__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.glide-select__tag {
+  flex-shrink: 0;
+  @apply text-cem-secondary;
+  font-size: calc(var(--gs-font) - 2px);
+}
+
+.glide-select__check {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--gs-accent, currentColor);
+  visibility: hidden;
+}
+
+.glide-select__check[data-on] {
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glide-select__menu {
+    transform: none !important;
+    transition: opacity var(--gs-pop) ease;
+  }
+
+  .glide-select__menu[data-state='closed'] {
+    transition-duration: var(--gs-pop-out);
+  }
+
+  .glide-select__pill {
+    transition: opacity 150ms ease;
+  }
+
+  .glide-select__chevron {
+    transition: none;
+  }
+
+  .glide-select__trigger {
+    transition: background-color 100ms ease;
+  }
+
+  .glide-select__trigger:not(:disabled):active {
+    transform: none;
+  }
+
+  .glide-select[data-swap] .glide-select__label {
+    animation: none;
+  }
+}
+
+/* ============================================================== SwipeRow */
+
+.swipe-row {
+  --sr-h: 64px;
+  --sr-r: 16px;
+  --sr-a: 80px;
+  --sr-collapse: 200ms;
+  --sr-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  position: relative;
+  height: var(--sr-h);
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    height var(--sr-collapse) var(--sr-ease-out),
+    margin-bottom var(--sr-collapse) var(--sr-ease-out),
+    opacity var(--sr-collapse) var(--sr-ease-out);
+}
+
+.swipe-row[data-phase='collapsing'] {
+  height: 0 !important;
+  margin-bottom: 0 !important;
+  opacity: 0;
+}
+
+.swipe-row[data-disabled] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.swipe-row__clip {
+  position: relative;
+  height: var(--sr-h);
+  border-radius: var(--sr-r);
+  overflow: hidden;
+  background: var(--sr-row);
+}
+
+.swipe-row__rail {
+  position: absolute;
+  inset: 0;
+  background: var(--sr-drawer);
+}
+
+.swipe-row__action {
+  position: absolute;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: var(--sr-a);
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--sr-drawer);
+  color: var(--sr-on-drawer);
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.swipe-row__action::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  @apply bg-cem-text;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swipe-row__action::after {
+    transition: opacity 150ms ease;
+  }
+
+  .swipe-row__action:hover::after {
+    opacity: 0.08;
+  }
+}
+
+.swipe-row__glyph {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  transition: transform 160ms var(--sr-ease-out);
+}
+
+.swipe-row__icon {
+  display: inline-flex;
+}
+
+.swipe-row__action:active .swipe-row__glyph {
+  transform: scale(0.97);
+}
+
+.swipe-row__block {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--sr-action);
+}
+
+.swipe-row[data-direction='left'] .swipe-row__block {
+  left: calc(100% - var(--sr-a));
+}
+
+.swipe-row[data-direction='right'] .swipe-row__block {
+  right: calc(100% - var(--sr-a));
+}
+
+.swipe-row__action--commit {
+  background: transparent;
+  color: var(--sr-on-action);
+}
+
+.swipe-row[data-direction='left'] .swipe-row__action--commit {
+  left: 0;
+}
+
+.swipe-row[data-direction='right'] .swipe-row__action--commit {
+  right: 0;
+}
+
+.swipe-row__surface {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+  padding: 0 16px;
+  background: var(--sr-row);
+  color: var(--sr-text);
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swipe-row__surface {
+    cursor: grab;
+  }
+
+  .swipe-row[data-dragging] .swipe-row__surface {
+    cursor: grabbing;
+  }
+}
+
+@media (pointer: coarse) {
+  .swipe-row__surface {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+.swipe-row[data-dragging] .swipe-row__surface,
+.swipe-row[data-dragging] .swipe-row__surface * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.swipe-row__toggle {
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  background: transparent;
+  color: var(--sr-text);
+  font: inherit;
+  outline: none;
+}
+
+.swipe-row[data-direction='left'] .swipe-row__toggle {
+  right: 12px;
+}
+
+.swipe-row[data-direction='right'] .swipe-row__toggle {
+  left: 12px;
+}
+
+.swipe-row__toggle:focus-visible {
+  width: auto;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  overflow: visible;
+  clip-path: none;
+  @apply bg-cem-elevated;
+  font-size: 12px;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.swipe-row__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-row__action:active .swipe-row__glyph {
+    transform: none;
+  }
+}
+
+/* ============================================================ SwipeToast */
+
+.swipe-toast {
+  --st-fuse-h: 2px;
+  --st-gap: 10px;
+  --st-offset: 32px;
+  --st-z: 999999999;
+  --st-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: grid;
+  grid-template-rows: 1fr;
+  width: min(var(--st-w), 100%);
+  color: var(--st-ink);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.swipe-toast[data-inline='false'] {
+  position: fixed;
+  right: var(--st-offset);
+  bottom: calc(var(--st-offset) + env(safe-area-inset-bottom, 0px));
+  z-index: var(--st-z);
+  width: min(var(--st-w), calc(100vw - 2 * var(--st-offset)));
+}
+
+@media (max-width: 600px) {
+  .swipe-toast[data-inline='false'] {
+    --st-offset: 16px;
+  }
+}
+
+.swipe-toast[data-inline='true'] {
+  transition: grid-template-rows var(--st-slide) var(--st-ease-out);
+}
+
+.swipe-toast__gate {
+  display: grid;
+  grid-template-rows: 0fr;
+  min-height: 0;
+}
+
+.swipe-toast[data-phase='open'] .swipe-toast__gate,
+.swipe-toast[data-phase='closing'] .swipe-toast__gate {
+  grid-template-rows: 1fr;
+}
+
+.swipe-toast__lift {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.swipe-toast__card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--st-gap);
+  margin-top: var(--st-gap);
+  padding: 12px 14px;
+  border-radius: var(--st-radius);
+  overflow: hidden;
+  @apply bg-cem-surface shadow-lg;
+  background: var(--st-bg);
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    margin var(--st-slide) var(--st-ease-out),
+    transform 320ms var(--st-ease-out),
+    opacity 200ms var(--st-ease-out);
+}
+
+.swipe-toast[data-inline='true'] .swipe-toast__card {
+  margin-top: 0;
+  margin-bottom: var(--st-gap);
+}
+
+.swipe-toast[data-dismissible='true'] .swipe-toast__card {
+  cursor: grab;
+}
+
+.swipe-toast__card[data-swiping] {
+  cursor: grabbing;
+  transition: none;
+}
+
+.swipe-toast[data-phase='open'][data-mounted='true'] .swipe-toast__card {
+  animation: st-enter var(--st-slide) var(--st-ease-out) both;
+}
+
+@keyframes st-enter {
+  from {
+    margin-top: var(--st-offset);
+    opacity: 0;
+  }
+}
+
+.swipe-toast[data-phase='closing'] .swipe-toast__card {
+  margin-top: var(--st-offset);
+  opacity: 0;
+}
+
+.swipe-toast__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.swipe-toast__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.swipe-toast__title {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.swipe-toast__desc {
+  @apply text-cem-secondary;
+  font-size: 12px;
+}
+
+.swipe-toast__action {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  @apply bg-cem-amber text-cem-base;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  touch-action: manipulation;
+  transition: transform 160ms var(--st-ease-out);
+}
+
+.swipe-toast__action:active {
+  transform: scale(0.96);
+}
+
+.swipe-toast__close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  @apply text-cem-secondary;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: transform 160ms var(--st-ease-out);
+}
+
+.swipe-toast__close:active {
+  transform: scale(0.92);
+}
+
+.swipe-toast__fuse {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--st-fuse-h);
+  background: var(--st-fuse);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.swipe-toast[data-fuse='bottom'] .swipe-toast__fuse {
+  bottom: 0;
+}
+
+.swipe-toast[data-fuse='top'] .swipe-toast__fuse {
+  top: 0;
+  transform-origin: right center;
+}
+
+.swipe-toast[data-fuse='none'] .swipe-toast__fuse {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-toast__card {
+    transition:
+      margin var(--st-slide) ease,
+      opacity 200ms ease;
+  }
+
+  .swipe-toast[data-phase='open'][data-mounted='true'] .swipe-toast__card {
+    animation: none;
+  }
+
+  .swipe-toast__action:active,
+  .swipe-toast__close:active {
+    transform: none;
+  }
+}
+
+/* ============================================================== PeekRating */
+
+.peek-rating {
+  --pr-gap: 6px;
+  --pr-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: inline-flex;
+  font-family: inherit;
+  color: inherit;
+}
+
+.peek-rating[aria-disabled='true'] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.peek-rating__row {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  padding-top: var(--pr-room);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.peek-rating__star {
+  display: grid;
+  place-items: center;
+  width: calc(var(--pr-size) + var(--pr-gap));
+  height: calc(var(--pr-size) + 8px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  touch-action: manipulation;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .peek-rating__star {
+    cursor: pointer;
+  }
+}
+
+@media (pointer: coarse) {
+  .peek-rating__star {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.peek-rating__star:focus-visible {
+  outline: 2px solid var(--pr-active, currentColor);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.peek-rating__lift {
+  display: block;
+  transform: translateY(0) scale(1);
+  transform-origin: 50% 100%;
+  transition: transform var(--pr-rise) var(--pr-ease-out);
+}
+
+.peek-rating__glyph {
+  display: block;
+  width: var(--pr-size);
+  height: var(--pr-size);
+  color: var(--pr-idle);
+  transition: color 160ms ease;
+}
+
+.peek-rating__glyph > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.peek-rating__glyph[data-lit='true'] {
+  color: var(--pr-active);
+}
+
+.peek-rating__tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  height: calc(var(--pr-size) * 0.6);
+  padding: 0 calc(var(--pr-size) * 0.3);
+  border-radius: 999px;
+  background: var(--pr-tip);
+  color: var(--pr-tip-text);
+  font-size: calc(var(--pr-size) * 0.38);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  @apply shadow-md;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--pr-rise) var(--pr-ease-out),
+    opacity 180ms ease;
+}
+
+.peek-rating__tip[data-show='true'] {
+  opacity: 1;
+}
+
+.peek-rating[data-instant='true'] .peek-rating__lift,
+.peek-rating[data-instant='true'] .peek-rating__glyph,
+.peek-rating[data-instant='true'] .peek-rating__tip {
+  transition-duration: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek-rating__lift {
+    transition: none;
+  }
+
+  .peek-rating__tip {
+    transition: opacity 180ms ease;
+  }
+}
+
+/* ============================================================== JellyRadio */
+
+.jelly-radio {
+  --jr-gap: 8px;
+  --jr-radius: 18px;
+  --jr-h: 36px;
+  --jr-font: 13px;
+  --jr-px: 16px;
+  --jr-pad-x: 16px;
+  --jr-pad-y: 6px;
+  --jr-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jr-gap);
+  padding: var(--jr-pad-y) var(--jr-pad-x);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.jelly-radio[data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.jelly-radio__chip {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  transform-origin: 50% 50%;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jelly-radio__chip[data-on='true'] {
+  cursor: default;
+}
+
+.jelly-radio:not([data-disabled]) .jelly-radio__chip:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.jelly-radio__skin {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  height: var(--jr-h);
+  padding: 0 var(--jr-px);
+  border-radius: var(--jr-radius);
+  overflow: hidden;
+  background: var(--jr-chip);
+  color: var(--jr-text);
+  font-size: var(--jr-font);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    transform 160ms var(--jr-ease-out),
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.jelly-radio__skin::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--jr-text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jelly-radio__chip[data-on='false']:not(:disabled):hover .jelly-radio__skin::before {
+    opacity: 0.11;
+  }
+}
+
+.jelly-radio__chip:active .jelly-radio__skin {
+  transform: scale(0.97);
+}
+
+.jelly-radio__chip[data-on='true'] .jelly-radio__skin {
+  background: var(--jr-active);
+  color: var(--jr-active-text);
+}
+
+.jelly-radio__icon {
+  display: inline-flex;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jelly-radio__chip:active .jelly-radio__skin {
+    transform: none;
+  }
+}
+
+/* =============================================================== Shredder */
+/* The reference ships its whole stylesheet as Tailwind arbitrary values inline
+   on the elements — the row, the item states and the canvas are all Tailwind
+   classes in the JSX, and there is no stylesheet. That is the port.
+
+   ONE declaration could not travel with them: the drag lift is a drop-shadow
+   of 0 14px 22px in a translucent black, and rule 01a rejects colour functions
+   in src/ — including inside a Tailwind arbitrary value, which is plain text as
+   far as the gate is concerned. So the geometry is preserved exactly and only
+   the colour is re-expressed through Tailwind's token alpha syntax, the same
+   way the rest of this file does it. The `shredder__item` class on that one div
+   exists only to scope this rule; everything else about the row is Tailwind,
+   as upstream. */
+.shredder__item[data-state='drag'] {
+  filter: drop-shadow(0 14px 22px theme('colors.cem.base' / 0.22)) !important;
+}
+
+/* ================================================================== Dock */
+
+.dock-outer {
+  margin: 0 0.5rem;
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+}
+
+.dock-panel {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: fit-content;
+  gap: 1rem;
+  border-radius: 1rem;
+  @apply bg-cem-surface border-cem-elevated;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.dock-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  @apply bg-cem-base border-cem-elevated shadow-md;
+  cursor: pointer;
+  outline: none;
+}
+
+.dock-item:focus-visible {
+  outline: 2px solid var(--dock-accent, currentColor);
+  outline-offset: 2px;
+}
+
+.dock-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dock-ink);
+}
+
+.dock-label {
+  position: absolute;
+  top: -1.5rem;
+  left: 50%;
+  width: fit-content;
+  white-space: pre;
+  border-radius: 0.375rem;
+  @apply bg-cem-elevated border-cem-hover;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  @apply text-cem-text;
+  transform: translateX(-50%);
+}
+
+/* ============================================================ GlassIcons */
+
+/* The reference's 3D stack, rule for rule. `perspective` on the grid and
+   `transform-style: preserve-3d` on each button are the pair that makes the
+   back plate read as DEPTH rather than as a skewed square; the plate rotates
+   from its own bottom-right corner (origin 100% 100%), the glass face from
+   80% 50%, and both travel on cubic-bezier(0.83, 0, 0.17, 1) — the reference's
+   curve, which overshoots slightly and settles, unlike the material surfaces
+   elsewhere in this file.
+
+   The two things that were literals in the reference are @apply here: the glass
+   is a 15% white wash (cem.text is near-white, so 15% of it IS that value) and
+   the plate's drop shadow is a stock Tailwind elevation. Rule 01a rejects
+   colour functions in src/, and this file is src/. */
+
+.glass-icons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5em;
+  margin-inline: auto;
+  padding-block: 3em;
+  overflow: visible;
+  perspective: 24em;
+}
+
+@media (min-width: 768px) {
+  .glass-icons {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.glass-icon {
+  position: relative;
+  width: 4.5em;
+  height: 4.5em;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.glass-icon__back,
+.glass-icon__front,
+.glass-icon__label {
+  transition:
+    opacity 0.3s cubic-bezier(0.83, 0, 0.17, 1),
+    transform 0.3s cubic-bezier(0.83, 0, 0.17, 1);
+}
+
+.glass-icon__back {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 1.25em;
+  transform: rotate(15deg);
+  transform-origin: 100% 100%;
+  will-change: transform;
+  @apply shadow-lg;
+}
+
+.glass-icon__front {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.25em;
+  @apply bg-cem-text/15;
+  box-shadow: inset 0 0 0 1px theme('colors.cem.text' / 0.3);
+  transform-origin: 80% 50%;
+  will-change: transform;
+  -webkit-backdrop-filter: blur(0.75em);
+  backdrop-filter: blur(0.75em);
+}
+
+.glass-icon__front > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  @apply text-cem-text;
+}
+
+.glass-icon__label {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  white-space: nowrap;
+  /* @apply text-base sets line-height too, and it lands AFTER a plain
+     declaration — so the reference's leading of 2 has to come after the
+     @apply, or text-base's 1.5rem silently wins. The label only ever shows one
+     line; the extra leading is what keeps it clear of the tile below it. */
+  @apply text-base text-cem-secondary;
+  line-height: 2;
+  opacity: 0;
+  transform: translateY(0);
+}
+
+.glass-icon:hover .glass-icon__back,
+.glass-icon:focus-visible .glass-icon__back {
+  transform: rotate(25deg) translate3d(-0.5em, -0.5em, 0.5em);
+}
+
+.glass-icon:hover .glass-icon__front,
+.glass-icon:focus-visible .glass-icon__front {
+  transform: translate3d(0, 0, 2em);
+}
+
+.glass-icon:hover .glass-icon__label,
+.glass-icon:focus-visible .glass-icon__label {
+  opacity: 1;
+  transform: translateY(20%);
+}
+
+.glass-icon:focus-visible .glass-icon__front {
+  outline: 2px solid theme('colors.cem.amber');
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-icon__back,
+  .glass-icon__front,
+  .glass-icon__label {
+    transition-duration: 0.01ms;
+  }
+
+  .glass-icon:hover .glass-icon__back {
+    transform: rotate(15deg);
+  }
+}
+
+/* ============================================================== HoldButton */
+
+/* The reference's own <style> block, rule for rule. Its progress variable is
+   --hb-p, written imperatively by the rAF drive loop; everything else reads
+   it through clip-path and the two mask offsets.
+
+   FOUR colour declarations could not be carried over literally, because
+   rule 01a of check-visual-contract.sh scans src/ for hex AND for
+   oklch/oklab/lab/lch/hwb/color-mix/rgb/rgba/hsl/hsla — and this file is
+   inside src/. Each replacement is marked at the rule it belongs to. */
+
+.hb-root {
+  --hb-w: 0px;
+  --hb-h: 0px;
+  --hb-cycles: 2;
+  --hb-p: 0;
+}
+
+/* REPLACEMENT 1 — the top highlight. The original puts it on the button as a
+   Tailwind arbitrary inset shadow over a white colour literal; a literal is a
+   rule 01a hit, so the same 1px inset line is cem.text at 0.06 alpha, which is
+   the same white the original used. */
+.hb-root {
+  box-shadow: inset 0 1px 0 theme('colors.cem.text' / 0.06);
+}
+
+/* REPLACEMENT 2 — the hover background. The original mixes its own background
+   92% with white, a colour function over a runtime value, so it cannot be
+   written without one. cem.hover is the nearest token in the ramp. The media
+   query and the :enabled guard are the reference's own. */
+@media (hover: hover) and (pointer: fine) {
+  .hb-root:enabled:hover {
+    background: theme('colors.cem.hover');
+  }
+}
+
+/* REPLACEMENT 3 — the glow. TWO problems, one fix.
+
+   First, an upstream bug: the reference injects this as
+   `data-[glow=true]:data-[phase=holding]:shadow-[${GLOW}]`, a JS template
+   literal. Tailwind v3 scans SOURCE TEXT for complete class strings, so an
+   interpolated value is never seen by the parser and the shadow is never
+   generated — the button in the reference does not glow at all. As a real
+   rule keyed on the data attributes it finally exists.
+
+   Second, GLOW's colour is a colour MIX of the fill against transparent,
+   which rule 01a bans. So the shadow carries --hb-fill at full strength on its
+   own layer and the 0.7 is the LAYER's opacity — the SpotlightCard precedent
+   ("the intensity is folded into the layer instead"). Same colour, same
+   geometry (10px / 32px / -6px), same intensity, and it now actually renders.
+
+   The inset half of GLOW is not repeated here: it is the top highlight above,
+   which the original also kept on the base class. */
+.hb-root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--hb-radius);
+  box-shadow: 0 10px 32px -6px var(--hb-fill);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--hb-release) var(--hb-ease-out);
+}
+
+.hb-root[data-glow='true'][data-phase='holding']::after,
+.hb-root[data-glow='true'][data-phase='done']::after {
+  opacity: 0.7;
+}
+
+/* The reference swaps the glow's transition to the HOLD duration while the
+   press is running, so the shadow arrives with the fill rather than trailing
+   it. Same swap, on the layer that now owns the shadow. */
+.hb-root[data-glow='true'][data-phase='holding']::after {
+  transition: opacity var(--hb-hold) linear;
+}
+
+.hb-fill {
+  clip-path: inset(0 calc((1 - var(--hb-p)) * (100% + 0.75 * var(--hb-wave)) - var(--hb-p) * 0.25 * var(--hb-wave)) 0 0);
+}
+
+.hb-root[data-direction='up'] .hb-fill {
+  clip-path: inset(calc((1 - var(--hb-p)) * (100% + 0.75 * var(--hb-wave)) - var(--hb-p) * 0.25 * var(--hb-wave)) 0 0 0);
+}
+
+/* The crest is the reference's own SVG, used as a repeating mask rather than
+   drawn: the path is untouched and so is every offset, including the one that
+   scrolls the mask by --hb-p * --hb-cycles * --hb-h, which is what makes the
+   wavelet travel instead of merely wobbling. */
+.hb-crest {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='200' viewBox='0 0 20 200' preserveAspectRatio='none'%3E%3Cpath d='M0 0H10C18 8 18 25.3 10 33.3S2 58.7 10 66.7S18 92 10 100S2 125.3 10 133.3S18 158.7 10 166.7S2 192 10 200H0Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='200' viewBox='0 0 20 200' preserveAspectRatio='none'%3E%3Cpath d='M0 0H10C18 8 18 25.3 10 33.3S2 58.7 10 66.7S18 92 10 100S2 125.3 10 133.3S18 158.7 10 166.7S2 192 10 200H0Z'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat-y;
+  mask-repeat: repeat-y;
+  -webkit-mask-size: var(--hb-wave) calc(var(--hb-h) * 2);
+  mask-size: var(--hb-wave) calc(var(--hb-h) * 2);
+  -webkit-mask-position-x: calc(-1 * var(--hb-wave) + var(--hb-p) * (var(--hb-w) + var(--hb-wave)));
+  mask-position-x: calc(-1 * var(--hb-wave) + var(--hb-p) * (var(--hb-w) + var(--hb-wave)));
+  -webkit-mask-position-y: calc(-1 * var(--hb-p) * var(--hb-cycles) * var(--hb-h));
+  mask-position-y: calc(-1 * var(--hb-p) * var(--hb-cycles) * var(--hb-h));
+}
+
+.hb-root[data-direction='up'] .hb-crest {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='20' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M0 20V10C12 2 38 2 50 10S88 18 100 10S138 2 150 10S188 18 200 10V20Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='20' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M0 20V10C12 2 38 2 50 10S88 18 100 10S138 2 150 10S188 18 200 10V20Z'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: calc(var(--hb-w) * 2) var(--hb-wave);
+  mask-size: calc(var(--hb-w) * 2) var(--hb-wave);
+  -webkit-mask-position-x: calc(-1 * var(--hb-p) * var(--hb-cycles) * var(--hb-w));
+  mask-position-x: calc(-1 * var(--hb-p) * var(--hb-cycles) * var(--hb-w));
+  -webkit-mask-position-y: calc(var(--hb-h) - var(--hb-p) * (var(--hb-h) + var(--hb-wave)));
+  mask-position-y: calc(var(--hb-h) - var(--hb-p) * (var(--hb-h) + var(--hb-wave)));
+}
+
+/* REPLACEMENT 4 — the pulse. Both keyframe stops colour their shadow with
+   color-mix against --hb-fill (55% then 0%). The ring's own opacity is already
+   keyframed 1 → 0 across the same animation, so the 0.55 is folded into that
+   opacity instead: `from { opacity: 0.55 }` with a full-strength --hb-fill
+   shadow composites to the same pixels as `opacity: 1` with the fill at 55%,
+   and the `to` stop is invisible either way. Geometry is unchanged:
+   0 → 14px spread over 600ms. */
+@keyframes hb-pulse {
+  from {
+    opacity: 0.55;
+    box-shadow: 0 0 0 0 var(--hb-fill);
+  }
+  to {
+    opacity: 0;
+    box-shadow: 0 0 0 14px var(--hb-fill);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-root {
+    transform: none !important;
+    transition: background-color 160ms ease !important;
+  }
+
+  .hb-root::after {
+    opacity: 0;
+    transition: none;
+  }
+
+  .hb-fill {
+    clip-path: inset(0) !important;
+    opacity: 0;
+    transition: opacity var(--hb-release) ease !important;
+  }
+
+  .hb-crest {
+    display: none;
+  }
+
+  .hb-root[data-phase='holding'] .hb-fill,
+  .hb-root[data-phase='done'] .hb-fill {
+    opacity: 1;
+    transition: opacity var(--hb-hold) linear !important;
+  }
+
+  .hb-pulse {
+    animation: none !important;
+  }
+
+  .hb-label > span {
+    filter: none !important;
+    transition: opacity 200ms ease !important;
+  }
+}
+
+/* ========================================================= AccordionGallery */
+/* The reference builds its shadows, text-shadow and accent glow inline, using
+   literal channel functions and a blend function. Rule 01a is ENFORCING over
+   this file too, so each one becomes a real rule here: the dark shadows through
+   Tailwind's token alpha syntax (`theme('colors.cem.*' / α)`), which is not a
+   colour function — the precedent at :1166 and :1255 — and the accent glow off
+   the panel's own `--ag-accent`, at full alpha because the 60% form is
+   forbidden. The focus ring is `cem.text`, never amber (DESIGN.md §6 "Focused"). */
+
+.ag-panel {
+  box-shadow: 0 10px 30px -18px theme('colors.cem.base' / 0.8);
+}
+
+.ag-panel:focus-visible {
+  box-shadow:
+    0 0 0 2px theme('colors.cem.text' / 0.9),
+    0 10px 30px -18px theme('colors.cem.base' / 0.8);
+}
+
+.ag-media {
+  filter: grayscale(var(--ag-gray, 1));
+}
+
+/* The reference's overlay: two blended background stops. Dim first, scrim
+   second so the scrim stays on top, matching CSS background stacking. The alpha
+   is folded into element opacity (the SpotlightCard / HoldButton precedent) and
+   the dim reads --ag-dim off the panel, which is where the tween writes it. */
+.ag-dim {
+  background: var(--ag-overlay);
+  opacity: var(--ag-dim, 0.35);
+}
+
+.ag-scrim {
+  background: linear-gradient(180deg, transparent 45%, var(--ag-overlay) 100%);
+  opacity: 0.78;
+}
+
+.ag-bar {
+  background: var(--ag-accent);
+  box-shadow: 0 0 12px var(--ag-accent);
+}
+
+.ag-label {
+  color: var(--ag-text);
+  text-shadow: 0 2px 14px theme('colors.cem.base' / 0.55);
+}
+
+/* Reduced motion is handled in JS — the GSAP timeline collapses to duration 0,
+   so every state stays reachable and nothing moves. These two rules only stop
+   the declarative half (the grayscale filter and the label transition) from
+   re-introducing motion outside the timeline. */
+@media (prefers-reduced-motion: reduce) {
+  .ag-media {
+    filter: grayscale(var(--ag-gray, 1)) !important;
+  }
+}
+
+/* ============================================================ CardNav */
+/* The reference's colours are literals: a white bar, a near-black CTA that
+   darkens on hover, a translucent light hairline and a soft dark shadow. Rule
+   01a rejects every hex AND every colour function in src/, so each becomes an
+   @apply of the token that carries the same step of the ramp — bar →
+   cem.text, hairline → cem.elevated, shadow → the scale's shadow-md (the Dock
+   precedent), CTA → cem.base with cem.hover on hover. `.hamburger-line` keeps
+   `currentColor`, which the rule allows and this file already uses. The CTA
+   note: the component passes `buttonBgColor`/`buttonTextColor` inline, and an
+   inline style wins over this rule — exactly as upstream, kept for fidelity. */
+
+.card-nav-container {
+  position: absolute;
+  top: 2em;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 800px;
+  z-index: 99;
+  box-sizing: border-box;
+}
+
+.card-nav {
+  display: block;
+  height: 60px;
+  padding: 0;
+  @apply bg-cem-text;
+  border: 0.5px solid;
+  @apply border-cem-elevated;
+  border-radius: 0.75rem;
+  @apply shadow-md;
+  position: relative;
+  overflow: hidden;
+  will-change: height;
+}
+
+.card-nav-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.45rem 0.55rem 1.1rem;
+  z-index: 2;
+}
+
+.hamburger-menu {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  gap: 6px;
+}
+
+.hamburger-menu:hover .hamburger-line {
+  opacity: 0.75;
+}
+
+.hamburger-line {
+  width: 30px;
+  height: 2px;
+  background-color: currentColor;
+  transition:
+    transform 0.25s ease,
+    opacity 0.2s ease,
+    margin 0.3s ease;
+  transform-origin: 50% 50%;
+}
+
+.hamburger-menu.open .hamburger-line:first-child {
+  transform: translateY(4px) rotate(45deg);
+}
+
+.hamburger-menu.open .hamburger-line:last-child {
+  transform: translateY(-4px) rotate(-45deg);
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.logo {
+  height: 28px;
+}
+
+.card-nav-cta-button {
+  /* Reference default fill, tokenised; the component's inline colour props
+     override it, which is how upstream behaves too. */
+  @apply bg-cem-base text-cem-text;
+  border: none;
+  border-radius: calc(0.75rem - 0.35rem);
+  padding: 0 1rem;
+  height: 100%;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  align-items: center;
+}
+
+.card-nav-cta-button:hover {
+  @apply hover:bg-cem-hover;
+}
+
+.card-nav-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 60px;
+  bottom: 0;
+  padding: 0.5rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.card-nav.open .card-nav-content {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.nav-card {
+  height: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: calc(0.75rem - 0.2rem);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  gap: 8px;
+  user-select: none;
+}
+
+.nav-card-label {
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+
+.nav-card-links {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-card-link {
+  font-size: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-card-link:hover {
+  opacity: 0.75;
+}
+
+@media (max-width: 768px) {
+  .card-nav-container {
+    width: 90%;
+    top: 1.2em;
+  }
+
+  .card-nav-top {
+    padding: 0.5rem 1rem;
+    justify-content: space-between;
+  }
+
+  .hamburger-menu {
+    order: 2;
+  }
+
+  .logo-container {
+    position: static;
+    transform: none;
+    order: 1;
+  }
+
+  .card-nav-cta-button {
+    display: none;
+  }
+
+  .card-nav-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0.5rem;
+    bottom: 0;
+    justify-content: flex-start;
+  }
+
+  .nav-card {
+    height: auto;
+    min-height: 60px;
+    flex: 1 1 auto;
+    max-height: none;
+  }
+
+  .nav-card-label {
+    font-size: 18px;
+  }
+
+  .nav-card-link {
+    font-size: 15px;
+  }
+}
