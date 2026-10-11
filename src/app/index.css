@@ -12,6 +12,17 @@
   }
 }
 
+@layer components {
+  /* skeleton.jsx: the sweep is an absolute pseudo-element, so the shimmer
+     class must create its own containing block. Declared here beside the
+     keyframes it drives; the component also writes the pair out on its own
+     element so a bare `.skeleton--shimmer` never escapes its host. */
+  .skeleton--shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+}
+
 /* docs/ux-spec.md 253: reduced motion reduces transitions and animations to
    near-zero. The 0.01ms is deliberate and must not be "corrected" to 0: some
    engines skip a transition whose duration is exactly zero, so `transitionend`
