@@ -238,7 +238,19 @@ cemurm/
 
 ## 7. Deployment
 
-> **Current status (2026-09-23):** the data layer runs against a **hosted Supabase project** (`https://kspnacfcietqikbufcka.supabase.co` via `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `.env.local`) — schema, RLS, GoTrue auth, and RPCs are deployed there (migrations 0001–0019). The local stack (`supabase start`, `supabase/config.toml`, ports 54321/54322) applies the same migrations and is used for development/reset. The frontend is still local-only dev (Vite, no CI/deploy). The table below is the deployment plan, not current state.
+> **Current status (verified 2026-09-30 against `main` = `762a040`):** the data layer runs against a
+> **local Supabase stack** (`supabase start`, `supabase/config.toml`, API `http://127.0.0.1:54321`)
+> — schema, RLS, GoTrue auth, and RPCs are applied there by `supabase/migrations/` (**33 migrations,
+> `0001`–`0033`, contiguous**) plus `supabase/seed.sql`. This project is **NOT linked to a hosted
+> Supabase project**; any hosted URL elsewhere in this document is stale and should be read as a
+> plan, not as state. `docs/local-dev.md` is authoritative for the local stack.
+>
+> **Correction to a 2026-09-23 status line in this section:** it stated the data layer was deployed
+> to a hosted project, that migrations stopped at `0019`, and that there was "no CI/deploy". All
+> three were wrong — the stack is local, migrations run through `0033`, and **CI exists**
+> (`.github/workflows/ci.yml`, on push to `main` and every PR: `install --frozen-lockfile → lint →
+> check-visual-contract.sh → test → build`). The table below remains the **deployment plan**; what
+> has actually shipped is recorded in `docs/mvp-scope.md`.
 
 | Service | URL | Notes |
 |---------|-----|-------|

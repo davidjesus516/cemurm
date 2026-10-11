@@ -1,33 +1,56 @@
 schema: spec-driven
 
 context: |
-  PWA for musicians: repertoires, setlists, live performance, offline-first (Vite 5 + React 18 JSX + Tailwind 3, react-router-dom 7).
-  Backend: local Supabase (supabase start, API 127.0.0.1:54321), schema v2 in supabase/migrations/0001_init.sql (48 tables).
-  Product source of truth: features/*.feature (42 Gherkin), docs/database-schema-v2.md, docs/technical-spec.md.
-  Package manager: pnpm v11 (lockfile pnpm-lock.yaml; never npm install).
-  NO test framework, NO typecheck, NO CI — strict TDD disabled, no-runner fallback.
+  PWA for musicians: repertoires, setlists, live performance, offline-first (Vite 6 + React 18 JSX + Tailwind 3, react-router-dom 7).
+  Backend: local Supabase (supabase start, API 127.0.0.1:54321), NOT linked to a hosted project. Schema is built by supabase/migrations/0001-0033.sql (33 files, contiguous) plus supabase/seed.sql; supabase/migrations/0001_init.sql declares the v2 model (48 tables).
+  Product source of truth: features/*.feature (45 Gherkin files, 713 scenarios), docs/database-schema-v2.md, docs/technical-spec.md.
+  Package manager: pnpm v11 (lockfile pnpm-lock.yaml; never npm install / npm run *).
+  Testing: Vitest 5.0.2, `pnpm test` (9 test files, 307 tests), node environment, colocated <module>.test.js. Tests are CHARACTERIZATION tests — they assert what the code does today, including known-buggy behaviour, so a red test is a finding to report, never a reason to weaken the assertion.
+  Type checking: per-file opt-in. Global checkJs is deliberately OFF; 47 files carry `// @ts-check`. Run `pnpm typecheck`.
+  CI: .github/workflows/ci.yml on push to main and every PR — install --frozen-lockfile, lint, check-visual-contract.sh, test, build. typecheck is NOT in CI.
+  src/ is post-relocation: src/app/main.jsx is the entrypoint, not src/main.jsx.
 
 strict_tdd: false
 
+# strict_tdd stays false, but the ORIGINAL REASON WAS WRONG and is corrected here.
+# It was false because "NO test framework ... no-runner fallback" — the runner exists (Vitest 5.0.2,
+# 307 tests). Keeping it false is still correct, for two reasons that actually hold:
+#   1. The suite is characterization-first by deliberate policy (AGENTS.md, delivery workflow
+#      clause 3). Assertions record present behaviour on purpose; a strict red-first loop that
+#      demands a failing test before any change inverts that policy for exactly the work the
+#      suite exists to catch.
+#   2. Coverage is narrow — 9 files of a ~130-module src/. A strict gate would block delivery on
+#      modules that have no test at all, which is a scaffolding bill, not a quality signal.
+# For genuinely NEW behaviour, write the test first: that is normal practice and is not blocked.
+# Re-evaluate when the suite stops being characterization-dominant.
+
 projects:
   - path: "."
-    stack: "Vite 5 + React 18 JSX + Tailwind 3 + @supabase/supabase-js 2.116"
-    test_command: ""
-    test_framework: ""
+    stack: "Vite 6 + React 18 JSX + Tailwind 3 + @supabase/supabase-js 2.116"
+    test_command: "pnpm test"
+    test_framework: "Vitest 5.0.2"
+    # No coverage command: @vitest/coverage-v8 is NOT installed and package.json has no
+    # coverage script. Left empty rather than inventing one. Add the provider first, then fill.
     coverage_command: ""
     lint_command: "pnpm lint"
-    typecheck_command: ""
-    format_command: ""
+    typecheck_command: "pnpm typecheck"
+    format_command: ""   # no formatter is configured; none was invented
 
 testing:
-  test_runner: false
-  unit: false
-  integration: false
-  e2e: false
-  coverage: false
+  test_runner: true
+  unit: true
+  integration: false   # no test touches a real database or the network; the smokes are manual SQL
+  e2e: false           # no browser automation is installed
+  coverage: false      # no coverage provider installed (see coverage_command above)
   notes: >
-    No workspace-level test command exists; package.json scripts are dev/build/preview/lint only.
-    strict_tdd: false per no-runner fallback — do NOT invent or synthesize a test runner.
+    Corrected 2026-09-30 against main = 762a040. The previous version of this block said
+    "No workspace-level test command exists; package.json scripts are dev/build/preview/lint only"
+    and set six flags false. All of that was wrong: `pnpm test` exists, Vitest is the only
+    test dependency (5.0.2 since #236; 3.2.7 when this note was corrected), and CI runs the suite. unit=true reflects 307 passing tests across 9 files in
+    src/domain/** and src/integrations/spotify.js. integration/e2e/coverage stay false because that
+    tooling genuinely does not exist — do not read those three as "untested", read them as
+    "unbuilt". The SQL smoke tests under scripts/smoke/ are manual-only and not a JS test tier.
+    Never synthesize a test runner: the real one is already here.
 
 rules:
   proposal:
@@ -36,8 +59,11 @@ rules:
     - Use Given/When/Then for scenarios; RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
     - features/*.feature is the product source of truth; delta specs must align with it
   design:
-    - Follow docs/technical-spec.md and src/ layout (components/, pages/, hooks/, lib/, store/, utils/)
+    - Follow docs/technical-spec.md and the POST-RELOCATION src/ layout, which is the only tree that exists: src/app/ (entrypoint main.jsx, router.jsx, AppLayout.jsx, providers/), src/features/<feature>/ (that feature's pages and components), src/data/ (supabase client + repositories/, the impure half), src/domain/ (pure logic, no I/O), src/integrations/, src/offline/, src/ui/patterns/, and src/lib/storage.js as the one deliberate exception left in src/lib/
+    - The pre-relocation paths components/, pages/, hooks/ and utils/ NO LONGER EXIST; several docs/ and odd/tasks/*.md files still cite them and are wrong
+    - There is NO src/store/ and NO Zustand. State lives in React context and hooks. Do not reintroduce a store layer or cite CONTRIBUTING.md's old tree
     - JSX, not TSX; Tailwind only (no CSS modules, styled-components, or inline styles)
+    - For anything visual, skills/cemurm-visual-system/SKILL.md wins over docs/design-system.md (see its supersession banner)
   tasks:
     - Group by phase, hierarchical numbering
     - Keep tasks completable in one session
@@ -46,10 +72,10 @@ rules:
       - Conventional Commits; feature branches from main (CONTRIBUTING.md)
       - pnpm only; lint must pass with zero warnings
     tdd: false
-    test_command: ""
+    test_command: "pnpm test"
   verify:
-    test_command: ""
+    test_command: "pnpm test"
     build_command: "pnpm build"
-    coverage_threshold: 0
+    coverage_threshold: 0   # no coverage tooling installed; 0 means "not enforced", not "aiming for 0%"
   archive:
     - Warn before merging destructive deltas

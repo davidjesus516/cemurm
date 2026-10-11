@@ -51,10 +51,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // The Resend HTTP API. Pinned, not "latest": an email body is a contract with a
 // provider, and a silent shape change would turn into a 400 nobody can read.
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-// From-address domain is verified per environment in Resend; keep it in one
-// place so local/prod differ by a single edit.
+// From-address domain is verified per environment in Resend, so the address
+// is read from RESEND_FROM; the default is the production from (verified
+// domain), and local test mode overrides it with Resend's test sender.
 const FROM_NAME = 'CEMURM'
-const FROM_ADDRESS = 'guardian@cemurm.app'
+const FROM_ADDRESS = Deno.env.get('RESEND_FROM') || 'guardian@cemurm.app'
 
 type CorsHeaders = Record<string, string>
 

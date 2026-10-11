@@ -13,7 +13,7 @@ CEMURM (Community-Centered Musical Repertories Manager) es una aplicación web p
 
 Es un **cuaderno de partituras digital** que no depende de Wi-Fi: las salas de ensayo y los auditorios no siempre tienen buena conexión, y CEMURM fue diseñada para ese escenario.
 
-**Estado del proyecto:** estamos en fase de especificación avanzada (42 archivos de features, 656 escenarios de comportamiento, esquema de base de datos de 44 entidades en `docs/database-schema-v2.md`, diseño técnico completo). Buscamos colaboradores como el sistema de orquestas para validar el producto antes de construir, no después.
+**Estado del proyecto:** estamos en fase de especificación avanzada (45 archivos de features, 713 escenarios de comportamiento, esquema de base de datos de 44 entidades en `docs/database-schema-v2.md`, diseño técnico completo). Buscamos colaboradores como el sistema de orquestas para validar el producto antes de construir, no después.
 
 ---
 
@@ -118,4 +118,4 @@ Nos ayudaría enormemente que respondan las que puedan, así sea brevemente:
 
 ---
 
-*Documento generado a partir de la especificación del proyecto (42 features BDD, 656 escenarios; esquema de base de datos: `docs/database-schema-v2.md`) — disponible para consulta si lo desean.*
+*Documento generado a partir de la especificación del proyecto (45 features BDD, 713 escenarios; esquema de base de datos: `docs/database-schema-v2.md`) — disponible para consulta si lo desean.*

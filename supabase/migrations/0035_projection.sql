@@ -1,4 +1,4 @@
--- 0022: Congregation Projection (Hito 5 — features/congregation-projection.feature).
+-- 0035: Congregation Projection (Hito 5 — features/congregation-projection.feature).
 --
 -- The projection SESSION is pure client/runtime state (schema contract: realtime
 -- surface, not persistent rows) — the operator device owns the slide deck and the

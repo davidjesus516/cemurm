@@ -4,29 +4,29 @@
 
 CEMURM lets individual musicians and bands organize their song libraries, create setlists for gigs, and share arrangements with bandmates — all from a responsive web app that works offline on any device.
 
-**Current status (2026-09-23): Hito 1–4 implemented, Hito 5 in progress.** Auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search, the practice view, Stage Mode, offline-first (service worker + IndexedDB), band collaboration, the public library, org repertoire, and services/rehearsals are shipped against hosted Supabase (PostgreSQL + RLS). Hito 5 — integrations (MIDI, external display, OBS overlay, plan freeze) — is under development on feature branches; Hito 6 (beta polish) is planned.
+**Current status (2026-10-02, verified against `main` = `e849738`): Hito 1–5 implemented; Hito 6 not started.** Auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search, the practice view, Stage Mode, offline-first (service worker + IndexedDB), band collaboration, the public library, org repertoire, and services/rehearsals shipped with Hito 1–4. Hito 5 — integrations (MIDI, external display, OBS overlay, plan freeze, congregation projection, substitutions, PDF chart storage, import pipeline) — is **merged**: migrations `0021`–`0033` are all on `main`. Hito 6 (beta polish) has no implementation. See [`docs/mvp-scope.md`](docs/mvp-scope.md) for the per-hito breakdown and [`docs/master-plan.md`](docs/master-plan.md) for the sequencing of what remains.
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18+ / Vite / Tailwind CSS |
-| Backend | Supabase — hosted project (`kspnacfcietqikbufcka.supabase.co`: PostgreSQL + GoTrue auth + RLS); local stack (`supabase start`, same migrations) for dev/reset |
-| File Storage | Cloudflare R2 (planned) |
+| Backend | Supabase — **local stack** (`supabase start`; PostgreSQL 17 + GoTrue auth + RLS), API at `http://127.0.0.1:54321`. **Not linked to a hosted project** — see [`docs/local-dev.md`](docs/local-dev.md) |
+| File Storage | Supabase Storage (`charts` bucket, private, owner-folder RLS) — shipped (Hito 5, migration `0027`); Cloudflare R2 remains an option in the deployment plan |
 | Music Notation | ChordPro (custom JS parser — live); MusicXML (OSMD), ABC (abcjs) planned |
 | Offline | Service worker (`public/sw.js`) + IndexedDB read cache, offline write queue, background-sync drain — shipped (Hito 2) |
-| APIs | LRCLIB, MusicBrainz, Spotify (planned) |
-| Deployment | Data layer live on hosted Supabase; frontend still local dev (Vite, no CI/deploy); Vercel/R2 hosting planned |
+| APIs | LRCLIB, MusicBrainz, Spotify — enrichment clients shipped (Hito 5, migration `0026`), default to a deterministic **mock** until live flags are set |
+| Deployment | Frontend is local dev only (Vite) — **CI exists** (`.github/workflows/ci.yml`, push to `main` + every PR: install → lint → visual gate → test → build). No deploy pipeline yet; Vercel/R2 hosting planned |
 
 ## Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/cemurm.git
+git clone https://github.com/davidjesus516/cemurm.git
 cd cemurm
 
 # Install dependencies (pnpm only — never npm install)
-pnpm install
+pnpm install --frozen-lockfile
 
 # Start the local Supabase stack (Postgres + auth; required for sign in)
 supabase start
@@ -41,19 +41,38 @@ pnpm dev
 
 The app will be available at `http://localhost:5173`.
 
-Other scripts: `pnpm build` (production build to `dist/`), `pnpm lint` (ESLint, zero warnings enforced).
+## Scripts
+
+| Script | What it does |
+|---|---|
+| `pnpm dev` | Vite dev server → `localhost:5173` |
+| `pnpm build` | production build to `dist/` |
+| `pnpm preview` | serve `dist/` |
+| `pnpm lint` | ESLint, zero warnings enforced (`--max-warnings 0`) |
+| `pnpm test` | Vitest run — characterization tests (`node` environment) |
+| `pnpm test:watch` | Vitest watch mode |
+| `pnpm typecheck` | `tsc --noEmit` — per-file opt-in, see `AGENTS.md` |
+| `pnpm check:visual` | the visual contract gate (`scripts/check-visual-contract.sh`), also wired into CI |
+
+**Full verification for a change** = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
+CI runs `install → lint → check:visual → test → build`; `typecheck` is deliberately **not** in CI,
+so run it locally before claiming a change is done.
 
 ## Documentation
 
-- [Technical Specification](docs/technical-spec.md)
+- [Master Plan](docs/master-plan.md) — **authoritative sequencing** for what is not yet on `main`
+- [Local Development](docs/local-dev.md) — local Supabase stack, reset procedure, seed identities
+- [Technical Specification](docs/technical-spec.md) *(deployment section superseded — see its status note)*
 - [Database Schema v2](docs/database-schema-v2.md)
 - [MVP Scope & Milestones](docs/mvp-scope.md)
+- [Engineering Review Backlog](docs/engineering-review-backlog.md)
+- [Visual System — `skills/cemurm-visual-system/SKILL.md`](skills/cemurm-visual-system/SKILL.md) — **the single source of visual truth**
+- [Design System](docs/design-system.md) — ⚠️ **partially superseded** by the visual-system skill; retained for brand voice, mascot, notification behaviour, onboarding and empty states
 - [Copyright Policy](docs/copyright-policy.md)
 - [Product Brief for Beta Users](docs/product-brief.md)
 - [Features Overview](docs/features-overview.md)
 - [Music Theory Model](docs/music-theory-model.md)
 - [UX Spec](docs/ux-spec.md)
-- [Design System](docs/design-system.md)
 - [Wireframes](docs/wireframes.md)
 
 ## License
