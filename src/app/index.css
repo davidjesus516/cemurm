@@ -13,13 +13,84 @@
 }
 
 @layer components {
-  /* skeleton.jsx: the sweep is an absolute pseudo-element, so the shimmer
-     class must create its own containing block. Declared here beside the
-     keyframes it drives; the component also writes the pair out on its own
-     element so a bare `.skeleton--shimmer` never escapes its host. */
+  /* skeleton.jsx — documented-contract loading placeholders, mirrored (no RAC layer).
+     These BEM classes are PUBLIC API: any caller may write them, so they live here and
+     not in reference.css (which is reserved for the reactbits reference ports).
+     Every colour is @apply of a token. Rule 01a (`enforcing`) greps src/ for hex
+     literals and for colour functions, so a literal written here fails CI. Rule 04
+     (`enforcing`) freezes the palette at its 17 leaves, so no token may be added either. */
+
+  /* Skeleton sweep: a highlight travels across the placeholder from -100% to
+     200%. Colour-free on purpose: the highlight itself is a `bg-cem-text/5` overlay
+     painted by @apply, so this file stays clear of rule 01a. The reduced-motion block
+     below collapses it, which is what we want: a placeholder that sweeps forever is
+     the loop the visual system forbids. The shimmer effect is implemented in the
+     design component as a synchronized parent/children sweep; callers may opt in by
+     carrying the `skeleton--shimmer` class on a wrapper. */
+  @keyframes cem-skeleton-sweep {
+    100% {
+      transform: translateX(200%);
+    }
+  }
+
+  /* Skeleton base fill.
+     This rule is where the placeholder fill lives: the repo's stylesheet is the
+     only one loaded here, so `.skeleton` has to carry the fill itself or every
+     placeholder would render transparent.
+
+     The token is the repo's: `bg-cem-elevated` is the one neutral that reads as a
+     placeholder against both `cem.base` and `cem.surface` (the page skeleton draws
+     placeholders inside `bg-cem-surface` cards), and `rounded-md` is the repo's
+     control radius. Rule 01a forbids colour literals in src/, so this is @apply of a
+     token utility and nothing else: no hex, no colour function, and no new token. */
+  .skeleton {
+    @apply pointer-events-none rounded-md bg-cem-elevated;
+  }
+
+  /* The sweep overlay. Applied by `.skeleton--shimmer` in the design component
+     set (src/features/design/components/skeleton.jsx); a parent carrying
+     `.skeleton--shimmer` turns its children into one synchronised sweep.
+
+     THE HOST MUST BE ITS OWN CONTAINING BLOCK. This is a real bug that shipped:
+     the host had no `position`, so the absolutely-positioned `::after` with
+     `inset: 0` resolved against the nearest positioned ancestor — which was the
+     page — and the highlight swept across the whole screen. And without `overflow:
+     hidden` the sweep also painted outside the box it belongs to. Both are fixed
+     here rather than only in the markup, because the class is public API: any
+     caller can put `skeleton--shimmer` on its own element. */
   .skeleton--shimmer {
     position: relative;
     overflow: hidden;
+  }
+
+  .skeleton--shimmer > *,
+  .skeleton--shimmer::after {
+    position: relative;
+  }
+
+  .skeleton--shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 50%;
+    @apply bg-cem-text/5;
+    animation: cem-skeleton-sweep 2s linear infinite;
+  }
+
+  .skeleton--pulse {
+    animation: cem-skeleton-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes cem-skeleton-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  .skeleton--none {
+    opacity: 0.5;
   }
 }
 
