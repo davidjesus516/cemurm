@@ -76,7 +76,7 @@ const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      { path: '/', element: defer(<DashboardPage />) },
+      { path: '/', element: defer(<Home />) },
       {
         element: defer(<RequireAuth />),
         children: [
@@ -107,6 +107,7 @@ const router = createBrowserRouter([
               { path: '/notifications', element: defer(<Notifications />) },
               { path: '/settings', element: defer(<Settings />) },
               { path: '/settings/storage', element: defer(<Storage />) },
+              { path: "/dashboard", element: defer(<DashboardPage />) },
             ],
           },
         ],
