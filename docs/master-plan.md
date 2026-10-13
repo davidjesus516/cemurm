@@ -43,7 +43,7 @@ Prose in this repo has drifted. These are the facts, checked against git and cod
 | **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck` |
 | **CI on `main`** | `install --frozen-lockfile → lint → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-visual-contract.sh` |
 | `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
-| Feature files | **45**, 713 scenarios — was 42 / 656 at `8b66394` |
+| Feature files | **46**, 734 scenarios — was 42 / 656 at `8b66394` |
 | Migrations on `main` | **33 files, numbered `0001`–`0035`, with `0021`/`0022` a deliberate free gap** — was 27 with a gap at `0021` |
 | Next free migration number | **`0021` / `0022`** (deliberately free), or **`0036`** for anything that must sort after `0035` |
 | Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`) |
