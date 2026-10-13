@@ -38,7 +38,9 @@ import { AuthProvider } from './providers/useAuth.jsx'
 // and no class, which is what "invisible in the browser" requires.
 const defer = (element) => <Suspense fallback={null}>{element}</Suspense>
 
-const Home = lazy(() => import('../features/shell/pages/Home.jsx'))
+// DashboardPage reemplazó al Home como ruta raíz /
+// DashboardPage ya tiene lógica de fallback: si !user → login prompt,
+// si user → dashboard completo con sidebar + widgets.
 const Songs = lazy(() => import('../features/repertoire/pages/Songs.jsx'))
 const SongDetail = lazy(() => import('../features/repertoire/pages/SongDetail.jsx'))
 const Setlists = lazy(() => import('../features/setlists/pages/Setlists.jsx'))
@@ -67,13 +69,14 @@ const Moderation = lazy(() => import('../features/moderation/pages/Moderation.js
 const Storage = lazy(() => import('../features/settings/pages/Storage.jsx'))
 const Settings = lazy(() => import('../features/settings/pages/Settings.jsx'))
 const NotFound = lazy(() => import('../features/shell/pages/NotFound.jsx'))
+const DashboardPage = lazy(() => import('../features/dashboard/DashboardPage.jsx'))
 const Landing = lazy(() => import('../features/landing/pages/Landing.jsx'))
 
 const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      { path: '/', element: defer(<Home />) },
+      { path: '/', element: defer(<DashboardPage />) },
       {
         element: defer(<RequireAuth />),
         children: [
