@@ -4,6 +4,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.js'],
-    exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
+    exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**', 'spike/**'],
   },
 });
