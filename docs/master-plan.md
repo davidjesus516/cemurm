@@ -443,7 +443,21 @@ its six features.
 | `cross-organization-event-collaboration` | 16 | largest design lift: depends on org model + service planning + shared-setlist collab + repertoire ownership |
 | `user-onboarding` | 16 | none |
 | `account-data-export-and-erasure` | 11 | none |
-| `offboarding-cascade` | 10 | none |
+| `offboarding-cascade` | 10 | membership model, `former` state and `left_at` (`0001`), `notify_user` and `transfer_setlist_ownership` (`0008`, Hito 3), `withdraw_public_song` and `leave_organization` (`0012`/`0016`, Hito 4) all shipped earlier; the missing piece was the CASCADE |
+
+**`offboarding-cascade` correction (2026-10-13).** The `none` this row carried was wrong about the
+code. The reconnaissance for N2 found the feature **mostly built**, with only its cascade absent:
+`private.org_leave` (`0016:437-453`) flipped the membership to `former` and stopped there, so an
+unavailable member could leave with her open substitution request left dangling — never closed, and
+the leader never told; and `private.assign_musician` (`0018:462-524`) accepted any user id as an
+assignee, former members included. `0038_offboarding_cascade.sql` closes both, verified by
+`scripts/smoke/0038-offboarding-cascade.sql` (33 PASS / 0 FAIL) — see `odd/tasks/offboarding-cascade.md`
+for the execution record. This is the one feature of Hito 6's six with any implementation, so the
+blanket "no implementation exists for any of its six features" above holds for the other five only.
+The row's count of 10 scenarios was right; the **size of the work was not**,
+and that is what made this row worth repairing rather than the code worth rewriting. Still open: the
+setlist handoff (`:53`), which needs a two-phase leave rather than a data-model change, and
+assertions for the scenarios that already hold by construction.
 
 Plus the non-BDD deliverables in `mvp-scope.md:254-261`: Lighthouse > 90, WCAG 2.1 AA, UI
 polish, bug-fix sprint, beta docs, error boundaries, analytics.
