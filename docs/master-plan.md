@@ -443,7 +443,7 @@ its six features.
 | `cross-organization-event-collaboration` | 16 | largest design lift: depends on org model + service planning + shared-setlist collab + repertoire ownership |
 | `user-onboarding` | 16 | none |
 | `account-data-export-and-erasure` | 11 | none |
-| `offboarding-cascade` | 10 | membership model, `former` state and `left_at` (`0001`), `notify_user` and `transfer_setlist_ownership` (`0008`, Hito 3), `withdraw_public_song` and `leave_organization` (`0012`/`0016`, Hito 4) all shipped earlier; the missing piece was the CASCADE |
+| `offboarding-cascade` | 10 | membership model, `former` state and `left_at` (`0001`), `notify_user` and `transfer_setlist_ownership` (`0008`, Hito 3), `withdraw_public_song` and `leave_organization` (`0012`/`0016`, Hito 4) all shipped earlier; the missing pieces were the CASCADE and the branch-visibility read `:37` depends on (corrected 2026-10-14) |
 
 **`offboarding-cascade` correction (2026-10-13).** The `none` this row carried was wrong about the
 code. The reconnaissance for N2 found the feature **mostly built**, with only its cascade absent:
@@ -457,7 +457,8 @@ blanket "no implementation exists for any of its six features" above holds for t
 The row's count of 10 scenarios was right; the **size of the work was not**,
 and that is what made this row worth repairing rather than the code worth rewriting. Still open: the
 setlist handoff (`:53`), which needs a two-phase leave rather than a data-model change, and
-assertions for the scenarios that already hold by construction.
+assertions for the scenarios that hold by construction — **except** `:37`, whose org read access has
+no implementation at all (`shared_to_branch` is read by no policy or RPC).
 
 Plus the non-BDD deliverables in `mvp-scope.md:254-261`: Lighthouse > 90, WCAG 2.1 AA, UI
 polish, bug-fix sprint, beta docs, error boundaries, analytics.

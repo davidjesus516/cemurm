@@ -279,13 +279,25 @@ function isOverlapError(message) {
 }
 
 /**
+ * The re-assignment rejection is dynamic: '<name> is no longer a member'
+ * (0038 raises it with private.display_name_for). Match the stable suffix
+ * instead of the whole string.
+ * @param {unknown} message
+ * @returns {boolean}
+ */
+function isFormerMemberError(message) {
+  return typeof message === 'string' && message.includes(' is no longer a member')
+}
+
+/**
  * Re-throws known user-facing errors; maps everything else to a generic
  * message so callers never see PostgREST internals. Never returns.
  * @param {Error} error
  * @returns {never}
  */
 function handleError(error) {
-  if (USER_ERRORS.has(error?.message) || isOverlapError(error?.message)) throw error
+  const message = error?.message
+  if (USER_ERRORS.has(message) || isOverlapError(message) || isFormerMemberError(message)) throw error
   throw new Error('Something went wrong. Please try again.')
 }
 

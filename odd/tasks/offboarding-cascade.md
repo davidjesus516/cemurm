@@ -2,11 +2,13 @@
 
 - **Change:** N2 unit 1 of Hito 6 (privacy slice). Migration `0038_offboarding_cascade.sql`.
 - **Branch:** `feat/offboarding-cascade-pr1-cascade` (from `origin/main` = `8a9b1b2`), then
-  `feat/offboarding-cascade-pr2-blast-radius`, then `feat/offboarding-cascade-pr3-record-docs`.
-- **Delivery:** `stacked-to-main` chain, three slices — see "Slice boundaries".
-- **Status:** all three slices committed and verified. Slice 1 =
+  `feat/offboarding-cascade-pr2-blast-radius`, then `feat/offboarding-cascade-pr3-record-docs`, then
+  `feat/offboarding-cascade-pr4-rejection-surface` (added 2026-10-14 — see "Slice 4").
+- **Delivery:** `stacked-to-main` chain, four slices — see "Slice boundaries".
+- **Status:** all four slices committed and verified. Slice 1 =
   [#368](https://github.com/davidjesus516/cemurm/pull/368), slice 2 =
-  [#369](https://github.com/davidjesus516/cemurm/pull/369), slice 3 = [#370](https://github.com/davidjesus516/cemurm/pull/370); all three open,
+  [#369](https://github.com/davidjesus516/cemurm/pull/369), slice 3 = [#370](https://github.com/davidjesus516/cemurm/pull/370),
+  slice 4 = [#371](https://github.com/davidjesus516/cemurm/pull/371); all four open,
   awaiting human review. Merge is the maintainer's.
 - **TDD:** off (`openspec/config.yaml:13`). Runner `pnpm test` for the JS gates. This unit is
   SQL behaviour, so its honest verification is the smoke script — see "Why not the gherkin tier".
@@ -67,8 +69,8 @@ as part of this unit.
   **two-phase leave** (the handoff gates the status flip) — more than the "the data model already has
   it" first read suggested.
 - `:14`, `:24`, `:28`, `:33`, `:63`, `:67` (nothing deleted, personal annotations, personal fork,
-  gig records, public attribution, withdrawal) — these already hold by construction or RLS; they
-  need assertions, not code. WU3.
+  gig records, public attribution, withdrawal) — the retention halves hold by construction or RLS, but
+  not every second half does. See finding 4: `:37` needs code, so WU3 is not assertions-only there.
 - Removing a former member from **frozen** `candidates` arrays on requests created before the leave.
   The Gherkin says "excluded from new substitution candidate lists", and new lists already exclude
   them (`0023:92` filters `m.status = 'active'`). Frozen arrays are deliberately untouched; the
@@ -125,17 +127,19 @@ as part of this unit.
 
 ## Slice boundaries
 
-The unit is 2.36× the repo's 400-changed-line budget in one piece (943 changed lines: 942 insertions
-and 1 deletion across 4 files, `git diff --shortstat 8a9b1b2 HEAD`; before the 2026-10-14 corrections
-the same measure was 831 = 2.08×), so it ships as a `stacked-to-main` chain (the same strategy the
-tie-break chain used). No single slice exceeds the budget; the unit does. The seams are
-**behaviour** vs **executable proof** vs **documentation**.
+The unit is 2.94× the repo's 400-changed-line budget in one piece (1177 changed lines: 1175 insertions
+and 2 deletions across 6 files, `git diff --shortstat 8a9b1b2 HEAD`; slices 1-3 alone were 943
+changed lines = 2.36×, and before the 2026-10-14 corrections the same measure was 831 = 2.08×), so it
+ships as a `stacked-to-main` chain (the same strategy the tie-break chain used). No single slice
+exceeds the budget; the unit does. The seams are **behaviour** vs **executable proof** vs
+**documentation** vs **UI surfacing** (slice 4, added after the first three were pushed).
 
 | Slice | PR | Branch | Holds | Changed lines |
 |---|---|---|---|---|
 | **1** | [#368](https://github.com/davidjesus516/cemurm/pull/368) | `feat/offboarding-cascade-pr1-cascade` | `0038_offboarding_cascade.sql` (202) + smoke assertions 1-11 (191) | **393** — under budget |
 | **2** | [#369](https://github.com/davidjesus516/cemurm/pull/369) | `feat/offboarding-cascade-pr2-blast-radius` | smoke assertions 12-33 (+270/-10) | **280** — under budget |
 | **3** | [#370](https://github.com/davidjesus516/cemurm/pull/370) | `feat/offboarding-cascade-pr3-record-docs` | `docs/master-plan.md` (+15/-1) and this record (274) | **290** — under budget |
+| **4** | [#371](https://github.com/davidjesus516/cemurm/pull/371) | `feat/offboarding-cascade-pr4-rejection-surface` | `services.js` error mapping (+13/-1), `services.test.js` (97), the `master-plan` row correction and this record's slice-4 section | **268** — under budget |
 
 The first cut put the smoke extension, the doc correction and this record in one 573-line slice, 173
 over. The fix was a re-cut, not a `size:exception`: the seam is **executable proof** (slices 1-2)
@@ -144,6 +148,10 @@ the assertion count, the fixtures and this record are unchanged in content, and 
 the same 943 lines. Each slice is based on the one before, so every diff carries only its own work
 unit.
 
+Slice 4 postdates that re-cut and is new work, not a re-slice: it adds the UI surfacing that the first
+three slices disclosed as missing. It is the only slice that changes JS, so it is the only one that
+moves the `pnpm test` baseline (404/17 → 409/18), and it moves the unit's total off 943.
+
 Assertions 1-11 are stable across the chain: slice 1's header correction touches no assertion, and
 slice 2 adds fixtures, RPC setup and the appended assertions 12-33 — no existing assertion number ever moves.
 
@@ -151,6 +159,77 @@ Tested at both smoke tips, each on a fresh `supabase db reset`:
 
 - slice 1 tip (`ae06180`): the smoke stops at assertion 11 and reports **11 PASS / 0 FAIL**.
 - slice 2 tip (`45b7e94`, the last commit that changes the smoke; this record's commit sits on top): **33 PASS / 0 FAIL**, all of 1-33 present exactly once.
+
+## Slice 4 — the UI rejection surfacing
+
+Slice 4 was not part of the original cut: the gap below was disclosed while the WU1 PR bodies were
+being written, and the maintainer asked for it as its own unit on 2026-10-14.
+
+**The gap.** `handleError` (`services.js:298-302`) re-throws a rejection only when the message is an
+exact member of `USER_ERRORS` (`services.js:255-268`) or matches `isOverlapError`'s dynamic suffix
+(`services.js:277-279`). The re-assignment literal is *dynamic* — `<display name> is no longer a
+member` (`0038:168`) — so `assignMusician` rejected with `Something went wrong. Please try again.`,
+while `AssignForm` renders `err.message` verbatim (`ServiceDetail.jsx:232` set, `:277` rendered).
+`features/offboarding-cascade.feature:51` therefore held in the database and was invisible in the
+interface; the SQL half alone was never enough. **The fix** is `isFormerMemberError`
+(`services.js:281-290`), matching the stable suffix `' is no longer a member'` — the shape
+`isOverlapError` already uses — with `handleError` consulting all three sources. `USER_ERRORS` is
+untouched, so no existing mapping changes.
+
+**What slice 4 deliberately does NOT change: the member picker.** `AssignForm`'s "Known members…"
+select is fed by `getService`'s `members` — *every profile the plan references*
+(`services.js:517-523`, returned at `:569`) — and the former member stays in it because her
+`service_assignments` row is deliberately retained (`0038` closes the request and notifies the leader;
+it does not touch the plan). Excluding her was considered and dropped on three grounds:
+`features/offboarding-cascade.feature:52` names the **substitution candidate list** — the
+`substitution_candidates` RPC (`0023:46`, `m.status = 'active'` at `0023:92`), already asserted by
+smoke assertion 24 — not the assignment picker; the picker's other half is a free-text search over
+*all* profiles (`searchProfiles`, `profiles.js:60-73`, no org scope), so a picker-only filter would
+exclude nobody who is actually reachable; and the scenario needs the leader to be *able to try* the
+assignment for the rejection to exist at all. The entry rule settles it: an item is implemented only
+when its hito or BDD feature requires it (`docs/engineering-review-backlog.md:5`).
+
+One correction, kept because a wrong reason is not a reason: the first draft of this section argued
+that filtering `members` would lose the *live* assignments' displayed names. It would not —
+`flattenAssignment` bakes `memberName` into each row before `members` is built
+(`services.js:357-373`, `:363`). The over-broad statement was caught by the independent verifier; a
+global filter would only reach the non-leader published snapshot (`snapshotAssignmentsByBlock`,
+`ServiceDetail.jsx:148-162`) and the substitution panel's name lookup (`ServiceDetail.jsx:860`,
+`:891`). The picker was dropped for the three grounds above, not for that one.
+
+**Verification.** This is the only JS slice, so its gates are the node ones:
+
+| Gate | Result |
+|---|---|
+| `pnpm test` | **409 passed / 18 files** (exit 0) — was 404/17 before the slice |
+| `pnpm test:gherkin` | 41 passed / 5 files (exit 0) |
+| `pnpm typecheck` | 0 (exit 0) |
+| `pnpm lint` | 0 (exit 0) |
+| `scripts/check-visual-contract.sh` | OK — 12 rules checked, 0 failing |
+| `pnpm build` | ✓ built in 4.52s |
+| `npx tsc --noEmit --listFiles \| grep -c 'cemurm/src/'` | 65 — was 64; the +1 is the new `services.test.js`, which the `src/data` include reaches |
+
+**Falsifiability — the point of the slice.** `src/data/repositories/services.test.js` is the first
+data-layer test for `services.js` and copies the `annotations.test.js` mocking shape (`src/data/supabase.js`
+throws in bare node without env vars, so it is mocked before the dynamic import). Removing
+`|| isFormerMemberError(message)` from `handleError` turned exactly the two literal cases red:
+
+```
+AssertionError: expected 'Something went wrong. Please try agai…' to be 'Sofia is no longer a member'
+  → src/data/repositories/services.test.js:58
+AssertionError: expected 'Something went wrong. Please try agai…' to be 'Ana María Ochoa is no longer a member'
+  → src/data/repositories/services.test.js:70
+Tests  2 failed | 3 passed (5)
+```
+
+the generic-message, overlap and part-guard cases stayed green, and the revert restored 5/5. This was
+run three times independently — by the writer, by the parent, and by the verifier — with the same
+result each time. The assertions can fail, and they fail for the reason the slice claims.
+
+**Honest note on ordering.** TDD is off in this repo (`openspec/config.yaml:13`), so this was not a
+RED-first cycle: the matcher and the test landed in the same commit and falsifiability was established
+by mutation *after* the fact. The mutation is real; the ordering is not what strict TDD would have
+produced, and this record does not claim otherwise.
 
 ## Acceptance criteria
 
@@ -164,6 +243,8 @@ Tested at both smoke tips, each on a fresh `supabase db reset`:
   persists.
 - Assigning a former member raises `'Sofia is no longer a member'`; assigning an active member
   still succeeds.
+- The rejection reaches the user **as that literal**, not as the generic message — the DB half alone
+  is not the criterion (slice 4).
 - The leaving org's data is no longer readable by the former member (the existing `status = 'active'`
   RLS gate, asserted rather than assumed).
 
@@ -215,8 +296,14 @@ corrected tips (`ae06180` / `45b7e94`) on 2026-10-14, same readings:
 **On the 404/41 vs 410/44 baseline.** The tie-break chain's slice 2 branch reports 410/44; this
 chain branches from `main`, which does not carry that slice. `git diff --stat origin/main
 origin/fix/offline-tie-break-pr2 -- '*.test.js' 'src/test/**'` shows the entire delta lives in
-PR2's three test files, and this unit touches no test file. The 404/41 reading is the `main`
+PR2's three test files, and slices 1-3 touch no test file. The 404/41 reading is the `main`
 baseline, not a regression.
+
+**The baseline moves with slice 4** (the only JS slice): 404/17 → **409/18** and the `checkJs`
+aliveness count 64 → 65. Both are additive — the new `services.test.js` and its five cases. Note that
+`vitest.config.js`'s include reaches `src/**/*.test.js`, so the `pnpm test` figures **include** the
+gherkin tier's 41 tests in 5 files; `pnpm test:gherkin` re-runs that subset. Nothing was removed to
+move the number.
 
 ## Honest limitations
 
@@ -237,6 +324,10 @@ baseline, not a regression.
   open request as "busy", so she is excluded twice over for `ana_asg`. Removing `m.status = 'active'`
   alone leaves **33 PASS / 0 FAIL** — no assertion here goes red on that filter by itself. Recorded,
   not papered over.
+- **Slice 4 leaves the member picker alone.** A former member is still selectable in `AssignForm` and
+  gets rejected with the BDD literal — which is what the scenario describes. She is kept out of new
+  *substitution candidate* lists by the DB filter (assertion 24), not by the picker. The three grounds
+  for that decision are in "Slice 4"; the feature requires no more than this.
 
 ## Findings to carry forward
 
@@ -248,6 +339,32 @@ baseline, not a regression.
    The stale attribution survives in `AGENTS.md:166` and `docs/security.md:57,271`, which still locate
    "two" at `docs/local-dev.md:29` as if it were live. `docs/master-plan.md:489` does not: it already
    records that line as repaired. Pre-existing and unrelated to this unit.
+3. **`0034_plan_freeze.sql` raises seven literals that `USER_ERRORS` does not carry** — the same defect
+   class slice 4 just fixed for `0038`, found by the independent verifier while reviewing slice 4 and
+   deliberately not fixed there (different unit, its own smoke): `publish_plan` (`0034:79`) raises
+   `'Service not found'` (`:98`), `'Only the service leader can publish the plan'` (`:102`) and
+   `'A completed service is read-only'` (`:105`); `get_published_plan` (`0034:178`) raises
+   `'Service not found'` (`:193`) and `'Not visible to this user'` (`:197`); `list_plan_versions`
+   (`0034:226`) raises `'Service not found'` (`:246`) and
+   `'Only the service leader can view version history'` (`:249`). Five distinct literals, all without
+   the trailing period that `USER_ERRORS` carries for `'Service not found.'`, so all five map to the
+   generic message. The *mismatch* is verified by reading both sides; whether each is **reachable**
+   from the UI is not — the publish button is gated on `isLeader && !completed` and the read paths are
+   partly swallowed (`getPublishedPlan` in `ServiceDetail.jsx`), and no path was traced. Recorded as a
+   verified literal mismatch, not as a verified user-visible bug.
+
+4. **The record's own claim that `:33` "already holds by construction or RLS" is wrong for its second
+   half.** Every gig, performance and performance-item policy is owner-scoped (`0004:64`, `:87`,
+   `:147`), and `shared_to_branch` (`0001:300`) is written by the client (`gigs.js:439`, `:540`) but
+   read by **no** policy and no RPC anywhere under `supabase/` — so "shared it to the branch" (`:34`)
+   grants the branch nothing, and `:37` ("org members keep read-only access to the completed gig")
+   cannot hold. `:36` does hold, for the same owner-only reason. `:37` therefore needs the
+   branch-visibility read, not an assertion: WU3's estimate for that scenario is larger than this
+   record first said. The identical claim in `docs/master-plan.md:446` and `:459-460` is corrected in
+   this same slice. Found by the WU2 reconnaissance on 2026-10-14 and verified here by reading both
+   sides. Separately, `:31`'s "right to rebase" depends on
+   `personal-preferences-and-adaptations.feature:62-84`, which is itself unimplemented — a different
+   feature's unit, but the `:28` assertion must not be written as if rebase already existed.
 
 ## Verification of the docs correction
 
@@ -260,15 +377,20 @@ any of its six features", which the row contradicted. No other row in that table
 erasure row (`account-data-export-and-erasure`) is Track B and is not authorized here, even though
 its `none` looks equally wrong.
 
+Slice 4 corrects that same row once more: the WU2 reconnaissance falsified "the missing piece was the
+CASCADE" and "the scenarios that already hold by construction" for `:37`, which has no code at all —
+finding 4.
+
 ## Next step
 
 [#368](https://github.com/davidjesus516/cemurm/pull/368),
-[#369](https://github.com/davidjesus516/cemurm/pull/369) and [#370](https://github.com/davidjesus516/cemurm/pull/370) are open and awaiting human review;
-merge is the maintainer's call — no slice needs a `size:exception` (see "Slice boundaries").
+[#369](https://github.com/davidjesus516/cemurm/pull/369), [#370](https://github.com/davidjesus516/cemurm/pull/370) and
+[#371](https://github.com/davidjesus516/cemurm/pull/371) are open and awaiting human review; merge is the
+maintainer's call — no slice needs a `size:exception` (see "Slice boundaries").
 
 The reviewer request could not be made through `gh pr edit --add-reviewer`: `gh` is authenticated as
 the reviewer, GitHub refuses to request review from a PR's own author, and `gh` reports exit 0 and
-prints a URL anyway while `reviewRequests` stays empty. All three PRs were notified by comment instead.
+prints a URL anyway while `reviewRequests` stays empty. All four PRs were notified by comment instead.
 `--add-reviewer` looks like it worked from the outside; it does not.
 
 After that: WU2, the two-phase leave that covers scenario 8.
