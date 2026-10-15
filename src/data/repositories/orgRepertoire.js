@@ -79,6 +79,7 @@ const USER_ERRORS = new Set([
   'You can only demote songs owned by your organization.',
   // leave_organization
   'Not a member.',
+  'Transfer the setlists this organization uses before leaving.',
 ])
 
 /**
