@@ -9,6 +9,13 @@ import {
   reconcileSetlistOp
 } from '../../../domain/setlist/collab.js'
 
+// Tie-break fixtures shared with src/domain/setlist/collab.js demo() (~line 457)
+// and scripts/smoke/0037-offline-tie-break.sql: the recorded winner is op key
+// 30000000-0000-0000-0000-0000000007f1 at 2026-10-13T10:00:00Z (TIE_MS), the
+// greater key …7f2 replays, the lesser …7f0 is superseded. Fixed literals, never
+// per-test randomness, so the SQL smoke and the client mirror assert one contract.
+const TIE_MS = Date.parse('2026-10-13T10:00:00Z')
+
 export function defineCollabSteps() {
   defineSteps('collab', [
     // Given
@@ -205,6 +212,85 @@ export function defineCollabSteps() {
       handler: (ctx) => {
         expect(ctx.reconcileResult.drop).toBe(true)
         expect(ctx.reconcileResult.notice).toBeUndefined()
+      }
+    },
+
+    // ── 0037 tie-break (features/offline-edit-conflict-policy.feature:47-51) ──
+    // The recorded resolution is the arbiter's own state; the op is compared to
+    // the winner's queued_at FIRST (the client mirror of apply_setlist_item_op),
+    // and only an exact tie reaches the op-key rule. `updatedAt` is set AFTER the
+    // recorded queuedAt — the shape production produces once the winner has
+    // written — so the tie can only be decided against the recorded rule.
+    {
+      type: 'given',
+      pattern: /^the server recorded an offline resolution for song (?<songId>.+) with op key (?<key>.+) at queued time (?<queuedAt>\d+)$/,
+      handler: (ctx, { songId, key, queuedAt }) => {
+        ctx.recordedResolution = {
+          songId: songId.replace(/^"|"$/g, ''),
+          opKey: key.replace(/^"|"$/g, ''),
+          queuedAt: parseInt(queuedAt, 10)
+        }
+      }
+    },
+    {
+      type: 'when',
+      pattern: /^I reconcile an add of (?<songId>.+) with op key (?<key>.+) queued at (?<queuedAt>\d+) against the recorded resolution$/,
+      handler: (ctx, { songId, key, queuedAt }) => {
+        const song = songId.replace(/^"|"$/g, '')
+        const rec = ctx.recordedResolution
+        ctx.reconcileResult = reconcileSetlistOp(
+          { name: 'addSongToSetlist', args: ['u', 'sl', song], queuedAt: parseInt(queuedAt, 10), opKey: key.replace(/^"|"$/g, '') },
+          {
+            itemIds: [],
+            updatedAt: new Date(rec.queuedAt + 5000).toISOString(),
+            conflictResolutions: { [rec.songId]: { opKey: rec.opKey, queuedAt: new Date(rec.queuedAt).toISOString() } }
+          }
+        )
+      }
+    },
+    {
+      type: 'when',
+      // The quoted captures are deliberate: the two keys arrive quoted in the
+      // scenario text, and this step compares them verbatim (no quote stripping).
+      pattern: /^I reconcile the tie pair "(?<a>[^"]+)" and "(?<b>[^"]+)" queued at (?<queuedAt>\d+) against the recorded resolution in both orders$/,
+      handler: (ctx, { a, b, queuedAt }) => {
+        const rec = ctx.recordedResolution
+        const t = parseInt(queuedAt, 10)
+        const server = {
+          itemIds: [],
+          updatedAt: new Date(rec.queuedAt + 5000).toISOString(),
+          conflictResolutions: { [rec.songId]: { opKey: rec.opKey, queuedAt: new Date(rec.queuedAt).toISOString() } }
+        }
+        const op = (key) => ({ name: 'addSongToSetlist', args: ['u', 'sl', rec.songId], queuedAt: t, opKey: key })
+        const winners = (order) => order.filter(k => !reconcileSetlistOp(op(k), server).drop)
+        ctx.tieWinnersForward = winners([a, b])
+        ctx.tieWinnersReverse = winners([b, a])
+      }
+    },
+    {
+      type: 'then',
+      pattern: /^the add replays under the recorded rule (?<rule>.+)$/,
+      handler: (ctx, { rule }) => {
+        expect(ctx.reconcileResult.drop).toBe(false)
+        expect(ctx.reconcileResult.rule).toBe(rule.replace(/^"|"$/g, ''))
+      }
+    },
+    {
+      type: 'then',
+      pattern: /^the add is superseded under the recorded rule (?<rule>.+)$/,
+      handler: (ctx, { rule }) => {
+        expect(ctx.reconcileResult.drop).toBe(true)
+        expect(ctx.reconcileResult.notice).toBe(true)
+        expect(ctx.reconcileResult.reason).toBe('superseded')
+        expect(ctx.reconcileResult.rule).toBe(rule.replace(/^"|"$/g, ''))
+      }
+    },
+    {
+      type: 'then',
+      pattern: /^only the greater key "(?<key>[^"]+)" replays in both orders$/,
+      handler: (ctx, { key }) => {
+        expect(ctx.tieWinnersForward).toEqual([key])
+        expect(ctx.tieWinnersReverse).toEqual([key])
       }
     }
   ])

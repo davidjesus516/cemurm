@@ -5,11 +5,41 @@
 > Status: proposed. Reproduced by execution. **The tie-break key is derived, not specified** —
 > see Approach. **This is the only finding of the ten whose Gherkin requires new storage**, so it
 > needs a migration, and the migration number is deliberately left open.
+> **[Superseded — see "Correction at apply time": the key is the per-operation `opKey` uuid, and
+> the migration number is resolved at `0037`.]**
 >
 > **Path note:** on `main` today the module is `src/lib/setlistCollab.js`; after M0a it becomes
 > `src/domain/setlist/collab.js`. Its characterization suite is the matching
 > `src/domain/setlist/collab.test.js`, **shared with finding H**. Neither the test file nor
 > `src/domain/` exists on `main` — M0b (#171) has not merged.
+> **[Superseded — see "Correction at apply time": the relocation landed, M0b (#171) merged, and
+> `src/domain/` exists.]**
+
+## Correction at apply time (2026-10-13)
+
+This section records what changed against the proposal's assumptions when the change was
+implemented. The prose below is left intact so the record of what was proposed stays readable;
+each superseded passage carries a short inline pointer back here.
+
+- **The tie-break key decision is reversed.** The proposal chose `args[0]` (the `userId`) and
+  rejected a per-operation `uuid` by YAGNI. The **per-operation `opKey` uuid was adopted instead**.
+  The offline queue mints it at enqueue (`newOpKey()` in `src/offline/queue.js`), so
+  `(queuedAt, opKey)` is a genuine total order with no authorship semantics — the same user on two
+  devices at the same millisecond still collides on `userId`, while a uuid pair does not. This is
+  precisely the maintainer overrule the proposal asked to make visible rather than bury.
+- **Paths relocated.** `src/lib/setlistCollab.js` → `src/domain/setlist/collab.js`;
+  `src/lib/offlineSync.js` → `src/offline/drainer.js`, with the queue itself in
+  `src/offline/queue.js`. **M0b (#171) has merged**, so the proposal's "no finding before M0b" gate
+  is satisfied and `src/domain/` exists.
+- **Migration number resolved:** `0037_offline_tie_break.sql`. Verified against `origin/main` =
+  `a610dd0` (2026-10-13): `main` carries **34** migrations numbered `0001`–`0036` with `0021`/`0022`
+  free; `0036` is taken by `0036_guardian_approve_public_sharing.sql`; this change takes `0037`, so
+  the next free number after it lands is `0038`. The proposal's `0028` high-water mark and its
+  `0020`–`0022` "claimed race" claim are both stale.
+- **Storage shape as shipped.** An **append-only table** `public.setlist_conflict_resolutions` plus
+  the `apply_setlist_item_op` RPC, which arbitrates server-side under a per-pair advisory lock —
+  rather than a column the client writes. The record stores the applied rule (`rule` — the closed
+  vocabulary `later-timestamp` | `op-key`), satisfying the `:51` half without a client-driven write.
 
 ## Intent
 
@@ -44,6 +74,8 @@ reach the same result.
 `supabase/migrations/` contains a `resolution_rule`, `tie_break`, `tiebreak` or `superseded`
 column — the pattern returns nothing across all of them. The spec requires the applied rule to be
 *"stored with the resolution"*, and there is nowhere to put it.
+**[Superseded — see "Correction at apply time": the storage shipped as the append-only
+`public.setlist_conflict_resolutions` table plus the `apply_setlist_item_op` RPC, not a column.]**
 
 **Migration numbering is a constraint, not a choice.** Filename order is dependency order. The
 highest current file is `0028_import_pipeline.sql`, and `0020`–`0022` are **absent** — a
@@ -52,6 +84,8 @@ reservation. Before a name is chosen, every open branch must be checked:
 `git branch -r | xargs -I{} git ls-tree --name-only {} -- supabase/migrations/`. **This proposal
 does not pick a number** — `0029` and a free slot in the 0020–0022 gap make materially different
 dependency claims, and that is a decision, not a detail.
+**[Superseded — see "Correction at apply time": the high-water mark is `0036`, not `0028`, and the
+number is resolved at `0037`.]**
 
 ## Scope
 
@@ -103,13 +137,15 @@ round-trip**. The queued op is `[...ops, { seq: ops.length, ...op, queuedAt: Dat
 | Candidate | Held by both devices? | Verdict |
 |---|---|---|
 | `seq` | no — **per-queue**, so each device starts at 0 | **rejected.** Verified: the first op on two devices both carries `seq: 0`. Valid only within one device's queue; comparing it across devices is meaningless. |
-| `args[0]` (the `userId`) | yes — the op's own author | **chosen.** Different on each device, comparable by a total order with no coordination, and **already present**. The only value that satisfies the constraint without adding a field. |
-| a new per-op `uuid` | would be, once minted | **rejected by YAGNI** — a new field, and better only if a maintainer decides the tie-break must not encode authorship. |
+| `args[0]` (the `userId`) | yes — the op's own author | **chosen.** Different on each device, comparable by a total order with no coordination, and **already present**. The only value that satisfies the constraint without adding a field. **[REVERSED at apply time — the per-op `opKey` uuid was adopted; see "Correction at apply time".]** |
+| a new per-op `uuid` | would be, once minted | **rejected by YAGNI** — a new field, and better only if a maintainer decides the tie-break must not encode authorship. **[ADOPTED at apply time — a maintainer did decide; see "Correction at apply time".]** |
 
 **How it is applied.** Compare `queuedAt` first, unchanged. On equality, order the two writes by
 `args[0]` and let the greater one win, so the rule is a total order and the same pair resolves
 the same way on every device. The comparison runs over the **string**, and the equality test on
 the resolved millisecond value, not on string form.
+**[Superseded — see "Correction at apply time": equality now orders the writes by the per-operation
+`opKey` uuid compared as a lowercased string, not `args[0]`.]**
 
 **One thing to verify before relying on `args[0]`.** It is the `userId` for every op the setlist
 reconcile path handles — `setlists.js:576` and `:698` queue `args: [userId, setlistId, songId]`,
@@ -146,6 +182,11 @@ present on the stored resolution.
 | the conflict UI | Modified | to show which rule resolved it — **identified at apply time**; this proposal has not traced the render path |
 | `features/offline-edit-conflict-policy.feature` | Modified | the new tie-break scenarios |
 | `openspec/specs/offline-edit-conflict-policy/spec.md` | New | capability spec, tie-break requirement only |
+
+**[Superseded — see "Correction at apply time": the pre-relocation paths are
+`src/domain/setlist/collab.js` and `src/offline/drainer.js` (plus `src/offline/queue.js`); the
+storage is the append-only `public.setlist_conflict_resolutions` table plus the
+`apply_setlist_item_op` RPC (`0037_offline_tie_break.sql`), not a column.]**
 
 ## Verification
 

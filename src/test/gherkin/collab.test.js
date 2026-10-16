@@ -155,3 +155,35 @@ describe('shared-setlist-collaboration: OFFLINE RECONCILE', () => {
     ])
   })
 })
+
+// Tie-break fixtures, kept in lockstep with src/domain/setlist/collab.js demo()
+// (~line 457) and scripts/smoke/0037-offline-tie-break.sql: the recorded winner is
+// op key 30000000-0000-0000-0000-0000000007f1 at 2026-10-13T10:00:00Z, the greater
+// key …7f2 replays, the lesser …7f0 is superseded.
+const TIE_MS = Date.parse('2026-10-13T10:00:00Z')
+
+describe('offline-edit-conflict-policy: TIE-BREAK', () => {
+  it('Equal timestamps resolve by the recorded tie-break rule', async () => {
+    await runner.runScenario('collab', [
+      `Given the server recorded an offline resolution for song "m" with op key "30000000-0000-0000-0000-0000000007f1" at queued time ${TIE_MS}`,
+      `When I reconcile an add of "m" with op key "30000000-0000-0000-0000-0000000007f2" queued at ${TIE_MS} against the recorded resolution`,
+      'Then the add replays under the recorded rule "op-key"'
+    ])
+  })
+
+  it('The losing writer is superseded under the same recorded rule', async () => {
+    await runner.runScenario('collab', [
+      `Given the server recorded an offline resolution for song "m" with op key "30000000-0000-0000-0000-0000000007f1" at queued time ${TIE_MS}`,
+      `When I reconcile an add of "m" with op key "30000000-0000-0000-0000-0000000007f0" queued at ${TIE_MS} against the recorded resolution`,
+      'Then the add is superseded under the recorded rule "op-key"'
+    ])
+  })
+
+  it('The same pair reaches one winner regardless of reconcile order', async () => {
+    await runner.runScenario('collab', [
+      `Given the server recorded an offline resolution for song "m" with op key "30000000-0000-0000-0000-0000000007f1" at queued time ${TIE_MS}`,
+      `When I reconcile the tie pair "30000000-0000-0000-0000-0000000007f2" and "30000000-0000-0000-0000-0000000007f0" queued at ${TIE_MS} against the recorded resolution in both orders`,
+      'Then only the greater key "30000000-0000-0000-0000-0000000007f2" replays in both orders'
+    ])
+  })
+})

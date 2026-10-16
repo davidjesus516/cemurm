@@ -23,6 +23,10 @@ import { DB_VERSION, applyUpgrade } from './cache.js'
  * @property {unknown[]} args
  * @property {number} seq
  * @property {number} queuedAt
+ * @property {string} [opKey] Per-operation uuid minted at enqueue, the tie-break
+ *   key the offline arbitration compares (0037 `winner_op_key`). Absent only on
+ *   an op queued by a build that predates it — the replay paths mint one then
+ *   rather than send null, which the RPC refuses.
  * @property {number} [attempts] Failed-replay count. Absent until the drainer
  *   sees an unclassifiable failure; bounds how often a doomed op is retried.
  * @property {number} [lastFailedAt]
@@ -82,8 +86,35 @@ function getDb() {
  * @param {string} userId
  * @returns {string}
  */
-function opKey(userId) {
+function outboxKey(userId) {
   return `pending:${userId}`
+}
+
+/**
+ * Mint one per-operation identity key (a uuid v4) for a queued op. This is the
+ * value the server arbitration stores as `winner_op_key` and the client mirror
+ * compares on a timestamp tie, so it must be a real uuid string.
+ *
+ * The `crypto.randomUUID` access is guarded because `crypto` is not guaranteed
+ * (the same reason pdfCharts.js:59 guards it). The fallback there is an opaque
+ * `${Date.now()}-${Math.random()}` string, which is fine for an object key but
+ * NOT reusable here: this value is sent into the RPC's `p_op_key uuid`
+ * parameter, and a non-uuid raises `invalid input syntax for type uuid`,
+ * failing a replay the user cannot fix. So the fallback is a Math.random UUID
+ * v4. Lowercase, matching `crypto.randomUUID()` and Postgres's canonical uuid
+ * rendering, so the client string comparison and the SQL `::text` comparison
+ * agree.
+ * @returns {string}
+ */
+export function newOpKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
 }
 
 // Ops set aside by the drainer because the server rejects them and a retry can
@@ -114,7 +145,7 @@ export async function pendingOps(userId) {
   try {
     const ops = await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
-      const req = tx.objectStore(STORE_NAME).get(opKey(userId))
+      const req = tx.objectStore(STORE_NAME).get(outboxKey(userId))
       req.onsuccess = () => resolve(req.result ?? [])
       req.onerror = () => reject(req.error)
     })
@@ -125,10 +156,11 @@ export async function pendingOps(userId) {
 }
 
 /**
- * Append one op to the user's queue, stamped with its FIFO `seq` and
- * `queuedAt`. Read-modify-write on the whole array (documented ponytail:
- * no cross-request transaction guarantee). Best-effort — a no-op when the
- * cache is unavailable, and every failure is swallowed.
+ * Append one op to the user's queue, stamped with its FIFO `seq`, its
+ * `queuedAt`, and the per-op `opKey` the 0037 tie-break arbitration compares.
+ * Read-modify-write on the whole array (documented ponytail: no cross-request
+ * transaction guarantee). Best-effort — a no-op when the cache is unavailable,
+ * and every failure is swallowed.
  * @param {string} userId
  * @param {QueuedOpInput} op
  * @returns {Promise<void>}
@@ -140,12 +172,12 @@ export async function enqueueOp(userId, op) {
     await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const store = tx.objectStore(STORE_NAME)
-      const getReq = store.get(opKey(userId))
+      const getReq = store.get(outboxKey(userId))
       getReq.onsuccess = () => {
         const ops = Array.isArray(getReq.result) ? getReq.result : []
         const putReq = store.put(
-          [...ops, { seq: ops.length, ...op, queuedAt: Date.now() }],
-          opKey(userId),
+          [...ops, { seq: ops.length, ...op, queuedAt: Date.now(), opKey: newOpKey() }],
+          outboxKey(userId),
         )
         putReq.onsuccess = () => resolve(undefined)
         putReq.onerror = () => reject(putReq.error)
@@ -171,12 +203,12 @@ export async function removeOps(userId, seqSet) {
     await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const store = tx.objectStore(STORE_NAME)
-      const getReq = store.get(opKey(userId))
+      const getReq = store.get(outboxKey(userId))
       getReq.onsuccess = () => {
         const ops = getReq.result ?? []
         if (!Array.isArray(ops)) return resolve(undefined)
         const remaining = ops.filter((op) => !seqSet.has(op.seq))
-        const putReq = store.put(remaining, opKey(userId))
+        const putReq = store.put(remaining, outboxKey(userId))
         putReq.onsuccess = () => resolve(undefined)
         putReq.onerror = () => reject(putReq.error)
       }
@@ -206,12 +238,12 @@ export async function patchOps(userId, seqSet, patch) {
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const store = tx.objectStore(STORE_NAME)
-      const getReq = store.get(opKey(userId))
+      const getReq = store.get(outboxKey(userId))
       getReq.onsuccess = () => {
         const ops = getReq.result ?? []
         if (!Array.isArray(ops)) return resolve(undefined)
         const patched = ops.map((op) => (seqSet.has(op.seq) ? { ...op, ...patch } : op))
-        const putReq = store.put(patched, opKey(userId))
+        const putReq = store.put(patched, outboxKey(userId))
         putReq.onsuccess = () => resolve(undefined)
         putReq.onerror = () => reject(putReq.error)
       }
@@ -244,7 +276,7 @@ export async function quarantineOps(userId, seqSet, failure) {
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const store = tx.objectStore(STORE_NAME)
-      const getReq = store.get(opKey(userId))
+      const getReq = store.get(outboxKey(userId))
       getReq.onsuccess = () => {
         const ops = getReq.result ?? []
         if (!Array.isArray(ops)) return resolve(undefined)
@@ -264,7 +296,7 @@ export async function quarantineOps(userId, seqSet, failure) {
           )
           qPut.onsuccess = () => {
             const remaining = ops.filter((op) => !seqSet.has(op.seq))
-            const putReq = store.put(remaining, opKey(userId))
+            const putReq = store.put(remaining, outboxKey(userId))
             putReq.onsuccess = () => resolve(undefined)
             putReq.onerror = () => reject(putReq.error)
           }

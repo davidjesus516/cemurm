@@ -63,21 +63,40 @@
  */
 
 /**
- * Queued setlist-item op as offlineQueue stores it: {name, args, queuedAt}.
- * args are positional ids — [userId, setlistId, songId] for the add/remove
- * ops this module reconciles.
+ * Queued setlist-item op as offlineQueue stores it: {name, args, queuedAt,
+ * opKey}. args are positional ids — [userId, setlistId, songId] for the
+ * add/remove ops this module reconciles. `opKey` is the per-operation uuid
+ * (queue.js newOpKey) the 0037 tie-break compares; absent only on an op queued
+ * by a build that predates it (the write path mints one at replay then).
  * @typedef {object} QueuedSetlistOp
  * @property {string} name
  * @property {string[]} [args]
  * @property {number} [queuedAt]
+ * @property {string} [opKey]
  */
 
 /**
- * Server setlist read fresh at drain time ({itemIds, updatedAt}); null when
- * the read failed (the caller then replays unconditionally).
+ * The latest applied resolution for one song, as the server records it
+ * (0037 setlist_conflict_resolutions): the winning op's key and the timestamp
+ * it was queued at. flattenSetlist reduces the append-only rows to the latest
+ * per song.
+ * @typedef {object} RecordedResolution
+ * @property {string} [opKey] winner_op_key
+ * @property {string} [queuedAt] winner_queued_at
+ */
+
+/**
+ * Server setlist read fresh at drain time ({itemIds, updatedAt,
+ * conflictResolutions}); null when the read failed (the caller then replays
+ * unconditionally). `conflictResolutions` is the latest recorded resolution PER
+ * SONG (0037), keyed by song id — the arbiter's own state, and what the add path
+ * compares against FIRST. `updatedAt` is the setlist's own updated_at (server
+ * clock, bumped by the item trigger); it is only the FALLBACK primary order, used
+ * for a song with no usable recorded resolution.
  * @typedef {object} ReconcileServer
  * @property {string[]} [itemIds]
  * @property {string} [updatedAt]
+ * @property {Record<string, RecordedResolution>} [conflictResolutions]
  */
 
 /**
@@ -90,10 +109,19 @@
  * cannot identify the op) and 'unknown-age' (the op lost its timestamp). The
  * last two are this client's blind spots, not a collaborator's win, and the
  * notice is worded to say exactly that.
+ *
+ * `rule` names the rule that decided, when one did: 'op-key' for an exact
+ * timestamp tie broken by the op key (the 0037 recorded tie-break), or
+ * 'later-timestamp' when the primary order decided. It is omitted on the plain
+ * legacy branches, whose wording is already honest — emitting one there would
+ * churn every pinned decision shape without changing the notice. This is the
+ * field the drainer reads to word an item op's lost-tie-break notice honestly,
+ * distinct from the "someone removed it first" notice.
  * @typedef {object} ReconcileDecision
  * @property {boolean} drop
  * @property {boolean} [notice]
  * @property {'superseded' | 'malformed' | 'unknown-age'} [reason]
+ * @property {'later-timestamp' | 'op-key'} [rule]
  */
 
 /**
@@ -218,13 +246,23 @@ export function applyLock(locks, payload) {
 // told when it must not? `server` is the flattened setlist ({itemIds,
 // updatedAt}) read fresh at drain time — the cached copy would hide exactly
 // the online change that decides this.
-//  · add: song already present → the op would no-op → drop. Absent AND the
-//    server changed since the op was queued → an online write superseded it →
-//    drop + notice (R7: "removed before your sync"). Absent AND server
-//    untouched → my add is the newest write → replay (R6 merge).
+//  · add: song already present → the op would no-op → drop. Absent AND a
+//    recorded resolution for the song exists → the 0037 arbiter's own rule
+//    decides it (later queuedAt wins; on an EXACT tie the greater op key wins,
+//    equal-or-lesser is superseded with a notice). Absent AND no recorded
+//    resolution → the pre-0037 setlist-level heuristic: the server changed since
+//    the op was queued → an online write superseded it → drop + notice (R7:
+//    "removed before your sync"). Absent AND server untouched → my add is the
+//    newest write → replay (R6 merge).
 //  · remove: already absent → outcome achieved → drop silently. Still
 //    present → replay (removal is by song_id, position-independent; unrelated
 //    online adds merge).
+// SCOPE ASYMMETRY, deliberate: only the ADD path mirrors the tie-break. The
+// remove path has no timestamp rule today (it never compared updatedAt), and
+// inventing one here would be a new rule, not a mirror of the RPC's. The RPC
+// still arbitrates BOTH ops authoritatively; the client mirror exists so the
+// pre-replay notice is honest, and a remove that loses the server's tie-break
+// is caught by the RPC's sentinel and reported by the drainer.
 // Reorder/version ops are not reconciled: reorder replays against stale
 // indices (D7 keeps it online-only once a setlist is shared) and a version
 // write targets one item, so neither has a merge to preserve.
@@ -265,8 +303,65 @@ export function reconcileSetlistOp(op, server) {
     // server timestamp beat it, so a queue row that lost its timestamp was
     // reported as superseded.
     if (op.queuedAt == null) return { drop: true, notice: true, reason: 'unknown-age' }
-    const serverNewer = !!server?.updatedAt && new Date(server.updatedAt).getTime() > op.queuedAt
-    if (serverNewer) return { drop: true, notice: true, reason: 'superseded' }
+    const queuedAt = Number(op.queuedAt)
+
+    // 1. The 0037 arbiter's own state, when the server has recorded one, is the
+    //    authority. My op is compared against the LAST RECORDED WRITE's
+    //    timestamp (`winner_queued_at`), exactly as the SQL compares
+    //    `p_queued_at` against the latest resolution for the pair — NOT against
+    //    the setlist's own `updated_at`.
+    //
+    //    This ordering is what makes the equal-timestamp tie reachable at all.
+    //    The device that loses reads the server AFTER the winner wrote, so the
+    //    setlist's `updated_at` (a server clock, bumped by the item trigger) is
+    //    NEWER than both ops' `queuedAt`, while the recorded resolution still
+    //    carries the winner's own client `queuedAt`. Comparing the op against
+    //    `updated_at` would therefore drop it as "superseded" before the tie was
+    //    ever tested, the arbiter would never see it, and the recorded tie-break
+    //    rule would never run — the exact determinism failure this closes.
+    const recorded = server?.conflictResolutions?.[songId]
+    if (recorded) {
+      const recordedAt = new Date(/** @type {string} */ (recorded.queuedAt)).getTime()
+      if (!Number.isNaN(recordedAt)) {
+        // My write is later than the recorded one → the arbiter applies mine.
+        if (queuedAt > recordedAt) return { drop: false, rule: 'later-timestamp' }
+        if (queuedAt === recordedAt) {
+          // Exact tie → the RECORDED tie-break rule, the same one the RPC
+          // arbitrates (SQL `p_op_key::text > winner_op_key::text`): the greater
+          // lowercased key string wins, equal-or-lesser is superseded. Fixtures
+          // (op keys …7f0/7f1/…7f2, timestamp 2026-10-13T10:00:00Z) are shared
+          // with scripts/smoke/0037-offline-tie-break.sql — this is the one
+          // place the rule is expressed twice, so keep the two in lockstep.
+          const mine = op.opKey ? String(op.opKey).toLowerCase() : ''
+          // A legacy queue row carries no key. The replay path mints one and the
+          // RPC then arbitrates for real, so this mirror must not decide that
+          // tie: replaying is recoverable, dropping the op is not.
+          if (!mine) return { drop: false, rule: 'op-key' }
+          const winner = String(recorded.opKey || '').toLowerCase()
+          if (mine > winner) return { drop: false, rule: 'op-key' }
+          return { drop: true, notice: true, reason: 'superseded', rule: 'op-key' }
+        }
+        // My write is older than the recorded one → it lost.
+        return { drop: true, notice: true, reason: 'superseded' }
+      }
+    }
+
+    // 2. No usable recorded resolution for this song — the setlist's history
+    //    predates 0037, or the change was not one of the item ops. Fall back to
+    //    the pre-0037 setlist-level heuristic: the setlist's own `updated_at`
+    //    against the op's `queuedAt`. A malformed/missing `updatedAt` yields NaN
+    //    — no usable primary order, so the op replays optimistically (the
+    //    pre-existing unparseable-timestamp behaviour, kept).
+    const serverTime = server?.updatedAt ? new Date(server.updatedAt).getTime() : NaN
+    if (!Number.isNaN(serverTime) && serverTime > queuedAt) {
+      return { drop: true, notice: true, reason: 'superseded' }
+    }
+    // Exact tie on the legacy path: no recorded rule exists to break it, so the
+    // op is the song's first write and wins on the primary order (the RPC's
+    // "not found" branch).
+    if (!Number.isNaN(serverTime) && serverTime === queuedAt) {
+      return { drop: false, rule: 'later-timestamp' }
+    }
     return { drop: false }
   }
   return { drop: !present }
@@ -353,5 +448,28 @@ export function demo() {
   assert(reconcileSetlistOp(removeAbsent, server).drop, true, 'remove of an absent song drops silently')
   assert(reconcileSetlistOp(removeAbsent, server).notice, undefined, 'absent remove carries no notice')
 
-  console.log('setlistCollab demo OK: 26 asserts (visibility, share targets, transfer guard, feed labels, advisory locks, reconcile)')
+  // 2.6/0037 tie-break mirror: on an EXACT timestamp tie the recorded op key
+  // decides. Fixtures shared with scripts/smoke/0037-offline-tie-break.sql.
+  // `updatedAt` is AFTER both ops' queuedAt — the shape production produces once
+  // the winning device has written — so the tie can only be decided against the
+  // recorded resolution. Where no resolution is recorded the legacy
+  // setlist-level heuristic still applies.
+  const tieAt = Date.parse('2026-10-13T10:00:00Z')
+  const tieServer = {
+    itemIds: [],
+    updatedAt: new Date(tieAt + 5000).toISOString(),
+    conflictResolutions: { m: { opKey: '30000000-0000-0000-0000-0000000007f1', queuedAt: new Date(tieAt).toISOString() } },
+  }
+  const tieOp = (/** @type {string} */ key) => ({ name: 'addSongToSetlist', args: ['u', 'sl', 'm'], queuedAt: tieAt, opKey: key })
+  assert(reconcileSetlistOp(tieOp('30000000-0000-0000-0000-0000000007f2'), tieServer).drop, false, 'tie-break: greater key replays')
+  assert(reconcileSetlistOp(tieOp('30000000-0000-0000-0000-0000000007f2'), tieServer).rule, 'op-key', 'tie-break: replay names the op-key rule')
+  assert(reconcileSetlistOp(tieOp('30000000-0000-0000-0000-0000000007f0'), tieServer).drop, true, 'tie-break: lesser key is superseded')
+  assert(reconcileSetlistOp(tieOp('30000000-0000-0000-0000-0000000007f1'), tieServer).drop, true, 'tie-break: equal key is superseded')
+  // A legacy row with no key must not have its tie decided here: replay and let
+  // the write path mint one, so the RPC arbitrates for real.
+  const keylessOp = { name: 'addSongToSetlist', args: ['u', 'sl', 'm'], queuedAt: tieAt }
+  assert(reconcileSetlistOp(keylessOp, tieServer).drop, false, 'tie-break: a keyless legacy op replays instead of dropping')
+  assert(reconcileSetlistOp(tieOp('30000000-0000-0000-0000-0000000007f0'), { itemIds: [], updatedAt: new Date(tieAt).toISOString() }).drop, false, 'no recorded resolution: the legacy tie replays')
+
+  console.log('setlistCollab demo OK: 32 asserts (visibility, share targets, transfer guard, feed labels, advisory locks, reconcile, tie-break)')
 }
