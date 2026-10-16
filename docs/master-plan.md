@@ -38,15 +38,16 @@ Prose in this repo has drifted. These are the facts, checked against git and cod
 
 | Fact | Value |
 |---|---|
-| `main` | `c14e977`, in sync with `origin/main` |
-| **Test files on `main`** | **17** — 12 characterization + 5 BDD-tier in `src/test/gherkin/` (was 9 at `e849738`) |
-| **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck` |
-| **CI on `main`** | `install --frozen-lockfile → lint → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-visual-contract.sh` |
+| `main` | `a610dd0`, in sync with `origin/main` (was `c14e977` at the 2026-10-12 re-verification) |
+| **Test files on `main`** | **22** — 17 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 17 at `c14e977`, and 9 at `e849738`) |
+| **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck`, plus the `test:e2e*` family |
+| **CI on `main`** | `install --frozen-lockfile → lint → deno check → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-visual-contract.sh` |
+| **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, 3 chained jobs (chromium → firefox → webkit), 18 specs each, all green against a real local Supabase stack |
 | `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
 | Feature files | **45**, 713 scenarios — was 42 / 656 at `8b66394` |
-| Migrations on `main` | **33 files, numbered `0001`–`0035`, with `0021`/`0022` a deliberate free gap** — was 27 with a gap at `0021` |
-| Next free migration number | **`0021` / `0022`** (deliberately free), or **`0036`** for anything that must sort after `0035` |
-| Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`) |
+| Migrations on `main` | **34 files, numbered `0001`–`0036`, with `0021`/`0022` a deliberate free gap** — was 33 / `0035` at `c14e977`; `0036_guardian_approve_public_sharing.sql` landed in #360 |
+| Next free migration number | **`0037`** for anything self-contained. **`0021` / `0022`** remain deliberately free, but they sort too early for most work — see §2. |
+| Hito 5 | **complete and merged.** Migrations through `0036` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`), and #360 added `0036` |
 | Hito 6 | **not started** — no implementation for any of its six features |
 | `// @ts-check` opt-ins | **47** files; `tsc --listFiles` reaches **62** `src/` files |
 | `docs/design-system.md` | superseded in part by `skills/cemurm-visual-system/` (PR #235, commit `5547150`); banner added in #238 |
