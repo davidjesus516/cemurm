@@ -17,6 +17,10 @@ concurrency:
 env:
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
   POSTGRES_PASSWORD: postgres
+  # Mirrored into `env` so the login step's guard can read it: `secrets` is not
+  # available in `steps.if`. Empty on a fork PR (GitHub withholds secrets there),
+  # which makes the guard skip the login and fall back to anonymous pulls.
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
   setup:
@@ -81,7 +85,13 @@ jobs:
       # it to 200/6h and makes the pulls attributable here. The credentials are
       # written to the docker config, which both the docker CLI and the Supabase
       # CLI (`supabase start`) read.
+      # On a fork PR GitHub withholds secrets, so DOCKERHUB_USERNAME resolves
+      # empty. Skip login and fall back to anonymous pulls rather than letting
+      # docker/login-action error out before the E2E run. The guard reads `env`
+      # because `secrets` is NOT available in `steps.if` (GitHub evaluates an
+      # unavailable context as empty, which would skip the step on every run).
       - name: Login to Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -166,7 +176,13 @@ jobs:
       # it to 200/6h and makes the pulls attributable here. The credentials are
       # written to the docker config, which both the docker CLI and the Supabase
       # CLI (`supabase start`) read.
+      # On a fork PR GitHub withholds secrets, so DOCKERHUB_USERNAME resolves
+      # empty. Skip login and fall back to anonymous pulls rather than letting
+      # docker/login-action error out before the E2E run. The guard reads `env`
+      # because `secrets` is NOT available in `steps.if` (GitHub evaluates an
+      # unavailable context as empty, which would skip the step on every run).
       - name: Login to Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -251,7 +267,13 @@ jobs:
       # it to 200/6h and makes the pulls attributable here. The credentials are
       # written to the docker config, which both the docker CLI and the Supabase
       # CLI (`supabase start`) read.
+      # On a fork PR GitHub withholds secrets, so DOCKERHUB_USERNAME resolves
+      # empty. Skip login and fall back to anonymous pulls rather than letting
+      # docker/login-action error out before the E2E run. The guard reads `env`
+      # because `secrets` is NOT available in `steps.if` (GitHub evaluates an
+      # unavailable context as empty, which would skip the step on every run).
       - name: Login to Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
