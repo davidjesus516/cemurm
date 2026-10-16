@@ -49,27 +49,51 @@ warning was already there on Vite 5.
 ```
 pnpm install --frozen-lockfile
 → pnpm lint
+→ deno check 'supabase/functions/**/*.ts'
 → pnpm typecheck
-→ bash scripts/check-visual-contract.sh
+→ bash scripts/check-test-integrity.sh
 → pnpm test
 → pnpm test:gherkin
 → pnpm build
+→ bash scripts/check-visual-contract.sh
 ```
 
-**Step order is load-bearing, not cosmetic.** The job fails fast, so a step placed *after* the
-visual gate never executes when the gate goes red — it would report success while proving
-nothing. #277 added `pnpm typecheck` deliberately *before* the gate for that reason, and #287
-added `pnpm test:gherkin`. **When you add a CI step, put it before `check-visual-contract.sh`.**
+**Step order is load-bearing, not cosmetic — and the visual gate now runs LAST.** Under
+`set -euo pipefail` a failing step marks everything after it **SKIPPED**, and a reviewer cannot
+tell a real downstream failure from a check that never ran. So the fix was never "put new steps
+before the visual gate" (which is what this file said until #337); it was to move the gate to the
+end, after `test` and `build`, so its FAIL lines sit next to a known-green run. #337 did that,
+alongside `check-test-integrity.sh` and a fix to rule `07`.
 
-`pnpm typecheck` was absent from CI until #277 (merged 2026-10-07); before that it genuinely had
-to be run locally. It is in CI now. `pnpm test:gherkin` is a separate Vitest tier over
-`src/test/gherkin/` — it is not part of `pnpm test`, and its scenarios are BDD coverage that
-`pnpm test` does not reach.
+`pnpm typecheck` was absent from CI until #277 (merged 2026-10-07). `pnpm test:gherkin` was added
+by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm test`.
 
-**`supabase/functions/**` is still outside every gate.** No `tsc` (its `include` has no
-`supabase` path), no ESLint (`--ext js,jsx` never enumerates `.ts`), and no Deno step as of
-`main` = `6a8f414`. Changes there carry no static check until #314 lands — see #312. A green
-check there means nothing yet.
+**`check-test-integrity.sh` fails on `.only`, `.skip` and `.todo`** in any test file. Those are
+not a failing run, they are a green run that tested less, so nothing inside the suite could see
+them. Bash + grep only, same as the visual gate.
+
+**`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
+no `tsc` (its `include` has no `supabase` path) and no ESLint (`--ext js,jsx` never enumerates
+`.ts`) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`. The glob is **quoted on
+purpose** — unquoted, bash expands `**` as `*` (globstar is off in Actions) and silently omits
+nested files. Still nothing in the JS gates reaches that path.
+
+## E2E is a separate workflow
+
+`.github/workflows/e2e.yml` runs on every PR to `main` and on push to `main`, as **three chained
+jobs**: `chromium` → `firefox` → `webkit`, each `needs:` the previous. `pnpm test:e2e:ci` is
+`playwright test --workers=1`.
+
+It is **not** a mocked harness: `tests/e2e/global-setup.js` runs `supabase start`, polls the
+`/auth/v1/health` and `/rest/v1/` HTTP endpoints (Docker health status is unreliable in CI),
+then `supabase db reset`. The Supabase CLI is a devDependency. So the specs run against real RLS.
+
+Playwright project selection is `matches(grep)` **AND NOT** `matches(grepInvert)`. Setting both to
+the same regex selects zero tests while still exiting green — `chromium` therefore carries no
+`grep`, and `@chromium-only` is expressed by excluding it from the other two.
+
+`vitest.config.js` exists solely to keep `tests/e2e/**` out of the unit tier. The orphaned
+`spike/**` exclusion is not on `main`; add it there only if a `spike/` directory actually exists.
 
 ## Type checking is per-file opt-in
 
@@ -97,12 +121,17 @@ TypeScript is **7.0.2** (not 5.x). Two quirks already cost time:
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **13 files**, one per migration from `0034_plan_freeze.sql` through
-`0033_feedback.sql` (an earlier version of this line said "6 files, `0023`–`0028`", which was true
-before the plan-freeze, projection, minors, DOB, guardian-email, overlay-token and feedback smokes
-landed; re-count rather than trusting it). They are **not** in CI and **not** wired to any pnpm
-script. The invocation exists in exactly one place in the repo,
-`odd/tasks/hito5-substitutions-and-coverage.md`:
+`scripts/smoke/*.sql` — **13 files**, `0021-plan-freeze.sql` through `0033-feedback.sql`
+(an earlier version of this line said "6 files, `0023`–`0028`"; re-count rather than trusting it).
+**The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
+`0034_plan_freeze.sql` and `0022-projection.sql` covers `0035_projection.sql` — both were
+renumbered after their smokes were written, and the smokes were not renamed with them. So a smoke
+name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
+that those migration slots are taken.
+
+`0036_guardian_approve_public_sharing.sql` has no smoke yet — the newest migration is the one
+gap in that coverage. They are **not** in CI and **not** wired to any pnpm script. The invocation
+exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
 
 ```bash
 supabase db reset   # REQUIRED first — see below
@@ -119,12 +148,14 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **33 files on `main`**, numbered `0001`–`0033` with **no gap in between**. The
-`0020`–`0022` window is **closed** — `0020_review_batch1.sql`, `0034_plan_freeze.sql` and
-`0035_projection.sql` are all on `main`. `0029` is taken as well (`0029_fail_closed_minors.sql`),
-and `0032` went with it (`0032_overlay_access_token.sql`, the OBS overlay capability token, landed
-in #225). **The next free number is `0034`,** and it is free unconditionally — nothing is claiming
-it any more.
+Migrations: **34 files on `main`**, numbered `0001`–`0036`, with **`0021` and `0022` a deliberate
+free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
+(#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
+(#360) is the newest. **The next free number is `0037`.**
+
+Re-count rather than trusting this paragraph: it has been wrong four times, because every merge
+that renumbers invalidates the sentence above it. `git ls-tree --name-only origin/main
+supabase/migrations/ | wc -l` is the fact; the prose is a copy of it.
 
 Before adding a migration, check every branch for a collision:
 `git branch -r | xargs -I{} git ls-tree --name-only {} -- supabase/migrations/`. Two cautions on
@@ -145,12 +176,13 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the next free number, `0034` today. `0033_feedback.sql` is the precedent for
+  matter, so take the next free number, `0037` today. `0033_feedback.sql` is the precedent for
   renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0034`. Land it in a genuinely
-  free earlier slot, or renumber what it depends on. **There is no such slot left**: `0001`–`0033`
-  is contiguous, so every position below `0033` is taken. This case now always needs a decision
-  (renumber the dependency, or reorder the filenames) rather than a free number to drop into.
+- **Must sort before an existing migration** → you cannot simply take `0037`. Land it in a genuinely
+  free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
+  `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
+  Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
+  than a free number to drop into.
 
 Never commit an ad-hoc query script in `supabase/migrations/` (that's why `scripts/smoke/` is a
 sibling directory). Never push the seed with `supabase db push`.
@@ -231,7 +263,7 @@ rules, and the failure mode is styling a live-performance surface like a product
 Touched → tier 1 or 3a. Read at distance in a dark room → tier 3b.
 
 ```bash
-bash scripts/check-visual-contract.sh   # the visual gate; runs in CI between lint and test
+bash scripts/check-visual-contract.sh   # the visual gate; runs LAST in CI, after test and build
 ```
 
 Two things the gate cannot tell you, because they are measured, not published: **Apple publishes no

@@ -17,6 +17,13 @@ import argparse
 import html
 import json
 import re
+from contextvars import ContextVar
+
+# Id del @startuml del diagrama en curso. mark_diagram_text lo lee para estampar
+# la clave data-i18n y localize_with_switcher lo lee para generar el catalogo
+# con la MISMA clave: si difieren, el switcher no encuentra la clave y deja el
+# texto como estaba, o peor, pilla la de otro diagrama.
+DIAGRAM_ID: ContextVar[str | None] = ContextVar("diagram_id", default=None)
 import shutil
 import subprocess
 import sys
@@ -40,66 +47,114 @@ KIND_BOUNDARY = "cloud"
 # Las listas deben tener la MISMA cantidad de lineas en ambos idiomas: cada
 # linea es un <text> dentro de la elipse, y si un idioma tiene mas o menos
 # lineas que el otro, el switcher deja texto huerfano o recortado.
-UC_LABELS: dict[str, dict[str, list[str]]] = {
-    "UC1": {
-        "es": ["Agregar una canción", "al repertorio", "[UC1]"],
-        "en": ["Add a song", "to repertoire", "[UC1]"],
+# ─────────────────────────────────────────────────────────────────────────────
+# ETIQUETAS POR DIAGRAMA
+#
+# ANTES: un solo dict plano, `UC_LABELS`, indexado por alias de caso. Todos los
+# diagramas usan los mismos alias (UC1, UC2, ...), asi que las claves se
+# sobreescribian con el ultimo bloque que las declaraba, y un diagrama renderizado
+# salia rotulado con el texto de otro. No lo detectaba ningun grep: el HTML
+# era valido y el SVG era valido. Solo se vio al abrirlo en Chromium.
+#
+# AHORA: `LABELS_BY_DIAGRAM` indexa por el id de `@startuml`, que es lo unico que
+# distingue un diagrama de otro. `UC_LABELS` queda como respaldo plano para un
+# diagrama que se agregue sin registrarse — falla visible (sale el texto del
+# respaldo), nunca silencioso al revés.
+#
+# El orden de declaracion ya no importa. Antes sí, y por eso el bloque de UC-04
+# quedaba pisado por el de UC-03.
+LABELS_BY_DIAGRAM: dict[str, dict[str, dict[str, list[str]]]] = {
+    "uc01": {
+        "UC1": {
+            "es": ["Agregar una canción", "al repertorio", "[UC1]"],
+            "en": ["Add a song", "to repertoire", "[UC1]"],
+        },
+        "UC2": {
+            "es": ["Validar el archivo", "de acordes", "[UC2]"],
+            "en": ["Validate the", "chord file", "[UC2]"],
+        },
+        "UC3": {
+            "es": ["Calcular readiness", "[UC3]"],
+            "en": ["Compute readiness", "[UC3]"],
+        },
+        "UC4": {
+            "es": ["Adjuntar escaneo PDF", "[UC4]"],
+            "en": ["Attach PDF scan", "[UC4]"],
+        },
+        "Musician": {"es": ["Músico", "«actor»"], "en": ["Musician", "«actor»"]},
     },
-    "UC2": {
-        "es": ["Validar el archivo", "de acordes", "[UC2]"],
-        "en": ["Validate the", "chord file", "[UC2]"],
-    },
-    "UC3": {
-        "es": ["Calcular readiness", "[UC3]"],
-        "en": ["Compute readiness", "[UC3]"],
-    },
-    "UC4": {
-        "es": ["Adjuntar escaneo PDF", "[UC4]"],
-        "en": ["Attach PDF scan", "[UC4]"],
-    },
-    "Musician": {"es": ["Músico", "«actor»"], "en": ["Musician", "«actor»"]},
-    # UC-02 Collections (features/collections.feature, 14 escenarios).
     # Peer es un actor distinto: el bandmate comparte, pero la bifurcacion
     # garantiza que su edicion no llegue a la copia personal.
-    "UC1": {
-        "es": ["Gestionar una colección", "temática", "[UC1]"],
-        "en": ["Manage a themed", "collection", "[UC1]"],
+    "uc02": {
+        "UC1": {
+            "es": ["Gestionar una colección", "temática", "[UC1]"],
+            "en": ["Manage a themed", "collection", "[UC1]"],
+        },
+        "UC2": {
+            "es": ["Ordenar canciones", "dentro de la colección", "[UC2]"],
+            "en": ["Reorder songs", "inside the collection", "[UC2]"],
+        },
+        "UC3": {
+            "es": ["Bifurcar una colección", "compartida", "[UC3]"],
+            "en": ["Fork a shared", "collection", "[UC3]"],
+        },
+        "UC4": {
+            "es": ["Vaciar una colección", "compartida", "[UC4]"],
+            "en": ["Empty a shared", "collection", "[UC4]"],
+        },
+        "Peer": {"es": ["Bandmate", "compartido", "«actor»"], "en": ["Shared", "bandmate", "«actor»"]},
     },
-    "UC2": {
-        "es": ["Ordenar canciones", "dentro de la colección", "[UC2]"],
-        "en": ["Reorder songs", "inside the collection", "[UC2]"],
-    },
-    "UC3": {
-        "es": ["Bifurcar una colección", "compartida", "[UC3]"],
-        "en": ["Fork a shared", "collection", "[UC3]"],
-    },
-    "UC4": {
-        "es": ["Vaciar una colección", "compartida", "[UC4]"],
-        "en": ["Empty a shared", "collection", "[UC4]"],
-    },
-    "Peer": {"es": ["Bandmate", "compartido", "«actor»"], "en": ["Shared", "bandmate", "«actor»"]},
-    # UC-03 Comentarios (features/collaborative-comments.feature, 13 escenarios).
     # UC4 (anotacion personal) es un <<extend>> del caso base: es otra forma de
     # trabajar sobre la cancion, no una variante de comentar EN LA BANDA. La
     # diferencia es de alcance (personal vs compartido), y por eso lleva su
     # propia tabla: personal_annotations no tiene ningun campo de comparticion.
-    "UC1": {
-        "es": ["Comentar una canción", "compartida", "[UC1]"],
-        "en": ["Comment on a shared", "song", "[UC1]"],
+    "uc03": {
+        "UC1": {
+            "es": ["Comentar una canción", "compartida", "[UC1]"],
+            "en": ["Comment on a shared", "song", "[UC1]"],
+        },
+        "UC2": {
+            "es": ["Anclar a una sección", "o a una versión", "[UC2]"],
+            "en": ["Anchor to a section", "or to a version", "[UC2]"],
+        },
+        "UC3": {
+            "es": ["Resolver el hilo", "cuando el cambio ya está", "[UC3]"],
+            "en": ["Resolve the thread", "once the change landed", "[UC3]"],
+        },
+        "UC4": {
+            "es": ["Escribir una anotación", "personal", "[UC4]"],
+            "en": ["Write a personal", "annotation", "[UC4]"],
+        },
     },
-    "UC2": {
-        "es": ["Anclar a una sección", "o a una versión", "[UC2]"],
-        "en": ["Anchor to a section", "or to a version", "[UC2]"],
+    # Requerimiento #1 de la ampliacion institucional.
+    # NO HAY .feature todavia: los 11 modulos ampliados aun no tienen BDD
+    # escrito, y la entry rule de AGENTS.md lo pone antes de la migracion.
+    # OrganAdmin es el unico actor a proposito — la regla dura 5 limita a dos
+    # casos de uso por actor para que PlantUML no dibuje cunias superpuestas.
+    "uc04": {
+        "UC1": {
+            "es": ["Gestionar cuentas", "de la organización", "[UC1]"],
+            "en": ["Manage the organization's", "accounts", "[UC1]"],
+        },
+        "UC2": {
+            "es": ["Registrar alta", "y baja de un miembro", "[UC2]"],
+            "en": ["Register member", "enrolment and departure", "[UC2]"],
+        },
+        "UC3": {
+            "es": ["Asignar un rol", "dentro de la organización", "[UC3]"],
+            "en": ["Assign a role", "inside the organization", "[UC3]"],
+        },
+        "OrgAdmin": {"es": ["Administrador", "«actor»"], "en": ["Administrator", "«actor»"]},
     },
-    "UC3": {
-        "es": ["Resolver el hilo", "cuando el cambio ya está", "[UC3]"],
-        "en": ["Resolve the thread", "once the change landed", "[UC3]"],
-    },
-    "UC4": {
-        "es": ["Escribir una anotación", "personal", "[UC4]"],
-        "en": ["Write a personal", "annotation", "[UC4]"],
-    },
+    # Diagrama de arquitectura, no de casos de uso: los nodos son contextos y
+    # no llevan data-i18n porque el switcher solo traduce el contenido. Se
+    # registra vacio para que su presencia sea explicita y no un olvido.
+    "amp01": {},
 }
+
+# Respaldo plano: el bloque de UC-01, que es el diagrama base de la serie.
+# Se usa solo para un @startuml sin registro en LABELS_BY_DIAGRAM.
+UC_LABELS: dict[str, dict[str, list[str]]] = LABELS_BY_DIAGRAM["uc01"]
 
 INK = {
     # fill del atributo  ->  clase semantica
@@ -189,6 +244,35 @@ def render_puml(puml: Path) -> str:
     return body
 
 
+def puml_diagram_id(puml: Path) -> str:
+    """El id del diagrama, tal como lo declaro @startuml en el .puml.
+
+    Existe porque las etiquetas se indexan por ALIAS de caso y todos los diagramas
+    usan los mismos alias (UC1, UC2, ...): un dict plano solo puede pertenecer a
+    un diagrama, el ultimo declarado gana, y los demas salen rotulados con el
+    texto de otro. El id es lo unico que los distingue.
+
+    El id entra en dos sitios que tienen que coincidir: la clave `data-i18n` que
+    se estampa en cada <text> del SVG, y la clave del catalogo i18n que el
+    switcher consulta. Por eso se guarda en un ContextVar y no se pasa por
+    parametro a las dos funciones.
+    """
+    m = re.search(r"@startuml\s+(\S+)", puml.read_text())
+    if not m:
+        sys.exit(f" {puml}: la primera linea debe ser @startuml <id>, sin id no se pueden resolver las etiquetas.")
+    return m.group(1)
+
+
+def labels_for(diagram: str) -> dict[str, dict[str, list[str]]]:
+    """Etiquetas del diagrama indicado, con respaldo al bloque plano.
+
+    Los diagramas que ya existian (uc-01, uc-02, uc-03) viven en LABELS_BY_DIAGRAM
+    bajo su id de @startuml. El fallback plano conserva el comportamiento previo
+    para un diagrama que se agregue sin registrarse, en lugar de callarse.
+    """
+    return LABELS_BY_DIAGRAM.get(diagram, UC_LABELS)
+
+
 def drop_text_length(svg: str) -> str:
     """Quita el textLength de PlantUML.
 
@@ -200,23 +284,32 @@ def drop_text_length(svg: str) -> str:
     return re.sub(r'\stextLength="[\d.]+"', "", svg)
 
 
-def mark_diagram_text(svg: str, lang: str) -> tuple[str, dict[str, str], list[str]]:
+def mark_diagram_text(svg: str, lang: str, labels: dict | None = None) -> tuple[str, dict[str, str], list[str]]:
     """Marca cada <text> del diagrama con data-i18n para que el switcher lo cambie.
 
     Los casos de uso viven dentro del SVG, no en el HTML: es texto que PlantUML
     genero, por eso no tenia data-i18n y quedaba fijo en el idioma del render.
     Cada linea de una elipse es un <text> separado, asi que el mapeo es 1:1
-    con UC_LABELS[alias][idioma][linea].
+    con labels[alias][idioma][linea].
+
+    `labels` es el set de etiquetas DE ESTE diagrama (ver puml_diagram_id). Sin el,
+    dos diagramas que comparten alias se pisan entre si.
 
     Devuelve (svg_marcado, claves, faltantes).
     """
+    table = labels if labels is not None else UC_LABELS
+    # La clave del DOM y la del catalogo tienen que coincidir. El id del diagrama
+    # entra en las dos (mark_diagram_text y localize_with_switcher), asi que se
+    # resuelve una vez aca y se comparte por variable de contexto.
+    diagram = DIAGRAM_ID.get()
+    prefix = f"uc.{diagram}." if diagram else "uc."
     keys: dict[str, str] = {}
     missing: list[str] = []
 
     def sub(match: re.Match) -> str:
         attrs, qualified, body = match.group(1), match.group(2), match.group(3)
         alias = qualified.rsplit(".", 1)[-1]
-        options = UC_LABELS.get(alias)
+        options = table.get(alias)
         if not options:
             return match.group(0)
         lines = options.get(lang) or options["en"]
@@ -224,7 +317,7 @@ def mark_diagram_text(svg: str, lang: str) -> tuple[str, dict[str, str], list[st
         counter = {"i": 0}
 
         def mark_text(m: re.Match) -> str:
-            key = f"uc.{alias}.{counter['i']}"
+            key = f"{prefix}{alias}.{counter['i']}"
             counter["i"] += 1
             keys[key] = m.group(1)
             return m.group(0).replace("<text", f'<text data-i18n="{key}"', 1)
@@ -676,6 +769,7 @@ def localize_with_switcher(
     cards: list[dict] | None,
     base: str = "UC1",
     feature: str = "",
+    labels: dict | None = None,
 ) -> tuple[str, list[str]]:
     """Genera el HTML con markup data-i18n y el boton ES/EN en runtime.
 
@@ -714,14 +808,20 @@ def localize_with_switcher(
         r"<title>.*?</title>", f"<title>{html.escape(title)}</title>", resolved, count=1
     )
     resolved = add_uml_css(resolved)
-    content = content_keys(cards or default_cards(lang), title, subtitle, base, feature)
+    content = content_keys(cards or default_cards(lang), title, subtitle, base, feature, labels)
     for code, extra in content.items():
         catalogs.setdefault(code, {}).update(extra)
-    # claves del diagrama: cada <text> de las elipses, por alias y linea
-    for alias, options in UC_LABELS.items():
+    # Claves del diagrama: cada <text> de las elipses, por alias y linea.
+    # El prefijo lleva el id del diagrama porque mark_diagram_text lo escribe
+    # igual: sin el, el catalogo es global y el ultimo diagrama en generarse
+    # renombra el texto de todos los demas en runtime — un SVG y un HTML
+    # individualmente validos, con el contenido de otro diagrama.
+    diagram = DIAGRAM_ID.get()
+    prefix = f"uc.{diagram}." if diagram else "uc."
+    for alias, options in labels.items():
         for code, lines in options.items():
             for i, line in enumerate(lines):
-                catalogs.setdefault(code, {})[f"uc.{alias}.{i}"] = line
+                catalogs.setdefault(code, {})[f"{prefix}{alias}.{i}"] = line
     resolved = add_i18n_data_node(resolved, catalogs, locale)
     return add_language_switcher(resolved, catalogs), missing
 
@@ -829,7 +929,8 @@ def default_cards(lang: str) -> list[dict]:
 
 
 def content_keys(
-    cards: list[dict], title: str, subtitle: str, base: str = "UC1", feature: str = ""
+    cards: list[dict], title: str, subtitle: str, base: str = "UC1", feature: str = "",
+    labels: dict | None = None,
 ) -> dict[str, dict[str, str]]:
     """Claves del CONTENIDO (cards, titulo, subtitulo) por idioma.
 
@@ -837,12 +938,20 @@ def content_keys(
     subtitulo quedan fijos en el idioma con que se genero el archivo.
 
     El subtitulo lleva el nombre del caso de uso (que cambia por idioma via
-    UC_LABELS) mas la referencia al archivo .feature (fija). Antes iba como
+    labels) mas la referencia al archivo .feature (fija). Antes iba como
     texto literal y no cambiaba al cambiar de idioma.
+
+    `labels` son las de ESTE diagrama; sin el argumento el nombre del caso sale
+    del set equivocado en cuanto dos diagramas comparten alias.
     """
+    labels = labels if labels is not None else UC_LABELS
+    # Un diagrama sin casos de uso (amp-01 es de arquitectura) no tiene alias de
+    # caso que nombrar en el subtitulo. `feature` ya lleva el contexto, asi que
+    # el nombre del caso queda vacio en vez de romper la generacion.
+    name = labels.get(base)
     uc_name = {
-        "es": " ".join(UC_LABELS[base]["es"][:2]),
-        "en": " ".join(UC_LABELS[base]["en"][:2]),
+        "es": " ".join(name["es"][:2]) if name else "",
+        "en": " ".join(name["en"][:2]) if name else "",
     }
 
     def block(cards_: list[dict]) -> dict[str, str]:
@@ -926,11 +1035,14 @@ def main() -> None:
     if not args.template.exists():
         sys.exit(f" No existe el template del viewer: {args.template}")
 
+    diagram = puml_diagram_id(args.puml)
+    DIAGRAM_ID.set(diagram)
+    labels = labels_for(diagram)
     svg = semanticize_colors(render_puml(args.puml))
     svg = drop_text_length(svg)
     svg = set_font(svg)
     svg = stamp(svg)
-    svg, diagram_keys, diag_missing = mark_diagram_text(svg, args.lang)
+    svg, diagram_keys, diag_missing = mark_diagram_text(svg, args.lang, labels)
     if diag_missing:
         print(f" AVISO  lineas de diagrama descuadradas: {diag_missing}")
     if args.keep_svg:
@@ -948,7 +1060,7 @@ def main() -> None:
         flags=re.S,
     )
     shell, missing = (
-        localize_with_switcher(shell, args.title, args.subtitle, args.locale, args.lang, cards, args.base, args.feature)
+        localize_with_switcher(shell, args.title, args.subtitle, args.locale, args.lang, cards, args.base, args.feature, labels)
         if args.switcher
         else localize(shell, args.title, args.subtitle, args.locale)
     )
