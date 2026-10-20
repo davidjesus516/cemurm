@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Online gig planning and truthful performance history (issue #44): venue suggestion/reuse, one-setlist lifecycle (planned→confirmed→completed/cancelled), exactly one performance record per completed gig (played/skipped/off_setlist), played-tag display, offline gig ops. Coverage: `features/gigs-and-performance-history.feature` — every scenario except "Gig visibility follows the org and branch model" (deferred, org model is Hito 4) and the NON-GOALS scenarios (calendar/recurring/attendees; multi-org gigs).
+Online gig planning and truthful performance history (issue #44): venue suggestion/reuse, one-setlist lifecycle (planned→confirmed→completed/cancelled), exactly one performance record per completed gig (played/skipped/off_setlist), played-tag display, offline gig ops. Coverage: `features/gigs-and-performance-history.feature` — every scenario except the NON-GOALS scenarios (calendar/recurring/attendees; multi-org gigs). The "Gig visibility follows the org and branch model" scenario was **deferred until the org model landed** (Hito 4) and is now implemented by `supabase/migrations/0041_gig_shared_read.sql`: a completed gig its owner shared is readable, read-only, by the active members of the gig's own branch (`branch_id = any(private.user_branch_ids(auth.uid()))`, mirroring `songs_select_branch`), with `branch_id IS NULL` failing closed to owner-only. The read extends to `performances` and `performance_items` through the same gig hop. Verified by `scripts/smoke/0041-gig-shared-read.sql` (23 PASS / 0 FAIL on a fresh reset); record: `odd/tasks/gig-shared-read-access.md`.
 
 ## Requirements
 
@@ -125,3 +125,35 @@ The system MUST queue gig create/edit/complete offline with a "pending sync" fla
 - THEN the gig and its performance record are stored locally with "pending sync"
 - WHEN I reconnect
 - THEN both sync to the server and the flag clears
+
+### Requirement: Gig visibility follows the org and branch model
+
+A gig MUST be private to its owner until the owner shares it. A **completed** shared gig MUST then be
+readable — read-only — by the **active members of the gig's own branch**, and never by a member of a
+sibling branch of the same organization. The read MUST extend to the gig's performance record
+(`performances`, and `performance_items` through it). A shared gig with `branch_id IS NULL` MUST stay
+owner-only: the requirement fails closed rather than widening to the whole organization. Only SELECT
+is added, so INSERT, UPDATE and DELETE remain owner-only and the owner keeps them regardless of her
+membership state. Implemented in `supabase/migrations/0041_gig_shared_read.sql`, mirroring the
+`songs_select_branch` shape — `branch_id = any(private.user_branch_ids(auth.uid()))`, where
+`private.user_branch_ids` aggregates **active** memberships only, so a member who left loses the read
+without a status check of its own. Verified by `scripts/smoke/0041-gig-shared-read.sql`.
+
+#### Scenario: Gig visibility follows the org and branch model
+
+- GIVEN Lucia is a member of "Sede Madrid" in "Academia Musical"
+- AND she creates the gig "Friday Gig"
+- THEN the gig is private to Lucia by default
+- AND Juan, a member of "Sede Madrid", does not see it
+- WHEN Lucia shares the gig to "Sede Madrid"
+- THEN Juan can open the gig and, once completed, its performance record
+- AND Pedro, a member of "Sede Lima", cannot open the gig
+
+#### Scenario: Read-only access survives the owner leaving the organization
+
+Source: `features/offboarding-cascade.feature:33-37` — the same rule asserted from the offboarding side.
+
+- GIVEN Sofia completed the gig "Friday Gig" and shared it to the branch
+- WHEN Sofia leaves the org
+- THEN the gig and its performance record stay with her
+- AND the remaining members of that branch keep read-only access to the completed gig
