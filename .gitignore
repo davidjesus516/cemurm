@@ -63,3 +63,4 @@ CEMURM/
 /.agents
 /.claude
 .playwright-mcp/
+deno.lock
