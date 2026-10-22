@@ -121,7 +121,7 @@ Each slice is one PR, ≤ 400 authored lines, with its own verification.
 
 - [x] T1 Branch from `main` + this record (before the first write)
 - [x] T2 WU1 — migration `0042_account_export.sql` + smoke (export envelope, server side)
-- [ ] T3 WU2 — client serializer, ZIP assembly, repository, settings surface + tests
+- [x] T3 WU2 — client serializer, ZIP assembly, repository, settings surface + tests
 - [ ] T4 WU3 — migration `0043_account_erasure.sql` + smoke (request, grace, core, cron, purge)
 - [ ] T5 WU4 — erasure UI (warning, confirm, cancel) + tests
 - [ ] T6 WU5 — re-import for the core working set + tests
@@ -203,3 +203,36 @@ From the feature, scenario by scenario:
   already condensed to the non-obvious (the definer/RLS evidence, the two attribution
   hazards, D2/D3) — where the parent wants to cut 300 lines, the honest option is to split
   the smoke's fixture block into a shared SQL include, not to weaken an assertion.
+- 2026-10-22 — **WU2 landed.** Client bundle + settings surface.
+  `src/domain/account/exportBundle.js` — canonical document (fixed top-level and
+  repertoire/activity/archive key order, arrays kept in the RPC's meaningful order, deep
+  copy so the envelope is never mutated), Markdown summary (counts table for every
+  collection, songs with artist/year, setlists with dates, ten newest practice sessions),
+  and `cemurm-export-YYYY-MM-DD.json` from `exported_at` (today only when it is missing
+  or unparseable). `src/domain/account/exportZip.js` — `fflate.zipSync` over exactly two
+  entries, the JSON document and `summary.md`; synchronous and node-testable.
+  `src/data/repositories/accountExport.js` — `supabase.rpc('export_account_data')`,
+  throwing one readable message on RPC error or null (the caller renders a failure state).
+  `src/features/settings/components/ExportDataCard.jsx` mounted as a `<section>` in
+  `Settings.jsx`; four states (idle/building/done/failed), inline failure text, double-click
+  guarded by a ref because two clicks can share a render tick, object URL revoked after the
+  click. `fflate@^0.8.3` is the only new dependency (D7, zero transitive deps).
+  Tests (node environment, no jsdom): `exportBundle.test.js` (15 cases — identity fields,
+  canonical key order, nested group order, RPC array order preserved, deep-frozen input is
+  not mutated, counts, artist rows, setlist dates, practice newest-first, empty envelope,
+  single-line titles, filename derivation and fallback) and `exportZip.test.js` (5 cases —
+  two entries with the right names, JSON round-trip equality, `summary.md` identity, empty
+  account). The component is not rendered in tests by design; the pure functions are its
+  seam.
+  Verified, in order, all green: `pnpm test` (20 files / 435 tests passed),
+  `pnpm typecheck` (clean), `pnpm lint` (clean), `pnpm build` (built in 4.23s),
+  `bash scripts/check-visual-contract.sh` (12 rules, 0 failing; rules 01b and 02 remain
+  ratchet warnings at their pre-existing ceilings — the card deliberately uses no dead
+  accent, `text-cem-amber` carrying the error line).
+  **Budget deviation, reported:** ~801 authored lines (six new source/test files + 7 lines
+  in `package.json`/`Settings.jsx`), +401 over the ≤400 target. The split is 298 lines of
+  tests, 361 for the document+summary builder, and 135 for ZIP/repository/component. The
+  summary requirement (`:14`) is what makes the builder large: a readable summary needs a
+  counts table plus three human-facing sections, and the empty-account and no-mutation
+  cases are explicit acceptance criteria. Trimming to 400 would mean deleting test
+  coverage or shipping a summary that is only a counts list, so it was not done.

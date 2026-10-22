@@ -27,6 +27,7 @@
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
     "@supabase/supabase-js": "^2.116.0",
+    "fflate": "^0.8.3",
     "gsap": "^3.15.0",
     "motion": "^14.1.0",
     "ogl": "^1.0.11",
