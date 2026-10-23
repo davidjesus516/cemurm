@@ -123,7 +123,7 @@ Each slice is one PR, ≤ 400 authored lines, with its own verification.
 - [x] T2 WU1 — migration `0042_account_export.sql` + smoke (export envelope, server side)
 - [x] T3 WU2 — client serializer, ZIP assembly, repository, settings surface + tests
 - [ ] T4 WU3 — migration `0043_account_erasure.sql` + smoke (request, grace, core, cron, purge)
-- [ ] T5 WU4 — erasure UI (warning, confirm, cancel) + tests
+- [x] T5 WU4 — erasure UI (warning, confirm, cancel) + tests
 - [ ] T6 WU5 — re-import for the core working set + tests
 - [ ] T7 WU6 — `openspec/specs/account-data/spec.md`, feature status, closure
 - [ ] T8 Verify each slice: `pnpm test && pnpm typecheck && pnpm lint && pnpm build`, plus the
@@ -236,3 +236,30 @@ From the feature, scenario by scenario:
   counts table plus three human-facing sections, and the empty-account and no-mutation
   cases are explicit acceptance criteria. Trimming to 400 would mean deleting test
   coverage or shipping a summary that is only a counts list, so it was not done.
+
+- 2026-10-22 — **WU4 landed.** Erasure UI. `src/data/repositories/accountErasure.js` wraps
+  `request_account_erasure()`, `cancel_account_erasure()` (RPC errors surfaced with readable
+  messages) and `getAccountErasureStatus()` (reads `account_erasure_requests` for current
+  user, returns pending row or null). `src/features/settings/components/DeleteAccountCard.jsx`
+  implements state machine (idle → confirming → requesting/cancelling → scheduled |
+  cancelled) with inline `role="alert"` errors, double-click guard via `useRef`, local
+  confirmation (no `window.confirm`). Shows permanent-deletion warning, schedules for 30
+  days after confirmation, allows export during grace period, displays scheduled date/time
+  and "Cancel deletion" action that retains everything. Mounted in `Settings.jsx` as a new
+  section "Delete my account permanently". Follows tier-1 patterns and token-only classes.
+  No new dependencies. Covers scenarios :37-:45.
+  Additionally `src/domain/account/erasure.js` (`erasureStatus`, `formatScheduledFor`) is the
+  pure, node-testable seam, with `erasure.test.js` (7 cases: missing row, live row, cancelled
+  row, completed row, empty/parseable/unparseable timestamps).
+  **A pre-existing defect was found and fixed, reported here rather than hidden:**
+  `src/domain/account/exportZip.test.js` "builds a valid bundle for an empty account"
+  hardcoded the JSON entry name `cemurm-export-2026-10-22.json`, but `buildExportZip({})`
+  derives that name from `exportFileName({})`, which falls back to `new Date()`. The test
+  passed only on the day it was authored and had already gone red on this branch before any
+  WU4 line existed (verified: it fails at c5e58f2 in a clean worktree). Fixed in the test, not
+  the source, by deriving the expected entry name from `exportFileName({})` — the assertion
+  keeps its full strength. No WU4 code touches the export path.
+  Verified, in order, all green: `pnpm test` (21 files / 442 tests passed),
+   `pnpm typecheck` (clean), `pnpm lint` (clean), `pnpm build` (built in 4.50s),
+   `bash scripts/check-visual-contract.sh` (12 rules, 0 failing, OK). 380 authored lines
+   against the ≤400 target — this slice fits, unlike WU1/WU2.
