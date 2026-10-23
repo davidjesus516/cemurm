@@ -124,7 +124,7 @@ Each slice is one PR, ≤ 400 authored lines, with its own verification.
 - [x] T3 WU2 — client serializer, ZIP assembly, repository, settings surface + tests
 - [ ] T4 WU3 — migration `0043_account_erasure.sql` + smoke (request, grace, core, cron, purge)
 - [x] T5 WU4 — erasure UI (warning, confirm, cancel) + tests
-- [ ] T6 WU5 — re-import for the core working set + tests
+- [x] T6 WU5 — re-import for the core working set + tests
 - [ ] T7 WU6 — `openspec/specs/account-data/spec.md`, feature status, closure
 - [ ] T8 Verify each slice: `pnpm test && pnpm typecheck && pnpm lint && pnpm build`, plus the
       smoke on a fresh `supabase db reset` for every SQL slice
@@ -263,3 +263,58 @@ From the feature, scenario by scenario:
    `pnpm typecheck` (clean), `pnpm lint` (clean), `pnpm build` (built in 4.50s),
    `bash scripts/check-visual-contract.sh` (12 rules, 0 failing, OK). 380 authored lines
    against the ≤400 target — this slice fits, unlike WU1/WU2.
+- 2026-10-22 — **WU5 landed.** Re-import of the core working set (D2), scenarios `:29`/`:75`.
+  `supabase/migrations/0044_account_import.sql` (536 lines) adds
+  `public.import_account_data(p_document jsonb)` — `security definer`, `set search_path = ''`,
+  `raise exception 'Not authenticated.'` when `auth.uid()` is null, and a readable rejection for
+  a non-object payload or any `schema_version` other than `cemurm.account-export/1`. **Every
+  identity field in the document is ignored** (`user_id`, `created_by`, `owner_id`,
+  `contributor_id`); every inserted row is owned by `auth.uid()`. **All ids are remapped**
+  (`gen_random_uuid()` per song/version/chart/collection/setlist/tag) and the references are
+  carried through an old→new map, so a donor UUID that still exists in the same database can
+  never be overwritten — the smoke seeds exactly that collision. Imported: tags (get-or-create on
+  the `(user_id, name)` unique key), songs (`is_deleted` preserved — the export is a faithful
+  copy), charts, versions, collections + collection_songs, setlists + items, personal
+  annotations, and the two preference rows (upsert — one row per user). Not imported, by D2:
+  comments, memberships, practice history, gigs/performances, public contributions,
+  notifications/follows/feedback, audit and moderation. The one DDL change is
+  `alter table public.chart_files alter column object_key drop not null`, required because the
+  ZIP carries no blobs and the donor's Storage path would be unreadable under the new user's
+  owner-folder RLS: `content` is preserved, `object_key` is forced to NULL, so a PDF scan imports
+  as a version with no scan. `scripts/smoke/0044-account-import.sql` (320 lines, 13 assertions)
+  covers the count summary, new ids + caller ownership, FK integrity on `song_versions`/
+  `chart_files`, content-preserved/object_key-NULL charts, skipped setlist items, preference
+  rows, wrong-schema rejection with nothing inserted, the anon grant check, append-on-second-
+  import, and identity-field spoofing against a real donor row.
+  Client: `src/domain/account/importBundle.js` (121 lines, pure — `unzipSync`, single
+  `cemurm-export-*.json` entry, three documented failures), `importBundle.test.js` (128 lines,
+  ZIPs built in-test with `buildExportZip`), `src/data/repositories/accountImport.js` (40 lines),
+  `src/features/settings/components/ImportDataCard.jsx` (151 lines: idle → reading → importing →
+  done | failed, ref-guarded, uncontrolled file input, counts from the RPC, inline `role="alert"`)
+  and 6 lines in `Settings.jsx`.
+  **Decisions the record did not settle, recorded here:** (a) charts cannot round-trip binaries,
+  and `object_key` becomes NULL as above; (b) a setlist item whose song is not in the bundle has
+  no representable form — `song_id` is NOT NULL with a RESTRICT FK and the table has no
+  title/label column — so it is skipped and counted, never given a dangling or invented FK;
+  annotations on songs outside the export are skipped the same way (`skipped_annotations`);
+  (c) `org_id`/`branch_id`/`source_org_id` are set to NULL so a bundle can be imported into a
+  database where the donor's org does not exist (the "fresh account" case) without leaking org
+  scoping; `fork_of`/`lineage_source` are kept only when they resolve inside the same import;
+  (d) a second import appends a second copy — no dedupe by title/artist — except tags, which are
+  reused via their unique key and reported as `reused_tags`; (e) setlist item positions are
+  re-sequenced 1..n in export order so the `(setlist_id, position)` unique key survives skipped
+  items; (f) the `setlist_items` AFTER INSERT notification trigger would spam one notification
+  per imported item, so the rows it creates for the imported setlists in this transaction are
+  removed before returning.
+  Verified, in order, all green: `supabase db reset` (0044 applies clean), smoke
+  `13 PASS / 0 FAIL`, `pnpm test` (22 files / 452 tests passed), `pnpm typecheck` (clean),
+  `pnpm lint` (clean), `pnpm build` (built in 4.72s), `bash scripts/check-visual-contract.sh`
+  (12 rules, 0 failing, OK).
+  **Budget deviation, reported:** ~1302 authored lines (536 migration + 320 smoke + 440
+  client/tests + 6 Settings) against the ≤400 target, and this one is not a close call. The
+  importer touches ten tables with id remapping and skip accounting; the SQL alone cannot be
+  honest in under ~300 lines, and the smoke's ten mandated assertions need a full document
+  fixture. Nothing was trimmed; the alternative was dropping coverage the brief explicitly
+  requires.
+  Note: the working tree also carries uncommitted edits to `AGENTS.md`, `README.md` and `docs/`
+  from outside this slice; they were deliberately left out of this commit.
