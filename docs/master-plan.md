@@ -104,21 +104,24 @@ native track has no entry in that order yet; it gets one once OD-1–OD-3 are se
 
 Prose in this repo has drifted. These are the facts, checked against git and code on
 **2026-10-12 at `main` = `c14e977`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
-`e849738`, re-verified 2026-10-12 after the PR-drain batches):
+`e849738`, re-verified 2026-10-12 after the PR-drain batches, re-verified 2026-10-22 at
+`main` = `8f01f57` — that last pass corrected the `main`, migration, next-free and Hito 6 rows
+plus §4 and §6; the test-file and `@ts-check` counts below still stand at their 2026-10-12
+verification):
 
 | Fact | Value |
 |---|---|
-| `main` | `d3f1269`, in sync with `origin/main` (was `a610dd0` at the 2026-10-13 re-verification, and `c14e977` at the one before it) |
+| `main` | `8f01f57`, in sync with `origin/main` (2026-10-22; was `d3f1269` at the 2026-10-13 re-verification, `a610dd0` before that, and `c14e977` before that) |
 | **Test files on `main`** | **23** — 18 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 17 at `c14e977`, and 9 at `e849738`) |
 | **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck`, plus the `test:e2e*` family (`test:e2e`, `:ci`, `:chromium`, `:firefox`, `:webkit`, `:debug`, `:headed`) |
 | **CI on `main`** | `install --frozen-lockfile → lint → deno check 'supabase/functions/**/*.ts' → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-migrations-unique.sh → check-visual-contract.sh` (both gates run last on purpose: a gate that precedes `test`/`build` exits 1 under `set -euo pipefail` and marks them SKIPPED) |
 | **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, 3 chained jobs (`e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each gating the next through `needs`) |
 | `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
 | Feature files | **46**, 734 scenarios — was 42 / 656 at `8b66394` |
-| Migrations on `main` | **38 files, numbered `0001`–`0040`, with `0021`/`0022` a deliberate free gap** — was 27 with a gap at `0021` |
-| Next free migration number | **`0041`** — `0021`/`0022` remain deliberately free, and everything from `0036` to `0040` is taken (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`) |
+| Migrations on `main` | **39 files, numbered `0001`–`0041`, with `0021`/`0022` a deliberate free gap** — was 38 through `0040` at the 2026-10-13 verification; `0041_gig_shared_read.sql` merged via #384 (2026-10-20) |
+| Next free migration number | **`0042`** on `main` — but `0042_account_export.sql`, `0043_account_erasure.sql` and `0044_account_import.sql` are already claimed by the pending account export/erasure/import chain (`feat/account-export-pr1-rpc` and its slice branches, currently through `pr5-import`), so after that chain lands the free number is **`0045`** (`0021`/`0022` remain deliberately free) |
 | Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`); #360 added `0036_guardian_approve_public_sharing.sql` |
-| Hito 6 | **not started** — no implementation for any of its six features |
+| Hito 6 | **in progress — the privacy slice.** `offboarding-cascade` is implemented (`0038_offboarding_cascade.sql`, plus the `:37` shared-gig read via #384 / `0041_gig_shared_read.sql`); `account-data-export-and-erasure` is in flight — WU1–WU5 live on the `feat/account-export-…` slice chain (`0042_account_export.sql` + smoke, the export bundle + settings card, `0043_account_erasure.sql`, the erasure UI, `0044_account_import.sql` + the re-importer), with WU6 docs still open. The other four features have no implementation |
 | `// @ts-check` opt-ins | **47** files; `tsc --listFiles` reaches **62** `src/` files |
 | `docs/design-system.md` | superseded in part by `skills/cemurm-visual-system/` (PR #235, commit `5547150`); banner added in #238 |
 
@@ -512,8 +515,10 @@ took its own PR. Three of them hid a **product decision** that no amount of read
 
 ## 4. P3 — Hito 6: 99 scenarios, 0 shipped
 
-`docs/mvp-scope.md` marks Hito 6 "not started". Verified: no implementation exists for any of
-its six features.
+`docs/mvp-scope.md` marks Hito 6 "not started". That line predates the privacy slice:
+**verified 2026-10-22, two of its six features now have implementation** — but no
+implementation existed for any of the six when this section was written, and the row-by-row
+account below still starts from zero (rows corrected as the work landed).
 
 | Feature | Scenarios | Note |
 |---|---|---|
@@ -521,7 +526,7 @@ its six features.
 | `export-and-sharing` | 23 | ~1 of 23 — OnSong/ChordPro only; no PDF, MusicXML, ABC, QR or share channels |
 | `cross-organization-event-collaboration` | 16 | largest design lift: depends on org model + service planning + shared-setlist collab + repertoire ownership |
 | `user-onboarding` | 16 | none |
-| `account-data-export-and-erasure` | 11 | none |
+| `account-data-export-and-erasure` | 11 | **in flight (2026-10-22)** — WU1–WU5 on the `feat/account-export-…` slice chain: `0042_account_export.sql` (+ smoke `0042-account-export.sql`), the client bundle/ZIP + export card, `0043_account_erasure.sql` (request, grace, core, cron, purge), the erasure UI with cancel, and `0044_account_import.sql` (+ smoke `0044-account-import.sql`) with the re-importer + import card (WU5). WU6 docs still open; see `odd/tasks/account-data-export-and-erasure.md` |
 | `offboarding-cascade` | 10 | membership model, `former` state and `left_at` (`0001`), `notify_user` and `transfer_setlist_ownership` (`0008`, Hito 3), `withdraw_public_song` and `leave_organization` (`0012`/`0016`, Hito 4) all shipped earlier; the missing pieces were the CASCADE and the branch-visibility read `:37` depends on (corrected 2026-10-14) |
 
 **`offboarding-cascade` correction (2026-10-13).** The `none` this row carried was wrong about the
@@ -533,11 +538,14 @@ assignee, former members included. `0038_offboarding_cascade.sql` closes both, v
 `scripts/smoke/0038-offboarding-cascade.sql` (33 PASS / 0 FAIL) — see `odd/tasks/offboarding-cascade.md`
 for the execution record. This is the one feature of Hito 6's six with any implementation, so the
 blanket "no implementation exists for any of its six features" above holds for the other five only.
-The row's count of 10 scenarios was right; the **size of the work was not**,
-and that is what made this row worth repairing rather than the code worth rewriting. Still open: the
+The row's count of 10 scenarios was right; the **size of the work was not**,and
+that is what made this row worth repairing rather than the code worth rewriting. **Update
+2026-10-22: `:37` is closed** — `0041_gig_shared_read.sql` (#384, merged 2026-10-20) adds the
+branch-member SELECT policies for `gigs`, `performances` and `performance_items`, with its own
+smoke (`scripts/smoke/0041-gig-shared-read.sql`, 23 PASS / 0 FAIL) and record
+(`odd/tasks/gig-shared-read-access.md`). Still open: the
 setlist handoff (`:53`), which needs a two-phase leave rather than a data-model change, and
-assertions for the scenarios that hold by construction — **except** `:37`, whose org read access has
-no implementation at all (`shared_to_branch` is read by no policy or RPC).
+assertions for the scenarios that hold by construction.
 
 Plus the non-BDD deliverables in `mvp-scope.md:254-261`: Lighthouse > 90, WCAG 2.1 AA, UI
 polish, bug-fix sprint, beta docs, error boundaries, analytics.
@@ -638,8 +646,12 @@ M5   doc repairs, alongside each slice above
 N0  ✅ DONE — the visual gate passes on `main` (12 rules, 0 failing; ratchet step 1 landed)
 N1  ✅ DONE — finding D: the offline tie-break rule. 2 chained PRs, both merged:
     WU1 migration `0037` + smoke (#365); WU2/WU3 client + spec + docs (#366).
-N2  Hito 6 privacy slice: offboarding-cascade, then
-    account-data-export-and-erasure                              ← obligations, not features
+N2  🟡 IN PROGRESS — the privacy slice. offboarding-cascade is closed
+    (the `:37` shared-gig read landed as `0041_gig_shared_read.sql`,
+    #384, 2026-10-20); account-data-export-and-erasure has WU1–WU5 on
+    the feat/account-export-… slice chain (`0042`/`0043`/`0044` + the UI cards
+    cards) — WU6 docs remain
+                                                                 ← obligations, not features
 N3  Hito 6 product slice: export-and-sharing, user-onboarding,
     analytics-and-insights
 N4  cross-organization-event-collaboration                      ← last; needs four surfaces stable

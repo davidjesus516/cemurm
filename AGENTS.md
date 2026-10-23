@@ -121,16 +121,17 @@ TypeScript is **7.0.2** (not 5.x). Two quirks already cost time:
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **16 files**, `0021-plan-freeze.sql` through `0039-leave-handoff-guard.sql`
-(an earlier version of this line said "6 files, `0023`–`0028`"; re-count rather than trusting it).
+`scripts/smoke/*.sql` — **20 files**, `0021-plan-freeze.sql` through `0044-account-import.sql`
+(earlier versions said "6 files, `0023`–`0028`" and then "16 files, `0021`–`0039`"; re-count
+rather than trusting this line).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
 `0034_plan_freeze.sql` and `0022-projection.sql` covers `0035_projection.sql` — both were
 renumbered after their smokes were written, and the smokes were not renamed with them. So a smoke
 name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
 that those migration slots are taken.
 
-`0036_guardian_approve_public_sharing.sql` has no smoke yet, and neither does the newest
-migration, `0040_fix_migration_chain_rls.sql`. They are **not** in CI and **not** wired to any pnpm script. The invocation
+`0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql` have no smoke
+yet (`0034`/`0035` are covered above under other smoke names; `0041`–`0044` do). They are **not** in CI and **not** wired to any pnpm script. The invocation
 exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
 
 ```bash
@@ -148,12 +149,15 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **38 files on `main`**, numbered `0001`–`0040`, with **`0021` and `0022` a deliberate
-free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
-(#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
+Migrations: **39 files on `main`**, numbered `0001`–`0041`, with **`0021` and `0022` a deliberate
+free gap** — everything else is contiguous. `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
-`0039_leave_handoff_guard.sql` and `0040_fix_migration_chain_rls.sql`. **The next free number is
-`0041`.**
+`0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql` and
+`0041_gig_shared_read.sql` (#384, merged 2026-10-20). **The next free number on `main` is
+`0042` — but `0042_account_export.sql`, `0043_account_erasure.sql` and `0044_account_import.sql`
+are already claimed by the pending account export/erasure/import chain
+(`feat/account-export-pr1-rpc` and its slice branches, currently through `pr5-import`), so the
+next free number after that chain lands is `0045`.**
 
 Re-count rather than trusting this paragraph: it has been wrong four times, because every merge
 that renumbers invalidates the sentence above it. `git ls-tree --name-only origin/main
@@ -178,9 +182,10 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the next free number, `0041` today. `0033_feedback.sql` is the precedent for
+  matter, so take the next free number, `0045` once the account chain lands (see the Database
+  layer paragraph). `0033_feedback.sql` is the precedent for
   renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0041`. Land it in a genuinely
+- **Must sort before an existing migration** → you cannot simply take `0045`. Land it in a genuinely
   free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
   `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
   Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
