@@ -122,11 +122,11 @@ Each slice is one PR, ≤ 400 authored lines, with its own verification.
 - [x] T1 Branch from `main` + this record (before the first write)
 - [x] T2 WU1 — migration `0042_account_export.sql` + smoke (export envelope, server side)
 - [x] T3 WU2 — client serializer, ZIP assembly, repository, settings surface + tests
-- [ ] T4 WU3 — migration `0043_account_erasure.sql` + smoke (request, grace, core, cron, purge)
+- [x] T4 WU3 — migration `0043_account_erasure.sql` + smoke (request, grace, core, cron, purge)
 - [x] T5 WU4 — erasure UI (warning, confirm, cancel) + tests
 - [x] T6 WU5 — re-import for the core working set + tests
-- [ ] T7 WU6 — `openspec/specs/account-data/spec.md`, feature status, closure
-- [ ] T8 Verify each slice: `pnpm test && pnpm typecheck && pnpm lint && pnpm build`, plus the
+- [x] T7 WU6 — `openspec/specs/account-data/spec.md`, feature status, closure
+- [x] T8 Verify each slice: `pnpm test && pnpm typecheck && pnpm lint && pnpm build`, plus the
       smoke on a fresh `supabase db reset` for every SQL slice
 
 ## Acceptance criteria
@@ -318,3 +318,8 @@ From the feature, scenario by scenario:
   requires.
   Note: the working tree also carries uncommitted edits to `AGENTS.md`, `README.md` and `docs/`
   from outside this slice; they were deliberately left out of this commit.
+
+### 2026-10-24 — WU6 (docs/spec closure)
+
+- Created  (11 scenarios, requirements for export/erasure/grace/retention/re-import).
+- Closed the task record; all slices WU1–WU6 complete.
