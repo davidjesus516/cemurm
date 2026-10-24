@@ -36,7 +36,7 @@ export function formatServiceWhen(iso) {
 const btn =
   'rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60'
 const inputClass =
-  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
 
 const toLocalInput = (iso) => {
   if (!iso) return ''
@@ -72,7 +72,7 @@ function NewServiceForm({ organizations, onCreated }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+    <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
       <div>
         <label htmlFor="service-name" className="block text-sm font-medium text-cem-text">Name *</label>
         <input id="service-name" name="name" value={form.name}
@@ -166,7 +166,7 @@ export default function Services() {
       ) : services.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No services yet. Create your first one above.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {services.map((service) => (
             <li key={service.id} className="flex items-center justify-between gap-4 px-4 py-3">
               <div className="min-w-0">

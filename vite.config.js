@@ -1,8 +1,21 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import path from 'node:path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+
+  // Admin template (shadcn-dashboard) U2/S2: the template's sources resolve
+  // modules through literal path aliases ("@/..." and "src/..."). Both point
+  // to this repo's own src/, so no file moved. Minimal diff, deliberate.
+  resolve: {
+    alias: {
+      '@': path.resolve('src'),
+      src: path.resolve('src'),
+    },
+  },
+
   build: {
     rollupOptions: {
       output: {

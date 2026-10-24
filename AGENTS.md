@@ -103,6 +103,10 @@ actually checked, each via the canonical pragma, and the relocation moved all fo
 - `src/domain/music/transpose.js`, `src/domain/music/annotations.js`
 - `src/data/repositories/songs.js`, `src/data/repositories/setlists.js`
 
+The vendored admin template's `.ts/.tsx` tree is **not** in `include` yet (171 of 172 files), so
+`pnpm typecheck` does not check it and its green exit says nothing about that code. Follow-up in
+`odd/tasks/tw4-stack-foundation.md` L5.
+
 **Do not flip `checkJs` on globally.** Doing so type-checks everything the include can reach:
 ~760 errors, ~530 in files that were never in scope (rationale is recorded in `tsconfig.json`).
 To bring a new module under the baseline, add `// @ts-check` to that one file — not a global
@@ -115,7 +119,7 @@ wrong `include` leaves `tsc` checking one untyped file and still exiting 0.
 npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; was 1, now 48
 ```
 
-TypeScript is **7.0.2** (not 5.x). Two quirks already cost time:
+TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibility, odd/tasks/tw4-stack-foundation.md L3). Both quirks re-verified on 6.0.3:
 - `catch` variables infer `unknown`, so `e.message` needs a `/** @type {Error} */ (e)` cast.
 - In JSDoc, an em-dash after an optional param (`@param {boolean} [name] —`) is a parse error (TS1127).
 

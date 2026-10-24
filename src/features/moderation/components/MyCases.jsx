@@ -90,7 +90,7 @@ export default function MyCases({ cases, loading, error, onAppeal, appealing }) 
         {cases.length} {cases.length === 1 ? 'case' : 'cases'} on your contributions
       </p>
 
-      <ul className="divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+      <ul className="divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
         {cases.map((item) => (
           <li
             key={item.id}
