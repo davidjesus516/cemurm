@@ -21,6 +21,7 @@
 // { ok: true, match: null } — callers branch on `ok` + `error`.
 
 import { isOnline } from './spotify.js'
+import { musicBrainzSearchBody } from './schemas.js'
 
 /**
  * The recording lookup query. `artist` is OPTIONAL on purpose: a title-only
@@ -201,8 +202,10 @@ async function searchRealProvider(title, artist) {
     { headers: { Accept: 'application/json', 'User-Agent': 'CEMURM/0.1 (dev)' } },
   )
   if (!res.ok) throw new Error('MusicBrainz search failed')
-  // The cast states the shape this module reads out of the envelope.
-  const body = /** @type {MbSearchBody} */ (await res.json())
+  // Validated rather than cast: a wrong type (a non-array `recordings`, a
+  // numeric `date`) throws here and the caller's catch reports 'unavailable'.
+  // Absent fields stay absent, so the fallbacks below still own that case.
+  const body = musicBrainzSearchBody.parse(await res.json())
   const rec = body.recordings?.[0]
   if (!rec) return { ok: true, match: null }
 
