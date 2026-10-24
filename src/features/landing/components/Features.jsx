@@ -17,7 +17,7 @@ import GlassIcon from './GlassIcon.jsx'
 // motion collapses to plain text.
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 // The icon rotation, built from the four names GlassIcon declares and nothing else. Two of

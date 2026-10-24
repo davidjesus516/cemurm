@@ -209,8 +209,6 @@ cemurm/
 │       └── feature_request.md
 ├── package.json
 ├── vite.config.js
-├── tailwind.config.js
-├── postcss.config.js
 ├── index.html
 ├── CONTRIBUTING.md
 ├── README.md

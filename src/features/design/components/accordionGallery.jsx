@@ -285,7 +285,7 @@ export function AccordionGallery({
             ref={(el) => {
               panelRefs.current[i] = el
             }}
-            className="ag-panel group relative block min-w-0 min-h-0 flex-[1_1_0] cursor-pointer overflow-hidden bg-cem-surface no-underline outline-none [transform-style:preserve-3d] [transform-origin:center] max-[520px]:min-h-[84px] max-[520px]:!transform-none"
+            className="ag-panel group relative block min-w-0 min-h-0 flex-[1_1_0] cursor-pointer overflow-hidden bg-cem-surface no-underline outline-hidden [transform-style:preserve-3d] [transform-origin:center] max-[520px]:min-h-[84px] max-[520px]:!transform-none"
             style={{
               borderRadius: `${radius}px`,
               '--ag-accent': colors.accent,

@@ -113,7 +113,7 @@ export default function Setlists() {
       )}
 
       {showPcoPicker && (
-        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <h2 className="mb-2 text-sm font-semibold text-cem-text">Import from Planning Center</h2>
           {pco.state === 'working' ? (
             <p className="text-sm text-cem-secondary">Loading plans…</p>
@@ -161,7 +161,7 @@ export default function Setlists() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Setlist name (e.g. Friday Gig)"
-            className="w-full max-w-sm rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+            className="w-full max-w-sm rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
           />
           <button
             type="submit"
@@ -190,7 +190,7 @@ export default function Setlists() {
       ) : setlists.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No setlists yet. Create your first one above.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {setlists.map((setlist) => (
             <li key={setlist.id} className="flex items-center justify-between gap-4 px-4 py-3">
               <div className="min-w-0">

@@ -26,7 +26,7 @@ export function formatWhen(iso) {
 }
 
 const inputClass =
-  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
 
 function RehearsalCard({ rehearsal }) {
   return (
@@ -124,7 +124,7 @@ export default function Rehearsals() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <div>
             <label htmlFor="rehearsal-name" className="block text-sm font-medium text-cem-text">Name *</label>
             <input
@@ -201,7 +201,7 @@ export default function Rehearsals() {
       ) : rehearsals.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No rehearsals yet. Plan your first one above.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {rehearsals.map((rehearsal) => <RehearsalCard key={rehearsal.id} rehearsal={rehearsal} />)}
         </ul>
       )}

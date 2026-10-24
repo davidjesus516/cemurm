@@ -218,7 +218,7 @@ export default function Settings() {
                 <select
                   value={midi.selectedId}
                   onChange={(e) => midi.selectDevice(e.target.value)}
-                  className="rounded border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-none"
+                  className="rounded border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden"
                 >
                   <option value="">Select an output…</option>
                   {midi.outputs.map((output) => (

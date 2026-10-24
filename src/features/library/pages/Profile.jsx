@@ -97,7 +97,7 @@ export default function Profile() {
           This musician hasn&apos;t published any songs yet.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {mine.map((entry) => (
             <li key={entry.id} className="px-4 py-3">
               <div className="flex items-center gap-2">

@@ -89,7 +89,7 @@ export default function GigDetail() {
         )}
       </div>
 
-      <div className="mt-4 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 text-sm shadow-sm">
+      <div className="mt-4 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 text-sm shadow-xs">
         <p className="flex justify-between gap-4"><span className="text-cem-secondary">Venue</span><span className="text-right text-cem-text">{venueLine}</span></p>
         <p className="flex justify-between gap-4"><span className="text-cem-secondary">Setlist</span>
           <span className="text-right text-cem-text">{setlist ? <Link to={`/setlists/${setlist.id}`} className="font-medium text-cem-amber hover:underline">{setlist.name}</Link> : '—'}</span>

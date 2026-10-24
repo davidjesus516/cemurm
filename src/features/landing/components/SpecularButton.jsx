@@ -23,7 +23,7 @@ import { memo } from 'react'
 // FOCUS. Apple §7.5: 2px solid cem.text, offset 2, :focus-visible only, never the accent.
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 const PRESS = 'transition-transform duration-150 ease-out active:scale-[0.97]'
