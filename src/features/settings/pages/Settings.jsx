@@ -22,6 +22,7 @@ import {
   getPcoConnection,
 } from '../../../integrations/planningcenter.js'
 import ExportDataCard from '../components/ExportDataCard.jsx'
+import ImportDataCard from '../components/ImportDataCard.jsx'
 import DeleteAccountCard from '../components/DeleteAccountCard.jsx'
 
 export default function Settings() {
@@ -435,6 +436,11 @@ export default function Settings() {
       <section className="mt-8">
         <h2 className="text-lg font-bold text-cem-text">Export my data</h2>
         <ExportDataCard />
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-cem-text">Import my data</h2>
+        <ImportDataCard />
       </section>
 
       <section className="mt-8 mb-8">
