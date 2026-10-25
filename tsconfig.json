@@ -30,6 +30,18 @@
   // green exit is meaningless.
   "compilerOptions": {
     "allowJs": true,
+    // strict is for the TS/TSX half (tw4-stack-foundation S4). The vendored
+    // admin template's .ts/.tsx tree is NOT admitted yet: `include` still
+    // covers only the JS baseline directories, so tsc does not see src/views,
+    // src/components, src/layouts, src/api, src/context, src/hooks, src/routes
+    // or src/types.
+    // `pnpm typecheck` is therefore green without checking them.
+    // Tracking: odd/tasks/tw4-stack-foundation.md L5 (chained PR: path aliases
+    // for "@/..." and "src/...", missing deps, ~64 type errors). The same flag
+    // applies to the pragma'd .js files (checkJs off but @ts-check files are
+    // still checked), so the baseline stays the guard: tsc must exit 0 AND the
+    // listFiles count below must stay > 1 after any option change.
+    "strict": true,
     "noEmit": true,
     "target": "ES2022",
     "module": "ESNext",

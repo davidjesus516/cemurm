@@ -53,7 +53,11 @@ describe('buildExportZip', () => {
     const bundle = buildExportZip({})
     const entries = unzipSync(bundle.bytes)
     expect(Object.keys(entries)).toHaveLength(2)
-    expect(JSON.parse(strFromU8(entries[JSON_ENTRY])).repertoire.songs).toEqual([])
+    // The empty envelope carries no exported_at, so the JSON entry is named
+    // after the current day. Derive the key from the bundle instead of pinning
+    // a date, which would make this test fail every day after it was written.
+    const jsonEntry = bundle.name.replace(/\.zip$/, '.json')
+    expect(JSON.parse(strFromU8(entries[jsonEntry])).repertoire.songs).toEqual([])
     expect(strFromU8(entries[SUMMARY_ENTRY])).toContain('| Songs | 0 |')
   })
 })
