@@ -21,6 +21,7 @@ import {
   ensurePcoConnected,
   getPcoConnection,
 } from '../../../integrations/planningcenter.js'
+import ExportDataCard from '../components/ExportDataCard.jsx'
 
 export default function Settings() {
   const { prefs, loading } = usePreferences()
@@ -429,6 +430,11 @@ export default function Settings() {
           </p>
         </div>
       </div>
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-cem-text">Export my data</h2>
+        <ExportDataCard />
+      </section>
     </div>
   )
 }

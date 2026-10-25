@@ -29,6 +29,7 @@
     "@hugeicons/react": "^1.1.10",
     "@iconify/react": "^6.0.2",
     "@supabase/supabase-js": "^2.116.0",
+    "fflate": "^0.8.3",
     "@tanstack/react-table": "^8.21.3",
     "@tiptap/extension-bullet-list": "^3.32.0",
     "@tiptap/extension-image": "^3.32.0",
