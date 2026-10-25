@@ -404,7 +404,7 @@ export function demo() {
   assert(describeActivity({ actor: 'X', action: 'mystery', ts: 't' }), 'X mystery', 'unknown action falls back to actor + action')
 
   // 2.5 advisory lock transitions (R3)
-  const noLocks = {}
+  const noLocks = /** @type {Record<string, SongLock>} */ ({})
   const t0 = Date.now()
   const aLock = applyLock(noLocks, { userId: 'a', songId: 's1', locked: true, ts: t0 })
   assert(aLock.s1?.userId, 'a', 'acquire stores the holder')

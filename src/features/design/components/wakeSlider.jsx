@@ -253,7 +253,7 @@ export default function WakeSlider({
           ref={handleRef}
           type="button"
           role="slider"
-          className="absolute inset-0 m-0 cursor-[inherit] touch-none rounded-xl border-0 bg-transparent p-0 outline-none"
+          className="absolute inset-0 m-0 cursor-[inherit] touch-none rounded-xl border-0 bg-transparent p-0 outline-hidden"
           tabIndex={disabled ? -1 : 0}
           aria-label={ariaLabel}
           aria-valuemin={min}

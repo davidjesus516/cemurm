@@ -115,7 +115,7 @@ function ScopeGroup({ title, emptyText, songs: groupSongs, renderRow }) {
       {groupSongs.length === 0 ? (
         <p className="mt-1 text-sm text-cem-secondary">{emptyText}</p>
       ) : (
-        <ul className="mt-1 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-1 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {groupSongs.map(renderRow)}
         </ul>
       )}
@@ -264,7 +264,7 @@ export default function Organizations() {
                 You are not part of any organization yet.
               </p>
             ) : (
-              <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+              <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
                 {memberships.map((membership) => (
                   <MembershipCard key={membership.id} membership={membership} />
                 ))}
@@ -317,7 +317,7 @@ export default function Organizations() {
             <section className="mt-8">
               <h2 className="text-lg font-semibold text-cem-text">Leave organization</h2>
               {memberships.some((m) => m.status === 'active') ? (
-                <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+                <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
                   {memberships
                     .filter((m) => m.status === 'active')
                     .map((membership) => (

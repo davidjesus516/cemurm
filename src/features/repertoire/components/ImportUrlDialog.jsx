@@ -62,7 +62,7 @@ export default function ImportUrlDialog({ onClose, onPrefill }) {
   }
 
   return (
-    <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+    <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-cem-text">Import from URL</h2>
         <button
@@ -91,7 +91,7 @@ export default function ImportUrlDialog({ onClose, onPrefill }) {
           onKeyDown={(e) => { if (e.key === 'Enter') handleImportUrl() }}
           placeholder="https://example.com/songs/my-song"
           disabled={status === 'working'}
-          className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-60"
+          className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-60"
         />
         <button
           type="button"

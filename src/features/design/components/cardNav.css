@@ -20,6 +20,9 @@
    The last block, .app-nav, is NOT from the reference. It takes the bar out of
    the reference's floating `position: absolute` and puts it back into flow for
    the app shell. */
+
+@reference "../../../app/index.css";
+
 /* ============================================================ CardNav */
 /* The reference's colours are literals: a white bar, a near-black CTA that
    darkens on hover, a translucent light hairline and a soft dark shadow. Rule
