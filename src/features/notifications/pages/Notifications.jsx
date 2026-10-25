@@ -175,7 +175,7 @@ export default function Notifications() {
                 </span>
               )}
             </h2>
-            <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
               {group.rows.map((row) => (
                 <li key={row.id}>
                   <div

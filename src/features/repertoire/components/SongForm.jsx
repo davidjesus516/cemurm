@@ -5,7 +5,7 @@ import { PDF_SIZE_MESSAGE, PDF_TYPE_MESSAGE, validatePdfFile } from '../../../da
 import { searchMusicBrainzMetadata } from '../../../integrations/musicbrainz.js'
 
 const inputClass =
-  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent disabled:bg-cem-elevated'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent disabled:bg-cem-elevated'
 
 export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
   const isPdfSong = initial?.isPdf === true
@@ -162,7 +162,7 @@ export default function SongForm({ initial, onSubmit, onCancel, submitLabel }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
       <div>
         <label htmlFor="song-title" className="block text-sm font-medium text-cem-text">Title *</label>
         <input

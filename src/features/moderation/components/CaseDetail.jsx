@@ -140,7 +140,7 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
             placeholder="Notes (optional) — reason for your decision…"
-            className="mt-2 w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+            className="mt-2 w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
           />
 
           <div className="mt-3 flex flex-wrap gap-2">
@@ -222,7 +222,7 @@ export default function CaseDetail({ caseData, onDecide, deciding, onBack, onApp
                 onChange={(e) => setAppealReason(e.target.value)}
                 rows={3}
                 placeholder="Explain why you believe this removal was incorrect…"
-                className="w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+                className="w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
               />
               <div className="flex gap-2">
                 <button

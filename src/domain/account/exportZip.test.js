@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { strFromU8, unzipSync } from 'fflate'
 
-import { buildExportDocument, buildExportSummary, exportFileName } from './exportBundle.js'
+import { buildExportDocument, buildExportSummary } from './exportBundle.js'
 import { buildExportZip } from './exportZip.js'
 
 const ENVELOPE = {
@@ -52,11 +52,11 @@ describe('buildExportZip', () => {
   it('builds a valid bundle for an empty account', () => {
     const bundle = buildExportZip({})
     const entries = unzipSync(bundle.bytes)
-    // The empty envelope has no exported_at, so exportFileName() falls back to
-    // the current date. Derive the entry name instead of hardcoding a day: a
-    // literal date makes this test pass only on the day it was written.
-    const jsonEntry = exportFileName({})
     expect(Object.keys(entries)).toHaveLength(2)
+    // The empty envelope carries no exported_at, so the JSON entry is named
+    // after the current day. Derive the key from the bundle instead of pinning
+    // a date, which would make this test fail every day after it was written.
+    const jsonEntry = bundle.name.replace(/\.zip$/, '.json')
     expect(JSON.parse(strFromU8(entries[jsonEntry])).repertoire.songs).toEqual([])
     expect(strFromU8(entries[SUMMARY_ENTRY])).toContain('| Songs | 0 |')
   })

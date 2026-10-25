@@ -6,11 +6,12 @@
    colour declarations changed: the reference writes hex into custom properties,
    and rule 01a of scripts/check-visual-contract.sh rejects colour literals in
    src/. Those declarations are now `@apply` of a cem-* token, so the palette
-   still has exactly one source of truth (tailwind.config.js).
-
+   still has exactly one source of truth (@theme in src/app/index.css).
    Colours that the component passes IN as custom properties (--gs-accent,
    --sr-row, --st-bg, …) are not declared here at all — the component sets
    them from resolved tokens. Only the fallback stack lives in this file. */
+
+@reference "../../../app/index.css";
 
 /* ============================================================ GlideSelect */
 
@@ -931,7 +932,7 @@
    exists only to scope this rule; everything else about the row is Tailwind,
    as upstream. */
 .shredder__item[data-state='drag'] {
-  filter: drop-shadow(0 14px 22px theme('colors.cem.base' / 0.22)) !important;
+  filter: drop-shadow(0 14px 22px theme(colors.cem.base / 0.22)) !important;
 }
 
 /* ================================================================== Dock */
@@ -1062,7 +1063,7 @@
   justify-content: center;
   border-radius: 1.25em;
   @apply bg-cem-text/15;
-  box-shadow: inset 0 0 0 1px theme('colors.cem.text' / 0.3);
+  box-shadow: inset 0 0 0 1px theme(colors.cem.text / 0.3);
   transform-origin: 80% 50%;
   will-change: transform;
   -webkit-backdrop-filter: blur(0.75em);
@@ -1151,7 +1152,7 @@
    rule 01a hit, so the same 1px inset line is cem.text at 0.06 alpha, which is
    the same white the original used. */
 .hb-root {
-  box-shadow: inset 0 1px 0 theme('colors.cem.text' / 0.06);
+  box-shadow: inset 0 1px 0 theme(colors.cem.text / 0.06);
 }
 
 /* REPLACEMENT 2 — the hover background. The original mixes its own background
@@ -1302,19 +1303,19 @@
 /* The reference builds its shadows, text-shadow and accent glow inline, using
    literal channel functions and a blend function. Rule 01a is ENFORCING over
    this file too, so each one becomes a real rule here: the dark shadows through
-   Tailwind's token alpha syntax (`theme('colors.cem.*' / α)`), which is not a
-   colour function — the precedent at :1166 and :1255 — and the accent glow off
+   Tailwind's token alpha syntax (`theme()` with a `/ α` argument), which is not
+   a colour function — the precedent at :1166 and :1255 — and the accent glow off
    the panel's own `--ag-accent`, at full alpha because the 60% form is
    forbidden. The focus ring is `cem.text`, never amber (DESIGN.md §6 "Focused"). */
 
 .ag-panel {
-  box-shadow: 0 10px 30px -18px theme('colors.cem.base' / 0.8);
+  box-shadow: 0 10px 30px -18px theme(colors.cem.base / 0.8);
 }
 
 .ag-panel:focus-visible {
   box-shadow:
-    0 0 0 2px theme('colors.cem.text' / 0.9),
-    0 10px 30px -18px theme('colors.cem.base' / 0.8);
+    0 0 0 2px theme(colors.cem.text / 0.9),
+    0 10px 30px -18px theme(colors.cem.base / 0.8);
 }
 
 .ag-media {
@@ -1342,7 +1343,7 @@
 
 .ag-label {
   color: var(--ag-text);
-  text-shadow: 0 2px 14px theme('colors.cem.base' / 0.55);
+  text-shadow: 0 2px 14px theme(colors.cem.base / 0.55);
 }
 
 /* Reduced motion is handled in JS — the GSAP timeline collapses to duration 0,
