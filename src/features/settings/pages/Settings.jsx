@@ -22,6 +22,7 @@ import {
   getPcoConnection,
 } from '../../../integrations/planningcenter.js'
 import ExportDataCard from '../components/ExportDataCard.jsx'
+import DeleteAccountCard from '../components/DeleteAccountCard.jsx'
 
 export default function Settings() {
   const { prefs, loading } = usePreferences()
@@ -434,6 +435,11 @@ export default function Settings() {
       <section className="mt-8">
         <h2 className="text-lg font-bold text-cem-text">Export my data</h2>
         <ExportDataCard />
+      </section>
+
+      <section className="mt-8 mb-8">
+        <h2 className="text-lg font-bold text-cem-text">Delete my account permanently</h2>
+        <DeleteAccountCard />
       </section>
     </div>
   )
