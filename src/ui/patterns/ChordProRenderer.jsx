@@ -79,7 +79,7 @@ export default function ChordProRenderer({
   let lineInSection = 0
 
   return (
-    <div className="rounded-lg border border-cem-elevated bg-cem-surface p-6 shadow-sm">
+    <div className="rounded-lg border border-cem-elevated bg-cem-surface p-6 shadow-xs">
       {title && <h2 className="text-xl font-bold text-cem-text">{title}</h2>}
       {(artist || key) && (
         <p className="mt-1 text-sm text-cem-secondary">

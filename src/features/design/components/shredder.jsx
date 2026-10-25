@@ -1081,7 +1081,7 @@ export function Shredder({
           >
             <div
               ref={keep(itemEls, item.id)}
-              className="shredder__item relative origin-center cursor-grab touch-none select-none outline-none [-webkit-user-select:none] group-data-[active]/slot:absolute group-data-[active]/slot:top-0 group-data-[active]/slot:right-0 group-data-[active]/slot:left-0 group-data-[active]/slot:[will-change:transform,filter] group-data-[active]/slot:[filter:drop-shadow(0_0_0_transparent)] group-data-[active]/slot:[transition:filter_240ms_ease] data-[state=drag]:cursor-grabbing data-[state=feed]:pointer-events-none data-[state=feed]:cursor-default group-data-[disabled]:cursor-default motion-reduce:group-data-[active]/slot:[transition:none]"
+              className="shredder__item relative origin-center cursor-grab touch-none select-none outline-hidden [-webkit-user-select:none] group-data-[active]/slot:absolute group-data-[active]/slot:top-0 group-data-[active]/slot:right-0 group-data-[active]/slot:left-0 group-data-[active]/slot:[will-change:transform,filter] group-data-[active]/slot:[filter:drop-shadow(0_0_0_transparent)] group-data-[active]/slot:[transition:filter_240ms_ease] data-[state=drag]:cursor-grabbing data-[state=feed]:pointer-events-none data-[state=feed]:cursor-default group-data-[disabled]:cursor-default motion-reduce:group-data-[active]/slot:[transition:none]"
               tabIndex={disabled ? -1 : 0}
               aria-disabled={disabled || undefined}
               onPointerDown={(e) => onDown(e, item)}

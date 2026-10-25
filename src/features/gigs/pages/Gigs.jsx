@@ -45,7 +45,7 @@ export default function Gigs() {
       ) : gigs.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No gigs yet. Plan your first one above.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {gigs.map((gig) => <GigCard key={gig.id} gig={gig} venueName={venueById.get(gig.venueId)?.name || ''} />)}
         </ul>
       )}

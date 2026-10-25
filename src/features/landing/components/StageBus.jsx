@@ -23,7 +23,7 @@ import DeviceFrame from './DeviceFrame.jsx'
 // change feels decisive, not bouncy. Reduced motion collapses to a simple opacity swap.
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 const PRESS = 'transition-transform duration-150 ease-out active:scale-[0.97]'
@@ -159,7 +159,7 @@ export default function StageBus() {
                   type="button"
                   aria-pressed={index === active}
                   onClick={() => setActive(index)}
-                  className={`inline-flex min-h-12 min-w-12 items-center justify-center rounded-cem-sm border-b-2 px-4 text-sm font-medium transition-transform duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base ${
+                  className={`inline-flex min-h-12 min-w-12 items-center justify-center rounded-cem-sm border-b-2 px-4 text-sm font-medium transition-transform duration-150 ease-out active:scale-[0.97] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base ${
                     index === active
                       ? 'border-cem-amber text-cem-amber'
                       : 'border-transparent text-cem-secondary hover:text-cem-text'

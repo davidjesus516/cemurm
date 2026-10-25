@@ -83,7 +83,7 @@ const PRESS_FILL = 'transition-[background-color,transform] duration-150 ease-ou
 // the accent — a visitor has to tell "this has keyboard focus" from "this is the
 // current song / current tab" at a glance.
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 export default function Header({ heroInView = false }) {

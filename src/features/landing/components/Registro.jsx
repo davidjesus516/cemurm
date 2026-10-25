@@ -20,7 +20,7 @@ import ClickSpark from './ClickSpark.jsx'
 // token class, never a literal.
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 export default function Registro({ onSubmit }) {
@@ -101,7 +101,7 @@ export default function Registro({ onSubmit }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={landing.registro.input.placeholder}
-              className={`flex-1 rounded-cem-md border border-cem-text/15 bg-cem-surface/80 py-3 pl-4 pr-4 text-sm text-cem-text placeholder:text-cem-secondary-elevated/70 backdrop-blur-sm focus:border-cem-amber/50 focus:outline-none sm:pl-12 ${FOCUS}`}
+              className={`flex-1 rounded-cem-md border border-cem-text/15 bg-cem-surface/80 py-3 pl-4 pr-4 text-sm text-cem-text placeholder:text-cem-secondary-elevated/70 backdrop-blur-xs focus:border-cem-amber/50 focus:outline-hidden sm:pl-12 ${FOCUS}`}
               aria-label={landing.registro.input.label}
               aria-invalid={error}
               aria-describedby="registro-feedback"
