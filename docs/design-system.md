@@ -21,7 +21,7 @@
 | Section | Status | Authority now lives in |
 |---|---|---|
 | 1 Brand identity, tone, voice | **Current** | This document. `ux-spec.md:82` applies 1.3 by number |
-| 2 Color palette, the token table | **Current** | The values are the live `cem-*` tokens in `tailwind.config.js` |
+| 2 Color palette, the token table | **Current** | The values are the live `cem-*` tokens in the `@theme` block of `src/app/index.css` |
 | 2 Color usage rules | **Superseded** | `SKILL.md` rule 2: one accent, full saturation on the logo mark, the primary CTA and the active state only |
 | 3 Mascot "Kutu" | **Current** | This document. `ux-spec.md:110,153` cite section 7 for mascot treatment |
 | 4 Typography, Inter | **Current** | This document, plus the display mono now required. See 4.1 |

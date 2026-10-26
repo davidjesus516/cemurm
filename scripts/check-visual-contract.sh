@@ -28,9 +28,12 @@
 #
 # SCOPE
 # Colours are scanned in src/ only. The sanctioned home for a raw colour
-# literal is the token declaration in tailwind.config.js; neither that file nor
-# src/ is scanned against the other, by design. Rule 08 is the one exception: it
-# reads a single declaration line in the skill, not a palette.
+# literal is the @theme token declaration block inside src/app/index.css
+# (odd/tasks/tw4-stack-foundation.md S1/S2); that block — located by brace
+# depth, not the whole file — is excluded from the rule 01a line scan, and
+# src/ is scanned against no other colour value, by design. Rule 08 is the
+# one exception to the file rule: it reads a single declaration line in the
+# skill, not a palette.
 #
 # DEPENDENCIES
 # bash and grep only. No package installs, no test runner, no build step. This
@@ -66,24 +69,15 @@ REPORT_CONFIG_TOKEN_COUNT=report
 # Measured against the working tree on the branch this gate landed on. Re-run
 # the script after lowering one; the printed count is the number to compare.
 #
-# 5 occurrences across 4 files, down from 92 (ceiling 82). Step 1 retired the
-# stage/projection surface: 87 were bg-black, text-white/*, border-white/*,
-# bg-white/* and ring-amber-500 on a projector or the musician's tablet, all
-# remapped onto an existing token with the opacity modifier kept — cem.stage.bg
-# (#000000) is Tailwind black exactly, and cem.amber (#f59e0b) is amber-500
-# exactly. What is left is NOT a stage site:
-#   * 4 modal scrims on tier-1 product surfaces -- bg-black/85 on
-#     ReportDialog.jsx (x2) and SongDetail.jsx, bg-black/50 on FeedbackForm.jsx.
-#     There is no scrim token, and adding one is palette growth, which rule 04
-#     exists to prevent and which this unit deliberately did not do. Note the
-#     stage surface's own scrim IS tokenised (StageMode.jsx uses
-#     bg-cem-stage-bg/85) because cem.stage.bg already is black -- the blocker
-#     for these four is the missing token in the cem namespace, not the value.
-#   * 1 text-red-400 on the foot-pedal error line in StageMode.jsx. No token
-#     equals Tailwind red-400 (#f87171): cem.rose is #f43f5e, so mapping it
-#     would trade a rule-01b occurrence for a rule-02 one, and cem.amber is a
-#     hue change to a live-performance surface. Both are worse than leaving it.
-RATCHET_01B_MAX=5
+# 0 occurrences, down from 92 (ceiling 82) and then 5. The last 5 went with the
+# admin-template import (Fase 2): the 4 tier-1 modal scrims (ReportDialog.jsx
+# x2, SongDetail.jsx, FeedbackForm.jsx) now use bg-cem-stage-bg at the same
+# opacity, which is Tailwind black exactly, so the missing-scrim-token blocker
+# recorded here no longer applies; and the foot-pedal error line had already
+# dropped text-red-400 in 5817536. The imported template's own default-palette
+# utilities were remapped onto cem tokens in the same unit. A count above zero
+# now means a new violation, not tolerated debt.
+RATCHET_01B_MAX=0
 # 240 occurrences across 37 files, as the Tailwind class form
 # (cem-rose 169, cem-emerald 65, cem-sky 4, cem-coral 0). NOT zero: these four
 # accents are declared in tailwind.config.js and used across the UI, they are
@@ -118,8 +112,9 @@ CONTRAST_MIN=4.5
 # the palette, and no other number in the matrix can be trusted. Read it first.
 CONTRAST_ANCHOR_FG="text"
 # The matrix axes. Space-separated token leaf names, not hex values: the values
-# are parsed out of tailwind.config.js at run time, so editing a token makes
-# this check follow the edit instead of reporting a stale table.
+# are parsed out of the @theme block of src/app/index.css at run time, so
+# editing a token makes this check follow the edit instead of reporting a
+# stale table.
 CONTRAST_FG_TOKENS="text secondary secondary-elevated amber emerald rose sky coral"
 CONTRAST_BG_TOKENS="base surface elevated hover"
 
@@ -175,8 +170,17 @@ OVERLAY_CHROME_ALLOWLIST=(
 # Rule 04: the token palette may not silently grow. Every colour key that
 # exists today is listed, so adding a fifth accent -- or renaming one -- fails
 # the gate and becomes a deliberate, reviewable act. This is the current
-# palette: 17 leaves (12 flat under cem, 5 under cem.stage).
-TAILWIND_COLOUR_KEY_ALLOWLIST=(
+# palette: 17 leaves, flat CSS form (12 flat under cem, 5 flattened from the
+# v3 cem.stage.* namespace; the @theme
+# convention is one hyphen for the first separator, hence stage-bg).
+# Decisión (c), usuario 2026-10-16: el vocabulario declarado en el @theme es
+# exactamente este: los 17 leaves cem.* (la paleta) más 9 keys de estado/chart
+# que la plantilla importada trajo como alias de esos mismos leaves. Los ~26
+# alias de rol de shadcn (background, card, popover, primary, sidebar-*, page,
+# etc.) se eliminaron del @theme y sus usos se reescribieron a clases cem.*
+# directas, para que la plantilla hable la paleta del proyecto sin una segunda
+# capa de nombres. Cualquier key nueva sigue siendo palette growth y falla.
+CSS_COLOUR_KEY_ALLOWLIST=(
   "cem.base"
   "cem.surface"
   "cem.elevated"
@@ -189,11 +193,20 @@ TAILWIND_COLOUR_KEY_ALLOWLIST=(
   "cem.emerald"
   "cem.rose"
   "cem.sky"
-  "cem.stage.bg"
-  "cem.stage.chord"
-  "cem.stage.lyric"
-  "cem.stage.section"
-  "cem.stage.dim"
+  "cem.stage-bg"
+  "cem.stage-chord"
+  "cem.stage-lyric"
+  "cem.stage-section"
+  "cem.stage-dim"
+  "destructive"
+  "chart-1"
+  "chart-2"
+  "chart-3"
+  "chart-4"
+  "chart-5"
+  "success"
+  "warning"
+  "error"
 )
 
 # ---------------------------------------------------------------------------
@@ -204,7 +217,10 @@ REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
 SRC_DIR="src"
-TAILWIND_CONFIG="tailwind.config.js"
+# The token source. Since the TW4 port (odd/tasks/tw4-stack-foundation.md
+# S1/S2) the palette lives as --color-* custom properties in the @theme
+# block of index.css and the JS tailwind config is gone.
+CSS_TOKEN_FILE="src/app/index.css"
 SKILL_FILE="skills/cemurm-visual-system/SKILL.md"
 STAGEMODE_PAGE="src/features/stage/pages/StageMode.jsx"
 OVERLAY_FILES=(
@@ -220,7 +236,7 @@ TMP_DIR="$(mktemp -d)"
 cleanup() { rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
-for required in "$SRC_DIR" "$TAILWIND_CONFIG" "$SKILL_FILE"; do
+for required in "$SRC_DIR" "$CSS_TOKEN_FILE" "$SKILL_FILE"; do
   if [ ! -e "$required" ]; then
     printf 'FAIL  setup    expected path missing: %s\n' "$required" >&2
     printf 'FAIL  setup    run this from a CEMURM checkout, not a partial copy\n' >&2
@@ -230,6 +246,41 @@ done
 
 FAILURES=0
 PASSED=0
+
+# ---------------------------------------------------------------------------
+# @theme BLOCK RANGE  -- where the sanctioned colour declarations are
+# ---------------------------------------------------------------------------
+# Resolved ONE time (grep line number of the opening "@theme {" + brace-depth
+# close) and shared by the rules that treat the declaration block differently
+# from plain source: 01a excludes the raw literals inside it, 02 excludes the
+# four dead-accent token declarations. Both are declarations, not renderable
+# uses. A range that could not be resolved is never treated as "exclude
+# everything": rule 04 below fails loud about the missing block, and the scans
+# keep their findings unfiltered.
+THEME_BLOCK_START=""
+THEME_BLOCK_END=""
+theme_open_line="$(grep -m1 -nE '^[[:space:]]*@[[:space:]]*theme[[:space:]]*\{' "$CSS_TOKEN_FILE" | cut -d: -f1 || true)"
+if [ -n "$theme_open_line" ]; then
+  THEME_BLOCK_END="$(awk -v s="$theme_open_line" \
+    'NR >= s { d += gsub(/\{/, ""); d -= gsub(/\}/, ""); if (d <= 0) { print NR; exit } }' \
+    "$CSS_TOKEN_FILE")"
+  if [ -n "$THEME_BLOCK_END" ]; then
+    THEME_BLOCK_START="$theme_open_line"
+  fi
+fi
+
+# filter_theme_block <findings-file> > <out>
+# Findings inside the declaration block are dropped. Findings format is
+# path:line:text with no colons inside the path, so -F: is exact.
+filter_theme_block() {
+  if [ -n "$THEME_BLOCK_START" ]; then
+    awk -F: -v tf="$CSS_TOKEN_FILE" \
+      -v s="$THEME_BLOCK_START" -v e="$THEME_BLOCK_END" \
+      '$1 == tf && ($2 + 0) >= (s + 0) && ($2 + 0) <= (e + 0) { next } { print }' "$1"
+  else
+    cat "$1"
+  fi
+}
 
 # ---------------------------------------------------------------------------
 # OUTPUT
@@ -336,9 +387,18 @@ FN_PATTERN='(^|[^A-Za-z0-9_-])(oklch|oklab|lab|lch|hwb|color-mix|rgba?|hsla?)\('
 : >"$TMP_DIR/findings"
 grep -rnoE "${SOURCE_INCLUDES[@]}" -e "$HEX_PATTERN" -e "$FN_PATTERN" \
   "$SRC_DIR" >"$TMP_DIR/findings" 2>/dev/null || true
+# The @theme block inside the token file is the sanctioned home of the raw
+# literals. Findings inside the block range (resolved once above) are
+# dropped; every other line of src/ -- including every other line of this
+# same file -- is judged normally. A file without a resolvable block is not
+# silently scanned wide open instead: rule 04 below fails the run with its
+# own finding, because a palette nobody can name is a worse defect than a
+# blind scan.
+filter_theme_block "$TMP_DIR/findings" | awk '{ print }' > "$TMP_DIR/fa01a.tmp"
+mv "$TMP_DIR/fa01a.tmp" "$TMP_DIR/findings"
 count_01a="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
 verify 01a "$RULE_01A_RAW_COLOUR_LITERALS" \
-  "no raw colour literals in src/" "$count_01a" || true
+  "no raw colour literals in src/ outside the @theme token block" "$count_01a" || true
 
 # ---------------------------------------------------------------------------
 # RULE 01B -- no Tailwind default-palette utilities in src/
@@ -360,6 +420,13 @@ verify 01b "$RULE_01B_TAILWIND_PALETTE" \
 # to find.
 DEAD_ACCENT_PATTERN='\bcem[-.](coral|emerald|rose|sky)\b'
 count_02="$(scan "$DEAD_ACCENT_PATTERN" "$SRC_DIR")"
+# The four declarations inside the @theme block are not USES of the accents:
+# a token nobody writes as a class is still a declared palette slot (rule 04
+# is what pins the declared set). Excluded the same way 01a excludes the raw
+# literals it sanctions.
+filter_theme_block "$TMP_DIR/findings" | awk '{ print }' > "$TMP_DIR/fa02.tmp"
+mv "$TMP_DIR/fa02.tmp" "$TMP_DIR/findings"
+count_02="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
 verify 02 "$RULE_02_DEAD_ACCENTS" \
   "no use of the four dead accents in src/" "$count_02" \
   "$RATCHET_02_MAX" || true
@@ -409,7 +476,7 @@ while IFS= read -r hit; do
     entry_file="${entry%%|*}"
     entry_token="${entry##*|}"
     if [ "$hit_file" = "$entry_file" ] \
-      && printf '%s' "$hit_text" | grep -q -- "$entry_token"; then
+      && grep -q -- "$entry_token" <<<"$hit_text"; then
       excused=1
       break
     fi
@@ -441,77 +508,57 @@ fi
 # ---------------------------------------------------------------------------
 # RULE 04 -- the token palette may not silently grow
 # ---------------------------------------------------------------------------
-# Every colour key declared in tailwind.config.js must be allowlisted. Only keys
-# whose value is a hex literal are collected, which makes the scan immune to
-# the nesting: in this config every hex is a colour token, and a new namespace
-# (a fifth accent, or a second scale) is caught as reliably as a new leaf.
+# Every colour key declared in the @theme block of the token file must be
+# allowlisted. Adding a fifth accent -- or renaming one -- fails the gate and
+# becomes a deliberate, reviewable act. The tokens are CSS custom properties:
+# --color-cem-secondary-elevated, --color-cem-stage-bg, flat, no nesting. The
+# allowlist key is rebuilt from the variable name by stripping the "--color-"
+# prefix. Only the `cem-` namespace becomes dotted
+# ("cem-secondary-elevated" -> "cem.secondary-elevated"); every other key keeps
+# its literal CSS spelling ("chart-1", "destructive") so the allowlist below is
+# byte-identical to the declared set.
 : >"$TMP_DIR/keys"
 : >"$TMP_DIR/findings"
-# A key may be quoted and hyphenated -- JS requires quotes for any identifier
-# that is not [A-Za-z0-9_], and cem.secondary-elevated is exactly that. Without
-# the optional quotes and the hyphen, a quoted key is not merely missed by rule
-# 04: rule 05 never reads its VALUE either, so the matrix prints n/a and 05a
-# fails with "matrix is N scored cell(s) short" -- verified, not theorised. The
-# quote characters are non-capturing, so BASH_REMATCH[1] and [2] keep the
-# meaning they had before and the walk below needed no other change.
-leaf_regex='^[[:space:]]*["'"'"'`]?([A-Za-z0-9_-]+)["'"'"'`]?[[:space:]]*:[[:space:]]*["'"'"'`]#'
-# The value half of the same line, captured separately so the leaf and value
-# regexes can stay independently anchored. Group 1 is the leaf name, group 2
-# the quoted literal. Deliberately greedy up to the closing quote so a value
-# rule 05 cannot read (a var() reference, a gradient, a non-hex function) still
-# arrives intact and is reported as unreadable instead of being dropped.
-leaf_value_regex='^[[:space:]]*["'"'"'`]?([A-Za-z0-9_-]+)["'"'"'`]?[[:space:]]*:[[:space:]]*["'"'"'`]([^"'"'"'`]*)["'"'"'`]'
-ns_regex='^[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*:[[:space:]]*\{'
-
-# The dotted key path is accumulated in a plain string ("cem.", then
-# "cem.stage.") and popped a segment at a time, rather than tracked in a bash
-# array. An array is the obvious choice and it is wrong here: reading the array
-# from inside a function during this loop observes it as empty, so every key
-# resolved to a bare leaf name and the allowlist never matched. A string is
-# also one fewer moving part to reason about in a gate.
-prefix=""
-in_colors=0
+: >"$TMP_DIR/token_values"
+# Write the allowlist once and grep the file: piping into `grep -q` under
+# `pipefail` can fail spuriously when grep exits on the first match and printf
+# dies of SIGPIPE (141), turning a matching key into a false finding.
+printf '%s\n' "${CSS_COLOUR_KEY_ALLOWLIST[@]}" >"$TMP_DIR/allowlist"
+css_decl_regex='^[[:space:]]*--color-([A-Za-z0-9_-]+)[[:space:]]*:[[:space:]]*([^;]+);'
+theme_start="$(grep -m1 -nE '^[[:space:]]*@[[:space:]]*theme[[:space:]]*\{' "$CSS_TOKEN_FILE" | cut -d: -f1)"
 lineno=0
 while IFS= read -r line; do
   lineno=$((lineno + 1))
-  if [ "$in_colors" -eq 0 ]; then
-    if [[ "$line" =~ colors:[[:space:]]*\{ ]]; then in_colors=1; fi
-    continue
-  fi
-  # Rule 05 consumes the token VALUES from this same walk, so the nesting logic
-  # that resolves "cem.stage.bg" to its value lives in exactly one place. This
-  # match is deliberately SEPARATE from and independent of leaf_regex above:
-  # leaf_regex only matches a value that begins with "#", so a token written as
-  # 'rgb(148 163 184)' or var(--x) would be invisible to it. Matching on the
-  # quoted value alone is what lets rule 05 see such a token and report it as
-  # unreadable rather than silently dropping the cell. Both branches are needed:
-  # one finds keys, the other finds values.
-  if [[ "$line" =~ $leaf_value_regex ]]; then
-    printf '%s\t%s\n' "${prefix}${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" \
-      >>"$TMP_DIR/token_values"
-  fi
-  if [[ "$line" =~ $leaf_regex ]]; then
-    leaf="${BASH_REMATCH[1]}"
-    path="${prefix}${leaf}"
-    printf '%s\n' "$path" >>"$TMP_DIR/keys"
-    if ! printf '%s\n' "${TAILWIND_COLOUR_KEY_ALLOWLIST[@]}" | grep -qx -- "$path"; then
-      printf '%s:%s: undeclared colour key "%s"\n' \
-        "$TAILWIND_CONFIG" "$lineno" "$path" >>"$TMP_DIR/findings"
+  if [[ "$line" =~ $css_decl_regex ]]; then
+    stem="${BASH_REMATCH[1]}"
+    raw="${BASH_REMATCH[2]}"
+    # A value may carry a trailing comment; strip it and any spaces it leaves.
+    raw="${raw%%/\**}"
+    raw="${raw//[[:space:]]/}"
+    if [[ "$stem" == cem-* ]]; then
+      path="cem.${stem#cem-}"
+    else
+      path="$stem"
     fi
-    continue
+    printf '%s\t%s\n' "$path" "$raw" >>"$TMP_DIR/token_values"
+    printf '%s\n' "$path" >>"$TMP_DIR/keys"
+    if ! grep -qxF -- "$path" "$TMP_DIR/allowlist"; then
+      printf '%s:%s: undeclared colour key "%s"\n' \
+        "$CSS_TOKEN_FILE" "$((lineno + theme_start - 1))" "$path" >>"$TMP_DIR/findings"
+    fi
   fi
-  if [[ "$line" =~ $ns_regex ]]; then
-    prefix="${prefix}${BASH_REMATCH[1]}."
-    continue
-  fi
-  if [ "${line//[^}]/}" != "$line" ] && [ -n "$prefix" ]; then
-    prefix="${prefix%.*}."
-  fi
-done <"$TAILWIND_CONFIG"
+done < <(grep -m1 -nE '^[[:space:]]*--[A-Za-z]' "$CSS_TOKEN_FILE" >/dev/null 2>&1 && tail -n "+$theme_start" "$CSS_TOKEN_FILE"; true)
 
 count_04="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
+if [ "$count_04" -eq 0 ] && [ ! -s "$TMP_DIR/keys" ]; then
+  # Zero keys is not a passing empty palette: it means the parse found no
+  # @theme block (or the block lost every colour). The gate must fail loudly
+  # rather than report PASS over a palette it never read.
+  printf '%s: no @theme block or no colour tokens; the declaration block this gate parses is gone\n'     "$CSS_TOKEN_FILE" >>"$TMP_DIR/findings"
+  count_04="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
+fi
 verify 04 "$RULE_04_PALETTE_GROWTH" \
-  "no undeclared colour keys in $TAILWIND_CONFIG" "$count_04" || true
+  "no undeclared colour keys in $CSS_TOKEN_FILE" "$count_04" || true
 
 # ---------------------------------------------------------------------------
 # RULE 05 -- WCAG 2.x contrast for every foreground-on-background token pair
@@ -522,8 +569,8 @@ verify 04 "$RULE_04_PALETTE_GROWTH" \
 # measures it instead of trusting it.
 #
 # Values are read from $TMP_DIR/token_values, produced by rule 04's walk, so
-# editing a hex in tailwind.config.js changes the number reported here on the
-# next run. There is no second copy of the palette to drift.
+# editing a hex in the @theme block of the token file changes the number
+# reported here on the next run. There is no second copy of the palette to drift.
 #
 # MODES. Split deliberately in two, not one rule with a mixed verdict:
 #   05a anchor, cem.text on every background -- ENFORCING. It passes today, and
@@ -864,7 +911,7 @@ note "write complete class strings in source; compose tokens via CSS custom prop
 # RULE 08 -- the skill's declared token source is the file this gate reads
 # ---------------------------------------------------------------------------
 # WHY THIS RULE EXISTS. Every colour rule above takes its palette from
-# $TAILWIND_CONFIG and from nothing else -- rule 04's walk parses that file,
+# $CSS_TOKEN_FILE and from nothing else -- rule 04's walk parses that file,
 # and rule 05 reads the hex values it produced. The skill is the document a
 # maintainer is handed before adding a token, so if the skill and the gate
 # disagree about where tokens live, one of the two is wrong and neither says so.
@@ -905,14 +952,14 @@ declared_source="${declared_source//\`/}"
 if [ -z "$declared_source" ]; then
   printf '%s: no "token-source:" declaration; the skill must name the file this gate reads\n' \
     "$SKILL_FILE" >>"$TMP_DIR/findings"
-elif [ "$declared_source" != "$TAILWIND_CONFIG" ]; then
+elif [ "$declared_source" != "$CSS_TOKEN_FILE" ]; then
   printf '%s: declares token source "%s", but this gate reads every colour from "%s"\n' \
-    "$SKILL_FILE" "$declared_source" "$TAILWIND_CONFIG" >>"$TMP_DIR/findings"
+    "$SKILL_FILE" "$declared_source" "$CSS_TOKEN_FILE" >>"$TMP_DIR/findings"
 fi
 count_08="$(grep -c '' "$TMP_DIR/findings" 2>/dev/null || true)"
 verify 08 "$RULE_08_SKILL_TOKEN_SOURCE" \
   "skill declares the token source this gate reads" "$count_08" || true
-note "gate reads $TAILWIND_CONFIG; skill declares ${declared_source:-<none declared>}"
+note "gate reads $CSS_TOKEN_FILE; skill declares ${declared_source:-<none declared>}"
 
 
 # ---------------------------------------------------------------------------
@@ -939,13 +986,13 @@ note "StageMode.jsx: $stagemode_rounded rounded* line(s), $stagemode_shadow shad
 # ---------------------------------------------------------------------------
 # REPORT-ONLY -- declared token count
 # ---------------------------------------------------------------------------
-# Distinct colour keys declared in tailwind.config.js. Paired with rule 04:
-# rule 04 blocks a key that is not allowlisted, this reports the size of the
+# Distinct colour keys declared in the @theme block of the token file. Paired
+# with rule 04: rule 04 blocks a key that is not allowlisted, this reports the
 # palette so growth is visible in the log even when it is legitimate.
 total_tokens="$(grep -c '' "$TMP_DIR/keys" 2>/dev/null || true)"
 : >"$TMP_DIR/findings"
 verify r2 "$REPORT_CONFIG_TOKEN_COUNT" \
-  "distinct colour tokens in $TAILWIND_CONFIG" "$total_tokens" || true
+  "distinct colour tokens in $CSS_TOKEN_FILE" "$total_tokens" || true
 note "token inventory: $(tr '\n' ' ' <"$TMP_DIR/keys")"
 
 # ---------------------------------------------------------------------------

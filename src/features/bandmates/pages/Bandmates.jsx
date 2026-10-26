@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useBandmates } from '../../../hooks/shared/useBandmates.js'
 
 const inputClass =
-  'w-full max-w-sm rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
+  'w-full max-w-sm rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
 const primaryBtn =
   'rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60'
 const ghostBtn =
@@ -104,7 +104,7 @@ export default function Bandmates() {
         {items.length === 0 ? (
           <p className="mt-2 text-sm text-cem-secondary">{emptyText}</p>
         ) : (
-          <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+          <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
             {items.map(render)}
           </ul>
         )}
@@ -140,7 +140,7 @@ export default function Bandmates() {
         <p className="mt-3 text-sm text-cem-secondary">No user found with that username.</p>
       )}
       {results.length > 0 && (
-        <ul className="mt-3 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-3 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {results.map((profile) => (
             <li key={profile.id} className="flex items-center justify-between gap-4 px-4 py-3">
               <span className="text-sm text-cem-text">
@@ -176,7 +176,7 @@ export default function Bandmates() {
         <p className="mt-3 text-sm text-cem-secondary">No user found with that username.</p>
       )}
       {byIdProfile && (
-        <ul className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           <li className="flex items-center justify-between gap-4 px-4 py-3">
             <span className="text-sm text-cem-text">
               {byIdProfile.displayName}{' '}

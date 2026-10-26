@@ -19,7 +19,7 @@ import ClickSpark from './ClickSpark.jsx'
 // token class, never a literal.
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 // ONE TRANSITION DECLARATION FOR A CONTROL THAT BOTH FILLS AND PRESSES. The
@@ -133,7 +133,7 @@ export default function Galeria() {
                       <VideoBG src={item.type === 'video' ? '/videos/placeholder.mp4' : ''} overlay />
                       {/* Label over the media. */}
                       <div className="absolute bottom-3 left-4 right-4">
-                        <span className="inline-block rounded-full bg-cem-base/80 px-3 py-1 text-xs font-medium uppercase tracking-wider text-cem-secondary backdrop-blur-sm">
+                        <span className="inline-block rounded-full bg-cem-base/80 px-3 py-1 text-xs font-medium uppercase tracking-wider text-cem-secondary backdrop-blur-xs">
                           {item.label}
                         </span>
                       </div>

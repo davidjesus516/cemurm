@@ -223,7 +223,7 @@ export default function FeedbackForm({ onClose }) {
   const { user } = useAuth()
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-cem-stage-bg/50 p-4">
       <div className="w-full max-w-md rounded-lg bg-cem-surface p-5 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-cem-text">Feedback</h2>
