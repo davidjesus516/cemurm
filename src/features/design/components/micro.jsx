@@ -108,7 +108,7 @@ export function LatticeLoader() {
           return (
             <motion.span
               key={i}
-              className={`h-3 rounded-sm ${lit ? 'bg-cem-amber' : 'bg-cem-elevated'}`}
+              className={`h-3 rounded-xs ${lit ? 'bg-cem-amber' : 'bg-cem-elevated'}`}
               animate={reduced ? { opacity: lit ? 1 : 0.4 } : { scale: lit ? [1, 0.72, 1] : 1, opacity: lit ? 1 : 0.35 }}
               transition={{ ...SPRING_UI, delay: lit ? (row + col) * 0.02 : 0 }}
             />

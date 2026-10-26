@@ -7,7 +7,7 @@ import { StatusBadge, formatWhen } from './Rehearsals.jsx'
 
 const btn = 'rounded-md px-3 py-1.5 text-sm font-medium'
 const inputClass =
-  'rounded-md border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
+  'rounded-md border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
 
 const RSVP_STYLES = {
   confirmed: 'bg-cem-emerald/10 text-cem-emerald',
@@ -253,7 +253,7 @@ export default function RehearsalDetail() {
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+      <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
         <h2 className="text-sm font-semibold text-cem-text">Summary</h2>
         <p className="mt-2 text-sm text-cem-text">
           Estimated duration: <span className="font-medium">{rehearsalStore.formatDuration(estimateSeconds)}</span>
@@ -318,7 +318,7 @@ export default function RehearsalDetail() {
       )}
 
       {isLeader && !completed && showPicker && (
-        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <h2 className="mb-2 text-sm font-semibold text-cem-text">Add from repertoire</h2>
           {songsLoading ? (
             <p className="text-sm text-cem-secondary">Loading songs…</p>
@@ -347,7 +347,7 @@ export default function RehearsalDetail() {
       {items.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No songs in this agenda yet.</p>
       ) : (
-        <ol className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ol className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {items.map((item, index) => {
             const carriedOver = Boolean(item.carryOverTo)
             const duration = item.durationSeconds ?? item.latestVersionDurationSeconds
@@ -469,7 +469,7 @@ export default function RehearsalDetail() {
                       value={item.outcome}
                       onChange={(e) => handleOutcome(item, e.target.value)}
                       disabled={busy}
-                      className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text focus:border-cem-amber focus:outline-none disabled:opacity-60"
+                      className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden disabled:opacity-60"
                     >
                       <option value="">Outcome…</option>
                       {Object.entries(OUTCOME_LABELS).map(([value, label]) => (
@@ -486,7 +486,7 @@ export default function RehearsalDetail() {
                       onChange={(e) => setDraftNotes((prev) => ({ ...prev, [item.id]: e.target.value }))}
                       rows={2}
                       placeholder="Rehearsal notes…"
-                      className="flex-1 rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+                      className="flex-1 rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
                     />
                     <button
                       type="button"
@@ -507,7 +507,7 @@ export default function RehearsalDetail() {
       )}
 
       {showAttendance && (
-        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <h2 className="text-sm font-semibold text-cem-text">Attendance</h2>
           {rehearsal.status === 'published' && myRsvp?.status === 'invited' && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -558,7 +558,7 @@ export default function RehearsalDetail() {
       )}
 
       {rehearsal.setlistId && changeLog.length > 0 && (
-        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <button
             type="button"
             onClick={() => setShowLog((v) => !v)}
