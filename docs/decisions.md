@@ -182,7 +182,7 @@ says so in Consequences.
 
 ### ADR-009 — Tailwind pinned on the 3.4 line
 
-- **Status:** Accepted
+- **Status:** Superseded by #383 (2026-10-20) — Tailwind 4 adopted; see `odd/tasks/tw4-stack-foundation.md`
 - **Date:** 2026-09-27 (toolchain review in `skills/cemurm-visual-system/references/toolchain-options.md`)
 - **Context:** Tailwind 4 changes `shadow-*`, `ring` and `rounded-*` semantics and moves to a
   Vite plugin + `@import "tailwindcss"` model — those renames touch 40+ files, and the visual

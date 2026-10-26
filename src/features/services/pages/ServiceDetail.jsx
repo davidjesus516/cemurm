@@ -43,7 +43,7 @@ const arrowBtn =
 const dangerBtn =
   'rounded-md border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-amber hover:bg-cem-elevated'
 const miniInputClass =
-  'w-full rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent'
 const keyBadge = 'rounded bg-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary-elevated'
 
 // Every kind validate_service_plan returns (overrun, uncovered, overlap,
@@ -339,7 +339,7 @@ function BlockCard({ block, service, assignments, members, setlists, songs, isLe
   const leaderEditable = isLeader && !completed
 
   return (
-    <li className="rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+    <li className="rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-base font-semibold text-cem-text">
@@ -754,7 +754,7 @@ export default function ServiceDetail() {
       </div>
 
       {publishOpen && leaderEditable && (
-        <form onSubmit={handlePublish} className="mt-3 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <form onSubmit={handlePublish} className="mt-3 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <p className="text-xs text-cem-secondary">
             Publishing freezes the current plan as version {(published?.version_number ?? 0) + 1} —
             members execute exactly this snapshot; previous versions stay in history.
@@ -824,7 +824,7 @@ export default function ServiceDetail() {
                 const accepted = req.responses.find((r) => r.status === 'accepted')
                 return (
                   <li key={req.id}
-                    className={`rounded-lg border p-4 shadow-sm ${active ? 'border-cem-elevated bg-cem-surface' : 'border-cem-elevated bg-cem-base'}`}>
+                    className={`rounded-lg border p-4 shadow-xs ${active ? 'border-cem-elevated bg-cem-surface' : 'border-cem-elevated bg-cem-base'}`}>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-cem-text">{req.part}</span>
                       <span className="rounded bg-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary-elevated">{req.original_name || 'member'}</span>
@@ -927,7 +927,7 @@ export default function ServiceDetail() {
                 const start = blockStartAt(service, block)
                 const call = callTimeAt(service, block, a)
                 return (
-                  <li key={a.id} className="rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+                  <li key={a.id} className="rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-sm font-medium text-cem-text">
@@ -1023,7 +1023,7 @@ export default function ServiceDetail() {
             <h2 className="text-lg font-semibold text-cem-text">Substitution offers</h2>
             <ul className="mt-2 space-y-2">
               {offers.map((b) => (
-                <li key={b.id} className="rounded-lg border border-cem-amber/40 bg-cem-surface p-4 shadow-sm">
+                <li key={b.id} className="rounded-lg border border-cem-amber/40 bg-cem-surface p-4 shadow-xs">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-cem-text">{b.name}</span>
                     <span className="rounded bg-cem-elevated px-1.5 py-0.5 text-xs text-cem-secondary-elevated">{b.part}</span>
@@ -1046,7 +1046,7 @@ export default function ServiceDetail() {
           {changeLog.length === 0 ? (
             <p className="mt-2 text-sm text-cem-secondary">No changes logged yet.</p>
           ) : (
-            <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
               {changeLog.map((entry) => (
                 <li key={entry.id} className="px-4 py-2.5">
                   <p className="text-sm text-cem-text">
@@ -1071,7 +1071,7 @@ export default function ServiceDetail() {
           ) : history.length === 0 ? (
             <p className="mt-2 text-sm text-cem-secondary">No versions published yet.</p>
           ) : (
-            <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
               {history.map((row) => (
                 <li key={`${row.version_number}`} className="px-4 py-2.5">
                   <p className="text-sm text-cem-text">
@@ -1133,7 +1133,7 @@ export default function ServiceDetail() {
         )}
 
         {addingBlock && leaderEditable && (
-          <form onSubmit={handleAddBlock} className="mt-3 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+          <form onSubmit={handleAddBlock} className="mt-3 space-y-2 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
             <input value={addDraft.name} onChange={(e) => setAddDraft((p) => ({ ...p, name: e.target.value }))}
               placeholder="Block name *" className={miniInputClass} />
             <div className="flex flex-wrap gap-2">
