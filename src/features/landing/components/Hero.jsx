@@ -39,7 +39,7 @@ import DeviceFrame from './DeviceFrame.jsx'
 // React render plus three re-targeted 200ms tweens, which is the price of shipping nothing.
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 const PRESS = 'transition-transform duration-150 ease-out active:scale-[0.97]'

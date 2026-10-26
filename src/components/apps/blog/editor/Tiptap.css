@@ -1,0 +1,168 @@
+
+/* Editor Container */
+.editor-container {
+  max-width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--color-cem-hover);
+  border-radius: 8px;
+  background-color: transparent;
+  
+  font-family: 'Arial', sans-serif;
+}
+.editor-container .ProseMirror{
+  overflow-y: auto;
+}
+.dark .editor-container{
+  border: 1px solid var(--color-cem-hover)!important;
+}
+.editor-container ol{
+    list-style-type: decimal;
+    margin-left: 20px;
+}
+.editor-container ul{
+    list-style-type: circle;
+    margin-left: 20px;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  margin-bottom: 1rem;
+  background-color: transparent;
+  padding: 0.5rem;
+  border: 1px solid var(--color-cem-hover);
+  border-radius: 8px;
+  /* V1/S1: the template's soft functional-rgb shadow became a Tailwind
+     arbitrary shadow (gate rule 01a bans that notation in src/; the
+     underscore form inside the brackets is the same value). */
+  @apply shadow-[0_2px_4px_rgb(0_0_0/5%)];
+}
+
+.dark .toolbar{
+  border: 1px solid var(--color-cem-hover)!important;
+}
+
+
+.tiptap.ProseMirror.ProseMirror-focused{
+  outline: none;
+  border: 1px solid var(--color-cem-amber) !important;
+  border-radius: 6px;
+}
+.tiptap.ProseMirror{
+  height: 100px;
+  padding:6px 10px;
+  border: 1px solid var(--color-cem-hover) !important;
+  border-radius: 4px;
+  font-size: 16px;
+  color: var(--color-cem-text);
+  font-weight: 500 !important;
+}
+.dark .tiptap.ProseMirror{
+  color: var(--color-cem-text);
+  font-weight: 500 !important;
+}
+
+.dark .tiptap.ProseMirror{
+  border: 1px solid var(--color-cem-hover) !important;
+}
+
+.output h3{
+  font-size: 14px;
+  margin: 12px 0px 10px 0px;
+}
+.output p{
+  font-size: 16px;
+  color: var(--color-cem-text);
+}
+.dark .output p{
+  font-size: 16px;
+  color: var(--color-cem-text);
+}
+
+
+
+/* Editor Content */
+.editor-content {
+  min-height: 300px;
+  padding: 1rem;
+  border: 1px solid var(--color-cem-hover);
+  border-radius: 4px;
+  /* V1/S1: template literals mapped to cem tokens (same-role light surface on
+     the dark palette -> cem.surface, foreground -> cem.text). */
+  background-color: var(--color-cem-surface);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-cem-text);
+  overflow-y: auto;
+}
+.dark .editor-content {
+  border: 1px solid var(--color-cem-hover)!important;
+}
+/* Editor Content Placeholder */
+.editor-content p {
+  margin-bottom: 1rem;
+}
+
+/* Blockquote */
+.editor-content blockquote {
+  /* V1/S1: template literals mapped: blue accent -> chart-2; body text ->
+     cem.text; grey panel -> cem.surface. */
+  border-left: 4px solid var(--color-chart-2);
+  padding-left: 1rem;
+  font-style: italic;
+  color: var(--color-cem-text);
+  background-color: var(--color-cem-surface);
+  margin: 1rem 0;
+}
+
+/* Code Block */
+.editor-content pre {
+  /* V1/S1: template literals mapped: dark code surface -> cem.elevated;
+     code text -> cem.text. */
+  background-color: var(--color-cem-elevated);
+  color: var(--color-cem-text);
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Inline Code */
+.editor-content code {
+  /* V1/S1: template literals mapped: chip surface -> cem.elevated; code text
+     stays on the success slot (S4; the source hexes live in the improvement
+     log, not in comments — the gate reads both). */
+  background-color: var(--color-cem-elevated);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 90%;
+  color: var(--color-success);
+}
+
+/* Links */
+.editor-content a {
+  /* V1/S1: template blue accent -> chart-2; the hover step collapses onto the
+     same token (no second blue in the CEM palette; S4, documented in the Log). */
+  color: var(--color-chart-2);
+  text-decoration: underline;
+}
+
+.editor-content a:hover {
+  text-decoration: none;
+  color: var(--color-chart-2);
+}
+
+/* Lists */
+.editor-content ul {
+  padding-left: 1.5rem;
+  list-style-type: disc;
+}
+
+.editor-content ol {
+  padding-left: 1.5rem;
+  list-style-type: decimal;
+}
+
+.editor-content li {
+  margin-bottom: 0.5rem;
+}

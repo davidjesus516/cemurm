@@ -16,10 +16,12 @@ spacing, radius, elevation, motion or dark-mode decision — and before reviewin
 
 ## Hard Rules
 
-1. **No raw colour literals in `src/`.** Colours live in the `cem.*` scale declared
-   in `tailwind.config.js` and nowhere else. That config is the single token
-   source; `bash scripts/check-visual-contract.sh` reads every colour rule from it
-   and from no other file.
+1. **No raw colour literals in `src/` outside the token block.** Colours live
+   in the `cem.*` scale declared in the `@theme` block of `src/app/index.css`
+   and nowhere else. That block is the single token source;
+   `bash scripts/check-visual-contract.sh` reads every colour rule from it
+   (excluding the block itself from the literal scan by line range) and from
+   no other file.
 2. **One accent, ever.** `cem.amber` at full saturation on the logo mark, the primary CTA, and
    the active or selected state. Nowhere else. A new colour token is a deliberate review, never
    a side effect.
@@ -28,14 +30,17 @@ spacing, radius, elevation, motion or dark-mode decision — and before reviewin
 4. **The projector surface is chrome-free.** No radius, no shadow, no translucency, no
    gradient, no personal annotation. `cem.stage.*` is the only palette it may use.
 5. **No animation library in the authenticated bundle.** CSS-native motion comes first.
-6. **Tailwind stays 3.4.19.** Never flip `checkJs`, never bump Tailwind to 4.
+6. **Tokens only in `@theme`.** Tailwind is v4 (since the TW4 stack-foundation
+   port): the token declaration block is CSS in `src/app/index.css`, not a JS
+   config — never reintroduce a `tailwind.config.js` against this rule.
+   `checkJs` stays off globally.
 7. **Run `bash scripts/check-visual-contract.sh` and report its output.** A visual change is
    not done until the gate passes.
 
 ## Declared Token Source
 
 ```
-token-source: tailwind.config.js
+token-source: src/app/index.css
 ```
 
 That line is the machine-readable form of Hard Rule 1, and
@@ -58,7 +63,7 @@ If it is read at distance in a dark room, it is tier 3. If it is touched, it is 
 
 1. Name the tier. State it in the report.
 2. Read only the reference for that tier.
-3. Consume tokens from `tailwind.config.js`. Never inline a value the token layer
+3. Consume tokens from the `@theme` block of `src/app/index.css`. Never inline a value the token layer
    already expresses.
 4. Run the gate. Fix violations in the source, never by loosening the check.
 
@@ -74,5 +79,5 @@ suspect is wrong, with evidence. Never present a green gate as covering a rule i
 - `references/toolchain-options.md` — libraries, motion, external skills
 - `assets/tokens.css` — **NON-AUTHORITATIVE.** Design rationale for the ramp:
   where the warm dark steps and the amber come from, and what was rejected. Not
-  the token source (that is `tailwind.config.js`), not imported by the app, and
+  the token source (that is the `@theme` block in `src/app/index.css`), not imported by the app, and
   read by no gate. Read it for the *why*; do not copy a value out of it.

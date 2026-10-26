@@ -15,7 +15,7 @@ import ClickSpark from './ClickSpark.jsx'
 // Spark color is cem.amber, resolved from the token class, never a literal.
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cem-text ' +
+  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cem-text ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-cem-base'
 
 // ONE TRANSITION DECLARATION FOR A CONTROL THAT BOTH FILLS AND PRESSES. The

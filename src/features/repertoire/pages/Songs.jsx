@@ -226,12 +226,12 @@ export default function Songs() {
             value={search}
             onChange={handleSearch}
             placeholder="Search by title or chord…"
-            className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+            className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
           />
           <select
             value={keyFilter}
             onChange={(e) => setKeyFilter(e.target.value)}
-            className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+            className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
           >
             <option value="">All keys</option>
             {keys.map((k) => (
@@ -243,7 +243,7 @@ export default function Songs() {
             value={tempo}
             onChange={handleTempo}
             placeholder="Tempo range, e.g. 70-100"
-            className="w-44 rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+            className="w-44 rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
           />
           {keyFilter && (
             <span className="rounded-md bg-cem-amber/10 px-2 py-1 text-xs font-medium text-cem-amber">
@@ -285,7 +285,7 @@ export default function Songs() {
             : filtersActive ? 'No results — try adjusting your filters.' : 'No songs yet. Add your first song above.'}
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {visible.map((song) => {
             const matched = matchedChords(song, search)
             return (
