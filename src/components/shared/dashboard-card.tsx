@@ -8,7 +8,7 @@ export function DashboardCard({
 }: React.ComponentProps<typeof Card>) {
     return (
         <Card
-            className={cn("rounded-none bg-cem-base shadow-none ring-0 h-full", className)}
+            className={cn("shadow-none h-full", className)}
             {...props}
         />
     );
