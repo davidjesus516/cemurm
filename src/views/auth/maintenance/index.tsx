@@ -1,38 +1,24 @@
-
-
-
-import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import maintenance from "@/assets/images/backgrounds/maintenance.svg"
-
+import { Link } from 'react-router-dom'
+import { buttonVariants } from '@/components/ui/button'
+import { CemurmMark } from 'src/layouts/full/shared/logo/FullLogo'
 
 const Maintenance = () => {
   return (
-    <>
-      <div className="h-screen flex items-center  justify-center bg-cem-surface">
-        <div className="text-center">
-          <div className="max-w-3xl">
-            <img
-              src={maintenance}
-              alt="error"
-              className="mb-4"
-              width={500}
-              height={500}
-            />
-          </div>
-          <h1 className="text-cem-text text-4xl mb-6">
-            Maintenance Mode!!!
-          </h1>
-          <h6 className="text-xl text-cem-text">
-            Website is Under Construction. Check back later!
-          </h6>
-          <Button className="mt-6 mx-auto">
-            <Link to="/">Go Back to Home</Link>
-          </Button>
-        </div>
+    <div className='flex min-h-screen items-center justify-center bg-cem-surface px-4 py-12'>
+      <div className='max-w-md text-center'>
+        <CemurmMark className='mx-auto size-10' />
+        <h1 className='mt-6 text-2xl font-semibold text-cem-text'>
+          Maintenance mode
+        </h1>
+        <p className='mt-2 text-sm text-cem-secondary'>
+          CEMURM is under maintenance. Check back soon.
+        </p>
+        <Link to='/dashboard' className={buttonVariants({ className: 'mt-6' })}>
+          Back to admin
+        </Link>
       </div>
-    </>
-  );
-};
+    </div>
+  )
+}
 
-export default Maintenance;
+export default Maintenance

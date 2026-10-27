@@ -1,12 +1,7 @@
 import UserProfile from 'src/components/user-profile';
 
-
 function UserProfilePage() {
-  return (
-   
-      <UserProfile />
-  
-  );
+  return <UserProfile />;
 }
 
 export default UserProfilePage;
