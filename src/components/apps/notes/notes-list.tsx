@@ -1,11 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// U5 mechanical lint header (odd/tasks/gerencial-template-import.md L2): the repo lint config
-// targets the musician side; this file is template code kept verbatim (S1), so the rule fires
-// it raises are disabled here rather than rewritten or weakened repo-wide in the lint config.
-
 import { Trash2 } from "lucide-react";
-import { useState, useContext, useEffect } from "react";
-import { Alert, AlertTitle } from "@/components/ui/alert";
+import { useState, useContext } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -19,18 +13,20 @@ import { Button } from "@/components/ui/button";
 import { SearchIcon } from "lucide-react";
 import { notesType } from "src/types/apps/notes";
 
-const Notelist = () => {
-  const { notes, selectNote, deleteNote } = useContext(NotesContext);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [activeNoteId, setActiveNoteId] = useState<any | null>(null);
+interface NotelistProps {
+  onNoteSelect?: () => void;
+}
 
-  useEffect(() => {
-    if (notes.length > 0) {
-      // Set the first note as active
-      const firstNoteId = notes[0].id;
-      setActiveNoteId(firstNoteId);
-    }
-  }, [notes]);
+const formatNoteDate = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
+};
+
+const Notelist = ({ onNoteSelect }: NotelistProps) => {
+  const { notes, selectNote, deleteNote, selectedNoteId } =
+    useContext(NotesContext);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const filterNotes = (notes: notesType[], nSearch: string) => {
     if (nSearch !== "")
@@ -46,84 +42,90 @@ const Notelist = () => {
   };
 
   const filteredNotes = filterNotes(notes, searchTerm);
+  const totalNotes = notes.filter((note) => !note.deleted).length;
+
   const handleNoteClick = (noteId: number) => {
-    setActiveNoteId(noteId);
     selectNote(noteId);
-  };
-
-  type NoteColor =
-    | "primary"
-    | "destructive"
-    | "chart-3"
-    | "chart-4"
-    | "chart-2"
-    | "secondary";
-
-
-
-  const colorClasses: Record<NoteColor, string> = {
-    primary: "bg-cem-amber/5  text-cem-amber border border-cem-amber/20",
-    destructive: "bg-destructive/5  text-cem-amber border border-destructive/20",
-    "chart-3": "bg-chart-3/5  text-cem-amber  border border-chart-3/20",
-    "chart-4": "bg-chart-4/5 text-cem-amber border border-chart-4/20",
-    "chart-2": "bg-chart-2/5 text-cem-amber  border border-chart-2/20",
-    secondary: "bg-cem-elevated/5 text-cem-amber  border border-cem-elevated/20",
+    onNoteSelect?.();
   };
 
   return (
-    <>
-      <div className="overflow-hidden">
-        <div className="relative w-full">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="relative w-full">
+        <SearchIcon
+          size={16}
+          className="absolute left-2 top-1/2 -translate-y-1/2 text-cem-secondary-elevated"
+        />
 
-          <SearchIcon size={16} className="absolute left-2 top-1/2 -translate-y-1/2  text-cem-secondary-elevated" />
+        <PlaceholdersInput
+          value={searchTerm}
+          className="pl-9!"
+          onChange={setSearchTerm}
+          placeholders={[
+            "Search notes...",
+            "Find a rehearsal note...",
+            "Look up a note...",
+          ]}
+        />
+      </div>
+      <h3 className="mt-6 text-sm font-medium text-cem-secondary-elevated">
+        All Notes
+      </h3>
+      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+        {filteredNotes.length ? (
+          filteredNotes.map((note, index) => {
+            const selected = selectedNoteId === note.id;
 
-          <PlaceholdersInput
-            value={searchTerm}
-            className="pl-9!"
-            onChange={setSearchTerm}
-            placeholders={[
-              "Search Notes...",
-              "Find Your Notes...",
-              "Look up Notes...",
-            ]}
-          />
-        </div>
-        <h6 className="text-base mt-6">All Notes</h6>
-        <div className="flex flex-col gap-3 mt-4">
-          {filteredNotes && filteredNotes.length ? (
-            filteredNotes.map((note, index) => (
+            return (
               <div key={note.id}>
                 <AnimatedItem index={index}>
                   <div
-                    className={`cursor-pointer relative p-4 rounded-xl   ${colorClasses[note.color as NoteColor] ||
-                      "bg-chart-5/5"
-                      } 
-                  ${activeNoteId === note.id ? "scale-100" : "scale-95"
-                      } transition-transform duration-200`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleNoteClick(note.id)}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleNoteClick(note.id);
+                      }
+                    }}
+                    aria-current={selected ? "true" : undefined}
+                    className={`cursor-pointer rounded-xl border p-4 transition-colors ${
+                      selected
+                        ? "border-cem-amber/40 bg-cem-amber/5"
+                        : "border-cem-hover bg-cem-surface hover:border-cem-amber/30"
+                    }`}
                   >
-                    <h6 className={`text-base truncate text-cem-amber`}>
+                    <p
+                      className={`truncate text-sm font-medium ${
+                        selected ? "text-cem-amber" : "text-cem-text"
+                      }`}
+                    >
                       {note.title}
-                    </h6>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs">
-                        {new Date(note.datef ?? "").toLocaleDateString()}
+                    </p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="text-xs text-cem-secondary-elevated">
+                        {formatNoteDate(note.datef)}
                       </p>
                       <div>
                         <TooltipProvider>
                           <Tooltip>
-                            <TooltipTrigger>
-                              <Button
-                                variant={"ghost"}
-                                className={
-                                  "hover:text-destructive hover:bg-destructive/12 text-cem-text dark:hover:text-destructive dark:hover:bg-destructive/12"
-                                }
-                                size="icon"
-                                onClick={() => deleteNote(note.id)}
-                                aria-label="Delete note"
-                              >
-                                <Trash2 size={18} />
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  className="text-cem-secondary-elevated hover:bg-destructive/10 hover:text-destructive"
+                                  size="icon"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    deleteNote(note.id);
+                                  }}
+                                  aria-label="Delete note"
+                                />
+                              }
+                            >
+                              <Trash2 size={18} />
                             </TooltipTrigger>
                             <TooltipContent>Delete</TooltipContent>
                           </Tooltip>
@@ -133,15 +135,18 @@ const Notelist = () => {
                   </div>
                 </AnimatedItem>
               </div>
-            ))
-          ) : (
-            <Alert variant="destructive">
-              <AlertTitle>No Notes Found!</AlertTitle>
-            </Alert>
-          )}
-        </div>
+            );
+          })
+        ) : (
+          <p className="rounded-xl border border-dashed border-cem-hover p-4 text-sm text-cem-secondary-elevated">
+            {totalNotes === 0
+              ? "No notes yet. Add one with Add Note."
+              : "No notes match your search."}
+          </p>
+        )}
       </div>
-    </>
+    </div>
   );
 };
+
 export default Notelist;

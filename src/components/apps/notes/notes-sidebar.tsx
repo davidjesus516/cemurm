@@ -1,14 +1,14 @@
-
 import Notelist from "./notes-list";
 
+interface NotesSidebarProps {
+  onNoteSelect?: () => void;
+}
 
-const NotesSidebar = () => {
+const NotesSidebar = ({ onNoteSelect }: NotesSidebarProps) => {
   return (
-    <>
-      <div className="w-80 border-e border-cem-hover p-6 h-full">
-        <Notelist />
-      </div>
-    </>
+    <div className="flex h-full w-full flex-col border-e border-cem-hover p-6">
+      <Notelist onNoteSelect={onNoteSelect} />
+    </div>
   );
 };
 

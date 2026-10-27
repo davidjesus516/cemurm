@@ -1,88 +1,50 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/prop-types */
-// U5 mechanical lint header (odd/tasks/gerencial-template-import.md L2): the repo lint config
-// targets the musician side; this file is template code kept verbatim (S1), so the rule fires
-// it raises are disabled here rather than rewritten or weakened repo-wide in the lint config.
-import { createContext, useState, useEffect } from 'react';
-import { TicketType } from '../../types/apps/ticket';
-import { getFetcher, deleteFetcher, postFetcher } from 'src/api/global-fetcher';
-
-import useSWR from 'swr';
+// Demo tickets store.
+//
+// The template's original context fetched /api/data/ticket/* from an MSW
+// worker that is never started, so the page always rendered zero tickets.
+// The demo keeps fixed content in React state instead: no network calls, no
+// Supabase writes, and every change is lost on reload. The screen shows a
+// demo notice that says exactly that.
+import { createContext, useState } from 'react';
+import React from 'react';
+import { demoTickets } from '@/demo/content';
+import type { TicketFilterType, TicketType } from '../../types/apps/ticket';
 
 export interface TicketContextType {
   tickets: TicketType[];
   deleteTicket: (id: number) => void;
   setTicketSearch: (searchTerm: string) => void;
-  searchTickets: (searchTerm: string) => void;
   ticketSearch: string;
-  filter: string;
-  error: null;
-  loading: boolean;
-  setFilter: (filter: string) => void;
-  addTicket: (ticket: any) => void;
+  filter: TicketFilterType;
+  setFilter: (filter: TicketFilterType) => void;
+  addTicket: (ticket: TicketType) => void;
 }
 
-// Create Context
-export const TicketContext = createContext<TicketContextType>({} as TicketContextType);
+export const TicketContext = createContext<TicketContextType>(
+  {} as TicketContextType,
+);
 
-// Provider Component
-export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [tickets, setTickets] = useState<TicketType[]>([]);
+export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [tickets, setTickets] = useState<TicketType[]>(demoTickets);
   const [ticketSearch, setTicketSearch] = useState<string>('');
-  const [filter, setFilter] = useState<string>('total_tickets');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<any>(null);
+  const [filter, setFilter] = useState<TicketFilterType>('total_tickets');
 
-  // Fetch tickets from the API when the component mounts using useEffect
-  const {
-    data: ticketsData,
-    isLoading: isTicketsLoading,
-    error: ticketsError,
-    mutate,
-  } = useSWR('/api/data/ticket/TicketData', getFetcher);
-  useEffect(() => {
-    if (ticketsData) {
-      setTickets(ticketsData.data);
-      setLoading(isTicketsLoading);
-    } else if (ticketsError) {
-      setError(ticketsError);
-      setLoading(isTicketsLoading);
-    } else {
-      setLoading(isTicketsLoading);
-    }
-  }, [ticketsData, ticketsError, isTicketsLoading]);
-
-  // Delete a ticket with the specified ID from the server and update the tickets state
-  const deleteTicket = async (id: number) => {
-    try {
-      await mutate(deleteFetcher('/api/data/ticket/delete', { id }));
-    } catch (err) {
-      console.error('Error deleting ticket:', err);
-    }
+  const deleteTicket = (id: number) => {
+    setTickets((current) => current.filter((ticket) => ticket.Id !== id));
   };
 
-  // Update the ticket search term state based on the provided search term value.
-  const searchTickets = (searchTerm: string) => {
-    setTicketSearch(searchTerm);
-  };
-
-  // Add ticket
-  const addTicket = async (newTicket: TicketType) => {
-    try {
-      await mutate(postFetcher('/api/data/ticket/add', newTicket));
-    } catch (err) {
-      console.error('Error adding ticket:', err);
-    }
+  const addTicket = (newTicket: TicketType) => {
+    setTickets((current) => [newTicket, ...current]);
   };
 
   return (
     <TicketContext.Provider
       value={{
         tickets,
-        error,
-        loading,
         deleteTicket,
         setTicketSearch,
-        searchTickets,
         ticketSearch,
         filter,
         setFilter,

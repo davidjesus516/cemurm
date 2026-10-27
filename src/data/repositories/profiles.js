@@ -26,6 +26,7 @@
  * @property {string} id
  * @property {string | null} username
  * @property {string | null} displayName
+ * @property {string | null} avatarUrl
  */
 
 // ponytail: lazy import — supabase.js reads import.meta.env at eval time,
@@ -46,7 +47,7 @@ const SEARCH_COLUMNS = 'id, username, display_name, avatar_url'
  */
 function normalizeProfile(row) {
   if (!row) return null
-  return { id: row.id, username: row.username, displayName: row.display_name }
+  return { id: row.id, username: row.username, displayName: row.display_name, avatarUrl: row.avatar_url }
 }
 
 /**
