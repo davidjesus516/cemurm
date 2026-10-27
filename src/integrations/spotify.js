@@ -20,6 +20,7 @@
 
 import { NOTES_SHARP } from '../domain/music/transpose.js'
 import { fetchScales } from '../data/repositories/scaleCatalog.js'
+import { spotifyFeatures, spotifySearchBody, spotifyTokenBody } from './schemas.js'
 
 /**
  * The only two failure codes a provider client resolves with (it NEVER throws —
@@ -77,21 +78,22 @@ import { fetchScales } from '../data/repositories/scaleCatalog.js'
 
 /**
  * A credited artist of a search row — only `name` is read, first entry wins.
+ * `null` is accepted because the wire sends it and `normalize()` tolerates it.
  * @typedef {object} SpotifyArtistCredit
- * @property {string} [name]
+ * @property {string | null} [name]
  */
 
 /**
  * One image entry of a track's album — only `url` is read, first entry wins;
  * the width/height fields are not read at all.
  * @typedef {object} SpotifyImage
- * @property {string} [url]
+ * @property {string | null} [url]
  */
 
 /**
  * A track's album credit — read defensively, only the first image url.
  * @typedef {object} SpotifyAlbum
- * @property {SpotifyImage[]} [images]
+ * @property {SpotifyImage[] | null} [images]
  */
 
 /**
@@ -100,20 +102,20 @@ import { fetchScales } from '../data/repositories/scaleCatalog.js'
  * @typedef {object} SpotifyTrack
  * @property {string} id
  * @property {string} name
- * @property {SpotifyArtistCredit[]} [artists]
- * @property {SpotifyAlbum} [album]
+ * @property {SpotifyArtistCredit[] | null} [artists]
+ * @property {SpotifyAlbum | null} [album]
  */
 
 /**
  * The /search `tracks` page — `items` is omitted when the query returns nothing.
  * @typedef {object} SpotifyTracksPage
- * @property {SpotifyTrack[]} [items]
+ * @property {SpotifyTrack[] | null} [items]
  */
 
 /**
  * The /search envelope.
  * @typedef {object} SpotifySearchBody
- * @property {SpotifyTracksPage} [tracks]
+ * @property {SpotifyTracksPage | null} [tracks]
  */
 
 /**
@@ -121,16 +123,16 @@ import { fetchScales } from '../data/repositories/scaleCatalog.js'
  * `mode` 0 = minor / 1 = major) and `tempo` (the BPM). All three are absent on
  * a track without an analysis, which is why the reads below guard on type.
  * @typedef {object} SpotifyFeatures
- * @property {number} [key]
- * @property {number} [tempo]
- * @property {number} [mode]
+ * @property {number | null} [key]
+ * @property {number | null} [tempo]
+ * @property {number | null} [mode]
  */
 
 /**
  * The client-credentials token response — only `access_token` is read, and its
  * absence is the 'Spotify token missing' throw.
  * @typedef {object} SpotifyTokenBody
- * @property {string} [access_token]
+ * @property {string | null} [access_token]
  */
 
 /**
@@ -265,7 +267,7 @@ async function fetchSpotifyToken(clientId, clientSecret) {
     body: 'grant_type=client_credentials',
   })
   if (!res.ok) throw new Error('Spotify token failed')
-  const body = /** @type {SpotifyTokenBody} */ (await res.json())
+  const body = spotifyTokenBody.parse(await res.json())
   if (!body.access_token) throw new Error('Spotify token missing')
   return body.access_token
 }
@@ -318,7 +320,7 @@ async function searchRealProvider(title, artist) {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!searchRes.ok) throw new Error('Spotify search failed')
-  const searchBody = /** @type {SpotifySearchBody} */ (await searchRes.json())
+  const searchBody = spotifySearchBody.parse(await searchRes.json())
 
   const track = (searchBody.tracks?.items || []).find(
     (item) => trackScore(item, title, artist) >= MATCH_THRESHOLD,
@@ -329,7 +331,7 @@ async function searchRealProvider(title, artist) {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!featsRes.ok) throw new Error('Spotify audio-features failed')
-  const feats = /** @type {SpotifyFeatures} */ (await featsRes.json())
+  const feats = spotifyFeatures.parse(await featsRes.json())
 
   const keyIndex = typeof feats.key === 'number' ? feats.key : null
   return {
