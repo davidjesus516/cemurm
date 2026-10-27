@@ -1,76 +1,47 @@
-
 'use client'
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardCard } from "../../shared/dashboard-card";
-import { Bookmark, BriefcaseBusiness, Box, Users, File } from 'lucide-react';
+import { Box } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-
-const assetsData = [
-  {
-    id: 'Employees',
-    title: 'Employees',
-    href: '/apps/kanban',
-    value: '96',
-    icon: Users
-  },
-
-  {
-    id: 'Projects',
-    title: 'Projects',
-    href: '/apps/calendar',
-    value: '356',
-    icon: File
-  },
-  {
-    id: 'Clients',
-    title: 'Clients',
-    href: '/',
-    value: '3,650',
-    icon: BriefcaseBusiness
-  },
-  {
-    id: 'Events',
-    title: 'Events',
-    href: '/',
-    value: '86',
-    icon: Bookmark
-  },
-];
-
-type AssetCardProps = {
+export interface AssetItem {
+  id: string;
   title: string;
   href: string;
-  value: string | number;
+  value: number;
   icon: React.ElementType;
-};
+}
 
-function AssetCard({ title, value, icon: Icon }: AssetCardProps) {
+function AssetCard({ title, href, value, icon: Icon }: AssetItem) {
   return (
-    <div className='flex flex-col justify-between p-6 bg-cem-base'>
+    <Link
+      to={href}
+      className='flex flex-col justify-between p-6 bg-cem-surface transition-colors hover:bg-cem-hover/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cem-amber'
+    >
       <div className='border border-cem-hover rounded-md p-2 w-fit'>
         <Icon width={16} height={16} />
       </div>
       <div>
-        <h6 className='text-2xl font-semibold'>{value}</h6>
+        <h6 className='text-2xl font-semibold'>{value.toLocaleString()}</h6>
         <p className='text-sm font-normal'>{title}</p>
       </div>
-    </div>
+    </Link>
   );
 }
 
-export default function TotalAssets() {
+export default function TotalAssets({ assets }: { assets: AssetItem[] }) {
   return (
     <DashboardCard className="flex flex-col gap-0! pb-0!">
       <CardHeader className="border-b border-cem-hover">
         <CardTitle className="flex items-center gap-2">
           <Box size={16} className="text-cem-secondary-elevated" />
-          Total Assets
+          Summary
         </CardTitle>
       </CardHeader>
       <CardContent className='h-full! px-0!'>
         <div className='h-full!'>
           <div className='grid grid-cols-2 h-full! gap-px bg-cem-hover'>
-            {assetsData.map((item) => (
+            {assets.map((item) => (
               <AssetCard key={item.id} {...item} />
             ))}
           </div>

@@ -1,35 +1,70 @@
 'use client'
 import { CardContent } from '@/components/ui/card';
 import { DashboardCard } from "../../shared/dashboard-card";
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import type { AdminEvent } from '@/hooks/shared/useAdminOverview';
 
-export default function UpdateBanner() {
+interface UpdateBannerProps {
+  upcomingCount: number;
+  nextEvent: AdminEvent | null;
+}
+
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+export default function UpdateBanner({
+  upcomingCount,
+  nextEvent,
+}: UpdateBannerProps) {
   return (
     <DashboardCard className="py-3">
       <CardContent className="flex items-center flex-wrap justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-chart-1 animate-ping absolute inline-flex" />
-            <span className="h-2 w-2 rounded-full bg-chart-1 absolute inline-flex" />
-            <p className="text-sm font-medium  ps-4">Update</p>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-chart-1 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-chart-1" />
+            </span>
+            <p className="text-sm font-medium">
+              {upcomingCount > 0 ? 'Upcoming' : 'Agenda'}
+            </p>
             <span className="w-1 h-1 rounded-full bg-cem-hover" />
             <p className="text-sm font-normal text-cem-secondary-elevated">
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           </div>
           <p className="text-sm font-normal">
-            Sales revenue increased <span className="text-success">40%</span> in 1 week
+            {nextEvent ? (
+              <>
+                Next: <span className="text-success">{nextEvent.name}</span>
+                {nextEvent.venue ? ` · ${nextEvent.venue}` : ''}
+                {nextEvent.scheduledAt ? ` · ${formatDate(nextEvent.scheduledAt)}` : ''}
+              </>
+            ) : (
+              'No upcoming events yet — add a gig to see it here.'
+            )}
           </p>
         </div>
-        <Link to={'#'}>
-          <Button variant={'outline'} className="flex gap-1.5 px-4 py-2 h-auto rounded-md cursor-pointer">
-            See Statistics
-            <span>
-              <ArrowRight width={18} height={18} />
-            </span>
-          </Button>
+        <Link
+          to="/gigs"
+          className={buttonVariants({
+            variant: 'outline',
+            className: 'gap-1.5 px-4 py-2 h-auto rounded-md',
+          })}
+        >
+          See events
+          <span>
+            <ArrowRight width={18} height={18} />
+          </span>
         </Link>
       </CardContent>
     </DashboardCard>
