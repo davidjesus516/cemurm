@@ -121,12 +121,12 @@ Each slice is one PR, ≤ 400 authored lines, with its own verification.
 
 - [x] T1 Branch from `main` + this record (before the first write)
 - [x] T2 WU1 — migration `0042_account_export.sql` + smoke (export envelope, server side)
-- [ ] T3 WU2 — client serializer, ZIP assembly, repository, settings surface + tests
-- [ ] T4 WU3 — migration `0043_account_erasure.sql` + smoke (request, grace, core, cron, purge)
-- [ ] T5 WU4 — erasure UI (warning, confirm, cancel) + tests
-- [ ] T6 WU5 — re-import for the core working set + tests
-- [ ] T7 WU6 — `openspec/specs/account-data/spec.md`, feature status, closure
-- [ ] T8 Verify each slice: `pnpm test && pnpm typecheck && pnpm lint && pnpm build`, plus the
+- [x] T3 WU2 — client serializer, ZIP assembly, repository, settings surface + tests
+- [x] T4 WU3 — migration `0043_account_erasure.sql` + smoke (request, grace, core, cron, purge)
+- [x] T5 WU4 — erasure UI (warning, confirm, cancel) + tests
+- [x] T6 WU5 — re-import for the core working set + tests
+- [x] T7 WU6 — `openspec/specs/account-data/spec.md`, feature status, closure
+- [x] T8 Verify each slice: `pnpm test && pnpm typecheck && pnpm lint && pnpm build`, plus the
       smoke on a fresh `supabase db reset` for every SQL slice
 
 ## Acceptance criteria
@@ -203,3 +203,123 @@ From the feature, scenario by scenario:
   already condensed to the non-obvious (the definer/RLS evidence, the two attribution
   hazards, D2/D3) — where the parent wants to cut 300 lines, the honest option is to split
   the smoke's fixture block into a shared SQL include, not to weaken an assertion.
+- 2026-10-22 — **WU2 landed.** Client bundle + settings surface.
+  `src/domain/account/exportBundle.js` — canonical document (fixed top-level and
+  repertoire/activity/archive key order, arrays kept in the RPC's meaningful order, deep
+  copy so the envelope is never mutated), Markdown summary (counts table for every
+  collection, songs with artist/year, setlists with dates, ten newest practice sessions),
+  and `cemurm-export-YYYY-MM-DD.json` from `exported_at` (today only when it is missing
+  or unparseable). `src/domain/account/exportZip.js` — `fflate.zipSync` over exactly two
+  entries, the JSON document and `summary.md`; synchronous and node-testable.
+  `src/data/repositories/accountExport.js` — `supabase.rpc('export_account_data')`,
+  throwing one readable message on RPC error or null (the caller renders a failure state).
+  `src/features/settings/components/ExportDataCard.jsx` mounted as a `<section>` in
+  `Settings.jsx`; four states (idle/building/done/failed), inline failure text, double-click
+  guarded by a ref because two clicks can share a render tick, object URL revoked after the
+  click. `fflate@^0.8.3` is the only new dependency (D7, zero transitive deps).
+  Tests (node environment, no jsdom): `exportBundle.test.js` (15 cases — identity fields,
+  canonical key order, nested group order, RPC array order preserved, deep-frozen input is
+  not mutated, counts, artist rows, setlist dates, practice newest-first, empty envelope,
+  single-line titles, filename derivation and fallback) and `exportZip.test.js` (5 cases —
+  two entries with the right names, JSON round-trip equality, `summary.md` identity, empty
+  account). The component is not rendered in tests by design; the pure functions are its
+  seam.
+  Verified, in order, all green: `pnpm test` (20 files / 435 tests passed),
+  `pnpm typecheck` (clean), `pnpm lint` (clean), `pnpm build` (built in 4.23s),
+  `bash scripts/check-visual-contract.sh` (12 rules, 0 failing; rules 01b and 02 remain
+  ratchet warnings at their pre-existing ceilings — the card deliberately uses no dead
+  accent, `text-cem-amber` carrying the error line).
+  **Budget deviation, reported:** ~801 authored lines (six new source/test files + 7 lines
+  in `package.json`/`Settings.jsx`), +401 over the ≤400 target. The split is 298 lines of
+  tests, 361 for the document+summary builder, and 135 for ZIP/repository/component. The
+  summary requirement (`:14`) is what makes the builder large: a readable summary needs a
+  counts table plus three human-facing sections, and the empty-account and no-mutation
+  cases are explicit acceptance criteria. Trimming to 400 would mean deleting test
+  coverage or shipping a summary that is only a counts list, so it was not done.
+
+- 2026-10-22 — **WU4 landed.** Erasure UI. `src/data/repositories/accountErasure.js` wraps
+  `request_account_erasure()`, `cancel_account_erasure()` (RPC errors surfaced with readable
+  messages) and `getAccountErasureStatus()` (reads `account_erasure_requests` for current
+  user, returns pending row or null). `src/features/settings/components/DeleteAccountCard.jsx`
+  implements state machine (idle → confirming → requesting/cancelling → scheduled |
+  cancelled) with inline `role="alert"` errors, double-click guard via `useRef`, local
+  confirmation (no `window.confirm`). Shows permanent-deletion warning, schedules for 30
+  days after confirmation, allows export during grace period, displays scheduled date/time
+  and "Cancel deletion" action that retains everything. Mounted in `Settings.jsx` as a new
+  section "Delete my account permanently". Follows tier-1 patterns and token-only classes.
+  No new dependencies. Covers scenarios :37-:45.
+  Additionally `src/domain/account/erasure.js` (`erasureStatus`, `formatScheduledFor`) is the
+  pure, node-testable seam, with `erasure.test.js` (7 cases: missing row, live row, cancelled
+  row, completed row, empty/parseable/unparseable timestamps).
+  **A pre-existing defect was found and fixed, reported here rather than hidden:**
+  `src/domain/account/exportZip.test.js` "builds a valid bundle for an empty account"
+  hardcoded the JSON entry name `cemurm-export-2026-10-22.json`, but `buildExportZip({})`
+  derives that name from `exportFileName({})`, which falls back to `new Date()`. The test
+  passed only on the day it was authored and had already gone red on this branch before any
+  WU4 line existed (verified: it fails at c5e58f2 in a clean worktree). Fixed in the test, not
+  the source, by deriving the expected entry name from `exportFileName({})` — the assertion
+  keeps its full strength. No WU4 code touches the export path.
+  Verified, in order, all green: `pnpm test` (21 files / 442 tests passed),
+   `pnpm typecheck` (clean), `pnpm lint` (clean), `pnpm build` (built in 4.50s),
+   `bash scripts/check-visual-contract.sh` (12 rules, 0 failing, OK). 380 authored lines
+   against the ≤400 target — this slice fits, unlike WU1/WU2.
+- 2026-10-22 — **WU5 landed.** Re-import of the core working set (D2), scenarios `:29`/`:75`.
+  `supabase/migrations/0044_account_import.sql` (536 lines) adds
+  `public.import_account_data(p_document jsonb)` — `security definer`, `set search_path = ''`,
+  `raise exception 'Not authenticated.'` when `auth.uid()` is null, and a readable rejection for
+  a non-object payload or any `schema_version` other than `cemurm.account-export/1`. **Every
+  identity field in the document is ignored** (`user_id`, `created_by`, `owner_id`,
+  `contributor_id`); every inserted row is owned by `auth.uid()`. **All ids are remapped**
+  (`gen_random_uuid()` per song/version/chart/collection/setlist/tag) and the references are
+  carried through an old→new map, so a donor UUID that still exists in the same database can
+  never be overwritten — the smoke seeds exactly that collision. Imported: tags (get-or-create on
+  the `(user_id, name)` unique key), songs (`is_deleted` preserved — the export is a faithful
+  copy), charts, versions, collections + collection_songs, setlists + items, personal
+  annotations, and the two preference rows (upsert — one row per user). Not imported, by D2:
+  comments, memberships, practice history, gigs/performances, public contributions,
+  notifications/follows/feedback, audit and moderation. The one DDL change is
+  `alter table public.chart_files alter column object_key drop not null`, required because the
+  ZIP carries no blobs and the donor's Storage path would be unreadable under the new user's
+  owner-folder RLS: `content` is preserved, `object_key` is forced to NULL, so a PDF scan imports
+  as a version with no scan. `scripts/smoke/0044-account-import.sql` (320 lines, 13 assertions)
+  covers the count summary, new ids + caller ownership, FK integrity on `song_versions`/
+  `chart_files`, content-preserved/object_key-NULL charts, skipped setlist items, preference
+  rows, wrong-schema rejection with nothing inserted, the anon grant check, append-on-second-
+  import, and identity-field spoofing against a real donor row.
+  Client: `src/domain/account/importBundle.js` (121 lines, pure — `unzipSync`, single
+  `cemurm-export-*.json` entry, three documented failures), `importBundle.test.js` (128 lines,
+  ZIPs built in-test with `buildExportZip`), `src/data/repositories/accountImport.js` (40 lines),
+  `src/features/settings/components/ImportDataCard.jsx` (151 lines: idle → reading → importing →
+  done | failed, ref-guarded, uncontrolled file input, counts from the RPC, inline `role="alert"`)
+  and 6 lines in `Settings.jsx`.
+  **Decisions the record did not settle, recorded here:** (a) charts cannot round-trip binaries,
+  and `object_key` becomes NULL as above; (b) a setlist item whose song is not in the bundle has
+  no representable form — `song_id` is NOT NULL with a RESTRICT FK and the table has no
+  title/label column — so it is skipped and counted, never given a dangling or invented FK;
+  annotations on songs outside the export are skipped the same way (`skipped_annotations`);
+  (c) `org_id`/`branch_id`/`source_org_id` are set to NULL so a bundle can be imported into a
+  database where the donor's org does not exist (the "fresh account" case) without leaking org
+  scoping; `fork_of`/`lineage_source` are kept only when they resolve inside the same import;
+  (d) a second import appends a second copy — no dedupe by title/artist — except tags, which are
+  reused via their unique key and reported as `reused_tags`; (e) setlist item positions are
+  re-sequenced 1..n in export order so the `(setlist_id, position)` unique key survives skipped
+  items; (f) the `setlist_items` AFTER INSERT notification trigger would spam one notification
+  per imported item, so the rows it creates for the imported setlists in this transaction are
+  removed before returning.
+  Verified, in order, all green: `supabase db reset` (0044 applies clean), smoke
+  `13 PASS / 0 FAIL`, `pnpm test` (22 files / 452 tests passed), `pnpm typecheck` (clean),
+  `pnpm lint` (clean), `pnpm build` (built in 4.72s), `bash scripts/check-visual-contract.sh`
+  (12 rules, 0 failing, OK).
+  **Budget deviation, reported:** ~1302 authored lines (536 migration + 320 smoke + 440
+  client/tests + 6 Settings) against the ≤400 target, and this one is not a close call. The
+  importer touches ten tables with id remapping and skip accounting; the SQL alone cannot be
+  honest in under ~300 lines, and the smoke's ten mandated assertions need a full document
+  fixture. Nothing was trimmed; the alternative was dropping coverage the brief explicitly
+  requires.
+  Note: the working tree also carries uncommitted edits to `AGENTS.md`, `README.md` and `docs/`
+  from outside this slice; they were deliberately left out of this commit.
+
+### 2026-10-24 — WU6 (docs/spec closure)
+
+- Created  (11 scenarios, requirements for export/erasure/grace/retention/re-import).
+- Closed the task record; all slices WU1–WU6 complete.

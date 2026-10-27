@@ -324,6 +324,59 @@ y el rango `0019→0028` de esta línea eran el estado el 2026-09-28; hoy `main`
 - **Por qué importa**: es exactamente la trampa que `AGENTS.md` documenta tras #236, instalada en el directorio de trabajo. Cualquier gate corrido ahí da verde **probando las versiones viejas** — y un bump de major puede cambiar el bundle sin que ninguna puerta lo note.
 - **Decisión**: `pnpm install --frozen-lockfile` en el checkout principal. No se hizo sin el visto bueno del mantenedor porque muta su entorno de trabajo. Mentre tanto, **cualquier verificación de dependencias va contra un worktree con su propio `node_modules`**, nunca con symlink al del repo.
 
+## 15. Registro de dependencias — la lista de midu.dev, evaluada
+
+> Añadido 2026-10-20 tras una auditoría contra `main` = `0b311e9`, la rama de #383 y
+> `pnpm-lock.yaml`. No es un defecto: es el registro de qué se evaluó, qué se adoptó y **qué
+> condición dispara** cada adopción pendiente. Existe para que la próxima sesión no repita la
+> investigación ni instale una librería que ya está decidida en contra.
+
+**Regla que gobierna este registro:** una librería entra cuando tiene un consumidor concreto en un
+hito o en un `.feature`, no porque aparezca en una lista. La entry rule sigue vigente.
+
+### Ya instaladas
+
+| Librería | Dónde | Estado |
+|---|---|---|
+| `zod ^4.6.7` | #387 (abierto) | **Adoptada 2026-10-20** — valida los cinco payloads de provider que antes se casteaban. Costo medido: **+24.5 kB gzip** en el chunk compartido `spotify` (2,558 → 27,663 B), porque `isOnline` vive ahí. |
+| `@tanstack/react-table ^8.21.3` | sólo en #383 | Pendiente de merge. Es la elección para el panel de administración (Hito 7). |
+| `recharts ^3.10.1` | sólo en #383 | Reemplaza a Chart.js. No agregar una segunda librería de gráficos. |
+| `date-fns ^4.4.0` | sólo en #383 | Ver Temporal, abajo. |
+| `motion ^14.1.0` | `main`, landing + design | Code-split al chunk del landing. No entra a la app autenticada (ADR-008). |
+| `@fontsource/inter ^5.3.0` | `main`, `package.json` | **Dependencia muerta**: nada la importa. El woff2 vive en `public/fonts/`. Candidata a borrar. |
+| `gsap ^3.15.0` | `main`, `cardNav.jsx` | **Viola ADR-008**: `router → AppLayout → CardNav` es estático, así que GSAP está en el chunk de entrada autenticado. |
+
+**ADR-008 está desactualizado en las dos afirmaciones que hace:** dice que el bundle autenticado
+lleva "0 bytes de animation library" y que `package.json` "no lleva ninguna". Contra `main` lleva
+`gsap`, `motion` y `ogl`, y GSAP entra por una cadena de imports estáticos. `motion` sí está
+correctamente separada al chunk del landing; `gsap` no. Alinearlo o sacar GSAP del shell sigue
+siendo una decisión abierta.
+
+### Diferidas, con su disparador
+
+| Librería | Disparador | Condición |
+|---|---|---|
+| **TanStack Table** | merge de #383 | Nada que implementar: ya está. |
+| **Motion** en la app | una superficie que pida coreografía, no micro-transición | El camino es **reemplazar GSAP en `cardNav.jsx`** y reescribir ADR-008 — no sumar una segunda librería de animación. |
+| **Zustand** | estado de UI que desborde el contexto (selección múltiple, filtros del panel) | Requiere reescribir ADR-003 acotándolo a **estado de UI**, excluyendo datos de servidor y la cola offline. |
+| **Pragmatic drag and drop** | un `.feature` que describa el gesto, teclado incluido | El reordenamiento ya funciona: `moveSongInSetlist(from, to)` → RPC con swap de posiciones y op offline. La librería mejora el gesto, no la parte difícil. |
+| **Temporal** | aritmética de zonas horarias real (eventos que crucen organizaciones) | **No puede convivir con `date-fns`**: reemplaza, no acompaña. Mismo criterio que Chart.js contra recharts. Polyfill completo: 45.2 kB gzip. |
+
+### Rechazadas
+
+- **Chart.js** (68.4 kB gzip) — duplica `recharts`, que ya está en #383.
+- **Better Auth** — colisión con GoTrue: RLS se apoya en `auth.uid()`, las migraciones referencian
+  `auth.users(id)`, la Edge Function valida claims del JWT. Sería un segundo origen de identidad.
+
+### Tamaños medidos (bundlephobia, versión actual)
+
+`@js-temporal/polyfill` 45.2 kB · `chart.js` 68.4 kB · `zod` 88.9 kB (tree-shakeable; el real
+medido en este repo fue +24.5 kB) · `@tanstack/react-table` 31.6 kB · `motion` 55.9 kB ·
+`zustand` 489 B · `@atlaskit/pragmatic-drag-and-drop` 174 B (core; los adapters suman).
+
+Los dos últimos pesan prácticamente nada: **las objeciones contra ellos son arquitectónicas, no de
+tamaño.** No confundir una con la otra al releer este registro.
+
 ## Estado de entrada
 
 Este backlog se creó a partir de hallazgos de revisión de ingeniería post-Hito 2 (2026-09-15, tras merge de PR #88–#99). Ningún ítem bloquea el desarrollo actual; todos son candidatos a planificarse en su hito correspondiente según `docs/mvp-scope.md`. Prioridad sugerida: #5 (solo si entra CI), #4 (Hito 4), #3 (Hito 4/5), #1 (post-Hito 3), #2 y #6 (no hacer — re-evaluar con datos).

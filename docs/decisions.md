@@ -4,7 +4,7 @@ Records for decisions **already made and in force** in this repository — the r
 `odd/tasks/*.md` deliberately does not carry (it records *what* was done and how it was verified,
 not *why* the shape was chosen). When a decision changes, edit its status; do not delete it.
 
-**Numbering:** `ADR-001` … `ADR-010`, assigned by theme, not chronology. Note that
+**Numbering:** `ADR-001` … `ADR-011`, assigned by theme, not chronology. Note that
 `tsconfig.json`, `docs/master-plan.md` and `odd/tasks/cemurm-education-audit.md` all refer to an
 "ADR 0002" for the layer boundaries — that document **never existed in the tree**
 (`docs/master-plan.md` §5b: "ADR 0002 absent from the repo"). `ADR-010` below is its first
@@ -226,3 +226,47 @@ says so in Consequences.
   adds `src/domain/music/degreeResolver.js` importing a repository. They are logged with a
   destination rather than hidden — an ADR that claims more than the code holds would be worse than
   no ADR at all.
+
+---
+
+### ADR-011 — Moodle owns academic management; CEMURM integrates it
+
+- **Status:** Accepted as a product decision (2026-10-20). **Not implemented** — Hito 8 has not
+  started, so unlike every other ADR here this one is not yet verified against the tree. Its first
+  unit, 8-0, exists precisely to verify that the platform supports what the decision assumes.
+- **Date:** 2026-10-20
+- **Context:** The academy's eleven requirements include academic management: courses, exercises,
+  online quizzes and assessments, grades, pedagogical feedback, student progress and activity
+  reports. Four Gherkin files already specify part of it — 67 scenarios across
+  `education-courses-and-exercises` (13), `education-enrollment` (21),
+  `education-student-progress` (20) and `education-teaching-assignments` (13) — with no
+  implementation behind them. CEMURM's core promise is offline-first, and its domain is musical:
+  songs, sections, setlists, events. The academy runs no LMS today; whatever is chosen gets
+  installed and operated.
+- **Decision:** Moodle is the system of record for courses, enrollment and grades. CEMURM keeps the
+  person's identity, the musical exercise that anchors to a song section, the offline core, and an
+  administrative panel that reads from Moodle. The academic area is a bounded context, deliberately
+  separate from the musical one. Sequencing lives in `docs/roadmap-ampliacion.md` §5.
+- **Alternatives:** (a) Build a thin Supabase-native module — the option a twelve-candidate
+  evaluation ranked highest (4.35/5 against Moodle's 1.95), because completion is a single
+  transaction that has to join the offline outbox, and because no external system can own a section
+  selector over `song_versions.section_context`; (b) Canvas LMS — best incumbent API (`graded_since`,
+  Grade Change Log, LTI Advantage) but heavier to self-host; (c) Frappe LMS — the leanest
+  self-host surface of the twelve; (d) no LMS, defer the academic area.
+- **Reason:** The decision weighs time-to-value and maintenance load over integration purity. Moodle
+  supplies question banks, gradebook, reporting and authoring tools that would otherwise be backlog,
+  and adopting a mature platform leaves the musical domain untouched. **This is a deliberate
+  reversal of the evaluation's ranking**, and it is recorded as such rather than rationalized: the
+  evaluation optimized for the cost and fragility of the seam; the product decision optimized for
+  how much surface the team would otherwise own.
+- **Consequences:** Positive — no LMS-shaped surface to build or maintain; the musical and offline
+  path is unchanged; the community moderation machinery (`0015`) is not duplicated for courses.
+  Tradeoffs, all accepted: the person now exists twice, with Moodle holding a shadow provisioned at
+  launch; **offline becomes asymmetric** — academic work inside CEMURM requires network, and
+  Moodle's own offline lives only in its mobile app, not in its API; **67 scenarios stop being the
+  product truth** for that area until Hito 8-1 rewrites them; Moodle's runtime (PHP, its database, a
+  major upgrade twice a year) becomes an operational dependency; and minors' educational data moves
+  to a second processor, which adds a data-processing agreement and a legal review — D1 is moved,
+  not closed. One claim remains unverified and is gated by 8-0: that `enrol_lti` publishes a course
+  as an **LTI 1.3** tool. If it does not, the embedded path collapses to SSO plus a separate tab;
+  the ownership model in this ADR does not change.

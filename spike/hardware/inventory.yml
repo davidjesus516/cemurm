@@ -1,0 +1,83 @@
+---
+# Spike Hardware Inventory
+# Usar con: ansible-playbook -i inventory.yml provision.yml
+
+all:
+  vars:
+    ansible_user: "{{ lookup('env', 'SPIKE_SSH_USER') }}"
+    ansible_ssh_private_key_file: "{{ lookup('env', 'SPIKE_SSH_KEY') }}"
+    spike_results_dir: "/home/{{ ansible_user }}/spike-results"
+
+  children:
+    ios_devices:
+      hosts:
+        ipad-8th-gen:
+          ansible_host: "{{ lookup('env', 'SPIKE_IPAD_IP') }}"
+          device_type: ios
+          model: "iPad 8th gen (A12)"
+          os_version: "17+"
+          serial: "{{ lookup('env', 'SPIKE_IPAD_SERIAL') }}"
+          tags: [audio, network, layout]
+
+    android_devices:
+      hosts:
+        galaxy-a53:
+          ansible_host: "{{ lookup('env', 'SPIKE_ANDROID1_IP') }}"
+          device_type: android
+          model: "Samsung Galaxy A53"
+          os_version: "13"
+          serial: "{{ lookup('env', 'SPIKE_ANDROID1_SERIAL') }}"
+          tags: [audio, network, layout]
+        pixel-6a:
+          ansible_host: "{{ lookup('env', 'SPIKE_ANDROID2_IP') }}"
+          device_type: android
+          model: "Google Pixel 6a"
+          os_version: "14"
+          serial: "{{ lookup('env', 'SPIKE_ANDROID2_SERIAL') }}"
+          tags: [audio, network, layout]
+
+    windows_devices:
+      hosts:
+        laptop-intel:
+          ansible_host: "{{ lookup('env', 'SPIKE_WIN1_IP') }}"
+          device_type: windows
+          model: "Laptop i5-8250U"
+          os_version: "Win10 21H2"
+          tags: [audio, network, layout]
+        laptop-amd:
+          ansible_host: "{{ lookup('env', 'SPIKE_WIN2_IP') }}"
+          device_type: windows
+          model: "Laptop Ryzen 5 3500U"
+          os_version: "Win11"
+          tags: [audio, network, layout]
+
+    network_infrastructure:
+      hosts:
+        ap-primary:
+          ansible_host: "{{ lookup('env', 'SPIKE_AP1_IP') }}"
+          device_type: ubiquiti
+          model: "U6-Lite"
+          channel: 36
+          bandwidth: "80MHz"
+          tags: [roaming, netem]
+        ap-secondary:
+          ansible_host: "{{ lookup('env', 'SPIKE_AP2_IP') }}"
+          device_type: ubiquiti
+          model: "U6-Lite"
+          channel: 44
+          bandwidth: "80MHz"
+          tags: [roaming]
+        router:
+          ansible_host: "{{ lookup('env', 'SPIKE_ROUTER_IP') }}"
+          device_type: linux
+          model: "Ubuntu 22.04 + tc/netem"
+          tags: [netem, chaos]
+
+    linux_runners:
+      hosts:
+        spike-linux-router:
+          ansible_host: "{{ lookup('env', 'SPIKE_ROUTER_IP') }}"
+          tags: [netem, ci-runner]
+        spike-macos:
+          ansible_host: "{{ lookup('env', 'SPIKE_MAC_IP') }}"
+          tags: [ci-runner, ios-build]
