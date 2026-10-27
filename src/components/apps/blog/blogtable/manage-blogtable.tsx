@@ -45,6 +45,7 @@ import { BlogContext } from "src/context/blog-context";
 import { BlogPostType } from "src/types/apps/blog";
 import { useNavigate } from "react-router-dom";
 import PlaceholdersInput from "src/components/animated-components/animatedinput-placeholder";
+import { demoBlogCategories } from "@/demo/content";
 
 const ManageBlogTable = () => {
   const { posts } = useContext(BlogContext);
@@ -116,20 +117,8 @@ const ManageBlogTable = () => {
       cell: (info) => {
         const category = info.getValue() ?? "Unknown";
 
-        const categoryColors: Record<string, string> = {
-          Design: "bg-chart-2/12! text-chart-2!",
-          Lifestyle: "bg-chart-4/12! text-chart-4!",
-          Gadget: "bg-cem-amber/5! text-cem-amber!",
-          Social: "bg-destructive/12! text-destructive!",
-          Health: "bg-chart-5/12! text-chart-5!",
-        };
-
         return (
-          <Badge
-            className={`text-xs font-medium ${categoryColors[category] ?? "bg-cem-hover text-cem-secondary-elevated"
-              }`}
-            variant="secondary"
-          >
+          <Badge className="text-xs font-medium" variant="secondary">
             {category}
           </Badge>
         );
@@ -163,7 +152,7 @@ const ManageBlogTable = () => {
       },
     }),
     columnHelper.accessor("published", {
-      header: "published",
+      header: "Published",
       cell: ({ row }) => {
         const postId = row.original.id;
         const published = row.original.published;
@@ -189,7 +178,7 @@ const ManageBlogTable = () => {
         const { id } = row.original;
 
         const handleEdit = () => {
-          navigate("/apps/blog/edit");
+          navigate("/dashboard/apps/blog/edit");
         };
 
         const handleRowDelete = () => {
@@ -210,28 +199,32 @@ const ManageBlogTable = () => {
           <div className="flex items-center gap-3">
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
-                  <Button
-                    onClick={handleEdit}
-                    size={"sm"}
-                    variant={"outline"}
-                    className={"h-8! w-8! rounded-md! hover:bg-cem-amber/5 bg-cem-base"}
-                  >
-                    <Pen size={18} />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      onClick={handleEdit}
+                      size={"sm"}
+                      variant={"outline"}
+                      className={"h-8! w-8! rounded-md! hover:bg-cem-amber/5 bg-cem-base"}
+                    />
+                  }
+                >
+                  <Pen size={18} />
                 </TooltipTrigger>
                 <TooltipContent>Edit Blog</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger>
-                  <Button
-                    size={"sm"}
-                    onClick={handleRowDelete}
-                    variant={"outline"}
-                    className={"h-8! w-8! rounded-md! text-destructive! bg-cem-base hover:bg-destructive/5"}
-                  >
-                    <Trash2 size={18} />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size={"sm"}
+                      onClick={handleRowDelete}
+                      variant={"outline"}
+                      className={"h-8! w-8! rounded-md! text-destructive! bg-cem-base hover:bg-destructive/5"}
+                    />
+                  }
+                >
+                  <Trash2 size={18} />
                 </TooltipTrigger>
                 <TooltipContent>Delete Blog</TooltipContent>
               </Tooltip>
@@ -300,17 +293,16 @@ const ManageBlogTable = () => {
             {!showSearch ? (
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Button
-                      size={"sm"}
-                      onClick={() => setShowSearch(true)}
-                      variant={"ghost"}
-                    >
-
-                      <SearchIcon size={16}
-
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        size={"sm"}
+                        onClick={() => setShowSearch(true)}
+                        variant={"ghost"}
                       />
-                    </Button>
+                    }
+                  >
+                    <SearchIcon size={16} />
                   </TooltipTrigger>
                   <TooltipContent>Search</TooltipContent>
                 </Tooltip>
@@ -344,11 +336,15 @@ const ManageBlogTable = () => {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem className={"cursor-pointer"} value="Design">Design</SelectItem>
-                <SelectItem className={"cursor-pointer"} value="Lifestyle">Lifestyle</SelectItem>
-                <SelectItem className={"cursor-pointer"} value="Gadget">Gadget</SelectItem>
-                <SelectItem className={"cursor-pointer"} value="Social">Social</SelectItem>
-                <SelectItem className={"cursor-pointer"} value="Health">Health</SelectItem>
+                {demoBlogCategories.map((category) => (
+                  <SelectItem
+                    key={category}
+                    className={"cursor-pointer"}
+                    value={category}
+                  >
+                    {category}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {/* Bulk delete button */}
@@ -526,14 +522,11 @@ const ManageBlogTable = () => {
                 </p>
               </div>
               <DialogFooter className="flex justify-center gap-4">
-                <Button
-                  onClick={handleDelete}
-                  className={"bg-cem-amber/5 text-cem-amber hover:bg-cem-amber/30 "}
-                >
+                <Button variant="destructive" onClick={handleDelete}>
                   Yes, Delete
                 </Button>
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   onClick={() => setShowConfirm(false)}
                 >
                   Cancel

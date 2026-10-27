@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import BlogComment from "./blog-commnets";
 import { BlogType } from "src/types/apps/blog";
+import { blogReadTime } from "../read-time";
 
 const BlogDetailData = () => {
   const { posts, setLoading, addComment }: BlogContextProps =
@@ -80,7 +81,7 @@ const BlogDetailData = () => {
               <div className="overflow-hidden h-[450px]">
                 <img
                   src={post?.coverImg || ""}
-                  alt="shadcn-admin"
+                  alt=""
                   className="w-full h-full object-cover object-center"
                 />
               </div>
@@ -89,7 +90,7 @@ const BlogDetailData = () => {
 
                 className="absolute bottom-8 end-6 bg-cem-hover text-cem-secondary-elevated"
               >
-                2 min Read
+                {blogReadTime(post)}
               </Badge>
             </div>
             <div className="flex justify-between items-center -mt-7 px-6">
@@ -142,70 +143,22 @@ const BlogDetailData = () => {
             </div>
             <Separator className="my-8" />
             <div className="px-6 pb-6">
-              <h2 className="md:text-3xl text-2xl pb-5">
-                Title of the paragraph
-              </h2>
-              <p>
-                But you cannot figure out what it is or what it can do. MTA web
-                directory is the simplest way in which one can bid on a link, or
-                a few links if they wish to do so. The link directory on MTA
-                displays all of the links it currently has, and does so in
-                alphabetical order, which makes it much easier for someone to
-                find what they are looking for if it is something specific and
-                they do not want to go through all the other sites and links as
-                well. It allows you to start your bid at the bottom and slowly
-                work your way to the top of the list
-              </p>
-              <br></br>
-              <p>
-                Gigure out what it is or what it can do. MTA web directory is
-                the simplest way in which one can bid on a link, or a few links
-                if they wish to do so. The link directory on MTA displays all of
-                the links it currently has, and does so in alphabetical order,
-                which makes it much easier for someone to find what they are
-                looking for if it is something specific and they do not want to
-                go through all the other sites and links as well. It allows you
-                to start your bid at the bottom and slowly work your way to the
-                top of the
-              </p>
-              <br></br>
-              <p>
-                <b>This is strong text.</b>
-              </p>
-              <i>This is italic text.</i>
-
-              <Separator className="my-8" />
-              <h3 className="text-xl mb-3">Unorder list</h3>
-              <ul className="list-disc pl-6">
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-              </ul>
-              <Separator className="my-8" />
-              <h3 className="text-xl mb-3">Order list</h3>
-              <ol className="list-decimal pl-6">
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-                <li>Gigure out what it is or</li>
-                <li>The links it currently</li>
-                <li>It allows you to start your bid</li>
-              </ol>
-              <Separator className="my-8" />
-              <h3 className="text-xl mb-3">Quotes</h3>
-              <div className="pt-5 pb-4 px-4 rounded-md border-s-2 border-cem-amber flex gap-1 items-start bg-cem-amber/5">
-                <Quote size={20} className="-mt-1" />
-                <h2 className="text-base font-bold">
-                  Life is short, Smile while you still have teeth!
-                </h2>
-              </div>
+              <p className="text-lg text-cem-secondary-elevated">{post?.content}</p>
+              {post?.body?.map((paragraph) => (
+                <p key={paragraph} className="mt-4">
+                  {paragraph}
+                </p>
+              ))}
+              {post?.quote ? (
+                <div className="mt-6 pt-5 pb-4 px-4 rounded-md border-s-2 border-cem-amber flex gap-1 items-start bg-cem-amber/5">
+                  <Quote size={20} className="-mt-1" />
+                  <p className="text-base font-bold">{post.quote}</p>
+                </div>
+              ) : null}
             </div>
           </Card>
 
-          <Card className="mt-6">
+          <Card>
             <CardHeader>
               <CardTitle>
                 <h5 className="text-xl mb-2">Post Comments</h5>

@@ -43,21 +43,24 @@ const PostDate = () => {
           </div>
           <div>
             <Popover>
-              <PopoverTrigger className={"w-full"}>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !publishDate && "text-cem-secondary-elevated"
-                  )}
-                >
-                  <CalendarCog />
-                  {publishDate ? (
-                    format(publishDate, "PPP")
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
+              <PopoverTrigger
+                className={"w-full"}
+                render={
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !publishDate && "text-cem-secondary-elevated"
+                    )}
+                  />
+                }
+              >
+                <CalendarCog />
+                {publishDate ? (
+                  format(publishDate, "PPP")
+                ) : (
+                  <span>Pick a date</span>
+                )}
               </PopoverTrigger>
               <PopoverContent align="start">
                 <Calendar

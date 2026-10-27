@@ -35,14 +35,16 @@ const BlogComment = ({ comment }: { comment: BlogType }) => {
         <div className="relative w-fit">
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
-                <Button
-                  variant={"ghost"}
-                  className="flex items-center border border-cem-hover"
-                  onClick={() => setShowReply(!showReply)}
-                >
-                  <CornerUpLeft size={18} className="shrink-0!" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant={"ghost"}
+                    className="flex items-center border border-cem-hover"
+                    onClick={() => setShowReply(!showReply)}
+                  />
+                }
+              >
+                <CornerUpLeft size={18} className="shrink-0!" />
               </TooltipTrigger>
               <TooltipContent>Reply</TooltipContent>
             </Tooltip>

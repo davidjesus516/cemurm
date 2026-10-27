@@ -6,59 +6,46 @@ import { Button } from "@/components/ui/button";
 import PostDate from "@/components/apps/blog/blogedit/post-date";
 import Media from "@/components/apps/blog/blogedit/medias";
 import Status from "@/components/apps/blog/blogedit/blog-status";
-import StyleAwareWrapper from "src/components/shared/StyleAwareWrapper";
-import StyleDivider from "src/components/shared/StyleDivider";
+import DemoNotice from "src/components/shared/DemoNotice";
 
 const BCrumb = [
-  { to: "/", title: "Home" },
+  { to: "/dashboard", title: "Home" },
   { title: "Blog Edit" },
 ];
 
 const BlogEdit = () => {
   return (
     <BlogProvider>
-      <StyleAwareWrapper
-        lyraClassName="flex flex-col p-px gap-px bg-cem-hover"
-        defaultClassName="flex flex-col gap-4"
-      >
+      <div className="flex flex-col gap-4">
         <BreadcrumbComp title="Blog Edit" items={BCrumb} />
-        <StyleDivider />
-        <StyleAwareWrapper
-          lyraClassName="grid grid-cols-12 gap-px bg-cem-hover"
-          defaultClassName="grid grid-cols-12 gap-[30px]"
-        >
+        <DemoNotice>
+          Demo content — this form does not save changes. The editor is a visual
+          reference for a future CEMURM blog.
+        </DemoNotice>
+        <div className="grid grid-cols-12 gap-6">
           <div className="lg:col-span-8 col-span-12">
-            <StyleAwareWrapper
-              lyraClassName="flex flex-col gap-px bg-cem-hover"
-              defaultClassName="flex flex-col gap-[30px]"
-            >
+            <div className="flex flex-col gap-6">
               <GeneralDetail />
               <Media />
-            </StyleAwareWrapper>
+            </div>
           </div>
           <div className="lg:col-span-4 col-span-12 self-stretch">
-            <StyleAwareWrapper
-              lyraClassName="flex flex-col gap-px bg-cem-hover h-full"
-              defaultClassName="flex flex-col gap-[30px]"
-            >
+            <div className="flex h-full flex-col gap-6">
               <Status />
               <CategoryTags />
-              <div className="flex-1 flex flex-col">
+              <div className="flex flex-1 flex-col">
                 <PostDate />
               </div>
-            </StyleAwareWrapper>
+            </div>
           </div>
-          <StyleAwareWrapper
-            lyraClassName="bg-cem-base col-span-12 p-4"
-            defaultClassName="lg:col-span-8 col-span-12"
-          >
+          <div className="lg:col-span-8 col-span-12">
             <div className="flex gap-3">
               <Button className="sm:mb-0 mb-3 w-fit">Save changes</Button>
-              <Button variant={"destructive"}>Cancel</Button>
+              <Button variant="outline">Cancel</Button>
             </div>
-          </StyleAwareWrapper>
-        </StyleAwareWrapper>
-      </StyleAwareWrapper>
+          </div>
+        </div>
+      </div>
     </BlogProvider>
   );
 };

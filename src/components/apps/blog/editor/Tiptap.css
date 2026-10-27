@@ -6,7 +6,7 @@
   border: 1px solid var(--color-cem-hover);
   border-radius: 8px;
   background-color: transparent;
-  
+
   font-family: 'Arial', sans-serif;
 }
 .editor-container .ProseMirror{
