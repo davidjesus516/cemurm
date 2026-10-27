@@ -80,9 +80,30 @@ const WRITE_OPS = {
 // Ops whose replay rejection is a designed supersession (first-wins): when
 // the server rejects with a matching message, the queued intent is stale —
 // drop the op with a notice and keep draining, instead of stopping the queue.
+// The two setlist item ops join on the RPC's own sentinel: apply_setlist_item_op
+// returns {applied:false} when the pair is already decided, and the write path
+// turns that into the message below. The RPC is the arbiter, so a refusal here
+// is a designed supersession, not a drain-stopping failure.
 /** @type {Record<string, RegExp>} */
 const SUPERSEDED_ERRORS = {
   respondSubstitution: /Position already covered\./,
+  addSongToSetlist: /Superseded by a later offline edit\./,
+  removeSongFromSetlist: /Superseded by a later offline edit\./,
+}
+
+/**
+ * The notice line for a designed supersession, per op. An item op is NOT a
+ * substitution — reusing that wording would tell the musician an unrelated
+ * thing happened — so it gets its own honest line: the edit reached the server
+ * too late / lost the recorded tie-break and was not applied.
+ * @param {string} opName
+ * @returns {string}
+ */
+function supersededNotice(opName) {
+  if (opName === 'respondSubstitution') {
+    return 'A substitution you accepted was already covered before your sync.'
+  }
+  return 'A queued setlist edit was superseded by a later offline edit and was not applied.'
 }
 
 // 2.6 (R6/R7): an item add/remove carries no server state of its own, so it is
@@ -159,12 +180,13 @@ async function decideReplay(userId, op) {
   // the call site rather than by widening QueuedOp, which would un-honest the
   // rest of the queue. Mirrors the webMidi sendProgramChange precedent.
   // Structural, not an import(): QueuedSetlistOp is a module-local typedef in
-  // collab.js and is deliberately not exported.
-  const setlistOp = /** @type {{ name: string, args?: string[], queuedAt?: number }} */ (op)
+  // collab.js and is deliberately not exported. `opKey` rides along for the
+  // equal-timestamp tie-break mirror.
+  const setlistOp = /** @type {{ name: string, args?: string[], queuedAt?: number, opKey?: string }} */ (op)
   const decision = reconcileSetlistOp(setlistOp, server)
   if (!decision.drop) return { replay: true }
   if (!decision.notice) return { replay: false }
-  return { replay: false, notice: await buildNotice(userId, op, decision.reason) }
+  return { replay: false, notice: await buildNotice(userId, op, decision.reason, decision.rule) }
 }
 
 /**
@@ -176,19 +198,25 @@ async function decideReplay(userId, op) {
  * `reason` decides the wording, and it matters more than the branch name. Only
  * a genuine supersession may claim someone else got there first; an operation
  * this client cannot identify must not blame a collaborator for a write the
- * client simply failed to replay.
+ * client simply failed to replay. `rule === 'op-key'` narrows further: the drop
+ * was a lost tie-break, not a later write, so it must not be worded as a
+ * removal — the honest line says the edit lost the tie-break.
  *
  * @param {string} userId
  * @param {QueuedOp} op
  * @param {string} [reason]
+ * @param {string} [rule]
  * @returns {Promise<string>}
  */
-async function buildNotice(userId, op, reason) {
+async function buildNotice(userId, op, reason, rule) {
   if (reason === 'malformed') {
     return 'A queued change to the setlist could not be read and was not applied. Please make the change again.'
   }
   if (reason === 'unknown-age') {
     return 'A queued change to the setlist lost its timestamp and was not applied. Please make the change again.'
+  }
+  if (rule === 'op-key') {
+    return 'A queued setlist edit lost the tie-break with another device and was not applied.'
   }
   const songId = op.args?.[2]
   let title = null
@@ -242,7 +270,8 @@ export async function drainPending(userId) {
         continue
       }
       try {
-        if (RECONCILE_OPS.has(op.name)) {
+        const isItemOp = RECONCILE_OPS.has(op.name)
+        if (isItemOp) {
           const { replay, notice } = await decideReplay(target, op)
           if (!replay) {
             // Superseded by an online change (R7) or already satisfied — the
@@ -253,7 +282,16 @@ export async function drainPending(userId) {
             continue
           }
         }
-        await fn(...op.args)
+        if (isItemOp) {
+          // Carry the op's ORIGINAL identity into the write so a replayed op
+          // keeps its queued-at timestamp and tie-break key. Minting a fresh
+          // Date.now() here would make an old offline op beat every later
+          // write. A legacy op with no opKey sends undefined and the write
+          // path mints one then (the RPC refuses a null key).
+          await fn(...op.args, { opKey: op.opKey, queuedAt: op.queuedAt })
+        } else {
+          await fn(...op.args)
+        }
         await removeOps(target, new Set([op.seq]))
         drained += 1
       } catch (e) {
@@ -263,7 +301,7 @@ export async function drainPending(userId) {
         // rejection is classified below.
         const superseded = SUPERSEDED_ERRORS[op.name]?.test(String(/** @type {Error} */ (e)?.message || ''))
         if (superseded) {
-          notices.push('A substitution you accepted was already covered before your sync.')
+          notices.push(supersededNotice(op.name))
           await removeOps(target, new Set([op.seq]))
           drained += 1
           continue

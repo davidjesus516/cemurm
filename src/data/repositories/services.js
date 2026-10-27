@@ -199,7 +199,7 @@ import { supabase } from '../supabase.js'
  */
 
 /**
- * One row of list_plan_versions (0021_plan_freeze.sql), newest first.
+ * One row of list_plan_versions (0034_plan_freeze.sql), newest first.
  * @typedef {object} PlanVersion
  * @property {number} version_number
  * @property {string} status
@@ -253,8 +253,11 @@ import { supabase } from '../supabase.js'
 // Exact literals raised by the 0018 cores and RLS-blocked writes — surfaced
 // verbatim so the UI renders the BDD wording (em-dash U+2014 verbatim).
 const USER_ERRORS = new Set([
-  'Only the service leader can edit the plan.',
+  // 0018/0038 raise 'Service not found.' WITH the period; the 0034 plan-freeze
+  // cores raise it WITHOUT — both spellings stay serviceable (0034:98/:193/:246).
   'Service not found.',
+  'Service not found',
+  'Only the service leader can edit the plan.',
   'Block not found.',
   'Block has no setlist.',
   "Song not found in the block's setlist.",
@@ -265,6 +268,15 @@ const USER_ERRORS = new Set([
   'Organization is required.',
   'Block name is required.',
   'Part is required.',
+  // Exact literals raised by the 0034 plan-freeze cores — surfaced verbatim
+  // so the UI renders them instead of the generic fallback. All five are
+  // raised without a trailing period (quoted that way in the Hito-5
+  // evidence); publish/history rejections reach the UI through
+  // handlePublish/handleShowHistory err.message in ServiceDetail.jsx.
+  'Only the service leader can publish the plan', // 0034:102
+  'A completed service is read-only', // 0034:105
+  'Not visible to this user', // 0034:197
+  'Only the service leader can view version history', // 0034:249
 ])
 
 /**
@@ -279,13 +291,25 @@ function isOverlapError(message) {
 }
 
 /**
+ * The re-assignment rejection is dynamic: '<name> is no longer a member'
+ * (0038 raises it with private.display_name_for). Match the stable suffix
+ * instead of the whole string.
+ * @param {unknown} message
+ * @returns {boolean}
+ */
+function isFormerMemberError(message) {
+  return typeof message === 'string' && message.includes(' is no longer a member')
+}
+
+/**
  * Re-throws known user-facing errors; maps everything else to a generic
  * message so callers never see PostgREST internals. Never returns.
  * @param {Error} error
  * @returns {never}
  */
 function handleError(error) {
-  if (USER_ERRORS.has(error?.message) || isOverlapError(error?.message)) throw error
+  const message = error?.message
+  if (USER_ERRORS.has(message) || isOverlapError(message) || isFormerMemberError(message)) throw error
   throw new Error('Something went wrong. Please try again.')
 }
 

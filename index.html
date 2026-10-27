@@ -2,8 +2,45 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- L6, plan section 7.5. The favicon was Vite's default and `/vite.svg` does
+         not exist in public/, so this was a broken reference. Replaced with the
+         placeholder geometric mark — see public/mark.svg for why there is no real
+         logo yet, and for why public/ is outside the visual gate's scan path
+         (scripts/check-visual-contract.sh:202 sets SRC_DIR="src"). -->
+    <link rel="icon" type="image/svg+xml" href="/mark.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- PWA installability (plan 7.5). theme-color is cem.base (#0f172a), the
+         token body already paints, so the browser chrome matches the app with no
+         new colour. apple-mobile-web-app-capable + the 180px icon are what iOS
+         needs for the "Add to Home Screen" flow; `viewport-fit=cover` lets the
+         safe-area insets the reference asks for reach the edges on a notched
+         device. -->
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CEMURM" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- L6, plan 7.4. Loaded BEFORE the app stylesheet and outside the CSS
+         bundle on purpose: it declares the metric-compatible fallback face that
+         stops `font-display: swap` from reflowing text when Inter arrives, so it
+         has to be parsed before first paint rather than whenever the bundle
+         lands. The Inter face it sits next to is one variable file, preloaded below.
+         See public/fonts.css for the measured metrics. -->
+    <link rel="stylesheet" href="/fonts.css" />
+    <!-- The one Inter file, preloaded so `font-display: swap` has it before the
+         first paint rather than discovering it while the bundle parses. Same
+         reason fonts.css is loaded here and not from the bundle. -->
+    <link
+      rel="preload"
+      href="/fonts/inter-latin-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <meta name="description" content="Community-Centered Musical Repertories Manager — organize songs, build setlists, perform live." />
     <title>CEMURM</title>
   </head>

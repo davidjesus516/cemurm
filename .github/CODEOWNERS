@@ -1,0 +1,4 @@
+# Team-integration quick wins (T4) — see odd/tasks/team-integration-quickwins.md
+# Sensitive paths: schema migrations and CI definition require the maintainer's review.
+supabase/migrations/    @davidjesus516
+.github/workflows/      @davidjesus516

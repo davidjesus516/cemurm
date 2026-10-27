@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { usePreferences } from '../../../hooks/shared/usePreferences.js'
 import { useMidi } from '../../../hooks/shared/useMidi.js'
 import { useAuth } from '../../../app/providers/useAuth.jsx'
-import { describeOutput, loadMidiSettings } from '../../../integrations/webMidi.js'
+import { describeOutput, loadMidiSettings } from '../../../lib/midi.js'
 import {
   disconnectSpotify,
   ensureSpotifyConnected,
@@ -21,6 +21,9 @@ import {
   ensurePcoConnected,
   getPcoConnection,
 } from '../../../integrations/planningcenter.js'
+import ExportDataCard from '../components/ExportDataCard.jsx'
+import ImportDataCard from '../components/ImportDataCard.jsx'
+import DeleteAccountCard from '../components/DeleteAccountCard.jsx'
 
 export default function Settings() {
   const { prefs, loading } = usePreferences()
@@ -218,7 +221,7 @@ export default function Settings() {
                 <select
                   value={midi.selectedId}
                   onChange={(e) => midi.selectDevice(e.target.value)}
-                  className="rounded border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-none"
+                  className="rounded border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden"
                 >
                   <option value="">Select an output…</option>
                   {midi.outputs.map((output) => (
@@ -429,6 +432,21 @@ export default function Settings() {
           </p>
         </div>
       </div>
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-cem-text">Export my data</h2>
+        <ExportDataCard />
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-cem-text">Import my data</h2>
+        <ImportDataCard />
+      </section>
+
+      <section className="mt-8 mb-8">
+        <h2 className="text-lg font-bold text-cem-text">Delete my account permanently</h2>
+        <DeleteAccountCard />
+      </section>
     </div>
   )
 }

@@ -107,6 +107,9 @@ const USER_ERRORS = new Set([
   'Case is still open.',
   'Report not found.',
   'Only the contributor can appeal.',
+  'Invalid reason.',
+  'You must be signed in.',
+  'Invalid decision.',
 ])
 
 /**

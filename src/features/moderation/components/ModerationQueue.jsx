@@ -51,6 +51,9 @@ export default function ModerationQueue({ queue, loading, error, onDecide, decid
         />
       )
     }
+    // Case was decided and removed from queue — clear selection
+    // Success toast is shown by parent Moderation page
+    setSelectedCase(null)
   }
 
   return (
@@ -59,7 +62,7 @@ export default function ModerationQueue({ queue, loading, error, onDecide, decid
         {queue.length} open {queue.length === 1 ? 'case' : 'cases'} waiting for a decision
       </p>
 
-      <ul className="divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+      <ul className="divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
         {queue.map((item) => {
           const entry = item.entry
           const totalReports = item.reports?.length || 0

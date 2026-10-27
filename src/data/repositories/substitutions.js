@@ -264,6 +264,7 @@ const USER_ERRORS = new Set([
   'Request is not covered.',
   'Request is already resolved.',
   'Position already covered.',
+  'You are no longer an active member of this organization.',
   'Only the assigned member can mark this assignment unavailable.',
   'Only the service leader can send the request.',
   'Only the current substitute can cancel.',

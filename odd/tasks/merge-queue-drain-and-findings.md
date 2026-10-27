@@ -114,6 +114,10 @@ Each is measured, not inferred. The five that a future directive should answer:
    1 approving review, `require_last_push_approval`, thread resolution, CodeQL,
    and `dismiss_stale_reviews_on_push: false`. Nothing blocks an oversized PR.
    The moderation chain was split to honour the convention anyway.
+   **Updated 2026-10-11:** the `PR` ruleset (id `24085467`) was replaced by two rulesets —
+   `checks` (id `24904685`, no bypass, requiring `lint-and-build`, GitGuardian and CodeQL) and
+   `review` (id `24904691`, maintainer bypass in `pull_request` mode). Finding 3's "no in-platform
+   approval path" is resolved by that bypass; the self-review `--add-reviewer` no-op is not.
 
 Two more, environmental rather than structural:
 

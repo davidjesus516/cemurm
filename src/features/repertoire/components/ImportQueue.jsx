@@ -149,7 +149,7 @@ function ReviewRow({ entry, onApprove, onDiscard, onDecision, onConflictChange, 
         <select
           value={entry.license}
           onChange={(e) => onLicenseChange(entry.id, e.target.value)}
-          className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none"
+          className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-xs text-cem-text focus:border-cem-amber focus:outline-hidden"
         >
           {LICENSE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -226,7 +226,7 @@ export default function ImportQueue({
           {pending.length} file{pending.length === 1 ? '' : 's'} awaiting review — nothing lands until you approve it.
         </p>
       )}
-      <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+      <ul className="mt-2 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
         {entries.map((entry) => (
           <ReviewRow
             key={entry.id}

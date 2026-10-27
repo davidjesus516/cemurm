@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "UC-01 Add a song to repertoire",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "musician", "type": "external", "label": "Musician", "sublabel": "actor", "pos": [40, 250], "size": [128, 64] },
+    { "id": "uc_add", "type": "frontend", "label": "Add a song to repertoire", "sublabel": "base use case", "pos": [420, 196], "size": [210, 68] },
+    { "id": "uc_validate", "type": "backend", "label": "Validate chart file", "pos": [150, 560], "size": [164, 62] },
+    { "id": "uc_readiness", "type": "backend", "label": "Compute readiness", "pos": [420, 560], "size": [164, 62] },
+    { "id": "uc_rows", "type": "database", "label": "Write 3 rows", "sublabel": "songs / chart_files / song_versions", "pos": [700, 560], "size": [200, 68] },
+    { "id": "uc_pdf", "type": "security", "label": "Attach PDF scan", "sublabel": "optional branch", "pos": [420, 720], "size": [176, 66] },
+    { "id": "storage", "type": "external", "label": "Storage", "sublabel": "actor", "pos": [990, 380], "size": [128, 64] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "CEMURM", "wraps": ["uc_add", "uc_validate", "uc_readiness", "uc_rows", "uc_pdf"] }
+  ],
+  "connections": [
+    { "id": "a_main", "from": "musician", "to": "uc_add", "label": "", "variant": "emphasis" },
+    { "id": "a_pdf", "from": "musician", "to": "uc_pdf", "label": "", "fromSide": "bottom", "toSide": "bottom" },
+    { "id": "inc_val", "from": "uc_add", "to": "uc_validate", "label": "<<include>>", "variant": "dashed", "fromSide": "left", "toSide": "top", "labelDy": 70 },
+    { "id": "inc_ready", "from": "uc_add", "to": "uc_readiness", "label": "<<include>>", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelDx": 52 },
+    { "id": "inc_rows", "from": "uc_add", "to": "uc_rows", "label": "<<include>>", "variant": "dashed", "fromSide": "right", "toSide": "top", "labelDx": 60 },
+    { "id": "ext_pdf", "from": "uc_add", "to": "uc_pdf", "label": "<<extend>>", "variant": "dashed", "fromSide": "bottom", "toSide": "left" },
+    { "id": "st_rows", "from": "uc_rows", "to": "storage", "label": "persist" },
+    { "id": "st_pdf", "from": "uc_pdf", "to": "storage", "label": "upload", "fromSide": "right", "toSide": "bottom" }
+  ]
+}

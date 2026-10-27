@@ -10,7 +10,7 @@ import { supabase } from '../supabase.js'
 import { listSongs } from './songs.js'
 import { formatDuration } from '../../domain/library/duration.js'
 import { offlineGet, offlineSet, offlineRemove } from '../../offline/cache.js'
-import { enqueueOp } from '../../offline/queue.js'
+import { enqueueOp, newOpKey } from '../../offline/queue.js'
 import { guardVisibility, shareTargets, guardTransfer } from '../../domain/setlist/collab.js'
 import { normalizeProgram } from '../../integrations/webMidi.js'
 
@@ -36,6 +36,17 @@ import { normalizeProgram } from '../../integrations/webMidi.js'
  */
 
 /**
+ * One row of the append-only tie-break record (0037
+ * setlist_conflict_resolutions), embedded by fetchSetlistById. Resolutions
+ * accumulate one row per applied op; flattenSetlist reduces them to the latest
+ * per song.
+ * @typedef {object} RawSetlistResolutionRow
+ * @property {string} song_id
+ * @property {string} winner_queued_at
+ * @property {string} winner_op_key
+ */
+
+/**
  * @typedef {object} RawSetlistRow
  * @property {string} id
  * @property {string} owner_id
@@ -45,6 +56,8 @@ import { normalizeProgram } from '../../integrations/webMidi.js'
  * @property {string} updated_at
  * @property {RawSetlistItemRow[]} setlist_items
  * @property {RawSetlistCollaboratorRow[]} setlist_collaborators
+ * @property {RawSetlistResolutionRow[]} [setlist_conflict_resolutions] Present
+ *   only on the fetchSetlistById select that embeds it.
  */
 
 /**
@@ -60,6 +73,10 @@ import { normalizeProgram } from '../../integrations/webMidi.js'
  * @property {Record<string, string>} versionIds
  * @property {Record<string, string>} agreedKeys absent songId = nobody agreed a key
  * @property {Record<string, number | null>} midiPrograms
+ * @property {Record<string, { opKey: string, queuedAt: string }>} [conflictResolutions]
+ *   Latest recorded tie-break resolution per song id (0037). Absent key = no
+ *   resolution for that song (first write). Populated only by the
+ *   fetchSetlistById embed; {} on other reads.
  * @property {string} createdAt
  * @property {string} updatedAt
  * @property {boolean} isOwner
@@ -77,6 +94,11 @@ import { normalizeProgram } from '../../integrations/webMidi.js'
 
 // ponytail: known user-facing errors re-thrown as-is; network/PostgREST
 // errors map to a safe generic message.
+// 'Superseded by a later offline edit.' is raised by the write paths when the
+// 0037 RPC refuses an op ({applied:false}). It is listed here so handleError
+// re-throws it verbatim instead of mapping it to the generic string — the
+// drainer matches this exact message to classify the refusal as a designed
+// supersession (SUPERSEDED_ERRORS) rather than a drain-stopping failure.
 const USER_ERRORS = new Set([
   'Setlist not found.',
   'Setlist name is required.',
@@ -84,6 +106,7 @@ const USER_ERRORS = new Set([
   'Only an accepted collaborator can take ownership.',
   'The new owner must accept the invitation first.',
   'Reordering a shared setlist requires an internet connection.',
+  'Superseded by a later offline edit.',
 ])
 
 /**
@@ -202,6 +225,25 @@ function flattenSetlist(row, userId) {
     }
   }
 
+  // Latest recorded tie-break resolution per song (0037). The table is
+  // append-only, and PostgREST cannot return "latest per group" in an embed,
+  // so the rows are embedded whole and reduced here: keep the greatest
+  // (winner_queued_at, winner_op_key) per song — the same order the RPC's
+  // index and comparator use. KNOWN LIMIT: resolutions accumulate, so this
+  // read is O(rows for the setlist), not O(songs); fine while the history is
+  // small. Only the fetchSetlistById select embeds the rows; other reads
+  // (listSetlists) leave it undefined and the map stays empty.
+  /** @type {Record<string, { opKey: string, queuedAt: string }>} */
+  const conflictResolutions = {}
+  for (const r of row.setlist_conflict_resolutions || []) {
+    const current = conflictResolutions[r.song_id]
+    const rTime = new Date(r.winner_queued_at).getTime()
+    const cTime = current ? new Date(current.queuedAt).getTime() : NaN
+    if (!current || rTime > cTime || (rTime === cTime && r.winner_op_key > current.opKey)) {
+      conflictResolutions[r.song_id] = { opKey: r.winner_op_key, queuedAt: r.winner_queued_at }
+    }
+  }
+
   const collaborators = (row.setlist_collaborators || []).map((c) => ({
     userId: c.user_id,
     canEdit: c.can_edit,
@@ -219,6 +261,7 @@ function flattenSetlist(row, userId) {
     versionIds,
     agreedKeys,
     midiPrograms,
+    conflictResolutions,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     isOwner,
@@ -228,10 +271,12 @@ function flattenSetlist(row, userId) {
 }
 
 /**
- * Fetch one setlist row with nested setlist_items and setlist_collaborators.
- * Member read (0002 setlists_select_member — owner or accepted collaborator;
- * the old owner_id filter would 403 collaborators on shared setlists).
- * Throws 'Setlist not found.' when missing.
+ * Fetch one setlist row with nested setlist_items, setlist_collaborators, and
+ * the tie-break resolutions. Member read (0002 setlists_select_member — owner
+ * or accepted collaborator; the old owner_id filter would 403 collaborators
+ * on shared setlists). The resolution embed is what the drain-time reconcile
+ * reads to mirror the 0037 tie-break; it is read-scoped to setlist members by
+ * 0037's own policy. Throws 'Setlist not found.' when missing.
  */
 /**
  * @param {string} userId
@@ -241,7 +286,7 @@ function flattenSetlist(row, userId) {
 async function fetchSetlistById(userId, id) {
   const { data, error } = await supabase
     .from('setlists')
-    .select('*, setlist_items(song_id, position, version_id, midi_program), setlist_collaborators(user_id, can_edit, accepted_at)')
+    .select('*, setlist_items(song_id, position, version_id, midi_program), setlist_collaborators(user_id, can_edit, accepted_at), setlist_conflict_resolutions(song_id, winner_queued_at, winner_op_key)')
     .eq('id', id)
     .maybeSingle()
 
@@ -553,36 +598,42 @@ export async function duplicateSetlist(userId, id, { name }) {
  * @param {string} userId
  * @param {string} setlistId
  * @param {string} songId
+ * @param {{ opKey?: string, queuedAt?: number }} [opIdentity] The op's stored
+ *   identity on a replay (drainer passes it); omitted for an online write, in
+ *   which case the identity is minted now. Keeps a replayed op's original
+ *   queuedAt/opKey instead of beating every later write with Date.now().
  * @returns {Promise<Setlist>}
  */
-export async function addSongToSetlist(userId, setlistId, songId) {
+export async function addSongToSetlist(userId, setlistId, songId, opIdentity) {
   return withErrorMapping(async () => {
     try {
+      // Access check (also asserts the setlist is readable/editable). Kept
+      // ahead of the RPC so an unauthorized or missing setlist fails with the
+      // same 'Setlist not found.'/RLS surface as before.
       await fetchSetlistById(userId, setlistId)
 
-      // Idempotent: no-op if song already in setlist
-      const { data: existing } = await supabase
-        .from('setlist_items')
-        .select('id')
-        .eq('setlist_id', setlistId)
-        .eq('song_id', songId)
-        .maybeSingle()
-      if (existing) return fetchSetlistById(userId, setlistId)
-
-      // Next position = max + 1
-      const { data: maxRow } = await supabase
-        .from('setlist_items')
-        .select('position')
-        .eq('setlist_id', setlistId)
-        .order('position', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      const nextPosition = (maxRow?.position ?? -1) + 1
-
-      const { error } = await supabase
-        .from('setlist_items')
-        .insert({ setlist_id: setlistId, song_id: songId, position: nextPosition })
+      // The RPC is the arbiter: it reads the latest resolution for
+      // (setlist, song), decides, and applies the item change + records the
+      // resolution in one transaction. The client never writes setlist_items
+      // for these ops any more — the RPC owns both the idempotent insert
+      // (position = max + 1) and the tie-break.
+      const identity = opIdentity || {}
+      const { data, error } = await supabase.rpc('apply_setlist_item_op', {
+        p_setlist_id: setlistId,
+        p_song_id: songId,
+        p_op_name: 'addSongToSetlist',
+        p_queued_at: new Date(identity.queuedAt ?? Date.now()).toISOString(),
+        // A legacy queued op has no opKey: mint one rather than send null,
+        // which the RPC refuses ('Missing operation identity.') — refusing it
+        // would lose the user's edit. The mismatch is harmless because the op
+        // was never applied, so no resolution carries the online key.
+        p_op_key: identity.opKey || newOpKey(),
+      })
       if (error) throw error
+      // {applied:false} means a later (or tie-winning) op already decided this
+      // pair. It is a designed supersession, not a failure — throw the
+      // sentinel the drainer classifies via SUPERSEDED_ERRORS.
+      if (data?.applied === false) throw new Error('Superseded by a later offline edit.')
 
       const setlist = await fetchSetlistById(userId, setlistId)
       invalidateSetlists(userId, [setlistId])
@@ -692,19 +743,29 @@ export async function setMidiProgram(userId, setlistId, songId, program) {
  * @param {string} userId
  * @param {string} setlistId
  * @param {string} songId
+ * @param {{ opKey?: string, queuedAt?: number }} [opIdentity] See
+ *   addSongToSetlist — the drainer passes the op's stored identity so a
+ *   replayed remove keeps its original timestamp/tie-break key.
  * @returns {Promise<Setlist>}
  */
-export async function removeSongFromSetlist(userId, setlistId, songId) {
+export async function removeSongFromSetlist(userId, setlistId, songId, opIdentity) {
   return withErrorMapping(async () => {
     try {
       await fetchSetlistById(userId, setlistId)
 
-      const { error } = await supabase
-        .from('setlist_items')
-        .delete()
-        .eq('setlist_id', setlistId)
-        .eq('song_id', songId)
+      // Same arbiter as the add path: one RPC owns the delete plus the
+      // resolution record. The remove path has no client-side timestamp
+      // mirror (see collab.js), but the RPC still arbitrates it.
+      const identity = opIdentity || {}
+      const { data, error } = await supabase.rpc('apply_setlist_item_op', {
+        p_setlist_id: setlistId,
+        p_song_id: songId,
+        p_op_name: 'removeSongFromSetlist',
+        p_queued_at: new Date(identity.queuedAt ?? Date.now()).toISOString(),
+        p_op_key: identity.opKey || newOpKey(),
+      })
       if (error) throw error
+      if (data?.applied === false) throw new Error('Superseded by a later offline edit.')
 
       const setlist = await fetchSetlistById(userId, setlistId)
       invalidateSetlists(userId, [setlistId])

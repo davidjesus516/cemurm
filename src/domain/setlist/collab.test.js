@@ -22,6 +22,34 @@ function op(name, songId, queuedAt) {
 const T = 2_000_000_000_000
 const SERVER = { itemIds: [ITEM_SONG, ITEM_SONG_2], updatedAt: new Date(T).toISOString() }
 
+// Tie-break fixtures — the op keys and the timestamp are IDENTICAL to
+// scripts/smoke/0037-offline-tie-break.sql (op keys 30000…7f0/7f1/…7f2,
+// timestamp 2026-10-13T10:00:00Z), the canonical arbiter's own fixture set: the
+// SQL and this JS mirror must be the same rule, so both are pinned to the same
+// literals. The PAIRS exercised differ — the smoke breaks a greater key on 7b3
+// and a lesser one on 7b4, while these tests run greater, lesser and equal
+// against one recorded winner — so this file is a superset, not a copy. Keep the
+// literals in lockstep; drift here is drift between the arbiter and its mirror.
+const TIE_AT = Date.parse('2026-10-13T10:00:00Z')
+const OP_KEY_LOW = '30000000-0000-0000-0000-0000000007f0'
+const OP_KEY_MID = '30000000-0000-0000-0000-0000000007f1'
+const OP_KEY_HIGH = '30000000-0000-0000-0000-0000000007f2'
+const TIE_SONG = '20000000-0000-0000-0000-0000000007b3'
+
+// The recorded winner for TIE_SONG: OP_KEY_MID wrote at TIE_AT, so the server's
+// `setlists.updated_at` is now NEWER than both ops' queuedAt — the shape
+// production actually produces once one device has written. The tie is against
+// the recorded write's own `queuedAt`, never against `updatedAt`; keying it on
+// `updatedAt` would be unreachable in this shape and the arbiter would never see
+// the op.
+const TIE_SERVER = {
+  itemIds: [],
+  updatedAt: new Date(TIE_AT + 5000).toISOString(),
+  conflictResolutions: {
+    [TIE_SONG]: { opKey: OP_KEY_MID, queuedAt: new Date(TIE_AT).toISOString() },
+  },
+}
+
 // ── LOCK_TTL_MS ──────────────────────────────────────────────────────────────
 
 describe('LOCK_TTL_MS', () => {
@@ -120,12 +148,80 @@ describe('reconcileSetlistOp — addSongToSetlist', () => {
     })
   })
 
-  it('replays an add on an EQUAL timestamp, not on a strictly-newer one', () => {
-    // FINDING: features/offline-edit-conflict-policy.feature says "Equal
-    // timestamps use the recorded tie-break rule … stored with the resolution
-    // so every device reaches the same result". The code has no tie-break: the
-    // test is `>`, so equality reads as "server not newer" and my write replays.
-    expect(reconcileSetlistOp(op('addSongToSetlist', 'not-on-server', T), SERVER)).toEqual({ drop: false })
+  it('resolves an EQUAL timestamp by the recorded tie-break key, both directions', () => {
+    // This INVERTS the assertion that pinned the bug here: an EQUAL timestamp
+    // used to replay unconditionally, so both devices applied and drain order
+    // picked the winner — the opposite of determinism.
+    // features/offline-edit-conflict-policy.feature:47-51 requires a RECORDED
+    // tie-break rule. TIE_SERVER carries the winning device's own resolution, so
+    // these assertions exercise the shape the drain actually sees.
+    // Greater key wins the tie → replay, rule 'op-key' (smoke T3).
+    expect(
+      reconcileSetlistOp(
+        { name: 'addSongToSetlist', args: [OWNER, SETLIST, TIE_SONG], queuedAt: TIE_AT, opKey: OP_KEY_HIGH },
+        TIE_SERVER,
+      ),
+    ).toEqual({ drop: false, rule: 'op-key' })
+    // Lesser key loses the tie → superseded with the notice (smoke T4).
+    expect(
+      reconcileSetlistOp(
+        { name: 'addSongToSetlist', args: [OWNER, SETLIST, TIE_SONG], queuedAt: TIE_AT, opKey: OP_KEY_LOW },
+        TIE_SERVER,
+      ),
+    ).toEqual({ drop: true, notice: true, reason: 'superseded', rule: 'op-key' })
+    // An EQUAL key also loses — the server keeps the first write.
+    expect(
+      reconcileSetlistOp(
+        { name: 'addSongToSetlist', args: [OWNER, SETLIST, TIE_SONG], queuedAt: TIE_AT, opKey: OP_KEY_MID },
+        TIE_SERVER,
+      ),
+    ).toEqual({ drop: true, notice: true, reason: 'superseded', rule: 'op-key' })
+  })
+
+  it('replays a keyless legacy op on an EQUAL timestamp, so the RPC can mint a key', () => {
+    // A queue row from a build that predates the op key carries none. This
+    // mirror must not decide that tie for it: the replay path mints a key and
+    // the arbiter rules for real. Dropping it here would lose an edit the
+    // arbiter might have applied — the lossy direction, and the one that cannot
+    // be recovered.
+    expect(
+      reconcileSetlistOp(
+        { name: 'addSongToSetlist', args: [OWNER, SETLIST, TIE_SONG], queuedAt: TIE_AT },
+        TIE_SERVER,
+      ),
+    ).toEqual({ drop: false, rule: 'op-key' })
+  })
+
+  it('orders an add against the RECORDED write, not the setlist updatedAt', () => {
+    // The arbiter's primary order, mirrored: an op queued after the recorded
+    // write is applied even though the setlist's own updatedAt is newer still —
+    // and one queued before it loses even with the greater key, because the key
+    // only breaks an exact tie.
+    expect(
+      reconcileSetlistOp(
+        { name: 'addSongToSetlist', args: [OWNER, SETLIST, TIE_SONG], queuedAt: TIE_AT + 1, opKey: OP_KEY_LOW },
+        TIE_SERVER,
+      ),
+    ).toEqual({ drop: false, rule: 'later-timestamp' })
+    expect(
+      reconcileSetlistOp(
+        { name: 'addSongToSetlist', args: [OWNER, SETLIST, TIE_SONG], queuedAt: TIE_AT - 1, opKey: OP_KEY_HIGH },
+        TIE_SERVER,
+      ),
+    ).toEqual({ drop: true, notice: true, reason: 'superseded' })
+  })
+
+  it('replays an EQUAL timestamp when the song has NO recorded resolution', () => {
+    // No recorded resolution for the song → the op is its first write, and with
+    // nothing recorded there is no tie to break, so the legacy setlist-level
+    // order stands: an exact tie there replays (the RPC's "not found" branch,
+    // smoke T1).
+    expect(
+      reconcileSetlistOp(
+        { name: 'addSongToSetlist', args: [OWNER, SETLIST, TIE_SONG], queuedAt: TIE_AT, opKey: OP_KEY_HIGH },
+        { itemIds: [], updatedAt: new Date(TIE_AT).toISOString() },
+      ),
+    ).toEqual({ drop: false, rule: 'later-timestamp' })
   })
 
   it('drops an add with NO queuedAt as unknown-age, NOT as superseded', () => {

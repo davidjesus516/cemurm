@@ -1,0 +1,42 @@
+{
+  "//": "L6, plan section 7.5. Colours are the existing tokens — cem.base #0f172a and cem.amber #f59e0b from tailwind.config.js — not new ones. The icons point at the PLACEHOLDER geometric mark; see public/mark.svg for why there is no real logo yet. `start_url` is the app root, not /landing: a manifest is the installed-app entry point and must not depend on the undecided section 6 route placement.",
+  "name": "CEMURM — Community-Centered Musical Repertories Manager",
+  "short_name": "CEMURM",
+  "description": "Organize songs, build setlists, perform live.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["music", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

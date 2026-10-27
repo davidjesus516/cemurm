@@ -1,9 +1,14 @@
 // @ts-check
-// Personal annotations data layer (3.4, D7): reads personal_annotations
-// (self-scoped RLS, 0002) and resolves anchors / substitutions into render
-// values for ChordProRenderer. Pure helpers are node-testable; listAnnotations
-// is the network read — offline or missing rows → [] (author-only notes, not
-// worth a cache; ponytail: no read-through, add it if annotations grow).
+// Personal annotation RESOLUTION (3.4, D7): turns anchors / substitutions into
+// render values for ChordProRenderer. This module is pure — it resolves
+// already-loaded rows and never reads them.
+//
+// The network read for personal_annotations (self-scoped RLS, 0002) used to live
+// here, behind a lazy dynamic import of the Supabase client. That made a
+// "pure domain" module perform I/O, and it hid itself from no-restricted-imports,
+// which only inspects static import declarations — the no-restricted-syntax rule
+// in .eslintrc.cjs now covers the dynamic form too. The read now lives in
+// src/data/repositories/annotations.js; callers import it from there.
 
 import { transposeChord, preferFlatForKey } from './transpose.js'
 
@@ -11,15 +16,6 @@ import { transposeChord, preferFlatForKey } from './transpose.js'
  * @typedef {{ section?: string, index?: number, chord?: string }} AnnotationAnchor
  * @typedef {{ kind: 'note' | 'chord_substitution', anchor?: AnnotationAnchor, value: string }} Annotation
  */
-
-// ponytail: lazy import — supabase.js reads import.meta.env at eval time,
-// which is undefined in bare node (this module's demo runs there).
-/** @type {typeof import('../../data/supabase.js').supabase | null} */
-let supabaseClient = null
-async function supabase() {
-  if (!supabaseClient) supabaseClient = (await import('../../data/supabase.js')).supabase
-  return supabaseClient
-}
 
 /**
  * Note annotation for a lyric line, anchored {section: name, index: lineIdx}
@@ -105,28 +101,9 @@ export function applySubstitution(token, semitones, substitutions, baseKey) {
 }
 
 /**
- * Read the author's personal annotations for a song (author-only, invisible
- * to others — RLS 0002 self policies). Returns [{ anchor, kind, value }];
- * never throws: offline or no rows → [].
+ * Read the author's personal annotations for a song. Moved to
+ * src/data/repositories/annotations.js — see the module header.
  */
-/**
- * @param {string} userId
- * @param {string} songId
- * @returns {Promise<Annotation[]>}
- */
-export async function listAnnotations(userId, songId) {
-  try {
-    const { data, error } = await (await supabase())
-      .from('personal_annotations')
-      .select('anchor, kind, value')
-      .eq('user_id', userId)
-      .eq('song_id', songId)
-    if (error) throw error
-    return data || []
-  } catch {
-    return []
-  }
-}
 
 // Self-check: node -e "import('./src/domain/music/annotations.js').then(m => m.demo())"
 export async function demo() {
@@ -165,7 +142,7 @@ export async function demo() {
   // Flat-key round trip: Bb chart at +1 renders B, reverse-lookup must land Bb.
   assert(applySubstitution('B', 1, { Bb: 'C' }, 'Bb'), 'Db', 'flat-key reverse lookup is consistent')
 
-  assert((await listAnnotations('no-such-user', 'no-such-song')).length, 0, 'offline/no-row → []')
-
-  console.log('annotations demo OK: 11 asserts (anchors, substitution map, transpose movement, offline)')
+  // The offline/no-row → [] behaviour of the network read is asserted in
+  // src/data/repositories/annotations.test.js. It no longer belongs here.
+  console.log('annotations demo OK: 10 asserts (anchors, substitution map, transpose movement)')
 }

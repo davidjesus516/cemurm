@@ -1,17 +1,30 @@
 /*
- * CEMURM visual tokens — the token layer.
+ * CEMURM visual tokens — DESIGN RATIONALE ONLY. Not the token layer.
  *
- * STATUS: proposal. No value here is verified against a rendered surface yet. Adopt it
- * into src/index.css only after a visual pass, and do not remove any existing `cem-*`
- * token while doing so.
+ * READ THIS BEFORE BELIEVING ANYTHING BELOW.
+ *   * This file is NOT the token source. The `@theme` block in `src/app/index.css` is.
+ *   * This file is NOT imported by the app. Nothing in src/ references it; it is
+ *     a standalone :root block that reaches no stylesheet.
+ *   * This file is NOT read by any gate. `scripts/check-visual-contract.sh`
+ *     parses the `@theme` block in `src/app/index.css` and finds zero
+ *     references to this path.
+ *   * For every enforcement purpose it is SUPERSEDED by that `@theme` block.
+ *     Adding a colour here changes nothing that ships.
  *
- * This file is ADDITIVE. It expresses values the current `tailwind.config.js` already
- * hardcodes, so the config can consume `var(--cem-*)` instead of literals. It removes
- * nothing.
+ * WHY IT IS STILL HERE, and why nothing was deleted: the numbers below carry the
+ * reasoning that a config file cannot. The warm dark ramp, the measured
+ * foreground ratios, the rejected radius rule — that is the record of *why* the
+ * tokens were chosen, and it is worth keeping. But note that the ramp here is
+ * NOT the ramp that ships: this file proposes `--cem-bg: #0c0a09` where
+ * the `@theme` block declares `--color-cem-base: #0f172a`. Two different ramps, one
+ * of them live, neither pointing at the other. That divergence is the reason
+ * SKILL.md Hard Rule 1 no longer names this file as a token source, and why
+ * `check-visual-contract.sh` rule 08 now fails if the skill's declared token
+ * source and the file the gate reads are not the same file.
  *
- * Provenance of the numbers:
+ * Provenance of the numbers (design intent, not a spec):
  *   - Dark ramp ....... the project brief: 4-5 steps, neutral or very slightly warm,
- *                       replacing the borrowed Tailwind slate scale. The current
+ *                       replacing the borrowed Tailwind slate scale. The shipped
  *                       `#0f172a` blue cast is the thing being removed. See
  *                       references/apple-macos-visual-language.md for the Apple-side
  *                       provenance of the semantic roles.
@@ -20,7 +33,7 @@
  *                       three things: the logo mark, the primary CTA, and the
  *                       active/selected state.
  *   - Stage palette .... the `cem.stage.*` values, reproduced byte-for-byte from
- *                       tailwind.config.js. IMPORTANT: measured 2026-09-28, every one of
+ *                       the `@theme` block. IMPORTANT: measured 2026-09-28, every one of
  *                       these five tokens has ZERO usages in src/. The projector surface
  *                       runs on Tailwind's DEFAULT palette instead — StageMode.jsx has 42
  *                       bg/text/border-black|white utilities and OverlayView.jsx has 7.

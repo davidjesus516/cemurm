@@ -13,6 +13,7 @@ pnpm preview     # serve dist/
 pnpm lint        # ESLint — --max-warnings 0, --report-unused-disable-directives
 pnpm test        # Vitest run — characterization tests, node environment
 pnpm test:watch  # Vitest watch mode
+pnpm test:gherkin  # Vitest run over src/test/gherkin/ — BDD scenarios, separate tier
 pnpm typecheck   # tsc --noEmit  (see "Type checking" below)
 ```
 
@@ -41,74 +42,100 @@ against that. Compare the built bundle before and after as well: a major bump ca
 size with no gate noticing. For #236 the JS bundle moved +3.2 kB (+0.35%), and the >500 kB chunk
 warning was already there on Vite 5.
 
-## CI does not run typecheck
+## What CI actually runs
 
-`.github/workflows/ci.yml` (push to `main` + every PR) runs pnpm 11 / Node 22:
+`.github/workflows/ci.yml` (push to `main` + every PR) runs pnpm 11 / Node 22, in this order:
 
 ```
-pnpm install --frozen-lockfile → pnpm lint → bash scripts/check-visual-contract.sh → pnpm test → pnpm build
+pnpm install --frozen-lockfile
+→ pnpm lint
+→ deno check 'supabase/functions/**/*.ts'
+→ pnpm typecheck
+→ bash scripts/check-test-integrity.sh
+→ pnpm test
+→ pnpm test:gherkin
+→ pnpm build
+→ bash scripts/check-visual-contract.sh
 ```
 
-**`pnpm typecheck` is absent from CI.** Type errors ship with a green check. Run it locally
-before you claim a change is done.
+**Step order is load-bearing, not cosmetic — and the visual gate now runs LAST.** Under
+`set -euo pipefail` a failing step marks everything after it **SKIPPED**, and a reviewer cannot
+tell a real downstream failure from a check that never ran. So the fix was never "put new steps
+before the visual gate" (which is what this file said until #337); it was to move the gate to the
+end, after `test` and `build`, so its FAIL lines sit next to a known-green run. #337 did that,
+alongside `check-test-integrity.sh` and a fix to rule `07`.
+
+`pnpm typecheck` was absent from CI until #277 (merged 2026-10-07). `pnpm test:gherkin` was added
+by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm test`.
+
+**`check-test-integrity.sh` fails on `.only`, `.skip` and `.todo`** in any test file. Those are
+not a failing run, they are a green run that tested less, so nothing inside the suite could see
+them. Bash + grep only, same as the visual gate.
+
+**`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
+no `tsc` (its `include` has no `supabase` path) and no ESLint (`--ext js,jsx` never enumerates
+`.ts`) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`. The glob is **quoted on
+purpose** — unquoted, bash expands `**` as `*` (globstar is off in Actions) and silently omits
+nested files. Still nothing in the JS gates reaches that path.
+
+## E2E is a separate workflow
+
+`.github/workflows/e2e.yml` runs on every PR to `main` and on push to `main`, as **three chained
+jobs**: `chromium` → `firefox` → `webkit`, each `needs:` the previous. `pnpm test:e2e:ci` is
+`playwright test --workers=1`.
+
+It is **not** a mocked harness: `tests/e2e/global-setup.js` runs `supabase start`, polls the
+`/auth/v1/health` and `/rest/v1/` HTTP endpoints (Docker health status is unreliable in CI),
+then `supabase db reset`. The Supabase CLI is a devDependency. So the specs run against real RLS.
+
+Playwright project selection is `matches(grep)` **AND NOT** `matches(grepInvert)`. Setting both to
+the same regex selects zero tests while still exiting green — `chromium` therefore carries no
+`grep`, and `@chromium-only` is expressed by excluding it from the other two.
+
+`vitest.config.js` exists solely to keep `tests/e2e/**` out of the unit tier. The orphaned
+`spike/**` exclusion is not on `main`; add it there only if a `spike/` directory actually exists.
 
 ## Type checking is per-file opt-in
 
-`tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. Type checking is
-**per-file opt-in** via the canonical `// @ts-check` pragma, and the baseline has grown well past
-its original four files: **47 files carry the pragma on `main` today.**
-
-The four the baseline was originally scoped to are still the canonical reference set, and the
-relocation moved all four:
+`tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. Only four files are
+actually checked, each via the canonical pragma, and the relocation moved all four:
 
 - `src/domain/music/transpose.js`, `src/domain/music/annotations.js`
 - `src/data/repositories/songs.js`, `src/data/repositories/setlists.js`
 
-The rest came from the later `jsdoc-libs` passes: `src/data/repositories/**`, `src/data/supabase.js`,
-`src/domain/**`, `src/integrations/**`, `src/offline/**`, and `src/lib/storage.js`. Baseline history:
-`odd/tasks/ts-checkjs-baseline.md`. **To bring a new module under the baseline, add
-`// @ts-check` to that one file** — that is the whole mechanism, and a new pragma is expected, not
-a mistake.
+The vendored admin template's `.ts/.tsx` tree is **not** in `include` yet (171 of 172 files), so
+`pnpm typecheck` does not check it and its green exit says nothing about that code. Follow-up in
+`odd/tasks/tw4-stack-foundation.md` L5.
 
-**Do not flip `checkJs` on globally.** It is still wrong to do, but the reason has shifted
-substantially and the old numbers are stale. Measured on `main` = `762a040` by temporarily
-overriding `checkJs: true` over the same `include` (then reverting):
-
-| | errors |
-|---|---|
-| **Total with global `checkJs`** | **194**, across 12 files |
-| …in files that already carry `// @ts-check` | **0** |
-| …in non-test source files never in scope | **79** — `projection.js` 44, `externalDisplay.js` 18, `feedback.js` 12, `library/relativeTime.js` 5 |
-| …in the 8 `*.test.js` files | **115** |
-
-This is a large decay from the ~760 errors / ~530 out-of-scope that `tsconfig.json` still records —
-`gigs.js`, `rehearsals.js`, `services.js`, `comments.js`, `bandmates.js` and `search.js` are all
-opted in now and clean. Two honest consequences: the original blocker has shrunk a lot, and **115
-of the remaining 194 are test files**, a category the old rationale never mentioned. The
-instruction stands anyway — the opt-in model is how the baseline is scoped and grown deliberately,
-flipping the flag would silently widen the checked surface to 12 files nobody signed up for, and
-`tsconfig.json` is the recorded rationale. Re-measure before changing that decision, and re-measure
-it the way it was measured here, not from the comment.
+**Do not flip `checkJs` on globally.** Doing so type-checks everything the include can reach:
+~760 errors, ~530 in files that were never in scope (rationale is recorded in `tsconfig.json`).
+To bring a new module under the baseline, add `// @ts-check` to that one file — not a global
+flag. Baseline history: `odd/tasks/ts-checkjs-baseline.md`.
 
 **After any file move, verify the baseline is still alive.** This gate fails *silently*: a
 wrong `include` leaves `tsc` checking one untyped file and still exiting 0.
 
 ```bash
-npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; was 1, was 48, now 60
+npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; was 1, now 48
 ```
 
-TypeScript is **7.0.2** (not 5.x). Two quirks already cost time:
+TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibility, odd/tasks/tw4-stack-foundation.md L3). Both quirks re-verified on 6.0.3:
 - `catch` variables infer `unknown`, so `e.message` needs a `/** @type {Error} */ (e)` cast.
 - In JSDoc, an em-dash after an optional param (`@param {boolean} [name] —`) is a parse error (TS1127).
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **13 files**, one per migration from `0021_plan_freeze.sql` through
-`0033_feedback.sql` (an earlier version of this line said "6 files, `0023`–`0028`", which was true
-before the plan-freeze, projection, minors, DOB, guardian-email, overlay-token and feedback smokes
-landed; re-count rather than trusting it). They are **not** in CI and **not** wired to any pnpm
-script. The invocation exists in exactly one place in the repo,
-`odd/tasks/hito5-substitutions-and-coverage.md`:
+`scripts/smoke/*.sql` — **16 files**, `0021-plan-freeze.sql` through `0039-leave-handoff-guard.sql`
+(an earlier version of this line said "6 files, `0023`–`0028`"; re-count rather than trusting it).
+**The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
+`0034_plan_freeze.sql` and `0022-projection.sql` covers `0035_projection.sql` — both were
+renumbered after their smokes were written, and the smokes were not renamed with them. So a smoke
+name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
+that those migration slots are taken.
+
+`0036_guardian_approve_public_sharing.sql` has no smoke yet, and neither does the newest
+migration, `0040_fix_migration_chain_rls.sql`. They are **not** in CI and **not** wired to any pnpm script. The invocation
+exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
 
 ```bash
 supabase db reset   # REQUIRED first — see below
@@ -123,14 +150,18 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 ## Database layer
 
-**Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. (`README.md` and `docs/technical-spec.md` used to name a hosted project URL; that text was corrected on 2026-09-30.)
+**Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **33 files on `main`**, numbered `0001`–`0033` with **no gap in between**. The
-`0020`–`0022` window is **closed** — `0020_review_batch1.sql`, `0021_plan_freeze.sql` and
-`0022_projection.sql` are all on `main`. `0029` is taken as well (`0029_fail_closed_minors.sql`),
-and `0032` went with it (`0032_overlay_access_token.sql`, the OBS overlay capability token, landed
-in #225). **The next free number is `0034`,** and it is free unconditionally — nothing is claiming
-it any more.
+Migrations: **38 files on `main`**, numbered `0001`–`0040`, with **`0021` and `0022` a deliberate
+free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
+(#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
+(#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
+`0039_leave_handoff_guard.sql` and `0040_fix_migration_chain_rls.sql`. **The next free number is
+`0041`.**
+
+Re-count rather than trusting this paragraph: it has been wrong four times, because every merge
+that renumbers invalidates the sentence above it. `git ls-tree --name-only origin/main
+supabase/migrations/ | wc -l` is the fact; the prose is a copy of it.
 
 Before adding a migration, check every branch for a collision:
 `git branch -r | xargs -I{} git ls-tree --name-only {} -- supabase/migrations/`. Two cautions on
@@ -143,7 +174,7 @@ that check, both learned the hard way:
   `0033_feedback.sql`, while `0029` was taken in the meantime by an unrelated migration. "It was
   free when I looked" was true twice and false both times.
 - A number free on `main` is not free *for you*. `0021` stayed free for the whole life of the four
-  Hito 5 branches, which is why `0021_plan_freeze.sql` merged without a renumber — and that merge
+  Hito 5 branches, which is why `0034_plan_freeze.sql` merged without a renumber — and that merge
   is what closed it. A slot is consumed when the PR carrying it lands, not when you pick it.
 
 Filename order is the dependency order, so placement is a constraint, not a formality: `supabase db
@@ -151,12 +182,13 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the next free number, `0034` today. `0033_feedback.sql` is the precedent for
+  matter, so take the next free number, `0041` today. `0033_feedback.sql` is the precedent for
   renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0034`. Land it in a genuinely
-  free earlier slot, or renumber what it depends on. **There is no such slot left**: `0001`–`0033`
-  is contiguous, so every position below `0033` is taken. This case now always needs a decision
-  (renumber the dependency, or reorder the filenames) rather than a free number to drop into.
+- **Must sort before an existing migration** → you cannot simply take `0041`. Land it in a genuinely
+  free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
+  `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
+  Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
+  than a free number to drop into.
 
 Never commit an ad-hoc query script in `supabase/migrations/` (that's why `scripts/smoke/` is a
 sibling directory). Never push the seed with `supabase db push`.
@@ -169,7 +201,7 @@ sibling directory). Never push the seed with `supabase db push`.
 | `10000000-…-0002` | `isolation@cemurm.app` | outsider; **accepted** view-only collaborator on the demo setlist |
 | `10000000-…-0003` | `outsider@cemurm.app` | outsider; **pending** collaborator (`accepted_at IS NULL`) |
 
-(`docs/local-dev.md` said "two confirmed users" until 2026-09-30, when it was corrected to three.) Seed gotchas: GoTrue v2 scans token/phone columns as plain strings, so they must be `''` and never `NULL` or login fails; `profiles` rows are created by the `0006` trigger, so the seed only `UPDATE`s them.
+(`docs/local-dev.md` says "two confirmed users" — stale, there are three.) Seed gotchas: GoTrue v2 scans token/phone columns as plain strings, so they must be `''` and never `NULL` or login fails; `profiles` rows are created by the `0006` trigger, so the seed only `UPDATE`s them.
 
 Env (`.env.local`, gitignored): `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are the only required vars — `src/lib/supabase.js` throws without both. Local API is `http://127.0.0.1:54321`. Optional live-provider flags (default = mock, no silent fallback): `VITE_SPOTIFY_CLIENT_ID`, `VITE_SPOTIFY_CLIENT_SECRET`, `VITE_MUSICBRAINZ_LIVE=true`, `VITE_LRCLIB_LIVE=true`.
 
@@ -189,7 +221,7 @@ no longer exist — several `docs/` files and `odd/tasks/*.md` still cite them.
 - RLS is the client-side gate. The service worker (`public/sw.js`) + IndexedDB layer does read-cache, an offline write queue, and a drain on reconnect.
 - The `charts` storage bucket is **private** with owner-folder RLS (first path segment must be `auth.uid()`); reads are 1-hour signed URLs only. The 10 MB PDF cap is **app-side only** — the DB deliberately accepts oversized rows.
 - Import/enrichment provider clients **never throw**: they return `{ ok: true, … }` or `{ ok: false, error: 'offline' | 'unavailable' }`, gated by `isOnline()`.
-- No `src/store/` and no Zustand — state lives in React context and hooks. (`CONTRIBUTING.md` claimed a Zustand store until 2026-09-30; it never existed in the current tree.)
+- No `src/store/` and no Zustand — state lives in React context and hooks. (CONTRIBUTING.md still claims a Zustand store exists; it does not.)
 
 ## Methodology
 
@@ -197,7 +229,7 @@ Four layers run in this repo. They are not interchangeable — putting an artifa
 
 | Layer | Owns | Home |
 |---|---|---|
-| **BDD** | Product truth. 45 `.feature` files, 713 scenarios. The source of what to build | `features/*.feature` |
+| **BDD** | Product truth. 46 `.feature` files, 734 scenarios. The source of what to build | `features/*.feature` |
 | **Milestones** | Temporal sequencing. Hitos 1–6, and the verified slice plan | `docs/master-plan.md`, `docs/mvp-scope.md` |
 | **SDD (OpenSpec)** | **Capabilities and delta specs.** One spec per capability, archived when the change closes | `openspec/specs/`, `openspec/changes/` |
 | **ODD** | **Execution records.** One file per work unit, with commit SHAs and verification evidence | `odd/tasks/*.md` |
@@ -210,12 +242,18 @@ The rule of thumb: if you are writing down *what a capability is*, it goes in Op
 
 **`skills/cemurm-visual-system/SKILL.md` is the single source of visual truth.** Read it before
 touching any interface. Two older sources conflict with it and are **superseded** for visual
-decisions: `docs/design-system.md` (514 lines, written 2026-09-06, never implemented as such; its
-visual half was replaced by this skill and it now carries a supersession banner) and
-`odd/tasks/cemurm-brand-landing.md` §5–§6 — **which does not exist on `main`**: that file lives
-only on the unmerged `feat/cemurm-brand-landing-pr1b-boundary-refactors` branch, so that reference
-is a dangling cross-branch pointer, not something you can read here. When they disagree with the
-skill, the skill wins.
+decisions: `docs/design-system.md` (464 lines, written 2026-09-06, never implemented) and
+`odd/tasks/cemurm-brand-landing.md` §5–§6 (unmerged branch). When they disagree with the skill, the
+skill wins.
+
+## UML diagrams
+
+**`skills/cemurm-uml-diagrams/SKILL.md` is the entry point for any UML diagram.** Read it before
+creating or regenerating one under `docs/uml/`. Two facts it encodes that are easy to get wrong:
+archify has **no** use-case type and draws rectangles, so UML shape comes from PlantUML via a
+local Kroki and archify contributes only the viewer; and Kroki returns HTTP 400 on two or more
+comment lines, so `.puml` files carry none. Generated `*.html` / `*.svg` are outputs — edit the
+`.puml` or the pipeline, never the artifact.
 
 The direction is the **macOS / Apple design language**, keeping the project's colour essence: a dark
 ramp plus **one** amber accent. Classify the surface before styling it — the tiers have different
@@ -231,7 +269,7 @@ rules, and the failure mode is styling a live-performance surface like a product
 Touched → tier 1 or 3a. Read at distance in a dark room → tier 3b.
 
 ```bash
-bash scripts/check-visual-contract.sh   # the visual gate; runs in CI between lint and test
+bash scripts/check-visual-contract.sh   # the visual gate; runs LAST in CI, after test and build
 ```
 
 Two things the gate cannot tell you, because they are measured, not published: **Apple publishes no
@@ -247,7 +285,7 @@ which carries the same visual language, is available everywhere.
 - Components `PascalCase.jsx`; hooks `camelCase` with `use` prefix; utilities `camelCase`.
 - Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Merge is always a human decision.
 - ESLint's `no-unused-vars` uses `varsIgnorePattern: '^[A-Z_]'`, so uppercase bindings (JSX components) are exempt from the unused check — don't "fix" that by renaming.
-- **`CONTRIBUTING.md` was stale** (it said `npm install`, `npm run lint`, and listed a `src/store/` Zustand layer); corrected 2026-09-30. If you see that text anywhere else, it is drift: use pnpm and the layout above.
+- **CONTRIBUTING.md is stale**: it says `npm install`, `npm run lint`, and lists a `src/store/` Zustand layer. Ignore those; use pnpm and the layout above.
 
 ## Delivery workflow (standing authorization)
 
@@ -267,12 +305,12 @@ The maintainer set this working agreement on 2026-09-27. It is standing, not per
    PR. **That is deliberate and correct — approval on `main` must be a second pair of eyes.** It does
    not remove the obligation to make the request, or to say so out loud when the branch moves.
 
-The one limit on clause 3: **a failing characterization test is fixed in the source, never in the assertion.** Once the suite lands (M0b), it records current behaviour on purpose — the pinning is visible in `parser.test.js:86` (`sectionKeyContexts is ALWAYS empty, even for a chart that modulates`, marked `// FINDING (behaviour, do not "fix")`) and `transpose.test.js:44` (flat keys unreachable). So do not take that clause as citing an external document: the file it used to point at, `odd/tasks/cemurm-brand-landing.md` §12.1, exists only on the unmerged brand branch. Editing a test to go green, loosening a threshold, or adding a skip to clear a gate hides a regression. If a test genuinely encodes a wrong expectation, that is a finding to report, not to silently rewrite. The same rule governs any future test: a red test is information, not an obstacle.
+The one limit on clause 3: **a failing characterization test is fixed in the source, never in the assertion.** Once the suite lands (M0b), it records current behaviour on purpose (`odd/tasks/cemurm-brand-landing.md` §12.1). Editing a test to go green, loosening a threshold, or adding a skip to clear a gate hides a regression. If a test genuinely encodes a wrong expectation, that is a finding to report, not to silently rewrite. The same rule governs any future test: a red test is information, not an obstacle.
 
 ## Where the real context lives
 
 - `docs/local-dev.md` — local stack, reset procedure, seed identities, env vars. **Read before any DB work.**
-- `docs/master-plan.md` — the sequencing record. **Read before starting any work that is not a trivial fix.** Re-scoped 2026-09-30: §0 (state of play), §5 (doc-rot status) and §6 (what is actually left) are current; §1, §2 and §5b are **landed** and kept for their post-mortems. Its N-list is the current order of work, and N0 is to unblock the red visual gate. The Hito 5/6 status claims in `docs/mvp-scope.md` were also corrected on 2026-09-30, so the two no longer disagree.
+- `docs/master-plan.md` — the verified slice plan: what is on `main`, what is not, and in what order it ships. **Read before starting any work that is not a trivial fix.** Supersedes the Hito 5/6 status claims in `docs/mvp-scope.md`, which are stale.
 - `docs/engineering-review-backlog.md` — open engineering debt, triggers planned work (e.g. the checkJs baseline).
 - `odd/tasks/*.md` — one feature record per shipped unit, with commit SHAs, verification evidence, and deviations. This is where commands and rationale that never made it into `docs/` actually live; check here when a procedure seems undocumented.
 - `features/*.feature` — Gherkin specs; the product source of truth, ahead of the README.

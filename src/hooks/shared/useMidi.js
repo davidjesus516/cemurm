@@ -6,7 +6,7 @@ import {
   loadMidiSettings,
   saveMidiSettings,
   sendProgramChange,
-} from '../../integrations/webMidi.js'
+} from '../../lib/midi.js'
 
 /**
  * Web MIDI lifecycle hook (Hito 5 #56). Owns permission, the output device

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CEMURM placeholder mark">
+  <!--
+    PLACEHOLDER GEOMETRIC MARK — NOT THE CEMURM BRAND MARK.
+
+    The brand mark has not been designed. Plan section 3 lists it as in scope and
+    plan section 3 also defers final mascot art, so nothing here should be read as
+    a logo. What this is: a plain square in the accent on the app background,
+    built from the two tokens the brand already uses —
+    `#f59e0b` (cem.amber) and `#0f172a` (cem.base) — so the favicon and the PWA
+    icon set are visually consistent with the product from the first commit, and
+    so a real mark can replace this file without any other asset changing.
+
+    The two horizontal bars stand in for a chart: two lines, a gap. It is the
+    simplest shape that is unmistakably not a letter, a note or an animal, which
+    is the right register for something explicitly provisional.
+
+    RULE 01A DOES NOT APPLY HERE, and the gate agrees: it scans SRC_DIR="src"
+    only (scripts/check-visual-contract.sh:202), with public/ outside that path.
+    No threshold was touched to achieve this.
+
+    Colours are duplicated from tailwind.config.js rather than referenced, because
+    an SVG in public/ is served as a static asset and cannot read a CSS custom
+    property from the page. If the amber ever changes, this file is one of the
+    places to update.
+  -->
+  <rect width="512" height="512" rx="96" fill="#0f172a" />
+  <rect x="120" y="184" width="272" height="40" rx="20" fill="#f59e0b" />
+  <rect x="120" y="288" width="176" height="40" rx="20" fill="#f59e0b" />
+</svg>

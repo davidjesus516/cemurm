@@ -5,13 +5,13 @@
 // chrome — this window is the congregation-facing view.
 
 import { useEffect, useRef, useState } from 'react'
-import SlideView from '../components/SlideView.jsx'
+import SlideView from '../components/projection/SlideView.jsx'
 import {
   channelFor,
   loadLastState,
   postBeat,
   postClose,
-} from '../../../data/repositories/projection.js'
+} from '../../../lib/projection.js'
 
 const HEARTBEAT_MS = 3000
 

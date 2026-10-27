@@ -6,6 +6,14 @@
 > **Nobody merges from this document.** The maintainer approves and merges. What is listed here is
 > the order, and which PRs will need a rebase and therefore a fresh approval — the ruleset has
 > `require_last_push_approval: true`, so a rebase invalidates any prior approval.
+>
+> **Superseded 2026-10-11.** The `PR` ruleset (id `24085467`) referenced below no longer exists: it
+> was split into `checks` (id `24904685`, no bypass — required CI and branch integrity for everyone)
+> and `review` (id `24904691`, a `pull_request`-mode bypass for the maintainer). The
+> `require_last_push_approval` blocker described under "Pending — needs an approval" is therefore
+> resolved: the maintainer's own PRs now merge without an approval, while CI still gates them. This
+> document itself remains a dated 2026-09-28 snapshot; the note records the later state, it does not
+> rewrite it.
 
 ## Why this order and not the PR number order
 

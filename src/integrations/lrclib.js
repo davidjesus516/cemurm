@@ -19,6 +19,7 @@
 // { ok: true, match: null } — callers branch on `ok` + `error`.
 
 import { isOnline } from './spotify.js'
+import { lrclibSearchRows } from './schemas.js'
 
 /**
  * The lyric lookup query. `artist` is OPTIONAL on purpose: a title-only lookup
@@ -154,10 +155,12 @@ async function searchRealProvider(title, artist) {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new Error('LRCLIB search failed')
-  // The cast states the row shape this module reads; the Array.isArray guard
-  // below stays for the non-array error payload the API can answer with.
-  const body = /** @type {LrcSearchHit[]} */ (await res.json())
-  const hit = (Array.isArray(body) ? body : []).find((r) => r.syncedLyrics || r.plainLyrics)
+  // A non-array body — the error payload the API can answer with — is now a
+  // parse failure instead of an empty result. The old Array.isArray guard
+  // folded it into "no match", which is the same answer a song without lyrics
+  // gets, so a provider failure was indistinguishable from a real miss.
+  const body = lrclibSearchRows.parse(await res.json())
+  const hit = body.find((r) => r.syncedLyrics || r.plainLyrics)
   if (!hit) return { ok: true, match: null }
   return {
     ok: true,

@@ -240,12 +240,24 @@ function formatRomanNumeral(degree, quality, seventh) {
 /**
  * Parse a key string like "C major", "E Phrygian", "Ab" into { tonic, scaleName }.
  * If no scale is specified, defaults to "Major" (standard convention).
+ * Also accepts ChordPro shorthand: "Am" = "A minor", "C#m" = "C# minor".
  * @param {string | null | undefined} keyString
  * @returns {KeyContext | null}
  */
 export function parseKeyContext(keyString) {
   if (!keyString) return null
-  const parts = keyString.trim().split(/\s+/)
+  const trimmed = keyString.trim()
+  if (!trimmed) return null
+
+  // ChordPro shorthand: "Am", "C#m", "Ebm" → tonic = note without 'm', scale = 'minor'
+  const shorthand = trimmed.match(/^([A-G][#b]?)m$/i)
+  if (shorthand) {
+    const tonic = shorthand[1]
+    if (noteToSemitone(tonic) === null) return null
+    return { tonic, scaleName: 'minor' }
+  }
+
+  const parts = trimmed.split(/\s+/)
   if (parts.length === 0) return null
 
   const tonic = parts[0]

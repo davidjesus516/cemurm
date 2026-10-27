@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import SlideView from '../components/SlideView.jsx'
+import SlideView from '../components/projection/SlideView.jsx'
 import { useAuth } from '../../../app/providers/useAuth.jsx'
 import { getSong, invalidateSongs } from '../../../data/repositories/songs.js'
 import {
@@ -31,7 +31,7 @@ import {
   saveDeck,
   syncState,
   wasActive,
-} from '../../../data/repositories/projection.js'
+} from '../../../lib/projection.js'
 
 const btn = 'rounded-md px-3 py-1.5 text-sm font-medium'
 const primaryBtn = `${btn} bg-cem-amber text-cem-base hover:bg-cem-amber/90 disabled:opacity-60`
@@ -39,7 +39,7 @@ const outlinedBtn = `${btn} border border-cem-elevated text-cem-text hover:bg-ce
 const miniBtn =
   'rounded-md border border-cem-elevated px-2 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60'
 const inputClass =
-  'w-full rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-1 focus:ring-cem-amber'
+  'w-full rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-1 focus:ring-cem-amber'
 
 const HEARTBEAT_MS = 3000
 const HEARTBEAT_STALE_MS = 9000

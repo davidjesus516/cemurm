@@ -5,7 +5,7 @@ import { usePreferences } from '../../../hooks/shared/usePreferences.js'
 import { useAuth } from '../../../app/providers/useAuth.jsx'
 import { parseChordPro } from '../../../domain/chart/parser.js'
 import { capoLabel, initialSemitones, semitonesBetween, transposeParsed, transposeKey } from '../../../domain/music/transpose.js'
-import { listAnnotations } from '../../../domain/music/annotations.js'
+import { listAnnotations } from '../../../data/repositories/annotations.js'
 import ChordProRenderer from '../../../ui/patterns/ChordProRenderer.jsx'
 
 export default function Practice() {

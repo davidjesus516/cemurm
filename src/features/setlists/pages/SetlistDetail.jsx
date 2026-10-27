@@ -377,7 +377,7 @@ export default function SetlistDetail() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-1.5 text-lg font-bold text-cem-text focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+              className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-1.5 text-lg font-bold text-cem-text focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
             />
             <button
               type="submit"
@@ -434,7 +434,7 @@ export default function SetlistDetail() {
               value={setlist.visibility}
               onChange={(e) => handleVisibility(e.target.value)}
               disabled={busy}
-              className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-none disabled:opacity-60"
+              className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden disabled:opacity-60"
             >
               <option value="private">Private</option>
               <option value="shared">Shared with band</option>
@@ -493,7 +493,7 @@ export default function SetlistDetail() {
       </div>
 
       {showPcoPicker && (
-        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <h2 className="text-sm font-semibold text-cem-text">Export to Planning Center</h2>
           {pcoRevoked ? (
             // S13: revoked — the push surface says why; reconnect lives in
@@ -529,7 +529,7 @@ export default function SetlistDetail() {
       )}
 
       {showActivity && (
-        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <h2 className="text-sm font-semibold text-cem-text">Activity</h2>
           {feed.length === 0 ? (
             <p className="mt-2 text-xs text-cem-secondary">No activity recorded yet.</p>
@@ -552,7 +552,7 @@ export default function SetlistDetail() {
       )}
 
       {setlist.canEdit && showPicker && (
-        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <h2 className="mb-2 text-sm font-semibold text-cem-text">Add from repertoire</h2>
           {pickerSongs.length === 0 ? (
             <p className="text-sm text-cem-secondary">No more songs in your repertoire.</p>
@@ -583,7 +583,7 @@ export default function SetlistDetail() {
       )}
 
       {setlist.isOwner && (
-        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-sm">
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
           <h2 className="text-sm font-semibold text-cem-text">Collaboration</h2>
 
           <div className="mt-2">
@@ -635,7 +635,7 @@ export default function SetlistDetail() {
                         <select
                           value={collab.canEdit ? 'edit' : 'view'}
                           onChange={(e) => handlePermission(collab, e.target.value === 'edit')}
-                          className="rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none"
+                          className="rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-hidden"
                         >
                           <option value="edit">Can edit</option>
                           <option value="view">View only</option>
@@ -666,7 +666,7 @@ export default function SetlistDetail() {
                   value={transferTo}
                   onChange={(e) => setTransferTo(e.target.value)}
                   disabled={busy}
-                  className="rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none disabled:opacity-60"
+                  className="rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-hidden disabled:opacity-60"
                 >
                   <option value="">Choose…</option>
                   {acceptedCollabs.map((collab) => (
@@ -692,7 +692,7 @@ export default function SetlistDetail() {
       {itemIds.length === 0 ? (
         <p className="mt-6 text-sm text-cem-secondary">No songs in this setlist yet. Add one above.</p>
       ) : (
-        <ol className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+        <ol className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
           {itemIds.map((songId, index) => {
             const song = setlist.songs.find((s) => s.id === songId)
             const lock = collab.locks[songId]
@@ -745,7 +745,7 @@ export default function SetlistDetail() {
                         onBlur={() => { if (setlist.canEdit) collab.releaseLock(songId) }}
                         disabled={lockedByOther}
                         title={lockedByOther ? `Being edited by ${lock.actor || 'another member'}` : 'Version (Default = the picker default)'}
-                        className="mt-1 block rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none disabled:opacity-60"
+                        className="mt-1 block rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-hidden disabled:opacity-60"
                       >
                         <option value="">Default (latest)</option>
                         {song.versions.map((v) => (
@@ -788,7 +788,7 @@ export default function SetlistDetail() {
                             ? `Being edited by ${lock.actor || 'another member'}`
                             : 'MIDI Program Change (0-127); empty = No patch'
                         }
-                        className="w-20 rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-none disabled:opacity-60"
+                        className="w-20 rounded border border-cem-elevated bg-cem-surface px-1.5 py-0.5 text-xs text-cem-text focus:border-cem-amber focus:outline-hidden disabled:opacity-60"
                       />
                       <span className="text-xs text-cem-secondary">MIDI</span>
                     </div>

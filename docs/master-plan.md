@@ -2,37 +2,153 @@
 
 > Authoritative sequencing for everything not yet on `main`. Written 2026-09-27 against
 > verified git state at `main` = `8b66394`. Supersedes the Hito 5 / Hito 6 status claims in
-> `docs/mvp-scope.md`, which are stale (see §0).
+> `docs/mvp-scope.md`, which were stale (see §0).
 >
 > Convention: ~400 changed lines per PR, chained `-prN-` slices. Larger work ships split, or
 > with a written `size:exception` (precedent: `odd/tasks/hito5-substitutions-and-coverage.md:4`).
 
+## Status of this document (2026-09-30, re-verified 2026-10-02)
+
+**Re-scoped, not archived — and the reasoning is worth stating, because the choice was not free.**
+
+This document is *still* the sequencing authority: it is the only artifact that orders the
+remaining work, and retiring it would leave nothing authoritative for Hito 6, the ten spec
+findings, or the audits. So it was re-scoped to the real remaining work rather than demoted to a
+historical record. But it is no longer trustworthy as a whole, because **its central premise —
+four unmerged Hito 5 branches — is gone.** Every section is now labelled:
+
+- **Strategic pivot (2026-10-19) — current, decision-level.** Recorded *above* §0 because it
+  reframes every section rather than sitting beside them: the project pivots to a native
+  live-monitoring / live-sync app while the PWA continues against the same backend. It carries no
+  git state, and it opens one spec conflict that blocks native work — `pwa-updates-and-storage.feature`
+  still denies a native app (see that section's SC-1).
+- **§0, §5, §6 — current.** Re-derived from `main` = `762a040` on 2026-09-30; re-verified
+  2026-10-02 against `main` = `e849738` — no drift found in any row; re-verified 2026-10-12 against
+  `main` = `c14e977` — drift found and corrected (2026-10-12 notes in §0, §2, §3, §6).
+- **§1, §2, §5b — LANDED, kept for their reasoning.** The work is on `main`. The prose is preserved
+  deliberately: the migration-numbering race, the `0019:184` chain-breaker and the hand-rolled
+  reset bug are each a lesson that outlives the branch they were about, and this repo's own rule
+  is that a superseded document is annotated, not rewritten.
+- **§3, §4 — still open, and the reason to keep reading.**
+
+The three defects this file was *written* to prevent are the reason for the labelling: it asserted
+Hito 5 was unmerged long after it merged, and a planner sequencing from it would have re-planned
+shipped work. Each later section below now carries the date and evidence that closed it.
+
+## Strategic pivot (2026-10-19) — two surfaces, one backend
+
+**Decision-level, not sequencing.** This section records a product decision that reframes everything
+below it. It carries no verified git state, and no row in §0–§6 depends on it.
+
+**What was decided (2026-10-19, by the maintainer):**
+
+CEMURM pivots to a **native app specialized in live monitoring and live synchronization**. The PWA is
+**not retired** — the two surfaces coexist against a single backend:
+
+| Surface | Covers | Status |
+|---|---|---|
+| **PWA** — the current `src/` | repertoires, setlists, collaboration, offline queue: everything Hitos 1–6 and the institutional scope of #363 cover | **unchanged and continuing** |
+| **Native app** — new | live monitoring and live synchronization between devices on stage | **decided, not started** |
+
+One backend for both. Supabase stays the source of truth: the native surface reads and writes the same
+schema and the same RLS policies the PWA does.
+
+**Why this is recorded here.** PR #335 (`spike/suite-modular`, milestone #7) assumes this pivot and is
+unintelligible without it — its three tracks only make sense for a live-performance instrument:
+
+- **S1 Audio Core** (`oboe`/`cpal`, p99 ≤ 5 ms, call and screen-lock interruption recovery): a browser
+  cannot reach that latency. Real-time monitoring needs a native audio path.
+- **S2 P2P Sync** (mDNS, UDP heartbeat, failover < 1 s, AP roaming, no underruns under 10% loss): stage
+  sync must survive the venue's network, so it cannot depend on the cloud alone.
+- **S3 MusicXML Layout** (Verovio WASM, transpose < 200 ms, 50-page stress): score on screen during
+  performance.
+
+Before this decision existed, all three were correctly rejected: no hito and no BDD feature asked for
+native audio or P2P, so AGENTS.md's entry rule ("implemented only when its hito or BDD feature
+requires it") turned them away. **The pivot is that missing requirement** — recorded here first, so
+the entry rule has something to point at.
+
+**⚠️ Naming collision: "Fase 1" means two unrelated things.**
+
+`docs/technical-spec.md` §10.7 (*Recommended Path*) defines a scaling ladder for the PWA:
+
+`Phase 0 (MVP)` → `Phase 1 (Scale, >5k MAU, same stack, Upstash Redis)` → `Phase 2 (Performance, Rust
+WASM)` → `Phase 3 (Independence, self-hosted PostgreSQL)` → `Phase 4 (Millions)`.
+
+Milestone #7 and PR #335 use **"Fase 1"** to mean *this pivot*. They are unrelated. That ladder still
+governs the PWA and is **not** superseded; the pivot is a parallel track, not the next rung. Until
+#335's text is corrected, read "Fase 1" inside the spike as "the native pivot", never as
+`Phase 1 (Scale)`.
+
+**Spec conflicts this decision opens — declared, not resolved here.**
+
+| # | Conflict | Consequence |
+|---|---|---|
+| **SC-1** | `features/pwa-updates-and-storage.feature` asserts verbatim in its NON-GOALS: "no native app-store or manual download update channel exists — updates flow only through the service worker" | The BDD files are the product source of truth and currently **deny a native app**. That feature must be reopened before any native work ships. |
+| **SC-2** | The "Fase 1" / `Phase 1 (Scale)` name collision above | Disambiguate in #335 and milestone #7 before either is read as sequencing. |
+| **SC-3** | The closest existing audio requirement is `features/practice-mode.feature` (metronome), which a PWA serves through the Web Audio API | Practice mode does not require native audio, so it is not evidence for S1. |
+
+**Open decisions.** This section settles direction, not implementation:
+
+| # | Decision | What it blocks |
+|---|---|---|
+| **OD-1** | Native implementation: from scratch (Swift/Kotlin, matching the spike's `oboe` + CMake) or wrapping the existing React app (Capacitor) | Whether any shipped `src/` runs in the native surface — and therefore whether S1 is a plugin or a rewrite |
+| **OD-2** | Where native code lives: this repository or a separate one | CI already needs self-hosted device runners; monorepo vs. split decides how they are wired |
+| **OD-3** | What exactly "live monitoring" monitors: audio (what S1 measures) or setlist/state across devices | S1 and S2 are measured against very different PASS thresholds |
+
+**Effect on §6.** The order there sequences the **PWA** track (N0–N5) and is unchanged by this decision:
+both surfaces share one backend, so the PWA work already on `main` keeps its value either way. The
+native track has no entry in that order yet; it gets one once OD-1–OD-3 are settled.
+
 ## 0. State of play — verified, not read from prose
 
-Prose in this repo has drifted. These are the facts, checked against git and code:
+Prose in this repo has drifted. These are the facts, checked against git and code on
+**2026-10-12 at `main` = `c14e977`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
+`e849738`, re-verified 2026-10-12 after the PR-drain batches):
 
 | Fact | Value |
 |---|---|
-| `main` | `8b66394`, in sync with `origin/main` |
-| **Test files on `main`** | **7** |
-| **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:watch`, `typecheck` |
-| **CI on `main`** | `install --frozen-lockfile → lint → check:visual-contract.sh → test → build` |
-| `src/` layout on `main` | post-relocation: `app/`, `components/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/`, `offline/`, `ui/`. `src/components/` holds only `projection/SlideView.jsx`, which has no importers |
-| Feature files | **45**, 713 scenarios |
-| Migrations on `main` | 27 files, `0001`–`0020`, then a gap at `0021` only, then `0022`–`0028` |
-| Hito 5 merged | 6 migrations + PRs #147, #148, #155, #156, #159, #165, #166 |
+| `main` | `d3f1269`, in sync with `origin/main` (was `a610dd0` at the 2026-10-13 re-verification, and `c14e977` at the one before it) |
+| **Test files on `main`** | **23** — 18 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 17 at `c14e977`, and 9 at `e849738`) |
+| **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck`, plus the `test:e2e*` family (`test:e2e`, `:ci`, `:chromium`, `:firefox`, `:webkit`, `:debug`, `:headed`) |
+| **CI on `main`** | `install --frozen-lockfile → lint → deno check 'supabase/functions/**/*.ts' → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-migrations-unique.sh → check-visual-contract.sh` (both gates run last on purpose: a gate that precedes `test`/`build` exits 1 under `set -euo pipefail` and marks them SKIPPED) |
+| **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, 3 chained jobs (`e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each gating the next through `needs`) |
+| `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
+| Feature files | **46**, 734 scenarios — was 42 / 656 at `8b66394` |
+| Migrations on `main` | **38 files, numbered `0001`–`0040`, with `0021`/`0022` a deliberate free gap** — was 27 with a gap at `0021` |
+| Next free migration number | **`0041`** — `0021`/`0022` remain deliberately free, and everything from `0036` to `0040` is taken (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`) |
+| Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`); #360 added `0036_guardian_approve_public_sharing.sql` |
+| Hito 6 | **not started** — no implementation for any of its six features |
+| `// @ts-check` opt-ins | **47** files; `tsc --listFiles` reaches **62** `src/` files |
+| `docs/design-system.md` | superseded in part by `skills/cemurm-visual-system/` (PR #235, commit `5547150`); banner added in #238 |
 
-**`docs/mvp-scope.md` was wrong on Hito 5.** It stated "Nothing from Hito 5 is merged to
-main yet" and "Migrations 0021+ exist only on those branches", and repeated both in its
-Milestone Summary and Progress Log. Six Hito 5 migrations and seven PRs are on `main`.
-**Corrected on `fix/stale-docs`** (2026-09-29), in the Hito 5 status line, a new Progress Log
-row for the six merged migrations, and the "Planned vs. implemented" Hito 5 bullet. The
-unmerged plan-freeze chain is still described as unmerged.
+**`docs/mvp-scope.md` was wrong on Hito 5, twice.** It first stated "Nothing from Hito 5 is merged
+to main yet" and "Migrations 0021+ exist only on those branches", repeated in its Milestone Summary
+and Progress Log (corrected on `fix/stale-docs`, 2026-09-29). It then *still* described the
+plan-freeze chain as unmerged at PR 3/10, which was also wrong by then. Plan-freeze merged via
+#192/#193, alongside congregation projection and in-app feedback. Corrected again 2026-09-30.
+
+> **✅ RESOLVED 2026-10-12 — the gate is green on `main`.** `bash scripts/check-visual-contract.sh`
+> exits **0** (12 rules checked, 0 failing) against `c14e977`: rule `01b` was retired by the
+> ratchet step 1 (default-palette utilities down to 5 occurrences across 4 files), rule `02`
+> (dead accents) sits exactly at its ceiling (`234`/`234`), and the `06` defect at
+> `DateOfBirthRequired.jsx:101` was fixed. N0 in §6 is done. The text below is the failure state.
+
+**🔴 One gate is red on `main` right now.** `bash scripts/check-visual-contract.sh` exits **1**
+with 3 failing rules: `01b` default-palette utilities 92 vs ceiling 82; `02` dead accents 274 vs
+ceiling 252; `06` one `text-cem-secondary` on a raised fill at
+`src/features/auth/pages/DateOfBirthRequired.jsx:101`. Two are ceiling overflows — Hito 5 code
+pushed usage past the recorded ceilings — and one is a real single-line defect. Because CI runs
+this gate, **CI on `main` is red.** Verified 2026-09-30 by stashing every local edit and re-running
+on a pristine checkout: the failure is pre-existing, not caused by this change. Re-verified
+2026-10-02: `gh run list --branch main` shows the CI job failing on the #274, #275 and #276 merge
+pushes (CodeQL green on the same pushes). It needs its own PR; nothing here may paper over it.
 
 ## 1. 🔴 The blocker: `main` has no regression net
 
 > **RESOLVED.** This section described the state at `8b66394`. The net now exists: `main` carries
-> 7 test files and 235 passing tests, and CI runs them. The reasoning below is kept because it
+> **12 characterization test files (307+ passing tests as of `e849738`)**, CI runs them, and a
+> separate BDD tier (`pnpm test:gherkin`, 5 files over `src/test/gherkin/`) was added in #287. The reasoning below is kept because it
 > explains why the plan was ordered this way, and because the atomicity failure it identifies is
 > the same rule the project now enforces on every PR.
 >
@@ -55,21 +171,37 @@ is no way to take the tests without the moves.
 | Slice | Content | Diff | Risk | Outcome |
 |---|---|---|---|---|
 | **M0a** | PR 1a: relocate 111 modules into the ADR 0002 boundaries. Import paths only. | 111 files, renames | **None** — bundle verified byte-identical | Landed |
-| **M0b** | PR 1b-0: Vitest 3.2.7 + characterization tests + `test` script + CI test step | 7 test files | **None** — no production code | Landed — **235 tests** |
+| **M0b** | PR 1b-0: Vitest 3.2.7 + characterization tests + `test` script + CI test step | 7 test files at the time | **None** — no production code | Landed — **235 tests**, grown to **307** across 9 files at `e849738`; 12 root files today plus the `src/test/gherkin/` BDD tier |
 
 Both are on `main` today. The bundle is `ae14521` (M0a) and `e267b97` + `e9d41c3` (M0b).
 
-The original plan projected **293** characterization tests; the suite that landed has **235** across
-7 files. Treat 235 as the current count.
+The original plan projected **293** characterization tests; the suite that landed had **235** across
+7 files. **As of `e849738` the count was 307 across 9 files** (`pnpm test` re-run 2026-10-02,
+exit 0) — treat 307 as the floor; `pnpm test` now runs 12 root files and CI adds the
+`pnpm test:gherkin` tier.
 
 **Note:** the intermediate PR that carried these commits, #168, was **closed without merging** on
 2026-09-27; the work reached `main` by a different route. Any reference to "#168 open" below is
 historical.
 
-> Vitest is pinned to **3.2.7** deliberately: Vitest 5 declares `vite ^6.4||^7||^8` as a peer
-> and fails hard against Vite 5.4.21. Do not "upgrade Vitest" without moving Vite first.
+> Vitest and Vite moved as a pair in #236: `main` now carries `vite` `^6.4.3` together with
+> `vitest` `^5.0.2`, and the suite passed unchanged. What survives is the pairing, not the
+> versions: Vitest declares Vite as a peer, so one major never moves without the other in the
+> same change — and verify the bump against a worktree with its own `node_modules`, not a symlink
+> to this checkout's (see `AGENTS.md`).
 
 ## 2. P1 — finish Hito 5 (12 commits, 4 branches, ~3266 lines)
+
+> **✅ LANDED — this whole section is historical.** All four branches' work is on `main` as of
+> `762a040`. The branch *refs* `origin/feat/hito5-{plan-freeze,external-display,in-app-feedback,
+> congregation-projection}` still exist and are still unmerged as refs, but the work reached `main`
+> by a different route; do not read their existence as pending work. What actually landed:
+> plan-freeze (#192/#193), congregation projection (#181/#182/#186/#188/#189), in-app feedback
+> (#190/#191/#228), and the earlier `0023`–`0028` run (#147/#148/#155/#156/#159/#165).
+>
+> The subsections below are kept because **the failure modes they describe are the reusable part**:
+> the migration-numbering race, the `0019:184` chain-breaker, and the hand-rolled reset that
+> silently empties `profiles`. Each one happened for real. Read them as post-mortems.
 
 All four branches exist, are pushed, and are unmerged. Verified after `git fetch --prune`:
 
@@ -82,10 +214,26 @@ All four branches exist, are pushed, and are unmerged. Verified after `git fetch
 
 ### ⚠️ Migration numbering: one real collision, and the rest is fine
 
+> **RESOLVED — and the outcome is the opposite of what this section predicted.** Read this as the
+> post-mortem it now is. `main` is **38 files numbered `0001`–`0040`, with `0021`/`0022` left as a
+> deliberate free gap**; the next free slot is **`0041`**. The tie-break migration took **`0037`** in
+> #365 — the very slot this section was written to claim, so the collision it predicted did happen
+> and the number was allocated rather than left open.
+>
+> - The pair merged **renumbered**, not under the numbers this section defended. Commit `07522a0`
+>   renamed `plan_freeze` `0021 → 0034` and `projection` `0022 → 0035`, so `0021`/`0022` never
+>   occupied `main` — the gap this section called "a numbering race" is now a deliberate free
+>   slot, and the section's call to **not** renumber them was **not** followed.
+> - The `0020` collision resolved by giving `0020` to the security fix, as recommended:
+>   `0020_review_batch1.sql` is on `main` and the feedback migration moved to `0033_feedback.sql`
+>   (#228), passing through `0029` on the way.
+> - **Prediction corrected:** this section warned that `0029` was free. It was not — the guardian
+>   branch family claimed `0029`/`0030`/`0031` (#203). That is the whole lesson, restated below.
+
 **The 0020–0022 gap is not deliberate.** No ADR or decision record reserves those numbers.
 It is a numbering race between parallel branches, each of which picked the next number from
 whatever `main` looked like when it forked: `0020_feedback` (in-app-feedback),
-`0021_plan_freeze`, `0022_projection`. An earlier version of this plan called the gap
+`0034_plan_freeze`, `0035_projection`. An earlier version of this plan called the gap
 "deliberate — do not renumber"; that was an inference from the missing files, and it was
 wrong.
 
@@ -98,8 +246,8 @@ wrong.
 | Migration | Touches | Depends on 0023–0028? |
 |---|---|---|
 | `0020_feedback` | nothing from that range | no |
-| `0021_plan_freeze` | `setlist_items`, `service_change_log` (both ≤0019) | no |
-| `0022_projection` | `chart_files`, `song_versions` (0001), `service_change_log` (0019) | no |
+| `0034_plan_freeze` | `setlist_items`, `service_change_log` (both ≤0019) | no |
+| `0035_projection` | `chart_files`, `song_versions` (0001), `service_change_log` (0019) | no |
 
 Renumbering them to `0029+` would be **wrong**: it would run them *after* `0023`–`0028`,
 which is the opposite of the order they were authored for. In filename order they land at
@@ -121,6 +269,20 @@ standalone, whereas renumbering inside a three-file run is the more invasive mov
 `0032_overlay_access_token.sql`. Recorded as item 8 in `docs/engineering-review-backlog.md`.
 
 ### 🔴 `0019:184` IS a chain-breaker — an earlier revision of this plan was wrong
+
+> **✅ FIXED on `main`.** The fix this section called a hard prerequisite — `#172` / `d31888b`,
+> `fix(migrations): make 0019 display_name_for creation idempotent` — **is on `main`**, and
+> `main` has carried 13 further migrations since. Re-verified 2026-09-30 against `762a040`:
+> `0018_service_planning.sql:344` is still a plain `create function`, but
+> **`0019_rehearsal_workflow.sql:189` now reads `create or replace function`**, so the chain no
+> longer aborts. (The line moved 184 → 189 as the file grew.) The claim "#172 is a hard
+> prerequisite" is now **historical**: it was true, it is satisfied, and the eleven migrations
+> after `0022` prove the chain applies past `0019`.
+>
+> The lesson below is why the section stays. It is the clearest instance in this repo of a
+> **negative finding that was only as good as the range searched** — and the range was
+> re-searched and the earlier, wrong "no problem" conclusion retracted. That is the part to
+> inherit.
 
 **Correction, 2026-09-27.** This section previously said the fix was unnecessary and withdrew
 it. **That conclusion was wrong, and the reason it was wrong is worth recording.**
@@ -146,10 +308,11 @@ Verified both ways on a clean database:
 | `main` migrations only | ❌ aborts at `0019` |
 | with #172's `d31888b` (`create or replace`) | ✅ `0001`–`0028`, 0 errors |
 
-**`#172` is therefore a hard prerequisite for any slice that adds a migration**, and for any
-fresh `db reset` on `main` as it stands. `0021_plan_freeze` (#179) is stacked on it for that
-reason. The `1ee9615` patch on `feat/hito5-in-app-feedback` guards the same line and is a no-op
-once #172 lands.
+**`#172` was therefore a hard prerequisite for any slice that adds a migration**, and for any
+fresh `db reset` on `main` as it stood. It has since landed — see the banner at the top of this
+section. `0034_plan_freeze` (#179) was stacked on it for that reason (it landed renumbered, via
+`07522a0`). The `1ee9615` patch on
+`feat/hito5-in-app-feedback` guarded the same line and was a no-op once #172 landed.
 
 **The lesson:** a negative finding ("there is no duplicate") is only as good as the range that
 was searched. Grepping the recently-added files and concluding the older ones were clean is how
@@ -212,6 +375,22 @@ Options: split further, or record a written `size:exception` as the repo has don
 
 ### ⚠️ The dependency claim in `docs/mvp-scope.md` does not hold
 
+> **SETTLED 2026-09-30: the surfaces are independent. The `mvp-scope.md` claim was wrong, and
+> `mvp-scope.md` has been corrected.** The check below is now done, not outstanding — verified
+> against the post-relocation tree at `762a040` rather than the `src/pages/` layout this section
+> was written against:
+>
+> - `features/external-display.feature:44` — *"External display vs congregation projection are
+>   separate targets"*, asserting the display does not override the projection target.
+> - **No import edge in either direction.** `src/features/stage/pages/ExternalDisplay.jsx` imports
+>   only `data/repositories/externalDisplay.js`; `src/features/projection/pages/Projection.jsx`
+>   imports only `data/repositories/projection.js`.
+> - Separate repositories, separate components, separate feature directories, separate routes
+>   (`/external-display` vs `/services/:id/projection` + `/projection/display`).
+>
+> The reasoning below guessed correctly on the Gherkin but got its *tree* evidence wrong —
+> `src/pages/` no longer exists, which is why it could not find the surface. The conclusion held.
+
 The doc says `congregation-projection` "rides on the external-display surface". Not verified,
 and the evidence points the other way: `features/external-display.feature:44` contains a
 scenario titled *"External display vs congregation projection are separate targets"*, and the
@@ -224,6 +403,20 @@ targets, the doc is wrong and should say so.
 
 ### Also unmerged, and not in this plan
 
+> **✅ RESOLVED — this landed, and the security fix with it.** `fix/hito4-review-batch1` carried 9
+> commits including a **songs-metadata RLS leak fix**, and `0020_review_batch1.sql` is on `main`.
+> The leak was real: `0016:125` read `using (… and org_id is null)`, which treated **every**
+> org-null song as a system-catalog row, while the client's `addSong` inserts only
+> `{created_by, title}` → `org_id` NULL → the title/artist/genre of every user's personal
+> repertoire was readable by every authenticated user. `0020` fixes it by **provenance**, not by
+> tightening the predicate: `org_promote_song` now stamps `source_org_id`, so system rows are
+> distinguishable and provenance-less org-null rows **fail closed** to owner-only. See
+> `e70385e fix(songs): distinguish system songs by provenance and bound their writes`.
+>
+> The `0020` number went to this branch, exactly as §2's numbering section recommended, which is
+> why the feedback migration had to move twice. The lesson below about `0020` resolving *by
+> security-first* is the one that was kept.
+
 `fix/hito4-review-batch1` — 9 commits including a **songs-metadata RLS leak fix**
 (`main:0016_org_repertoire_model.sql:125` uses `org_id is null` unguarded, so every
 authenticated user can read every other user's personal repertoire metadata). It needs its
@@ -231,32 +424,91 @@ own decision, separate from this plan. See §5.
 
 ## 3. P2 — the ten spec findings
 
-Five reproduced (A–E), six reported and pending triage (F–J). All ten still hold on `main`;
-verified per file:line. Full detail in `odd/tasks/cemurm-brand-landing.md` §14.
+> **✅ ALL TEN FINDINGS NOW HAVE A FIX, AND ALL TEN ARE ON `main`. This section was badly stale.**
+> It previously said "All ten still hold on `main`" and that "one change proposal exists … B through
+> J have none". Verified 2026-09-30 against `762a040`: nine findings have their fix commit on `main`,
+> and `openspec/changes/` holds **eleven** live proposals, not one. **Finding D** closed the set —
+> its migration merged in #365 and its client, spec and docs halves merged with this change.
 
-`odd/tasks/music-theory-discrepancies.md` is the working record. One change proposal exists
-(`openspec/changes/fix-parser-sectional-key/`, finding A); B through J have none.
+| Finding | Subject | Status on `main` | Fix |
+|---|---|---|---|
+| **A** | `sectionKeyContexts` always empty; the sectional-key branch was dead | ✅ **fixed** | `20e79d0` via #218 |
+| **B** | enharmonic spelling from a hardcoded six-key set | ✅ **fixed** | `92e64f6` via #219 |
+| **C** | OnSong export cannot reach `agreed_key` | ✅ **fixed** | `63d1ed3` via #220 |
+| **D** | **no tie-break in offline conflict resolution, and nothing stores the applied rule** | ✅ **fixed** | `0037_offline_tie_break.sql` + `apply_setlist_item_op` + the client mirror; PR #365 (WU1: migration + smoke) and #366 (WU2/WU3: client + spec + docs) — both on `main` |
+| **E** | `qualityForDegree` inert — 0 of 49 correct | ✅ **fixed** | `0cf6907` via #218 |
+| **F**+**G** | readiness lifecycle and per-version tracking | ✅ **fixed** | `791d1de` via #222 |
+| **H** | reconcile silent drop — unidentifiable op reported as *superseded* | ✅ **fixed** | `e34e7c6` via #216 |
+| **I**+**J** | Spotify key labels and the mode comparison | ✅ **fixed** | `23de152` via #221 |
+| — | offline write-queue stalling on unsyncable ops | ✅ **fixed** | `057120a` via #253 |
+| — | three unspecified crashes that killed the caller | ✅ **fixed** | `5cc50f6` via #223 |
 
-Each finding is one behaviour change against one Gherkin scenario — already atomic, and each
-needs its own PR. Three of them hide a **product decision** that no amount of reading resolves:
+**Finding D is now fixed, and it was the hardest of the ten**, which is why it was the
+one that survived longest: `features/offline-edit-conflict-policy.feature:47-51` requires
+both that the app "applies the recorded tie-break rule" and that "the applied rule is stored with
+the resolution so every device reaches the same result". Before the fix, `reconcileSetlistOp` used a
+strict `>` comparison, no rule ran on an exact tie, and there was nowhere to store one. The suite
+said so in its own words — `src/domain/setlist/collab.test.js:125-126` carried the Gherkin quote and
+the note "The code has no tie-break". **No migration mentioned a tie-break** (verified across
+`supabase/migrations/`), so the storage half was absent too. Both halves are on `main`:
+`0037_offline_tie_break.sql` (append-only `public.setlist_conflict_resolutions` + the
+`apply_setlist_item_op` RPC) and the client mirror in `reconcileSetlistOp`.
+
+It is also the **only finding of the ten that needs a migration**, and the numbering question that
+blocked it is settled: `0034` was taken by plan-freeze (`0034_plan_freeze.sql`), so the
+tie-break migration takes **`0037`**, **not `0036`** — `0036` was taken by
+`0036_guardian_approve_public_sharing.sql`, so the next free slot after `0035` was `0037`, and #365
+consumed it. `0021`/`0022` are free but sort too early for it. The proposal deliberately
+left the number open; it is now resolved.
+
+**The three product decisions below were real, and all three have since been made** — B (in #219)
+and E (in #218) merged, and D decided. D's decision was a **product** decision, not an engineering
+one: what is the tie-break rule, and is it a per-conflict stored value or a global constant? It is
+now **decided and on `main`**: the per-operation `opKey` uuid, greater
+lowercased key wins. The Gherkin demands determinism across devices, which is the claim the product
+is sold on; the recorded rule satisfies it.
+
+The other seven (A, C, F, G, H, I, J) were mechanical against a written scenario — and all of them
+are done.
+
+> **The characterization suite no longer pins finding A.** This section previously said the suite
+> "pins the buggy behaviour deliberately — `parser.test.js:86` reads `it('sectionKeyContexts is
+> ALWAYS empty, even for a chart that modulates')`". **That assertion no longer exists.** After
+> #218, `parser.test.js:94-99` reads
+> `it('records a mid-chart {key} as a sectional override')` and asserts the *correct* value
+> (`[{ sectionIndex: 2, key: 'G' }]`), with a comment recording what the replaced assertion had
+> claimed. The predicted deliverable — invert the pinned assertion — is done, and done the right
+> way: the behaviour changed **and** the assertion changed with it. The flat-key assertion
+> `transpose.test.js:44` is also gone, replaced by `92e64f6` (#219), which derives spelling from
+> the key's own name.
+>
+> `// FINDING` markers still exist elsewhere in the suite (3 in `parser.test.js`, 11 in
+> `transpose.test.js`) — those are the *sharp edges* record, i.e. behaviour no feature file
+> specifies, not unfixed discrepancies. The rule that an assertion is never edited to go green
+> while the behaviour stays wrong still holds; it is simply no longer what finding A is.
+
+Each finding was one behaviour change against one Gherkin scenario — already atomic, and each
+took its own PR. Three of them hid a **product decision** that no amount of reading resolved:
 
 - **B** — when does a flat win? Key's own spelling, circle-of-fifths canonical, or
   caller-supplied preference. Changes what `transposeKey` means at every call site.
+  ✅ **Decided and shipped in #219** — spelling derives from the key's own name.
 - **D** — what is the tie-break rule, and where is it stored? The Gherkin requires the applied
   rule be persisted "so every device reaches the same result", so this implies a **schema
   change** *and* an undefined rule. This is the determinism claim the product is sold on.
-- **E** — what is the correct degree-quality algorithm? The code reads consecutive scale steps
+  ✅ **Decided and on `main`** — the per-operation `opKey` uuid, greater
+  lowercased key wins (stored in `public.setlist_conflict_resolutions`, `0037_offline_tie_break.sql`).
+- **E** — what is the correct degree-quality algorithm? The code read consecutive scale steps
   as a triad's root/third/fifth; stacking real thirds is a different computation.
+  ✅ **Decided and shipped in #218** (`0cf6907`).
 
-The other seven (A, C, F, G, H, I, J) are mechanical against a written scenario and can be
-scheduled immediately once the net exists.
-
-> The suite **pins the buggy behaviour deliberately** — `parser.test.js:86` reads
-> `it('sectionKeyContexts is ALWAYS empty, even for a chart that modulates')` with
-> `// FINDING (behaviour, do not "fix")`, and `transpose.test.js:44` asserts flat keys are
-> unreachable. Fixing a finding therefore *inverts* that assertion. That is the deliverable.
-> Editing an assertion to make a gate pass without changing behaviour is forbidden
-> (AGENTS.md, delivery workflow clause 3).
+> **Superseded 2026-09-30** — the text this block replaced claimed the suite "pins the buggy
+> behaviour deliberately" and that `parser.test.js:86` asserted `sectionKeyContexts` was ALWAYS
+> empty. Both halves are now false, and the correction is in the banner at the top of §3: the
+> assertion was inverted by #218 along with the behaviour it described, and `transpose.test.js`'s
+> flat-key assertion went with #219. **The rule it encoded survives**: editing an assertion to
+> make a gate pass *without* changing behaviour is still forbidden (AGENTS.md, delivery workflow
+> clause 3).
 
 ## 4. P3 — Hito 6: 99 scenarios, 0 shipped
 
@@ -270,7 +522,22 @@ its six features.
 | `cross-organization-event-collaboration` | 16 | largest design lift: depends on org model + service planning + shared-setlist collab + repertoire ownership |
 | `user-onboarding` | 16 | none |
 | `account-data-export-and-erasure` | 11 | none |
-| `offboarding-cascade` | 10 | none |
+| `offboarding-cascade` | 10 | membership model, `former` state and `left_at` (`0001`), `notify_user` and `transfer_setlist_ownership` (`0008`, Hito 3), `withdraw_public_song` and `leave_organization` (`0012`/`0016`, Hito 4) all shipped earlier; the missing pieces were the CASCADE and the branch-visibility read `:37` depends on (corrected 2026-10-14) |
+
+**`offboarding-cascade` correction (2026-10-13).** The `none` this row carried was wrong about the
+code. The reconnaissance for N2 found the feature **mostly built**, with only its cascade absent:
+`private.org_leave` (`0016:437-453`) flipped the membership to `former` and stopped there, so an
+unavailable member could leave with her open substitution request left dangling — never closed, and
+the leader never told; and `private.assign_musician` (`0018:462-524`) accepted any user id as an
+assignee, former members included. `0038_offboarding_cascade.sql` closes both, verified by
+`scripts/smoke/0038-offboarding-cascade.sql` (33 PASS / 0 FAIL) — see `odd/tasks/offboarding-cascade.md`
+for the execution record. This is the one feature of Hito 6's six with any implementation, so the
+blanket "no implementation exists for any of its six features" above holds for the other five only.
+The row's count of 10 scenarios was right; the **size of the work was not**,
+and that is what made this row worth repairing rather than the code worth rewriting. Still open: the
+setlist handoff (`:53`), which needs a two-phase leave rather than a data-model change, and
+assertions for the scenarios that hold by construction — **except** `:37`, whose org read access has
+no implementation at all (`shared_to_branch` is read by no policy or RPC).
 
 Plus the non-BDD deliverables in `mvp-scope.md:254-261`: Lighthouse > 90, WCAG 2.1 AA, UI
 polish, bug-fix sprint, beta docs, error boundaries, analytics.
@@ -280,44 +547,68 @@ Sequence by dependency, not by scenario count: `offboarding-cascade` and
 regardless of size. `export-and-sharing` extends work Hito 5 already landed. `cross-org` goes
 last — it depends on four other surfaces being stable.
 
-## 5. Doc rot to repair (cheap, do it alongside)
+## 5. Doc rot — status as of 2026-09-30
 
-| File | Defect |
-|---|---|
-| `docs/mvp-scope.md:217,301,309-310` | claims nothing from Hito 5 is merged; six migrations and seven PRs are on `main` |
-| `docs/mvp-scope.md:82,84` | the execution-trio / projection-rides-on-display dependency is unverified and probably wrong |
-| `AGENTS.md` methodology table | says 45 `.feature` files; there are **42** |
-| `AGENTS.md` test paragraph | says the `node` environment comes "via the existing `vite.config.js`"; `vite.config.js` has no `test` block, so `node` is Vitest's default, not configured |
-| `openspec/config.yaml` | declares "NO test framework, NO typecheck, NO CI"; `test_command`/`test_framework` empty; `rules.design` points at the pre-relocation layout |
-| `CONTRIBUTING.md` | says `npm install`, `npm run lint`, and a `src/store/` Zustand layer that does not exist |
-| `odd/tasks/hito4-remaining.md` | 42 unchecked boxes; its own per-feature headers say COMPLETE. Superseded umbrella — **not** backlog |
-| `docs/local-dev.md:29` | "two confirmed users"; the seed creates three |
-| `odd/tasks/cemurm-brand-landing.md` §14.2 | reuses the letter **E** for a different finding than §14.1's E. Fix the lettering before anyone triages by letter |
-| `feat/hito5-*` branches | **no ODD record exists** for plan-freeze, external-display, in-app-feedback or congregation-projection. Create one per slice as it merges |
+Most of this table is **repaired**, by this change or by an earlier one. It is kept in the
+document rather than deleted, because "doc rot is a live category here" is the lesson, and a
+repaired list with dates tells the next reader which claims were once wrong.
+
+| File | Defect | Status |
+|---|---|---|
+| `docs/mvp-scope.md:217,301,309-310` | claims nothing from Hito 5 is merged | ✅ **repaired 2026-09-30** — Hito 5 complete; migrations run to `0035`, plan-freeze/projection at `0034`/`0035` (renumbered `07522a0`), `0021`/`0022` a deliberate free gap |
+| `docs/mvp-scope.md:82,84` | projection-rides-on-external-display dependency | ✅ **repaired 2026-09-30** — settled as **false**; the two surfaces are independent, and the doc now says so with evidence |
+| `docs/mvp-scope.md:18` | "42 BDD features" | ✅ **repaired 2026-09-30** — 45 files / 713 scenarios |
+| `AGENTS.md` methodology table | said 42 files / 656 scenarios (and this table said it "says 45" — the table was wrong) | ✅ **repaired 2026-09-30** — 45 / 713 |
+| `AGENTS.md` type-checking section | "only four files are actually checked"; `listFiles` 48 | ✅ **repaired 2026-09-30** — 47 opt in, `listFiles` 60; the four canonical files kept as the named baseline |
+| `AGENTS.md` test paragraph | claimed the `node` environment came "via the existing `vite.config.js`" | ✅ **already fixed before this change** — `AGENTS.md` already says `vite.config.js` has no `test` block; verified, it has none |
+| `AGENTS.md` smoke-test section | "6 files, `0023`–`0028`" | ✅ **repaired 2026-09-30** — 13 files, `0021`–`0033` (smoke names still use the pre-renumber numbers; the migrations they exercise end at `0034`/`0035`) |
+| `openspec/config.yaml` | "NO test framework, NO typecheck, NO CI"; empty `test_command`/`test_framework`; six `testing:` flags false; `rules.design` on the pre-relocation layout; no-`store/`-or-Zustand claim | ✅ **repaired 2026-09-30** — real commands filled, `strict_tdd: false` re-justified, layout corrected |
+| `CONTRIBUTING.md` | `npm install`, `npm run lint`, `your-org` remote, `src/store/` Zustand | ✅ **repaired 2026-09-30** — pnpm, real remote, post-relocation layout, no store claim |
+| `README.md` | hosted project URL, "no CI/deploy", partial script list, design-system-as-authority, no master-plan link | ✅ **repaired 2026-09-30** |
+| `docs/technical-spec.md:241` | hosted Supabase, migrations `0001`–`0019`, "no CI" | ✅ **repaired 2026-09-30** — local stack, `0001`–`0033`, CI present |
+| `docs/local-dev.md:29` | "two confirmed users"; password hidden behind "whatever `crypt()` says" | ✅ **repaired 2026-09-30** — three users, password `password1234` stated outright |
+| `docs/design-system.md` | presented as the design system | ✅ **already fixed** — supersession banner added in #238 (PR `5547150` = #235 verified). Cross-reference count corrected 11 → 14 on 2026-09-30 |
+| `docs/master-plan.md` §0, §2, §6 | this document's own drift | ✅ **repaired 2026-09-30** — see the status block at the top |
+| `odd/tasks/hito4-remaining.md` | 42 unchecked boxes | 🔶 **still open, and the old row was wrong**: it claimed the per-feature headers all say COMPLETE. Only Feature 1 does ("✅ COMPLETE (PR pending)"). The file is a superseded umbrella — every Hito 4 feature did land — but it reads as 42 open tasks. Cheap to annotate; needs its own edit |
+| `odd/tasks/cemurm-brand-landing.md` §14.2 | reuses the letter **E** for a different finding than §14.1's E | 🔶 **cannot be fixed from `main` — the file is not here.** It exists only on `origin/feat/cemurm-brand-landing-pr1b-boundary-refactors`. `master-plan.md` §3, `AGENTS.md` (2 places) and `odd/tasks/music-theory-discrepancies.md` all cite it. The live record on `main` is `odd/tasks/music-theory-discrepancies.md`, which is self-contained and already declines to use the branch-only file as its reference |
+| `feat/hito5-*` branches | no ODD record for plan-freeze, external-display, in-app-feedback, congregation-projection | 🟡 **mostly closed** — `odd/tasks/hito5-*.md` now covers 9 of the 10 Hito 5 features (#247). **One gap remains: `external-display` has no ODD record** |
+| `docs/master-plan.md` §3 "Full detail in `odd/tasks/cemurm-brand-landing.md` §14" | dangling reference to a branch-only file | ✅ **repaired 2026-09-30** — repointed at `music-theory-discrepancies.md` |
+| `AGENTS.md` §"Where the real context lives" | points at this file as the sequencing authority | ✅ **repaired 2026-09-30** — reworded to match the re-scope |
 
 ## 5b. PR 1b: known defects to fix before it is re-cut
 
 PR 1b (`59c1c1f`) is **not** in the sequence above, because it carries problems beyond the
 acceptance-gate deviation documented in PR #168. All three were found during review, not by
-the suite.
+the suite. **Re-verified 2026-09-30 — one is fixed, one was misdescribed, one is still live:**
 
-1. **The clock injection degrades silently.** Refactors 5 and 6 removed the implicit default:
-   `relativeTime(iso, now)` and `isLockStale(lock, now)`. Neither validates. Called without
-   `now`, `isLockStale` returns `false`, and `relativeTime` falls through to its last branch
-   and returns a `YYYY-MM-DD` date for every row. No throw, no warning — just wrong output. A
-   required parameter that silently yields a plausible answer is the same class of defect as
-   the dead code this cycle exists to remove.
-2. **ADR 0002 rule 2 is false.** `src/features/stage/pages/Overlay.jsx:11` and
-   `src/features/stage/hooks/useFootPedal.js:2` import `supabase` from outside `data/`. The ADR
-   asserts a boundary the code does not hold. It is currently logged as known violations with
-   a destination, which is the right handling — but an ADR that claims more than is true is the
-   same failure as the orphaned `design-system.md`.
+1. **The clock injection degrades silently.** 🔶 **Live, but not as described.** Refactors 5 and
+   6 were supposed to remove the implicit default from `relativeTime(iso, now)` and
+   `isLockStale(lock, now)`. The current code has it the other way round:
+   `isLockStale(lock, now = Date.now())` (`collab.js:185`) **has** a default again, and
+   `relativeTime(iso)` (`relativeTime.js:16`) never took a `now` parameter at all — it reads
+   `Date.now()` internally at `:19`. So there is no longer "a required parameter that silently
+   yields a plausible answer"; there is an **implicit read**, which is the determinism problem the
+   refactor was meant to remove, arriving by a different route. The concern stands; the
+   description did not survive.
+2. **ADR 0002 rule 2 is false.** ✅ **Fixed — the ADR is now true.** This claimed
+   `src/features/stage/pages/Overlay.jsx:11` and `src/features/stage/hooks/useFootPedal.js:2`
+   "import `supabase` from outside `data/`". Both now import from
+   `'../../../data/supabase.js'` — which resolves to `src/data/supabase.js`, **inside** the
+   boundary. The violation no longer exists, and the line numbers have moved (:11 → :12). Keep
+   the principle, not this item: an ADR that claims more than is true is the same failure as the
+   orphaned `design-system.md`, and that is why the check is worth repeating.
 3. **The refactor list skipped `applyLock`** at `collab.js:91`, which reads `Date.now()`
-   internally. That is inconsistent with refactors 5 and 6, which injected the clock precisely
-   to remove that read. Left as-is it is a flake source in the one module whose determinism the
-   product claims.
+   internally. 🔴 **Still live at `collab.js:203`.** `applyLock(locks, payload)` takes no clock
+   and calls `const now = Date.now()` directly, inconsistent with `isLockStale`'s injectable
+   `now`. Left as-is it is a flake source in the one module whose determinism the product claims
+   — and note it is no longer the *only* one: `relativeTime` does the same thing. **If this is
+   picked up, fix both, or the inconsistency just moves.**
+    **Update 2026-10-12:** a third implicit read appeared — `collab.js:313` (`const t0 = Date.now()`).
+    The fix is now three call sites, still in the same two modules.
 
 ## 6. Order, and why
+
+**As written on 2026-09-27, against the state at that time:**
 
 ```
 M0a  relocation (renames, bundle identical)      ← unblocks everything
@@ -329,12 +620,58 @@ M4   Hito 6, sliced by feature                   ← 99 scenarios from zero, the
 M5   doc repairs, alongside each slice above
 ```
 
+**Where that landed (verified 2026-09-30 at `762a040`):**
+
+| Step | Outcome |
+|---|---|
+| **M0a** | ✅ landed — `ae14521` |
+| **M0b** | ✅ landed — `e267b97` + `e9d41c3`; **307 tests / 9 files as of `e849738`**; 12 root files today plus the `src/test/gherkin/` BDD tier |
+| **M1** | ⛔ **moot, and the outcome inverted the prediction.** The renumbering DID happen — `07522a0` renamed plan_freeze `0021 → 0034` and projection `0022 → 0035`, so `0021`/`0022` stayed free on `main`. The `0020` collision resolved the other way — `0020` to the security fix, feedback renumbered all the way to `0033`. The "next free number is `0029+`" premise was wrong from the start: `0029` was claimed by the guardian family |
+| **M2** | ✅ landed — Hito 5 complete; migrations through `0035`, plan-freeze/projection at `0034`/`0035` |
+| **M3** | ⬜ **still open** — the ten findings A–J, unfixed |
+| **M4** | ⬜ **still open** — Hito 6, 99 scenarios, 0 shipped |
+| **M5** | 🟡 **partly done** — this document, `mvp-scope.md`, `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `openspec/config.yaml`, `technical-spec.md`, `local-dev.md` repaired 2026-09-30. Still open: `odd/tasks/hito4-remaining.md`, and the branch-only `cemurm-brand-landing.md` |
+
+**The order that actually remains, 2026-10-12:**
+
+```
+N0  ✅ DONE — the visual gate passes on `main` (12 rules, 0 failing; ratchet step 1 landed)
+N1  ✅ DONE — finding D: the offline tie-break rule. 2 chained PRs, both merged:
+    WU1 migration `0037` + smoke (#365); WU2/WU3 client + spec + docs (#366).
+N2  Hito 6 privacy slice: offboarding-cascade, then
+    account-data-export-and-erasure                              ← obligations, not features
+N3  Hito 6 product slice: export-and-sharing, user-onboarding,
+    analytics-and-insights
+N4  cross-organization-event-collaboration                      ← last; needs four surfaces stable
+N5  remaining doc rot, alongside whatever slice is open
+```
+
+**N0 was first because it was the only item blocking something other than itself** — CI on `main`
+was red, every PR went red with it, and a red suite is a suite people learn to ignore. It is
+done as of 2026-10-12: the gate passes, and N1 has shrunk from the ten findings to the one — D.
+
+**The native track is deliberately absent from N0–N5.** The 2026-10-19 pivot (see *Strategic pivot*
+above) adds a second surface — a native app for live monitoring and sync — running against the same
+backend. It is not sequenced here for two concrete reasons: OD-1–OD-3 in that section (implementation
+model, code location, what "monitoring" monitors) are still open, and SC-1 means
+`features/pwa-updates-and-storage.feature` still denies a native app. Sequencing it before both are
+settled would order work whose defining decision has not finished being made. The PWA track above is
+unaffected either way — the two surfaces share one backend, so this work keeps its value regardless.
+
 Two things deliberately do **not** go in this plan:
 
 - **The landing / brand cycle** (`feat/cemurm-brand-landing-pr1b-boundary-refactors`, PR #168).
   It is marketing surface, and it is currently one 9-commit PR. The refactor slices inside it
   (M0a, M0b, plus PR 1b) are worth keeping and land as their own PRs; the brand and landing
   work is deferred and should be re-planned against this state.
+  **Update 2026-09-30:** M0a and M0b did land as their own PRs. The rest — including the PR 1b
+  branch itself and `odd/tasks/cemurm-brand-landing.md` — is **still branch-only**, which is why
+  that file is a dangling reference from `main` (§5). PR 1b was never re-cut; §5b's remaining
+  defect 3 stands.
 - **`fix/hito4-review-batch1`.** Nine unmerged commits, several of them security fixes, one of
   them a real metadata leak. That is its own decision with its own urgency, and merging it is
   not a formality.
+  **Update 2026-09-30: it merged, and the leak is fixed.** `0020_review_batch1.sql` is on
+  `main` and closes the songs-metadata leak by provenance — see §2's "Also unmerged" block. The
+  security-first call on the `0020` number is what forced the feedback migration's two
+  renumberings, and that chain is now fully settled at `0033`.

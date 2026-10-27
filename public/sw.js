@@ -73,6 +73,12 @@ self.addEventListener('install', (event) => {
       .then(() =>
         // Waiting SW — no skipWaiting() here: activation happens on the next
         // natural load or after user-initiated SKIP_WAITING (D3, threat RED 1).
+        // The post is unconditional and says nothing about whether there IS an
+        // update: on a first install it fires too, with no previous bundle. The
+        // prompt side owns that judgement (src/offline/updateManager.js gates on
+        // navigator.serviceWorker.controller at prompt time), because from in
+        // here `install` runs before this worker has controlled anything, so the
+        // two states are indistinguishable without reaching for the client.
         self.clients
           .matchAll({ includeUncontrolled: true })
           .then((clients) => clients.forEach((c) => c.postMessage({ type: 'UPDATE_READY' }))),
@@ -119,11 +125,22 @@ self.addEventListener('fetch', (event) => {
         .then(async (response) => {
           const blob = await response.clone().blob()
           const cache = await caches.open(SHELL)
-          await cache.put('/index.html', response)
+          // Cache a CLONE. `cache.put` consumes the body stream it is handed, so
+          // putting `response` itself returns a spent stream to the page and every
+          // navigation this worker controls fails with ERR_FAILED. Measured in
+          // Chromium: after `put(key, response)` the original reports bodyUsed
+          // true and `text()` throws "body stream already read"; after
+          // `put(key, response.clone())` it reports false and reads normally.
+          await cache.put('/index.html', response.clone())
           await metaAdd(SHELL, blob.size)
           return response
         })
-        .catch(() => caches.match('/index.html')),
+        .catch(async () => {
+          const cached = await caches.match('/index.html')
+          // respondWith(undefined) is itself a navigation failure, so an empty
+          // cache has to produce a real Response rather than nothing.
+          return cached || new Response('', { status: 503, statusText: 'Offline' })
+        }),
     )
     return
   }
@@ -138,7 +155,10 @@ self.addEventListener('fetch', (event) => {
       const response = await fetch(request)
       if (response.ok) {
         const blob = await response.clone().blob()
-        await cache.put(request, response)
+        // Same reason as the navigate branch: cache a clone, return the original.
+        // Putting `response` itself spends its body and the page gets a dead
+        // stream, which fails the asset load rather than serving it.
+        await cache.put(request, response.clone())
         await metaAdd(name, blob.size)
       }
       return response

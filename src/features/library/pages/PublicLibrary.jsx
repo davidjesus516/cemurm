@@ -11,7 +11,7 @@
 
 /* eslint-disable react/prop-types */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { filterPublicEntries } from '../../../domain/library/search.js'
 import { usePublicLibrary } from '../hooks/usePublicLibrary.js'
@@ -114,6 +114,12 @@ export default function PublicLibrary() {
   const [reportTarget, setReportTarget] = useState(null)
   const [alreadyReported, setAlreadyReported] = useState({})
 
+  // Reset alreadyReported when reportTarget changes to avoid showing
+  // stale reasons from a previous entry (issue #154).
+  useEffect(() => {
+    setAlreadyReported({})
+  }, [reportTarget])
+
   const filtersActive = Boolean(search.trim() || licenseFilter)
   const visible = filterPublicEntries(entries, { query: search, license: licenseFilter })
   const mine = entries.filter((entry) => entry.contributor_id === userId)
@@ -146,7 +152,9 @@ export default function PublicLibrary() {
 
   async function submitReport(publicSongId, reason) {
     await moderation.reportEntry(publicSongId, reason)
-    setReportTarget(null)
+    // Do NOT clear reportTarget here — ReportDialog will call onClose
+    // after showing the confirmation screen. Clearing it here unmounts
+    // the dialog before the submitted state can render.
   }
 
   return (
@@ -191,12 +199,12 @@ export default function PublicLibrary() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by title, artist or genre…"
-              className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+              className="w-full max-w-md rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
             />
             <select
               value={licenseFilter}
               onChange={(e) => setLicenseFilter(e.target.value)}
-              className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-none focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
+              className="rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent"
             >
               {LICENSE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -213,7 +221,7 @@ export default function PublicLibrary() {
               {filtersActive ? 'No results — try adjusting your filters.' : 'The public library is empty.'}
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
               {visible.map((entry) => (
                 <PublicSongCard
                   key={entry.id}
@@ -237,7 +245,7 @@ export default function PublicLibrary() {
               Follow musicians to see their new contributions here.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
               {feed.entries.map((entry) => (
                 <PublicSongCard
                   key={entry.id}
@@ -259,7 +267,7 @@ export default function PublicLibrary() {
           ) : mine.length === 0 ? (
             <p className="mt-6 text-sm text-cem-secondary">You haven&apos;t contributed any songs yet.</p>
           ) : (
-            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-sm">
+            <ul className="mt-4 divide-y divide-cem-elevated rounded-lg border border-cem-elevated bg-cem-surface shadow-xs">
               {mine.map((entry) => (
                 <li key={entry.id} className="flex items-center justify-between px-4 py-3">
                   <div className="min-w-0">
