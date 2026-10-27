@@ -96,7 +96,7 @@ const Notifications = ({ className }: { className?: string }) => {
 
                     {/* Footer Button */}
                     <div className="pt-5 px-6">
-                        <Button className="w-full" render={<Link to="#" />}>
+                        <Button className="w-full" nativeButton={false} render={<Link to="#" />}>
                             See All Notifications
                         </Button>
                     </div>
