@@ -95,17 +95,18 @@ the same regex selects zero tests while still exiting green — `chromium` there
 `vitest.config.js` exists solely to keep `tests/e2e/**` out of the unit tier. The orphaned
 `spike/**` exclusion is not on `main`; add it there only if a `spike/` directory actually exists.
 
-## Type checking is per-file opt-in
+## Type checking
 
-`tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. Only four files are
-actually checked, each via the canonical pragma, and the relocation moved all four:
+`tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. The vendored admin
+template's `.ts/.tsx` tree **is** covered: `include` admits all 172 files under `src/api`,
+`src/components`, `src/context`, `src/hooks`, `src/layouts`, `src/routes`, `src/types` and
+`src/views`, and `strict: true` applies to them. The `@/*` and `src/*` path aliases map onto
+`src/`, so the template's import style resolves.
+
+The JS baseline stays per-file opt-in via the canonical pragma:
 
 - `src/domain/music/transpose.js`, `src/domain/music/annotations.js`
 - `src/data/repositories/songs.js`, `src/data/repositories/setlists.js`
-
-The vendored admin template's `.ts/.tsx` tree is **not** in `include` yet (171 of 172 files), so
-`pnpm typecheck` does not check it and its green exit says nothing about that code. Follow-up in
-`odd/tasks/tw4-stack-foundation.md` L5.
 
 **Do not flip `checkJs` on globally.** Doing so type-checks everything the include can reach:
 ~760 errors, ~530 in files that were never in scope (rationale is recorded in `tsconfig.json`).
@@ -116,8 +117,12 @@ flag. Baseline history: `odd/tasks/ts-checkjs-baseline.md`.
 wrong `include` leaves `tsc` checking one untyped file and still exiting 0.
 
 ```bash
-npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; was 1, now 48
+npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 248 at F1 (172 TS/TSX + 76 JS)
 ```
+
+The template's demo layer needs three dev-only type packages: `msw` and `chance` are imported by
+`src/api/**` (a mock island not reached from the entry point), and `@types/lodash`, `@types/chance`
+and `@types/react-syntax-highlighter` cover the rest.
 
 TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibility, odd/tasks/tw4-stack-foundation.md L3). Both quirks re-verified on 6.0.3:
 - `catch` variables infer `unknown`, so `e.message` needs a `/** @type {Error} */ (e)` cast.
