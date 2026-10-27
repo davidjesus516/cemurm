@@ -7,7 +7,10 @@ module.exports = {
     'plugin:react/jsx-runtime',
     'plugin:react-hooks/recommended',
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs', 'CEMURM', 'supabase'],
+  // `spike` is a self-contained nested package (spike/musicxml-layout has its
+  // own package.json, vite and vitest configs). Its TypeScript is outside the
+  // src-scoped typescript-eslint override, so the base parser cannot read it.
+  ignorePatterns: ['dist', '.eslintrc.cjs', 'CEMURM', 'supabase', 'spike'],
   parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
   settings: { react: { version: 'detect' } },
   rules: {
