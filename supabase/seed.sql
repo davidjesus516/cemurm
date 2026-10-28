@@ -45,6 +45,26 @@ update profiles set username = 'isolation', display_name = 'Isolation User'
 update profiles set username = 'outsider', display_name = 'Outsider User'
   where id = '10000000-0000-0000-0000-000000000003';
 
+-- ── grandfather of the seeded base (0029 §5) ─────────────────────────────────
+-- 0029 backfills pre-existing accounts to a verifiably adult date, but
+-- `supabase db reset` applies EVERY migration BEFORE seed.sql runs. So on a
+-- clean reset 0029 backfills an empty profiles table, and these three accounts
+-- are then born with date_of_birth NULL — which the fail-closed gate (0029 §1)
+-- locks, leaving every seeded login stuck at the date-of-birth step.
+--
+-- Production is unaffected and needs nothing here: there the accounts exist
+-- before 0029 runs, so 0029's own backfill reaches them. This block is the
+-- local mirror of that same grandfather, not a second code path.
+--
+-- is_minor is never written. The profiles_minor_flag trigger (0017 lines 48-66)
+-- is its only legal writer and fires from this UPDATE.
+update profiles set date_of_birth = date '2002-10-10'
+  where id in (
+    '10000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000002',
+    '10000000-0000-0000-0000-000000000003'
+  );
+
 -- ── tenancy: orgs, branch, memberships ──
 insert into organizations (id, name, org_type, status) values
   ('10000000-0000-0000-0000-0000000000a1', 'Demo Academy', 'Academy', 'active'),
@@ -393,4 +413,101 @@ insert into public_songs (id, song_id, contributor_id, license, license_confirme
    '10000000-0000-0000-0000-000000000001', 'public-domain', true, 'live'),
   ('73000000-0000-0000-0000-000000000008', '20000000-0000-0000-0000-000000000008',
    '10000000-0000-0000-0000-000000000001', 'CC-BY-4.0', true, 'live')
+  on conflict do nothing;
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- MUSIC-THEORY REPRODUCTION FIXTURES
+--
+-- Two songs whose ChordPro bodies contain, on purpose, every input the
+-- music-theory findings are about, so the behaviour can be SEEN in the app rather
+-- than only asserted at the module level, and a reviewer can compare a branch
+-- against main without inventing data.
+--
+-- Every token is load-bearing. Do not "tidy" one of them.
+--
+--   {key: C major}    explicit scale, so the degree view has a scale to derive
+--                     from: fix-degree-quality-derivation (#217).
+--   [am]              a LOWERCASE root. CHORD_RE is uppercase-only, so today this
+--                     chord is left untransposed while its neighbours move:
+--                     fix-unspecified-silent-wrong (#224) finding 1.
+--   [E♭] [C♯7]        the UNICODE accidentals (U+266D / U+266F). Only the letter
+--                     is matched today, so the accidental rides into the output
+--                     and [E♭] renders as the nonsense "Fb♭":
+--                     fix-unspecified-silent-wrong (#224) finding 2.
+--                     NOTE E♭ and not B♭: B♭ is the same pitch as the [Bb] below,
+--                     and a substitution anchored to "Bb" would hijack it once
+--                     #224 normalises ♭ to b. Measuring the first draft of this
+--                     fixture is what caught that.
+--   [Bb]              the chord the seeded substitution is anchored to. C is a
+--                     SHARP-spelled key, so the reverse lookup respells the anchor
+--                     and the substitution silently misses:
+--                     fix-unspecified-silent-wrong (#224) finding 3.
+--   [Am] [G]          degrees 6 and 5 of C major; Am's derived quality is MINOR
+--                     and today qualityForDegree returns 'power' for every degree
+--                     of every scale — 0 correct out of 49 measured:
+--                     fix-degree-quality-derivation (#217).
+--
+-- The SECOND song repeats the body under a FLAT key (Eb) for one reason only: a
+-- flat-spelled key is the case that exposes fix-key-spelling-preference (#219).
+-- With capo 1, F must render as Gb, because the key's own spelling says flat.
+-- Today the spelling comes from a hardcoded six-name set that does not contain
+-- Gb's result, so it renders F#. This is a different song on purpose — the two
+-- findings cannot both be visible from one key, since #219 is exactly the change
+-- that decides which way #224's anchor lookup respells.
+--
+-- Ids are in the 30000… range, which AGENTS.md reserves for fixtures so they
+-- cannot collide with the seed's own 30000000-… setlist family.
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+insert into songs (id, org_id, branch_id, title, artist, genre, created_by) values
+  ('30000600-0000-4000-8000-000000000001', '10000000-0000-0000-0000-0000000000a1',
+   '10000000-0000-0000-0000-0000000000b1', 'Music Theory Fixture', 'Test harness',
+   'worship', '10000000-0000-0000-0000-000000000001'),
+  ('30000600-0000-4000-8000-000000000002', '10000000-0000-0000-0000-0000000000a1',
+   '10000000-0000-0000-0000-0000000000b1', 'Music Theory Fixture (flat key)',
+   'Test harness', 'worship', '10000000-0000-0000-0000-000000000001')
+  on conflict do nothing;
+
+insert into chart_files (id, song_id, format, object_key, content, size_bytes) values
+  ('30000800-0000-4000-8000-000000000001', '30000600-0000-4000-8000-000000000001',
+   'chordpro', 'seed/music-theory-fixture.chordpro',
+   $chordpro${title: Music Theory Fixture}
+  {key: C major}
+  {section: Verse 1}
+  [am]A [Dm]minor chord, lowercase root
+  [E♭]A unicode flat, U+266D
+  {section: Chorus}
+  [Bb]Anchored chord
+  [C♯7]A unicode sharp, U+266F
+  [Am]Degree six, derived minor
+  [G]Degree five, derived major$chordpro$,
+   258),
+  ('30000800-0000-4000-8000-000000000002', '30000600-0000-4000-8000-000000000002',
+   'chordpro', 'seed/music-theory-fixture-flat.chordpro',
+   $chordpro${title: Music Theory Fixture}
+  {key: Fm}
+  {section: Verse 1}
+  [E]Only chord that lands on an accidental at +2
+  [C]Lands on a natural, for contrast$chordpro$,
+   66)
+  on conflict do nothing;
+
+insert into song_versions (id, song_id, name, number, chart_file_id, base_key, base_tempo,
+                           duration_seconds, is_ready, owner_id, created_by) values
+  ('30000700-0000-4000-8000-000000000001', '30000600-0000-4000-8000-000000000001',
+   'Original', 1, '30000800-0000-4000-8000-000000000001', 'C', 92, 210, true,
+   '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001'),
+  ('30000700-0000-4000-8000-000000000002', '30000600-0000-4000-8000-000000000002',
+   'Original', 1, '30000800-0000-4000-8000-000000000002', 'F', 92, 210, true,
+   '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001')
+  on conflict do nothing;
+
+-- Written the way a musician would write it. On this SHARP-spelled chart the
+-- reverse lookup respells 'Bb' away from what the musician typed, so today this
+-- substitution silently does nothing and the chord is simply left alone.
+insert into personal_annotations (id, user_id, song_id, anchor, kind, value) values
+  ('40000000-0000-4000-8000-000000000001', '10000000-0000-0000-0000-000000000001',
+   '30000600-0000-4000-8000-000000000001',
+   '{"chord":"Bb"}', 'chord_substitution', 'C')
   on conflict do nothing;

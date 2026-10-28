@@ -37,12 +37,12 @@ No necesitan leer el código (no hay casi) ni conocer el dominio musical. La arq
 | Elemento | Estado |
 |---|---|
 | Documentación | `README.md`, `docs/technical-spec.md`, `docs/database-schema-v2.md`, `docs/mvp-scope.md`, `docs/product-brief.md`, `docs/features-overview.md`, `docs/music-theory-model.md`, `docs/copyright-policy.md` |
-| Especificación BDD | 42 archivos `.feature`, **656 escenarios** (Gherkin) |
+| Especificación BDD | 45 archivos `.feature`, **713 escenarios** (Gherkin) |
 | Código | Solo scaffold Vite mínimo (`src/` con App.jsx, main.jsx, index.css) |
 | Dependencias | React 18.3, Vite 5.3, Tailwind 3.4 — sin dependencias de negocio instaladas |
 | Git | 8 commits en `main` |
 
-**Punto clave:** estamos en **fase de especificación, sin implementación real**. Todo el valor actual vive en los 656 escenarios BDD (el contrato de aceptación) y los documentos de diseño. Es el momento ideal para cuestionar decisiones de arquitectura: **nada de lo que se decida hoy está escrito en código todavía.**
+**Punto clave:** estamos en **fase de especificación, sin implementación real**. Todo el valor actual vive en los 713 escenarios BDD (el contrato de aceptación) y los documentos de diseño. Es el momento ideal para cuestionar decisiones de arquitectura: **nada de lo que se decida hoy está escrito en código todavía.**
 
 ---
 
@@ -140,7 +140,7 @@ Si quieren profundizar, todo está en el repositorio:
 - `docs/mvp-scope.md` — alcance del MVP y hitos
 - `docs/music-theory-model.md` — modelo de teoría musical (el dominio más complejo)
 - `docs/copyright-policy.md` — política de copyright
-- `features/` — 42 features BDD, 656 escenarios de comportamiento
+- `features/` — 45 features BDD, 713 escenarios de comportamiento
 - `docs/database-schema-v2.md` — esquema de base de datos (44 entidades, scope `org_id` + `branch_id`)
 
 ---

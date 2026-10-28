@@ -5,15 +5,15 @@
 // service so the session survives app restarts, crashes and offline gaps; the
 // display re-launches to the last broadcast state with one tap.
 //
-// The backend contract is deliberately tiny (0022): a per-song license gate
+// The backend contract is deliberately tiny (0035): a per-song license gate
 // (projection_licenses), a live lyric fix that creates a NEW version
 // (record_typo_fix), and a block audit (log_projection_blocked). Everything else
 // (slide building, navigation, scripture/announcement slides) is local state.
 
-import { supabase } from './supabase.js'
-import { getService } from './services.js'
-import { getSong } from './songs.js'
-import { parseChordPro } from './chordpro/parser.js'
+import { supabase } from '../data/supabase.js'
+import { getService } from '../data/repositories/services.js'
+import { getSong } from '../data/repositories/songs.js'
+import { parseChordPro } from '../domain/chart/parser.js'
 
 /**
  * One slide in the projection deck.
@@ -284,7 +284,7 @@ export function removeSlide(deck, slideId) {
   return true
 }
 
-/* ────────────────────────── backing RPCs (0022) ────────────────────────── */
+/* ────────────────────────── backing RPCs (0035) ────────────────────────── */
 
 /**
  * Live lyric fix from the operator console: updates the latest chart and

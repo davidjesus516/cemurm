@@ -181,7 +181,12 @@ create function private.session_may_mark_item(p_rehearsal_id uuid) returns boole
 
 -- display_name_for: profiles.display_name → username → 'Someone' (NULL-tolerant identity
 -- surface for this slice; profiles is client-readable via 0006 column-capped grants).
-create function private.display_name_for(p_user_id uuid) returns text
+-- create OR replace: 0018:344 already created this exact signature with a plain `create
+-- function`, so a fresh full-chain reset aborted here with SQLSTATE 42710 before 0019's
+-- own body ever applied. Replacing keeps ONE implementation (this one) on both a fresh
+-- chain and an already-deployed database; the revoke/grant block below stays valid
+-- (same signature, same audience).
+create or replace function private.display_name_for(p_user_id uuid) returns text
   language sql security definer stable set search_path = '' as $$
   select coalesce(pr.display_name, pr.username, 'Someone')
   from public.profiles pr

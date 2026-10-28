@@ -1,3 +1,4 @@
+// @ts-check
 // Cached-storage policy (D4, hito-2-remainder 2a): one versioned SW cache
 // per category, activate-time cleanup, and the eviction-exemption guard.
 // public/sw.js (classic worker, no imports) duplicates the tiny predicates
@@ -11,12 +12,55 @@ export const CACHE_CATEGORIES = ['shell', 'songs', 'pdf', 'exports', 'data']
 // shell/songs/data are never auto-evicted (live-use + user-data contract).
 export const EVICTION_ORDER = ['pdf', 'exports']
 
+/**
+ * A cache-meta row (cache screen, 2b.1) describing one CacheStorage entry.
+ * @typedef {object} CacheEvictionRecord
+ * @property {string} name
+ * @property {string} category
+ * @property {number} [savedAt]
+ * @property {number} bytes
+ */
+
+/**
+ * The shape isUserAuthoredKvEntry reads — deliberately narrower than the
+ * record planEviction sorts, so the exemption predicate can be asked about a
+ * bare `{ key }` with no size/age attached.
+ * @typedef {object} KvEntryLike
+ * @property {string} [key]
+ * @property {{ data?: any, pendingSync?: boolean }} [value]
+ */
+
+/**
+ * A kv read-copy row as IDB `getAll()` returns it. `value` is the cached
+ * envelope: `data` holds arbitrary app data (a read copy can be an object or
+ * an array), which is why only the pendingSync flags are typed.
+ * @typedef {KvEntryLike & { key: string, bytes: number, savedAt?: number }} KvEvictionRecord
+ */
+
+/**
+ * One eviction candidate. `name` is set for cache picks, `key` for kv picks.
+ * @typedef {object} EvictionPick
+ * @property {'cache' | 'kv'} type
+ * @property {string} [name]
+ * @property {string} [key]
+ * @property {number} bytes
+ */
+
+/**
+ * @param {string} category
+ * @param {number} version
+ * @returns {string}
+ */
 export function cacheName(category, version) {
   return `${CACHE_PREFIX}${category}-v${version}`
 }
 
 const NAME_RE = /^cemurm-([a-z]+)-v(\d+)$/
 
+/**
+ * @param {string | null | undefined} name
+ * @returns {{ category: string, version: number } | null}
+ */
 export function parseCacheName(name) {
   const m = NAME_RE.exec(name || '')
   return m ? { category: m[1], version: Number(m[2]) } : null
@@ -26,12 +70,19 @@ export function parseCacheName(name) {
  * Activate-time cleanup (D3, threat RED 2): delete everything that is not a
  * current-version cache of our own categories — foreign caches and stale
  * versions of ours. Old SW keeps serving current tabs (no clients.claim()).
+ * @param {string} name
+ * @param {number} version
+ * @returns {boolean}
  */
 export function shouldDeleteOnActivate(name, version) {
   const parsed = parseCacheName(name)
   return !parsed || !CACHE_CATEGORIES.includes(parsed.category) || parsed.version !== version
 }
 
+/**
+ * @param {string} category
+ * @returns {boolean}
+ */
 export function isEvictableCategory(category) {
   return EVICTION_ORDER.includes(category)
 }
@@ -42,6 +93,8 @@ export function isEvictableCategory(category) {
  * flagged pendingSync (optimistic offline writes, incl. gig records) are
  * exempt by construction — eviction only ever considers cache-storage
  * entries and non-pending kv read copies (2b).
+ * @param {KvEntryLike | null | undefined} entry
+ * @returns {boolean}
  */
 export function isUserAuthoredKvEntry(entry) {
   const key = String(entry?.key ?? '')
@@ -56,10 +109,19 @@ export function isUserAuthoredKvEntry(entry) {
  * candidates; shell/songs/data caches and user-authored kv entries are never
  * evicted. Stops once targetBytes are freed (spec: warning clears once freed
  * space suffices).
+ * @param {CacheEvictionRecord[]} cacheRecords
+ * @param {KvEvictionRecord[]} kvRecords
+ * @param {number} targetBytes
+ * @returns {EvictionPick[]}
  */
 export function planEviction(cacheRecords, kvRecords, targetBytes) {
+  /** @type {EvictionPick[]} */
   const picked = []
   let freed = 0
+  /**
+   * @param {string} category
+   * @returns {number}
+   */
   const order = (category) => {
     const i = EVICTION_ORDER.indexOf(category)
     return i === -1 ? EVICTION_ORDER.length : i
@@ -93,6 +155,12 @@ export function planEviction(cacheRecords, kvRecords, targetBytes) {
 }
 
 export function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   * @returns {void}
+   */
   const assertEq = (actual, expected, label) => {
     if (actual !== expected) {
       throw new Error(`storage demo failed: ${label} expected ${expected}, got ${actual}`)
@@ -126,6 +194,13 @@ export function demo() {
   // 2b.2: planEviction — PDF → Exports by age, then kv read copies by age;
   // shell/songs/data caches + authored kv never picked; stops at target.
   const now = 1000
+  /**
+   * @param {string} name
+   * @param {string} category
+   * @param {number} savedAt
+   * @param {number} bytes
+   * @returns {CacheEvictionRecord}
+   */
   const cache = (name, category, savedAt, bytes) => ({ name, category, savedAt, bytes })
   const plan = planEviction(
     [

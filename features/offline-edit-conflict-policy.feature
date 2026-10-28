@@ -70,3 +70,50 @@ Feature: Offline Edit Conflict Policy
     When I open the conflict notification
     Then I can compare my superseded edit with the winning write
     And my edit is available as a draft so I can re-apply it deliberately
+
+  ──────────────────────────────────────────────
+  SETLIST ITEM REPLAY
+  ──────────────────────────────────────────────
+
+  Scenario: A queued setlist add replays when nothing overtook it
+    Given I added "Amazing Grace" to the shared setlist "Sunday Jam" while offline
+    And nobody changed that setlist before my replay
+    When I reconnect
+    Then my add is applied
+    And I receive no conflict notice
+
+  Scenario: A queued setlist remove replays when the song is still there
+    Given I removed "Scarborough Fair" from the shared setlist "Sunday Jam" while offline
+    And the song is still on the setlist when I reconnect
+    When the offline queue replays
+    Then my remove is applied
+    And I receive no conflict notice
+
+  Scenario: A setlist add the server genuinely superseded reports a real conflict
+    Given Julian removed "Amazing Grace" from the shared setlist "Sunday Jam" after I queued my own add
+    When I reconnect
+    Then my add is not applied
+    And the notice says the song was removed before my sync
+    And the notice is a supersession, not a replay failure
+
+  Scenario: A queued operation that lost its timestamp is never reported as superseded
+    Given I added "Amazing Grace" to the shared setlist "Sunday Jam" while offline
+    And my queue entry lost the timestamp of when I made the change
+    When I reconnect
+    Then my add is not applied
+    And the notice says the change lost its timestamp and was not applied
+    And the notice does not claim another musician changed the setlist first
+
+  Scenario: A queued operation missing its song is never reported as superseded
+    Given a queued setlist change can no longer be read back to the song it referred to
+    When the offline queue replays
+    Then it is not applied
+    And the notice says the change could not be read and was not applied
+    And the notice asks me to make the change again
+    And the notice does not claim another musician changed the setlist first
+
+  Scenario: The two unidentifiable cases are told apart from each other
+    Given I have one queued change that lost its timestamp and another that lost its song
+    When the offline queue replays and I open the notices
+    Then the two notices say different things
+    And neither blames a musician for a change that was never compared

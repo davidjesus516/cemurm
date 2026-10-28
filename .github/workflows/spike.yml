@@ -1,0 +1,507 @@
+# Spike Suite Modular — CI Workflow
+#
+# Matrix por spike (S1/S2/S3) y dispositivo (iOS/Android/Windows).
+# Requiere self-hosted runners etiquetados: spike-ios, spike-android, spike-windows
+# Artifacts → spike/results/ (retención 90 días)
+#
+# Uso: push a rama spike/suite-modular o manual workflow_dispatch
+
+name: Spike Suite Modular
+
+on:
+  push:
+    branches: [spike/suite-modular]
+  pull_request:
+    branches: [spike/suite-modular]
+  workflow_dispatch:
+    inputs:
+      spike:
+        description: 'Spike a ejecutar (S1, S2, S3, all)'
+        required: true
+        default: 'all'
+        type: choice
+        options: [S1, S2, S3, all]
+      device:
+        description: 'Dispositivo objetivo'
+        required: false
+        default: 'all'
+        type: choice
+        options: [ios, android, windows, all]
+
+env:
+  SPIKE_ROOT: ${{ github.workspace }}/spike
+  RESULTS_DIR: ${{ github.workspace }}/spike/results
+  ARTIFACT_RETENTION_DAYS: 90
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # S1 — Audio Core (Capa 2A)
+  # ─────────────────────────────────────────────────────────────────
+  s1-build:
+    name: S1 Build — ${{ matrix.platform }}
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ios
+            runner: spike-ios
+            build_script: ./build_ios.sh
+            artifact_name: oboe-rhythmgame-ios
+          - platform: android
+            runner: spike-android
+            build_script: ./build_android.sh
+            artifact_name: oboe-rhythmgame-android
+          - platform: windows
+            runner: spike-windows
+            build_script: ./build_windows.ps1
+            artifact_name: oboe-rhythmgame-windows
+          - platform: macos
+            runner: spike-macos
+            build_script: ./build_macos.sh
+            artifact_name: oboe-rhythmgame-macos
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup build env
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/audio-core
+          chmod +x *.sh *.ps1 2>/dev/null || true
+      - name: Build oboe RhythmGame example
+        run: ${{ matrix.build_script }}
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ env.SPIKE_ROOT }}/audio-core/build/
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s1-loopback:
+    name: S1 Loopback Test — ${{ matrix.device }}
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
+    needs: s1-build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: ios
+            runner: spike-ios
+            csv_name: audio-core-latency-ios.csv
+          - device: android
+            runner: spike-android
+            csv_name: audio-core-latency-android.csv
+          - device: windows
+            runner: spike-windows
+            csv_name: audio-core-latency-windows.csv
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oboe-rhythmgame-${{ matrix.device }}
+          path: ${{ env.SPIKE_ROOT }}/audio-core/build/
+      - name: Run loopback test (1000 iteraciones)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/audio-core
+          ./run_loopback_test.sh --device ${{ matrix.device }} --iterations 1000 --output ${{ env.RESULTS_DIR }}/${{ matrix.csv_name }}
+      - name: Upload latency CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.csv_name }}
+          path: ${{ env.RESULTS_DIR }}/${{ matrix.csv_name }}
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s1-interruptions:
+    name: S1 Interruptions Test — ${{ matrix.device }}
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
+    needs: s1-build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: ios
+            runner: spike-ios
+            csv_name: audio-interruptions-ios.csv
+          - device: android
+            runner: spike-android
+            csv_name: audio-interruptions-android.csv
+          - device: windows
+            runner: spike-windows
+            csv_name: audio-interruptions-windows.csv
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oboe-rhythmgame-${{ matrix.device }}
+          path: ${{ env.SPIKE_ROOT }}/audio-core/build/
+      - name: Run interruption tests (bg/fg, lock, call)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/audio-core
+          ./run_interruption_tests.sh --device ${{ matrix.device }} --output ${{ env.RESULTS_DIR }}/${{ matrix.csv_name }}
+      - name: Upload interruptions CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.csv_name }}
+          path: ${{ env.RESULTS_DIR }}/${{ matrix.csv_name }}
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s1-config-doc:
+    name: S1 Platform Config Doc
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
+    needs: [s1-build, s1-loopback, s1-interruptions]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all CSVs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: audio-*-*.csv
+          path: ${{ env.RESULTS_DIR }}/
+      - name: Generate platform config markdown
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/audio-core
+          ./generate_config_doc.sh --results ${{ env.RESULTS_DIR }} --output ${{ env.RESULTS_DIR }}/audio-platform-config.md
+      - name: Upload config doc
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-platform-config.md
+          path: ${{ env.RESULTS_DIR }}/audio-platform-config.md
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  # ─────────────────────────────────────────────────────────────────
+  # S2 — P2P Sync (Capa 3A)
+  # ─────────────────────────────────────────────────────────────────
+  s2-discovery:
+    name: S2 mDNS Discovery
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run mDNS discovery test (3 nodos contenedor)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/p2p-sync
+          ./test_discovery.sh --nodes 3 --output ${{ env.RESULTS_DIR }}/p2p-discovery.log
+      - name: Upload discovery log
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2p-discovery.log
+          path: ${{ env.RESULTS_DIR }}/p2p-discovery.log
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s2-heartbeat:
+    name: S2 Heartbeat + Clock Sync
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
+    needs: s2-discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run heartbeat test (10 min)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/p2p-sync
+          ./test_heartbeat.sh --duration 600 --output ${{ env.RESULTS_DIR }}/p2p-heartbeat.csv
+      - name: Upload heartbeat CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2p-heartbeat.csv
+          path: ${{ env.RESULTS_DIR }}/p2p-heartbeat.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s2-netem:
+    name: S2 Netem Chaos (10% loss)
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
+    needs: s2-heartbeat
+    runs-on: spike-linux-router  # Runner con tc/netem capabilities
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure netem (10% loss, 5ms±2ms)
+        run: |
+          sudo tc qdisc add dev eth0 root netem loss 10% delay 5ms 2ms distribution normal
+      - name: Run heartbeat under chaos (5 min)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/p2p-sync
+          ./test_heartbeat.sh --duration 300 --output ${{ env.RESULTS_DIR }}/p2p-netem-10pct-loss.csv
+      - name: Cleanup netem
+        if: always()
+        run: sudo tc qdisc del dev eth0 root 2>/dev/null || true
+      - name: Upload netem CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2p-netem-10pct-loss.csv
+          path: ${{ env.RESULTS_DIR }}/p2p-netem-10pct-loss.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s2-roaming:
+    name: S2 Wi-Fi Roaming (AP primario → secundario)
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
+    needs: s2-heartbeat
+    runs-on: [spike-ios, spike-android, spike-windows]  # Requiere hardware real
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [ios, android, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run roaming test (AP switch)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/p2p-sync
+          ./test_roaming.sh --device ${{ matrix.device }} --output ${{ env.RESULTS_DIR }}/p2p-roaming-${{ matrix.device }}.csv
+      - name: Upload roaming CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2p-roaming-${{ matrix.device }}.csv
+          path: ${{ env.RESULTS_DIR }}/p2p-roaming-${{ matrix.device }}.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s2-failover:
+    name: S2 Maestro Failover
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
+    needs: s2-heartbeat
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run failover test (kill maestro)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/p2p-sync
+          ./test_failover.sh --output ${{ env.RESULTS_DIR }}/p2p-failover.csv
+      - name: Upload failover CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2p-failover.csv
+          path: ${{ env.RESULTS_DIR }}/p2p-failover.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s2-integration:
+    name: S2 Integration S1+S2 (Audio + Sync)
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
+    needs: [s1-loopback, s2-heartbeat, s2-netem, s2-roaming, s2-failover]
+    runs-on: [spike-ios, spike-android, spike-windows]
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [ios, android, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download S1 build
+        uses: actions/download-artifact@v4
+        with:
+          name: oboe-rhythmgame-${{ matrix.device }}
+          path: ${{ env.SPIKE_ROOT }}/audio-core/build/
+      - name: Run integration test (audio click + P2P sync bajo caos)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/p2p-sync
+          ./test_integration_s1_s2.sh --device ${{ matrix.device }} --output ${{ env.RESULTS_DIR }}/integration-s1-s2-${{ matrix.device }}.csv
+      - name: Upload integration CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-s1-s2-${{ matrix.device }}.csv
+          path: ${{ env.RESULTS_DIR }}/integration-s1-s2-${{ matrix.device }}.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  # ─────────────────────────────────────────────────────────────────
+  # S3 — MusicXML Layout (Capa 1B)
+  # ─────────────────────────────────────────────────────────────────
+  s3-verovio-build:
+    name: S3 Verovio WASM Custom Build
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emscripten@v1.4
+        with:
+          version: '3.1.50'
+      - name: Build Verovio WASM (módulos mínimos)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/musicxml-layout
+          ./build_verovio_wasm.sh --modules musicxml,layout,transpose,mei --output ./wasm/
+      - name: Verify WASM size (< 3 MB gzipped)
+        run: |
+          gzip -c ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/verovio.wasm | wc -c
+          # Debe ser < 3_145_728 bytes
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: verovio-wasm
+          path: ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s3-pwa-integration:
+    name: S3 PWA Integration + Corpus Load
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
+    needs: s3-verovio-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Verovio WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: verovio-wasm
+          path: ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/
+      - name: Install pnpm & deps
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: pnpm install --frozen-lockfile
+      - name: Build PWA with Verovio local
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/musicxml-layout
+          pnpm build --mode spike
+      - name: Run corpus load test (5 partituras)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/musicxml-layout
+          pnpm test:corpus-load --output ${{ env.RESULTS_DIR }}/musicxml-render-initial.json
+      - name: Upload render results
+        uses: actions/upload-artifact@v4
+        with:
+          name: musicxml-render-initial.json
+          path: ${{ env.RESULTS_DIR }}/musicxml-render-initial.json
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s3-perf:
+    name: S3 Performance Benchmarks
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
+    needs: s3-pwa-integration
+    runs-on: [spike-ios, spike-android, spike-windows]
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [ios, android, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Verovio WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: verovio-wasm
+          path: ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/
+      - name: Run perf benchmarks (first paint, reflow, transpose)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/musicxml-layout
+          pnpm test:perf --device ${{ matrix.device }} --iterations 100 --output ${{ env.RESULTS_DIR }}/musicxml-perf-${{ matrix.device }}.csv
+      - name: Upload perf CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: musicxml-perf-${{ matrix.device }}.csv
+          path: ${{ env.RESULTS_DIR }}/musicxml-perf-${{ matrix.device }}.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s3-visual-parity:
+    name: S3 Visual Parity vs PDF
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
+    needs: s3-pwa-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Verovio WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: verovio-wasm
+          path: ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/
+      - name: Generate reference PDFs (MuseScore headless)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/musicxml-layout
+          ./generate_reference_pdfs.sh --output ./ref-pdfs/
+      - name: Run pixel-diff (ImageMagick / pixelmatch)
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/musicxml-layout
+          pnpm test:visual-parity --ref ./ref-pdfs --threshold 0.02 --output ${{ env.RESULTS_DIR }}/musicxml-visual-parity.csv
+      - name: Upload visual parity CSV + diff screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: musicxml-visual-parity
+          path: |
+            ${{ env.RESULTS_DIR }}/musicxml-visual-parity.csv
+            ${{ env.RESULTS_DIR }}/visual-diffs/
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  s3-stress:
+    name: S3 Stress Test (50 páginas)
+    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
+    needs: s3-pwa-integration
+    runs-on: spike-ios  # iPad 8th gen es el baseline de memoria
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Verovio WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: verovio-wasm
+          path: ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/
+      - name: Run 50-page stress test
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/musicxml-layout
+          pnpm test:stress --pages 50 --output ${{ env.RESULTS_DIR }}/musicxml-stress-50pages.csv
+      - name: Upload stress CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: musicxml-stress-50pages.csv
+          path: ${{ env.RESULTS_DIR }}/musicxml-stress-50pages.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  # ─────────────────────────────────────────────────────────────────
+  # Consolidated Report (Gate G2)
+  # ─────────────────────────────────────────────────────────────────
+  spike-report:
+    name: Spike Consolidated Report (Gate G2)
+    if: github.event.inputs.spike == 'all'
+    needs: [s1-config-doc, s2-integration, s3-stress, s3-visual-parity]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ env.RESULTS_DIR }}/
+      - name: Generate consolidated report
+        run: |
+          cd ${{ env.SPIKE_ROOT }}
+          ./generate_report.sh --results ${{ env.RESULTS_DIR }} --output ${{ env.RESULTS_DIR }}/spike-consolidated-report.md
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: spike-consolidated-report.md
+          path: ${{ env.RESULTS_DIR }}/spike-consolidated-report.md
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+      - name: Comment on PR with summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('${{ env.RESULTS_DIR }}/spike-consolidated-report.md', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: report.substring(0, 65535)
+            });
+
+  # ─────────────────────────────────────────────────────────────────
+  # Hardware Provisioning (manual dispatch)
+  # ─────────────────────────────────────────────────────────────────
+  provision-hardware:
+    name: Provision Test Hardware
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.spike == 'provision'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Ansible playbook for hardware setup
+        run: |
+          cd ${{ env.SPIKE_ROOT }}/hardware
+          ansible-playbook -i inventory.yml provision.yml --ask-vault-pass

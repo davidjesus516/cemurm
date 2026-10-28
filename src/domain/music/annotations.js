@@ -1,0 +1,148 @@
+// @ts-check
+// Personal annotation RESOLUTION (3.4, D7): turns anchors / substitutions into
+// render values for ChordProRenderer. This module is pure — it resolves
+// already-loaded rows and never reads them.
+//
+// The network read for personal_annotations (self-scoped RLS, 0002) used to live
+// here, behind a lazy dynamic import of the Supabase client. That made a
+// "pure domain" module perform I/O, and it hid itself from no-restricted-imports,
+// which only inspects static import declarations — the no-restricted-syntax rule
+// in .eslintrc.cjs now covers the dynamic form too. The read now lives in
+// src/data/repositories/annotations.js; callers import it from there.
+
+import { transposeChord, preferFlatForKey } from './transpose.js'
+
+/**
+ * @typedef {{ section?: string, index?: number, chord?: string }} AnnotationAnchor
+ * @typedef {{ kind: 'note' | 'chord_substitution', anchor?: AnnotationAnchor, value: string }} Annotation
+ */
+
+/**
+ * Note annotation for a lyric line, anchored {section: name, index: lineIdx}
+ * (0001 comment: structural anchor; index = 0-based lyric line within the
+ * {section} block — stable under transpose because transposeParsed keeps the
+ * section/line structure 1:1).
+ */
+/**
+ * @param {Annotation[] | null | undefined} annotations
+ * @param {string} sectionName
+ * @param {number} lineIndex
+ * @returns {string | null}
+ */
+export function noteForLine(annotations, sectionName, lineIndex) {
+  if (!annotations?.length) return null
+  const match = annotations.find(
+    (a) => a.kind === 'note'
+      && a.anchor?.section === sectionName
+      && a.anchor?.index === lineIndex,
+  )
+  return match?.value ?? null
+}
+
+/**
+ * Map chord_substitution annotations to { concreteChordToken: value } —
+ * anchors are concrete-key chord tokens (0001 comment). The renderer matches
+ * via the reverse-transposed token so substitutions survive transposition.
+ */
+/**
+ * @param {Annotation[] | null | undefined} annotations
+ * @returns {Record<string, string>}
+ */
+export function buildSubstitutionMap(annotations) {
+  /** @type {Record<string, string>} */
+  const map = {}
+  for (const a of annotations || []) {
+    if (a.kind !== 'chord_substitution') continue
+    const anchor = a.anchor?.chord ?? (typeof a.anchor === 'string' ? a.anchor : null)
+    if (anchor) map[anchor] = a.value
+  }
+  return map
+}
+
+/**
+ * Resolve a rendered chord token through the substitution map (D7: "match
+ * transposed chord token, render transposed target"). Reverse-transpose the
+ * rendered token to its concrete key, look up, then transpose the target
+ * forward — the substitution moves correctly under transpose (spec: "moves
+ * correctly when Pedro transposes"). No match → token unchanged (shared chart
+ * keeps the original chord). Consistent flat preference keeps Bb-chart
+ * round-trips enharmonically stable.
+ */
+/**
+ * @param {string} token
+ * @param {number} semitones
+ * @param {Record<string, string>} substitutions
+ * @param {string} baseKey
+ * @returns {string}
+ */
+export function applySubstitution(token, semitones, substitutions, baseKey) {
+  if (!token || !substitutions || !Object.keys(substitutions).length) return token
+  const preferFlat = preferFlatForKey(baseKey)
+  const concrete = transposeChord(token, -semitones, preferFlat)
+  // The anchor is written by a musician, not by this module, so it may be spelled
+  // either way: an anchor saved as "Bb" never matched on a sharp-spelled chart,
+  // because the lookup key came out sharp and the flat anchor was not in the map.
+  // The substitution then silently did nothing — no error, no notice, the chart
+  // just unchanged. Both derived spellings are tried, and the anchor as typed is
+  // tried last so a deliberately-chosen enharmonic spelling is not overridden.
+  //
+  // The typed anchor is only consulted for a whole number of semitones. That
+  // fallback compares a name from one key space against a name from another — the
+  // derived key is a concrete-note name, the typed anchor is whatever the musician
+  // tapped — and that comparison is only meaningful when the round trip through
+  // transpose is. A fractional amount has no valid reverse transpose at all, so
+  // every derived spelling is the same non-note and matching one would invent a
+  // substitution out of a transposition that cannot exist.
+  const target =
+    substitutions[concrete] ??
+    substitutions[transposeChord(token, -semitones, !preferFlat)] ??
+    (Number.isInteger(semitones) ? substitutions[token] : undefined)
+  return target ? transposeChord(target, semitones, preferFlat) : token
+}
+
+/**
+ * Read the author's personal annotations for a song. Moved to
+ * src/data/repositories/annotations.js — see the module header.
+ */
+
+// Self-check: node -e "import('./src/domain/music/annotations.js').then(m => m.demo())"
+export async function demo() {
+  /**
+   * @param {unknown} actual
+   * @param {unknown} expected
+   * @param {string} label
+   */
+  const assert = (actual, expected, label) => {
+    if (actual !== expected) {
+      throw new Error(`annotations demo FAILED: ${label} — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
+    }
+  }
+
+  /** @type {Annotation[]} */
+  const annotations = [
+    { kind: 'note', anchor: { section: 'Chorus', index: 2 }, value: 'breath here' },
+    { kind: 'chord_substitution', anchor: { chord: 'Bm' }, value: 'Dmaj7' },
+  ]
+
+  assert(noteForLine(annotations, 'Chorus', 2), 'breath here', 'note anchored {section,index}')
+  assert(noteForLine(annotations, 'Chorus', 1), null, 'no note on another line')
+  assert(noteForLine(annotations, 'Verse 1', 2), null, 'no note in another section')
+  assert(noteForLine([], 'Chorus', 2), null, 'no annotations → null')
+
+  const map = buildSubstitutionMap(annotations)
+  assert(map.Bm, 'Dmaj7', 'substitution map keyed by concrete chord')
+  assert(Object.prototype.hasOwnProperty.call(map, 'Chorus'), false, 'note anchors never enter the map')
+
+  // D7: match base token, render transposed target; unmatched chords stay put.
+  assert(applySubstitution('Bm', 0, map, 'C'), 'Dmaj7', 'base render substitutes')
+  assert(applySubstitution('C#m', 2, map, 'C'), 'Emaj7', 'substitution moves under +2')
+  assert(applySubstitution('Am', -2, map, 'C'), 'Cmaj7', 'substitution moves under -2')
+  assert(applySubstitution('C', 0, map, 'C'), 'C', 'unmatched chord unchanged')
+  assert(applySubstitution('Bm', 0, {}, 'C'), 'Bm', 'no substitutions → unchanged')
+  // Flat-key round trip: Bb chart at +1 renders B, reverse-lookup must land Bb.
+  assert(applySubstitution('B', 1, { Bb: 'C' }, 'Bb'), 'Db', 'flat-key reverse lookup is consistent')
+
+  // The offline/no-row → [] behaviour of the network read is asserted in
+  // src/data/repositories/annotations.test.js. It no longer belongs here.
+  console.log('annotations demo OK: 10 asserts (anchors, substitution map, transpose movement)')
+}

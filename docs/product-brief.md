@@ -32,12 +32,12 @@ Whether you gig solo or play in a band, CEMURM keeps your repertoire in one plac
 - Transpose any song to any key in real time
 - Works offline — no Wi-Fi needed at the venue
 
-### Collaboration (Coming in Hito 3)
+### Collaboration (shipped — Hito 3)
 - Share setlists with bandmates
 - Real-time updates when someone edits
 - Leave comments and annotations on songs
 
-### Public Library (Coming in Hito 4)
+### Public Library (shipped — Hito 4)
 - Browse community-contributed songs
 - Discover new arrangements and chord charts
 - Contribute your own arrangements
@@ -46,19 +46,23 @@ Whether you gig solo or play in a band, CEMURM keeps your repertoire in one plac
 
 CEMURM is in **active development**. During the beta period:
 
-- **Core features work**: You can create songs, build setlists, and use the practice view (Stage Mode is a Hito 2 feature, not yet shipped)
-- **Some features are missing**: Collaboration, public library, and integrations are coming later
+- **Core features work**: You can create songs, build setlists, use the practice view, perform with Stage Mode, and work offline
+- **Shipped surfaces**: Collaboration (shared setlists, bandmates, comments) and the public library are live
+- **Still in development**: Integrations (Hito 5 — MIDI, external display, OBS overlay, plan freeze) and beta polish (Hito 6) are coming later
 - **You may encounter bugs**: That's expected! Please report everything you find
 - **Your feedback shapes the product**: We prioritize features based on beta user input
 
-### Current Beta Scope (Hito 1 — implemented)
+### Current Beta Scope (Hito 1–4 — implemented)
 - ✅ Sign up / sign in (email/password; Google + GitHub OAuth pending)
 - ✅ Create and edit songs (ChordPro format)
 - ✅ Build and manage setlists
-- ✅ Basic practice view with transposition (thin Hito 1 slice)
-- 🕓 Stage Mode with transposition — Hito 2, not yet shipped
-- 🕓 Offline support — Hito 2, not yet shipped
-- Following hitos: Collaboration (Hito 3) and Public library (Hito 4) — not in this beta scope, coming later
+- ✅ Practice view with transposition
+- ✅ Stage Mode: fullscreen performance view, transpose, touch/keyboard/pedal navigation
+- ✅ Offline support: songs and setlists cached on device, works without internet
+- ✅ Collaboration: shared setlists, bandmates, comments, notifications (Hito 3)
+- ✅ Public library: browse and contribute community songs, profiles, follows, moderation (Hito 4)
+- 🕓 Integrations (Hito 5) — MIDI, external display, OBS overlay — in development
+- 🕓 Beta polish (Hito 6) — performance, UI, and bug fixes — planned
 
 ## How to Give Feedback
 

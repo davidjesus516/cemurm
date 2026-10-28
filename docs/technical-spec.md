@@ -6,54 +6,19 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 ## 2. Architecture
 
+```mermaid
+flowchart LR
+    Musician["Musician"] --> PWA["CEMURM PWA<br/>React 18 + Vite + Tailwind<br/>JS/JSX"]
+    PWA -->|supabase-js| Hosted["Supabase hosted project<br/>GoTrue auth + PostgreSQL with RLS<br/>+ definer RPCs"]
+    PWA <--> Offline["Offline layer<br/>Service Worker public/sw.js<br/>+ IndexedDB read cache and write queue"]
+    PWA <--> DomainLibs["Domain libs<br/>ChordPro parser/renderer, transpose, search"]
+    Hosted <--> Local["Local stack<br/>supabase start<br/>same migrations"]
+    R2["Cloudflare R2<br/>large file storage"] -. planned .-> PWA
+    ExtApis["LRCLIB / MusicBrainz / Spotify"] -. planned .-> PWA
+    Wasm["WASM modules<br/>Rust to wasm-pack"] -. planned .-> DomainLibs
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                         CLIENT (PWA)                             │
-│  JavaScript (JS/JSX) + React 18 + Vite + Tailwind CSS         │
-│  + WASM modules (Rust → wasm-pack, dynamic import)             │
-│  + Workbox Service Worker                                      │
-│                                                                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │ChordPro  │ │MusicXML  │ │   ABC    │ │ Stage Mode       │ │
-│  │ Parser   │ │ (OSMD)   │ │ (abcjs)  │ │ (fullscreen,     │ │
-│  │ (WASM)   │ │ WASM)    │ │ WASM)    │ │  transposition,  │ │
-│  └──────────┘ └──────────┘ └──────────┘ │  pedal support)   │ │
-│                                         └──────────────────┘ │
-│  ┌──────────────────────────────────────┐                       │
-│  │ WASM Layer (Rust → WASM):            │                       │
-│  │  • ChordPro parser (future)          │                       │
-│  │  • Key transposition                  │                       │
-│  │  • MusicXML lightweight parsing       │                       │
-│  └──────────────────────────────────────┘                       │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ Offline Cache (IndexedDB + Cache API via Workbox)       │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────────────────┬─────────────────────────────────────────┘
-                          │ HTTPS + WebSocket (Realtime)
-                          ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                        SUPABASE                                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │PostgreSQL│ │  Auth    │ │ Storage  │ │ Realtime         │ │
-│  │ Database │ │ (JWT)    │ │ (files)  │ │ (WebSocket)      │ │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘ │
-└────────────────────────┬─────────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                     CLOUDFLARE R2                                │
-│  Object storage for large files (PDFs, MusicXML, audio)       │
-│  S3-compatible API · No egress fees                              │
-└──────────────────────────────────────────────────────────────────┘
 
-┌──────────────────────────────────────────────────────────────────┐
-│                     EXTERNAL APIs                                │
-│  ┌──────────┐ ┌────────────┐ ┌──────────┐                      │
-│  │ LRCLIB   │ │ MusicBrainz│ │ Spotify  │                      │
-│  │ (lyrics) │ │ (metadata) │ │ (art,BPM)│                      │
-│  └──────────┘ └────────────┘ └──────────┘                      │
-└──────────────────────────────────────────────────────────────────┘
-```
+The diagram above is the current state: the PWA talks to the hosted Supabase project via `supabase-js` and keeps an offline layer (service worker + IndexedDB) plus domain libraries client-side; the local stack applies the same migrations for dev/reset. Dashed nodes are planned (Hito 5+). For interactive versions, see [architecture diagram](docs/diagrams/architecture.html) and [hito roadmap](docs/diagrams/hito-roadmap.html) (archify HTML exports).
 
 ## 3. Tech Stack
 
@@ -90,14 +55,14 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 | MusicBrainz | Song metadata, cover art | Free (rate-limited) |
 | Spotify API | Album art, BPM, key detection | Free (rate-limited) |
 
-### 3.4 Offline Support — *planned, not implemented*
+### 3.4 Offline Support — *shipped (Hito 2)*
 
-> No service worker, no IndexedDB layer exists in the codebase today. The `outbox` table is schema-only. These are the Hito 2+ design targets:
+> Shipped: `public/sw.js` (service worker) plus the IndexedDB layer in `src/lib/` — `offlineCache.js` (read-through cache), `offlineQueue.js` (offline write queue), `offlineSync.js` (drain on reconnect), `updateManager.js` (app updates), `storage.js` (storage management). Workbox generation and SyncManager-based background sync are future refinements; the current implementation is a hand-written service worker + client FIFO queue.
 
-- **Workbox** for service worker generation
-- **IndexedDB** (via `idb` or Dexie.js) for structured data caching
-- **Cache API** for static assets and API responses
-- **Background Sync** for queuing writes when offline
+- **Workbox** for service worker generation — future refinement; today `public/sw.js` is hand-written
+- **IndexedDB** for structured data caching — live (`offlineCache.js`, `offlineQueue.js`)
+- **Cache API** for static assets and API responses — app-shell precache in `public/sw.js`
+- **Background Sync** for queuing writes when offline — client FIFO queue drained on reconnect (`offlineSync.js`)
 
 ## 4. Database Schema
 
@@ -121,83 +86,138 @@ Authoritative schema: **implemented in `supabase/migrations/`** — `0001_init.s
 
 ```
 cemurm/
-├── public/                    ~  # dir does not exist yet
-│   ├── manifest.json          # PWA manifest
-│   ├── sw.js                  # Service worker (generated by Workbox)
-│   └── icons/                 # PWA icons (192x192, 512x512)
+├── public/                    @  # sw.js exists; manifest/icons planned
+│   ├── manifest.json          ~  # PWA manifest (planned)
+│   ├── sw.js                  @  # Service worker (hand-written; Workbox build step planned)
+│   └── icons/                 ~  # PWA icons (192x192, 512x512)
 ├── src/
 │   ├── main.jsx               @  # Entry point
-│   ├── App.jsx                @  # Root component + router (8 routes, auth guards)
+│   ├── App.jsx                @  # Root component + router (23 routes, RequireAuth + RequireGuardianConsent gates)
 │   ├── index.css              @  # Tailwind imports + global styles
-│   ├── components/            @  # today: auth/, layout/, notation/, songs/ have files
+│   ├── components/            @  # auth/, gigs/, layout/, moderation/, notation/, songs/
 │   │   ├── layout/            @  # AppLayout.jsx
-│   │   ├── song/              ~  # SongForm.jsx exists under songs/ today; SongCard/Editor planned
-│   │   ├── setlist/           ~
+│   │   ├── auth/              @  # AuthGuards.jsx (RequireAuth, RequireGuardianConsent, RedirectIfAuthed)
+│   │   ├── gigs/              @  # GigCard.jsx, GigForm.jsx, VenueAutocomplete.jsx
+│   │   ├── moderation/        @  # ModerationQueue.jsx, CaseDetail.jsx, ReportDialog.jsx
 │   │   ├── notation/          @  # ChordProRenderer.jsx; MusicXML/ABC renderers planned
+│   │   ├── songs/             @  # SongForm.jsx; SongCard/Editor planned
+│   │   ├── setlist/           ~
 │   │   ├── stage/             ~
 │   │   ├── search/            ~
 │   │   └── common/            ~
-│   ├── pages/                 @
+│   ├── pages/                 @  # 24 files today
 │   │   ├── Home.jsx           @
 │   │   ├── Songs.jsx          @
 │   │   ├── SongDetail.jsx     @
+│   │   ├── Practice.jsx       @
+│   │   ├── PublicLibrary.jsx  @
+│   │   ├── Moderation.jsx     @
+│   │   ├── Profile.jsx        @
 │   │   ├── Setlists.jsx       @
 │   │   ├── SetlistDetail.jsx  @
-│   │   ├── Collections.jsx    ~
-│   │   ├── Profile.jsx        ~
+│   │   ├── StageMode.jsx      @
+│   │   ├── Gigs.jsx           @
+│   │   ├── GigDetail.jsx      @
+│   │   ├── Bandmates.jsx      @
+│   │   ├── Organizations.jsx  @
+│   │   ├── Services.jsx       @
+│   │   ├── ServiceDetail.jsx  @
+│   │   ├── Rehearsals.jsx     @
+│   │   ├── RehearsalDetail.jsx @
+│   │   ├── Notifications.jsx  @
+│   │   ├── Settings.jsx       @
+│   │   ├── Storage.jsx        @
+│   │   ├── GuardianConsentRequired.jsx @
 │   │   ├── Auth.jsx           @
 │   │   └── NotFound.jsx       @
-│   ├── hooks/                 @  # useAuth.jsx, useSongs.js, useSetlists.js
-│   │   ├── useAuth.js         @
+│   ├── hooks/                 @  # 14 hooks today
+│   │   ├── useAuth.jsx        @
 │   │   ├── useSongs.js        @
 │   │   ├── useSetlists.js     @
+│   │   ├── useGigs.js         @
+│   │   ├── useFootPedal.js    @
+│   │   ├── useBandmates.js    @
+│   │   ├── useSharedSetlist.js @
+│   │   ├── useComments.js     @
+│   │   ├── useNotifications.js @
+│   │   ├── usePublicLibrary.js @
+│   │   ├── useFollows.js      @
+│   │   ├── useDiscoveryFeed.js @
+│   │   ├── useModeration.js   @
+│   │   ├── usePreferences.js  @
 │   │   ├── useOffline.js      ~
 │   │   └── useTransposition.js ~  # transposition lives in lib/transpose.js today
 │   ├── wasm/                  ~  # dir does not exist yet (future phase)
 │   │   ├── chordpro/        # ChordPro parser compiled to WASM
 │   │   ├── transposition/   # Key transposition logic (WASM)
 │   │   └── musicxml/        # Lightweight MusicXML parsing (WASM, future)
-│   ├── lib/                   @  # also: songs.js/setlists.js (localStorage mocks), transpose.js, duration.js, readiness.js, search.js
-│   │   ├── supabase.js        @  # Supabase client init (local stack; throws if VITE_* missing)
+│   ├── lib/                   @  # 31 modules today (Supabase-backed data layer)
+│   │   ├── supabase.js        @  # Supabase client init (hosted project; local stack for dev; throws if VITE_* missing)
+│   │   ├── auth.js            @  # GoTrue auth helpers
+│   │   ├── songs.js           @  # Song CRUD (hosted Supabase)
+│   │   ├── setlists.js        @  # Setlist CRUD (hosted Supabase)
+│   │   ├── search.js          @  # Local title/artist/genre filters
+│   │   ├── transpose.js       @  # Key transposition
+│   │   ├── readiness.js       @  # Chart readiness checks
+│   │   ├── duration.js        @  # Time/duration helpers
+│   │   ├── gigs.js            @  # Gigs + performance history (Hito 2)
+│   │   ├── annotations.js     @  # Song annotations (Hito 2/3)
+│   │   ├── comments.js        @  # Collaborative comments (Hito 3)
+│   │   ├── bandmates.js       @  # Bandmate management (Hito 3)
+│   │   ├── setlistCollab.js   @  # Shared setlists (Hito 3)
+│   │   ├── notifications.js   @  # Notifications (Hito 3)
+│   │   ├── profiles.js        @  # Public profiles (Hito 4)
+│   │   ├── follows.js         @  # Follows (Hito 4)
+│   │   ├── publicLibrary.js   @  # Public library (Hito 4)
+│   │   ├── moderation.js      @  # Community moderation (Hito 4)
+│   │   ├── orgRepertoire.js   @  # Org/branch repertoire (Hito 4)
+│   │   ├── minors.js          @  # Guardian consent (Hito 4)
+│   │   ├── scaleCatalog.js    @  # Scale catalog (Hito 4)
+│   │   ├── degreeResolver.js  @  # Music theory degree resolver (Hito 4)
+│   │   ├── progressions.js    @  # Chord progressions (Hito 4)
+│   │   ├── services.js        @  # Service planning (Hito 4)
+│   │   ├── rehearsals.js      @  # Rehearsal workflow (Hito 4)
+│   │   ├── preferences.js     @  # Personal preferences/performer adaptations
+│   │   ├── offlineCache.js    @  # IndexedDB read-through cache (Hito 2)
+│   │   ├── offlineQueue.js    @  # Offline write queue (Hito 2)
+│   │   ├── offlineSync.js     @  # Drain queued writes on reconnect (Hito 2)
+│   │   ├── updateManager.js   @  # App update handling (Hito 2)
+│   │   ├── storage.js         @  # Storage/quota management (Hito 2)
 │   │   ├── r2.js              ~  # R2 upload helpers
 │   │   ├── chordpro/
 │   │   │   ├── parser.js      @  # ChordPro text parser (JS)
-│   │   │   ├── parser.wasm    ~  # WASM binary (compiled from Rust, future)
-│   │   │   └── renderer.jsx   @  # ChordPro React renderer
-│   │   ├── apis/              ~  # dir does not exist yet
-│   │   │   ├── lrclib.js      # LRCLIB lyrics API
-│   │   │   ├── musicbrainz.js # MusicBrainz metadata
-│   │   │   └── spotify.js     # Spotify API
-│   │   └── offline/           ~  # dir does not exist yet
-│   │       ├── db.js          # IndexedDB setup (Dexie)
-│   │       └── sync.js        # Background sync logic
-│   ├── store/                 ~  # dir does not exist yet (state is React context today)
+│   │   │   └── parser.wasm    ~  # WASM binary (compiled from Rust, future)
+│   │   └── apis/              ~  # dir does not exist yet
+│   │       ├── lrclib.js      # LRCLIB lyrics API
+│   │       ├── musicbrainz.js # MusicBrainz metadata
+│   │       └── spotify.js     # Spotify API
+│   ├── store/                 ~  # dir does not exist (state is React context/hooks today)
 │   │   └── index.js           # Zustand stores
-│   └── utils/                 ~  # dir does not exist yet
-│       ├── transposition.js   # Key transposition logic
-│       └── format.js          # Date/number formatters
+│   └── utils/                 @  # relativeTime.js today; more planned
+│       ├── relativeTime.js    @  # Relative-time formatting
+│       ├── transposition.js   ~  # Key transposition logic
+│       └── format.js          ~  # Date/number formatters
 ├── docs/
 │   ├── technical-spec.md
 │   ├── mvp-scope.md
 │   ├── copyright-policy.md
-│   └── product-brief.md
+│   ├── product-brief.md
+│   └── diagrams/              # archify HTML exports (architecture.html, hito-roadmap.html)
 ├── .github/
 │   └── ISSUE_TEMPLATE/
 │       ├── bug_report.md
 │       └── feature_request.md
 ├── package.json
 ├── vite.config.js
-├── tailwind.config.js
-├── postcss.config.js
 ├── index.html
 ├── CONTRIBUTING.md
 ├── README.md
 └── .gitignore
 ```
 
-## 6. PWA Requirements — *planned, not implemented*
+## 6. PWA Requirements — *shipped baseline (Hito 2), Workbox build step planned*
 
-> No `public/manifest.json`, no generated `sw.js`, no Workbox build step exists yet. The app is not currently installable or offline-capable. This table is the target, not current state.
+> Baseline shipped in Hito 2: `public/sw.js` exists (hand-written service worker) and the offline layer in `src/lib/` is live — IndexedDB read cache (`offlineCache.js`), offline write queue (`offlineQueue.js`), drain on reconnect (`offlineSync.js`), app-update handling (`updateManager.js`), storage management (`storage.js`). `manifest.json`/icons and a Workbox build step are still targets; the table below is the full target, not current state.
 
 | Requirement | Implementation |
 |-------------|---------------|
@@ -216,7 +236,19 @@ cemurm/
 
 ## 7. Deployment
 
-> **Current status (2026-09): local-only.** The app runs against a local Supabase stack (`supabase start`, `supabase/config.toml`, ports 54321/54322) with the Vite dev server. None of the hosted services below are deployed; this table is the deployment plan, not current state.
+> **Current status (verified 2026-09-30 against `main` = `762a040`):** the data layer runs against a
+> **local Supabase stack** (`supabase start`, `supabase/config.toml`, API `http://127.0.0.1:54321`)
+> — schema, RLS, GoTrue auth, and RPCs are applied there by `supabase/migrations/` (**33 migrations,
+> `0001`–`0033`, contiguous**) plus `supabase/seed.sql`. This project is **NOT linked to a hosted
+> Supabase project**; any hosted URL elsewhere in this document is stale and should be read as a
+> plan, not as state. `docs/local-dev.md` is authoritative for the local stack.
+>
+> **Correction to a 2026-09-23 status line in this section:** it stated the data layer was deployed
+> to a hosted project, that migrations stopped at `0019`, and that there was "no CI/deploy". All
+> three were wrong — the stack is local, migrations run through `0033`, and **CI exists**
+> (`.github/workflows/ci.yml`, on push to `main` and every PR: `install --frozen-lockfile → lint →
+> check-visual-contract.sh → test → build`). The table below remains the **deployment plan**; what
+> has actually shipped is recorded in `docs/mvp-scope.md`.
 
 | Service | URL | Notes |
 |---------|-----|-------|
@@ -332,6 +364,8 @@ Redis is **not a database replacement** for CEMURM but a potential acceleration 
 | Best for | Enterprise environments with existing Java infrastructure |
 
 **Decision:** TypeScript via Supabase edge functions for the MVP. Rust is documented as the preferred backend for Phase 2 if performance becomes a bottleneck (particularly for batch MusicXML processing). Java is not recommended for CEMURM's scope.
+
+**Status as of WU4 (guardian consent by email): Option A is no longer a recommendation — it is the shipped backend.** The application had been 100 % client-side until the guardian-consent work unit, which needed the first server-side code in the product for one reason: the consent request has to leave the browser, because a parent who has never heard of CEMURM is the person who must open it. The first Edge Function is `send-guardian-consent` (`supabase/functions/send-guardian-consent`), and the first outbound network call in the product is its call to the Resend API. Everything else — including every access-control rule the flow depends on — stayed in the database, as RPCs. See §11.1.bis.
 
 ### 10.4 Client-Side Processing: WebAssembly (Rust → WASM)
 
@@ -521,11 +555,29 @@ Validated against [itsfree.dev](https://itsfree.dev) (revisión jul 2026), catá
 
 No hay hueco funcional en el pilar de datos/hosting/auth: los cuatro servicios ya contemplados cubren las necesidades del MVP sin coste.
 
+### 11.1.bis Resend — añadido por el consentimiento deGuardian (Hito 4 / WU4)
+
+**Resend dejó de estar diferido.** Figuraba en la §11.2 de esta misma tabla con el disparador *"cuando se necesiten emails de producto propios"*, y ese momento llegó con una razón de seguridad, no deFeatures: hasta la migración `0031_guardian_consent_email`, `guardian_consents.status` salía por defecto en `'active'`, así que un menor escribía el nombre de su tutor en su propio formulario y la cuenta se desbloqueaba al instante — sin que ningún tutor hubiera intervened nada. Un flujo que depende de la supervisión de un adulto no puede implementarse "en el cliente cuando toque": hace falta entregar un enlace a una bandeja externa, y eso obliga a salir del cliente.
+
+| Aspecto | Decisión |
+|---------|----------|
+| Proveedor | Resend (API HTTP `POST /emails`) |
+| Rol | Un único email transaccional: la petición de consentimiento del menor, con los enlaces de **aprobar** y de **retirar** |
+| Dónde vive la clave | **Supabase Vault**, secret `resend_api_key`. Nunca en el repositorio (`supabase/config.toml` está versionado) ni en el bundle del cliente (una variable `VITE_` se envía a cada navegador) |
+| Quién la lee | La Edge Function `send-guardian-consent` con la clave `service_role`, a través de `public.read_resend_api_key()`, concedida **solo** a `service_role` |
+| Código de servidor | Primera Edge Function del producto (`supabase/functions/send-guardian-consent`). Es también la primera llamada saliente; hasta aquí la aplicación era 100 % cliente |
+| Variable no secreta | `SITE_URL` por entorno (origen de la PWA). El enlace es absoluto, así que su ausencia produce `app_url_not_configured` y no se envía nada |
+| Ausencia de clave | Respuesta tipada `email_not_configured` (503). Es el estado normal en local y la razón de que la función sea entregable y testeable sin credenciales: no hay envío simulado en ninguna parte |
+| Superficie pública | `/guardian/confirm` y `/guardian/revoke`, **fuera** de `RequireAuth`. La autorización es el `revocation_token` de 128 bits del propio registro; ambas páginas exigen un clic real y borran la query del historial nada más leerla |
+
+**Verificación real de un envío: NO realizada.** No existe credencial de Resend en este entorno, así que lo verificado es todo lo demás — la validación del JWT, la lectura de la fila `pending` con `service_role`, la construcción de los enlaces y la llamada saliente real (Resend respondió `401 API key is invalid` a una clave de prueba). El primer correo que llegue a una bandeja real no está probado.
+
+Ver `docs/local-dev.md` para el montaje de Vault y de la variable `SITE_URL`.
+
 ### 11.2 No incluido — diferido a fases posteriores
 
 | Tool | Candidate role | Why deferred | Trigger to add |
 |------|----------------|--------------|----------------|
-| Resend | Emails transaccionales (confirmar cuenta, invitaciones) | Supabase Auth ya gestiona los emails de confirmación | Cuando se necesiten emails de producto propios (SaaS, invitaciones de banda) |
 | Sentry | Observabilidad de errores en producción | La observabilidad formal es del plan Phase 4 (§10.9) | Al desplegar para público real; no para el shell de MVP |
 | UptimeRobot / Better Stack | Páginas de estado y monitorización de uptime | Sin servicio en producción que vigilar | Tras el primer despliegue público |
 | Umami / Cloudflare Web Analytics | Analítica web privacy-first | No requerida por el MVP; metas de producto no definidas | Al definir KPIs de uso |
@@ -535,6 +587,7 @@ No hay hueco funcional en el pilar de datos/hosting/auth: los cuatro servicios y
 ### 11.3 Decisión
 
 - **MVP (Phase 0):** confirmado en Supabase + Cloudflare R2 + Vercel. Sin dependencias gratuitas adicionales → coste **$0/β** respaldado por la §8.
+- **Excepción ya materializada (WU4):** **Resend** entra en el stack (§11.1.bis). Rompe el coste **$0/β** en el orden de los miles de correos al mes — muy por debajo del umbral de pago, y solo cuando realmente hay tutores a los que avisar. La regla de más abajo sigue vigente; esta fila es el caso en que un hito la ***exigió***, que es exactamente el disparador que la propia tabla fijaba.
 - **Regla de oro:** no añadir servicios de su catálogo a menos que un hito (`mvp-scope.md`) o un requerimiento funcional los exija. Evaluar cada entrada del catálogo solo cuando el costo de build o el límite del tier gratuito sea un cuello de botella real.
 
 *Revisar de nuevo cuando se alcance un límite de tier gratuito, se añada un servicio en producción, o se defina la estrategia de observabilidad del despliegue público.*

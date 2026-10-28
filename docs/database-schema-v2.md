@@ -1,6 +1,6 @@
 # CEMURM — Database Schema v2 (Proposal)
 
-Status: **IMPLEMENTED.** Schema v2 is live: DDL ported verbatim to `supabase/migrations/0001_init.sql`, RLS implemented in `0002_rls_core.sql` (34 owner-scoped policies over 48 tables). It supersedes `docs/technical-spec.md` §4 (approved 2026-09-01, merged via PR #10). Written against the 42-feature/656-scenario Gherkin suite (`features/*.feature`), not against the tech-spec's own §4, which covers ~5 tables and an owner-only RLS model that cannot express the org/branch/public visibility the suite demands.
+Status: **IMPLEMENTED.** Schema v2 is live: DDL ported verbatim to `supabase/migrations/0001_init.sql`, RLS implemented in `0002_rls_core.sql` (34 owner-scoped policies over 48 tables). It supersedes `docs/technical-spec.md` §4 (approved 2026-09-01, merged via PR #10). Written against the 45-feature/713-scenario Gherkin suite (`features/*.feature`), not against the tech-spec's own §4, which covers ~5 tables and an owner-only RLS model that cannot express the org/branch/public visibility the suite demands.
 
 Conventions: PostgreSQL (Supabase; local stack runs 17, per `supabase/config.toml`). UUID PKs (`gen_random_uuid()`), `TIMESTAMPTZ` time columns, `jsonb` for flexible/personal data, native enums for small closed domains, FKs with `ON DELETE` rules chosen per relationship. All rich text (charts, lyrics) stored as text / object storage — no binary blobs in the DB. Object storage (Supabase Storage / R2) holds chart files and avatars; tables only store object keys. No client test framework; the DDL is implemented (see migrations), this doc is the model contract.
 
@@ -8,7 +8,7 @@ Conventions: PostgreSQL (Supabase; local stack runs 17, per `supabase/config.tom
 
 ## 1. Entity inventory
 
-48 tables implemented in `0001_init.sql`; the inventory below counts 44 named entities. Three inventory rows are not DDL tables — `roles` (#4) is the `role` enum type, `users` (#5) is `auth.users`, and `external_connections` (#41) is designed but not ported — while seven join/detail tables required by the DDL are unnumbered in the inventory (`user_roles`, `song_tags`, `setlist_collaborators`, `event_participants`, `event_setlists`, `performance_items`, `rehearsal_items`): 41 + 7 = 48. "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
+48 tables implemented in `0001_init.sql`; the inventory below counts 44 named entities. Two inventory rows are not DDL tables — `roles` (#4) is the `role` enum type and `users` (#5) is `auth.users` — while seven join/detail tables required by the DDL are unnumbered in the inventory (`user_roles`, `song_tags`, `setlist_collaborators`, `event_participants`, `event_setlists`, `performance_items`, `rehearsal_items`): 41 + 7 = 48. `external_connections` (#41) was designed but not ported in 0001 (hence the 44-named/41-DDL split above); it ships in migration **0026** as the minimal user-scope port for #69 external auto-tagging (one row per `(user_id, provider)`, status 'connected'|'revoked', no delete surface — see the §3 note). Post-0001 migrations bring the live schema to 51 tables: 48 from 0001 + `substitution_responses` (0023), `overlay_sessions` (0025), `external_connections` (0026). "Requires" cites the `.feature` file(s) whose scenarios cannot be served without storing the entity. Visibility = the scope the entity anchors to for RLS (see §3). One entity — **event** — requires an EXTRA column (3 event types) the specs do not settle; marked accordingly (resolved 2026-09-01: one `events` table + `type` — see §4 D2).
 
 ### 1.1 Tenancy spine
 
@@ -98,7 +98,7 @@ Personal chord substitutions are keyed to the CONCRETE chart chord (music-theory
 | 43 | `scale_catalog` | Extensible scale/mode catalog (major…melodic-minor modes) — addable by system director without code change; songs declare tonic + scale | music-theory, personal-preferences-and-adaptations | system |
 | 44 | `dmca_notices` | Formal DMCA takedown notices and counter-notices (sender, date received, statutory body) linked to a `public_song` and optionally a `moderation_cases`; the legal log DMCA §512(c)(3) requires retaining | legal retention (no Gherkin feature — see note) | system (moderator / designated agent) |
 
-> **Note on `dmca_notices` (entity #44):** no `.feature` file covers DMCA notices — the "Requires" value of *legal retention* reflects that this table is mandated by DMCA §512(c)(3) (retaining the notice) and §512(i)(1)(A) (repeat-infringer policy), not by any Gherkin scenario in the 42-feature suite. Visibility is inferred as system (moderator / designated agent), mirroring `moderation_cases`. If a DMCA feature spec is ever added (`features/dmca.feature`), this row should be re-cited.
+> **Note on `dmca_notices` (entity #44):** no `.feature` file covers DMCA notices — the "Requires" value of *legal retention* reflects that this table is mandated by DMCA §512(c)(3) (retaining the notice) and §512(i)(1)(A) (repeat-infringer policy), not by any Gherkin scenario in the 45-feature suite. Visibility is inferred as system (moderator / designated agent), mirroring `moderation_cases`. If a DMCA feature spec is ever added (`features/dmca.feature`), this row should be re-cited.
 
 ### 1.9 Entities in scope of the task but NOT proposed (YAGNI)
 
@@ -110,6 +110,26 @@ Personal chord substitutions are keyed to the CONCRETE chart chord (music-theory
 | `search_history` / `saved_searches` | Client-side convenience per `search-and-discovery` (local accessibility); no shared data |
 | `user_vocal_ranges` (periodized) | `personal-preferences-and-adaptations` stores a manual range preference; the observed range history is derivable from performance records — recompute, don't persist |
 | `duplicate detection results` | The heuristic result is reviewable client-side; only confirmed decisions are stored (as `song_duplicates`) |
+
+> **Note on `overlay_sessions` (Hito 5, migration 0025):** the row above classified
+> `overlay_sessions` as client/runtime state ("realtime surface, not persistent rows")
+> and §2.10.2 mapped obs-overlay to expiring tokens. The OBS Browser Source runs in a
+> SEPARATE Chromium/CEF process, so BroadcastChannel/localStorage (the External Display
+> and Congregation Projection patterns) never cross browser instances; a Realtime channel
+> with an anon SELECT policy would leak every active session to any anonymous subscriber.
+> Migration 0025 therefore adds ONE minimal capability row per (user, setlist) + an
+> unauthenticated polling RPC (`overlay_state`), and `status` active|inactive IS the
+> token window. The table is deny-by-default (authenticated lifecycle policies only) and
+> grants `overlay_state` EXECUTE to anon alone — the CEF source holds no JWT. Documented
+> deviation on the same pattern as 0023's `substitution_responses`.
+>
+> **Superseded in part by 0032.** 0025 made the row's `id` primary key the bearer.
+> The capability is now the dedicated `overlay_sessions.access_token` column, and the
+> RPC never accepts the primary key — 0025's own rationale ("one minimal capability
+> row") was right, its choice of which column carries the secret was not, because the
+> id is a URL path segment, a route parameter and a `localStorage` mirror rather than a
+> secret. Same pattern as `guardian_consents.revocation_token` (0017) and
+> `sharing_approval_token` (0020).
 
 ---
 
@@ -279,6 +299,45 @@ CREATE TABLE external_enrichments (
   created_at  timestamptz NOT NULL DEFAULT now()   -- provenance in song change history
 );
 ```
+
+> **Note on external import (Hito 5, migration 0028):** `songs` gains DECLARED
+> import metadata — `year` (integer; MusicBrainz prefill / import-conflict home,
+> declared only, never guessed) and `license` / `license_confirmed` using the
+> EXACT `public_songs` vocabulary (`'public-domain' | 'CC-BY-4.0' |
+> 'proprietary'`, enforced by `songs_license_check`; default `CC-BY-4.0`,
+> `license_confirmed = false` keeps every existing song untouched — an import
+> only lands with explicit confirmation S9, and attribution shows source +
+> license only when confirmed S10). Import lineage rides the `songs.source`
+> text plus the version row's `name` / `change_note` / `metadata.import`;
+> `lineage_source` stays a uuid ref (version forks) and is NOT the import
+> record — no new table needed. `song_duplicates` is now user-accessible
+> (0002 revoked all) as an owner-scoped, append-only dedupe audit trail: a
+> group is select/insert/update-able iff it contains ≥1 song OWNED by the user
+> (subquery over `songs` inside the policy); NO delete grant — merge stays
+> reversible via setlist ref re-targeting, the audit row persists. 0028 also
+> widens 0026's `external_enrichments` INSERT whitelist from `'spotify'` to
+> `('spotify','musicbrainz','lrclib')` so the import pipeline persists
+> musicbrainz genre/year and lrclib lyrics suggestions through the same
+> `suggestEnrichment` path — the `applied_by` / `state='suggested'` gates are
+> unchanged and the source vocabulary comes from 0001 as-is (no DDL on the
+> table itself).
+
+> **Note on PDF scan charts (Hito 5, migration 0027):** `chart_files` columns are
+> UNCHANGED — `'pdf'` was already in the `chart_format` enum, and a PDF scan is a
+> row with `format = 'pdf'`, `content = NULL` (object stays in Storage) and
+> `object_key` = the Storage path (`${auth.uid()}/${uuid}.pdf`). The Storage
+> surface lives in a **private `charts` bucket** (migration 0027): owner-folder
+> RLS on `storage.objects` (first path segment = `auth.uid()::text` is the
+> boundary) and **signed URLs only** — `public` may NEVER be flipped (tech-spec
+> R2 direction). Replace = NEW `chart_files` row + NEW `song_versions` row with
+> the next number (append-only; the previous scan is preserved for the version
+> picker). Size limits: PRODUCT cap **10 MB** enforced app-side
+> (`validatePdfFile`, before any upload/write) and the stack
+> `file_size_limit = "50MiB"` (`supabase/config.toml`) as the hard server cap —
+> no DB size constraint by design (server-side trigger validation deferred,
+> documented limitation). PDF readiness = key present + non-empty scan
+> (`size_bytes > 0`); "legible" is defined as that non-empty scan — visual
+> legibility of the scan is human QA, stated as a limitation.
 
 ### 2.4 Setlists, items, collections
 
@@ -702,12 +761,30 @@ CREATE TABLE scale_catalog (              -- entity #43: extensible scale/mode c
 );
 ```
 
+```sql
+-- entity #41, implemented in migration 0026 (minimal user-scope port for #69).
+-- Status 'connected'|'revoked' IS the lifecycle: disconnect flips status (row
+-- persists), reconnect upserts back to 'connected' via the unique(user_id,
+-- provider) constraint. RLS: owner-scope read/insert/update; NO delete grant —
+-- revocation is a status flip, never a row deletion (YAGNI delete). Full
+-- OAuth connect UX lands with #78; connection here is implicit on first
+-- enrichment.
+CREATE TABLE external_connections (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE cascade,
+  provider   text NOT NULL,               -- 'spotify' (others land with #78)
+  status     text NOT NULL DEFAULT 'connected',  -- 'connected' | 'revoked'
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, provider)
+);
+```
+
 ### 2.10 Realtime layer touchpoints (no over-design)
 
 Three places the future realtime layer plugs in — schema already carries the ids/payloads it needs, nothing more:
 
 1. **Shared setlist edits** (`setlist_items`, `setlist_collaborators`) — Supabase Realtime subscription on `setlist_id`; the conflict toast ("Julian is editing Song B") is client-layer advisory state expressed as a lock, not a DB row (`shared-setlist-collaboration`). `setlist_collaborators.can_edit` is the authority the realtime filter consults.
-2. **Live performance / projection sync** (`performances`, `service_blocks`, `audience_views`) — operator device and display follow the same row (slide index + current song) via a realtime channel; the persistent side is `service_blocks` + `outbox`. `obs-overlay` sessions map to `audience_views`-style expiring tokens.
+2. **Live performance / projection sync** (`performances`, `service_blocks`, `audience_views`) — operator device and display follow the same row (slide index + current song) via a realtime channel; the persistent side is `service_blocks` + `outbox`. `obs-overlay` sessions map to `audience_views`-style expiring tokens, and the window is the row's `status` (`active`|`inactive`), consumed by the public `overlay_state` polling RPC — see the §1.9 note. **Corrected by 0032:** 0025 used the `overlay_sessions.id` primary key as the capability uuid. That was the wrong bearer — the id is a URL path segment, a route parameter, and a `localStorage` mirror, so it is structurally exposed rather than secret. 0032 adds a dedicated `overlay_sessions.access_token` as the capability (the same pattern as `guardian_consents.revocation_token` in 0017 and `sharing_approval_token` in 0020) and leaves the primary key an ordinary identifier that the RPC never accepts. The practical gain is revocation: the token rotates within the row, so a leaked overlay URL dies without disabling the stream.
 3. **Offline merge on reconnect** — `outbox.seq` gives deterministic replay order; an edge function re-runs each `payload` against RLS and returns a `conflict` state for items the UI then surfaces (conflict resolution screen). This is the actual offline merge contract the suite needs — per-entity semantic merge rules are app logic, not schema.
 
 ---
@@ -760,6 +837,16 @@ The core deliverable. Matrix uses the scope columns from §2 (`org_id`, `branch_
 | `midi_maps` | setlist scope, owner/collaborators | setlist editor; maps duplicate with the setlist, never alter via transpose | setlist scope | midi-integration "mapping is saved with the setlist"; "duplicate carries the same MIDI mappings" |
 | `outbox` | owning user/device only (client-owned) | owning user's client; server edge re-validates RLS on replay | `user_id` + `device_id` | offline-access; pwa-updates-and-storage queue-survival contract |
 | `external_connections` | owner user | owner user; disconnect revokes future enrichment | `user_id` | external-integrations revoke; external-autotagging "Disconnect from Spotify" |
+| `external_enrichments` | owner user action rows (creator reads all states); applied values ALSO readable by the song owner | creator only (insert suggestions → update state transitions; no delete) | `applied_by` (action creator) + song owner branch via `songs.created_by` | external-autotagging "Apply BPM and album art from the suggestion", "Auto-detected key is a suggestion", "Enrichment adds provenance" |
+
+> **Note on `external_enrichments` (Hito 5, migration 0026):** no column carries the
+> owner link for the read/update model — as implemented (0026), `applied_by` is the
+> owner link for EVERY state: suggested rows are "created by" the enriching user and
+> applied rows record who applied. The insert policy admits only `state='suggested'`
+> with `source='spotify'` and `applied_by = auth.uid()`; updates run only by the row
+> creator (suggested → applied|discarded, app-enforced order). The 0001 DDL is
+> preserved verbatim — no `owner_id` column was added (documented deviation denial:
+> `applied_by` carries all states).
 | `audience_views` | anyone with the expiring token (QR/embed link) — no auth required | setlist owner generates/revokes | token + expiry; push binding only via opt-in (A8) | export-and-sharing audience QR, 7-day link expiry; A8 |
 | `scale_catalog` | all users (rendered key contexts) | system director (org-level admin per organizational-repertoire-model conventions) | system | music-theory "catalog is extensible data… added by the system director" |
 
@@ -886,4 +973,4 @@ All seven resolved by the product owner. Schema §2 already reflects the chosen 
 
 ## 5. Replacement note
 
-If approved, this doc replaces `docs/technical-spec.md` §4 (PostgreSQL schema + RLS block). The mapping is direct: §1 supersedes the current 5-table sketch, §2 is the DDL contract (the tech-spec's `tenant_id` column becomes the `org_id`+`branch_id` scope pair; its `annotations` table splits into `shared_comments` + `personal_annotations`), §3 supplies the RLS that §4's "Similar policies for setlists, annotations, collections" hand-waves past, and §4 carries forward the tech-spec's own §10.9.1 "every core table carries a tenant identifier" requirement in a form the 42 features can actually enforce. Nothing else in technical-spec.md is touched: §3 (stack) and §10 (decisions) remain authoritative, and §4's `users` note (profiles are cross-tenant identity) is preserved unchanged.
+If approved, this doc replaces `docs/technical-spec.md` §4 (PostgreSQL schema + RLS block). The mapping is direct: §1 supersedes the current 5-table sketch, §2 is the DDL contract (the tech-spec's `tenant_id` column becomes the `org_id`+`branch_id` scope pair; its `annotations` table splits into `shared_comments` + `personal_annotations`), §3 supplies the RLS that §4's "Similar policies for setlists, annotations, collections" hand-waves past, and §4 carries forward the tech-spec's own §10.9.1 "every core table carries a tenant identifier" requirement in a form the 45 features can actually enforce. Nothing else in technical-spec.md is touched: §3 (stack) and §10 (decisions) remain authoritative, and §4's `users` note (profiles are cross-tenant identity) is preserved unchanged.

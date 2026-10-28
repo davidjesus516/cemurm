@@ -1,0 +1,25 @@
+# .gitguardian.yaml
+# Narrow allowlist for deterministic local-dev fixtures.
+# These are NOT secrets: they are published defaults identical across
+# every fork and CI run, protecting ephemeral containers only.
+# #300 landed the initial version; this PR fixes the rules so they
+# actually suppress the flagged values (GitGuardian matches `match:`
+# against the DETECTED VALUE, not the surrounding line) and covers the
+# deterministic anon JWT that the E2E fixtures embed.
+
+version: 2
+
+secret:
+  ignored_matches:
+    - name: "Supabase local dev POSTGRES_PASSWORD default"
+      match: "^postgres$"
+    - name: "Supabase seed fixture password"
+      match: "password1234"
+    - name: "Supabase local dev deterministic anon JWT"
+      match: "^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9\\.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0$"
+  ignored_paths:
+    - ".github/workflows/e2e.yml"
+    - "tests/e2e/"
+    - "supabase/seed.sql"
+    - "docs/security.md"
+    - "docs/local-dev.md"

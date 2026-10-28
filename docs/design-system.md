@@ -1,10 +1,40 @@
 # CEMURM — Design System
 
-> **Status:** Approved — palette, typography, and mascot species/character finalized. Mascot **name and artwork pending** — "Kutu" is the working name; current artwork is a placeholder tracked in [#34](https://github.com/davidjesus516/cemurm/issues/34).  
-> **Created:** 2026-09-06  
-> **Updated:** 2026-09-09  
-> **Supersedes:** nothing (first design system document)
+> **Status:** PARTIALLY SUPERSEDED, 2026-09-28. The **visual rules** below were replaced by
+> `skills/cemurm-visual-system/SKILL.md` and its three references, enforced in CI by
+> `scripts/check-visual-contract.sh`. The **brand voice, mascot, notification behaviour,
+> onboarding, empty states and celebration triggers remain current** and are still cited by
+> `docs/ux-spec.md` and `docs/wireframes.md` by section number.
+>
+> **Do not delete this file.** It carries live cross-references from `README.md`,
+> `docs/ux-spec.md` and `docs/wireframes.md` — **14** in total as of 2026-09-30 (1 + 8 + 5; the
+> earlier figure of eleven undercounted them) — and it is the only record of the mascot and the
+> voice.
+>
+> **Created:** 2026-09-06
+> **Updated:** 2026-09-30 (supersession banner added 2026-09-28 in #238; cross-reference count
+> corrected 2026-09-30)
+> **Superseded in part by:** `skills/cemurm-visual-system/`, merged as `5547150` (PR #235)
 
+## Which sections are dead, and by what
+
+| Section | Status | Authority now lives in |
+|---|---|---|
+| 1 Brand identity, tone, voice | **Current** | This document. `ux-spec.md:82` applies 1.3 by number |
+| 2 Color palette, the token table | **Current** | The values are the live `cem-*` tokens in the `@theme` block of `src/app/index.css` |
+| 2 Color usage rules | **Superseded** | `SKILL.md` rule 2: one accent, full saturation on the logo mark, the primary CTA and the active state only |
+| 3 Mascot "Kutu" | **Current** | This document. `ux-spec.md:110,153` cite section 7 for mascot treatment |
+| 4 Typography, Inter | **Current** | This document, plus the display mono now required. See 4.1 |
+| 4 Typography, the type scale | **Superseded** | `assets/tokens.css` in the skill. Every spacing and radius value there is a project decision, not an Apple value: Apple publishes none |
+| 5-8 Notification, onboarding, empty states, celebration | **Current** | This document. `wireframes.md` cites section 7 |
+| 9 Dark mode vs light mode | **Describes an unimplemented feature** | Nothing. See the note at the top of section 9 |
+| 10 Implementation priority | **Stale** | Milestone status moved to `docs/master-plan.md` |
+| 11 Open decisions | **Stale** | Entries annotated individually below |
+
+The visual direction is now **the macOS / Apple design language**, keeping this project's colour
+essence: a dark ramp plus **one** amber accent. Two earlier rules were deliberately replaced: the
+mandate of `border-radius: 0` became continuous radii scaled to component size, and the accent
+moved off the performance surface onto the logo, the primary CTA and the active state.
 ---
 
 ## 1. Brand Identity
@@ -229,7 +259,16 @@ Species chosen over Jovian/Indri lemur for higher cuteness factor, cultural reco
 
 ## 4. Typography
 
-### 4.1 Font Choice: Inter
+### 4.1 Font Choice: Inter — plus a display monospace (added 2026-09-28)
+
+**Added by the visual contract:** Inter is no longer the only family. A **technical monospace** is
+now also the brand display face, self-hosted, latin subset only. Inter covers UI and data, but a
+product that reads as an instrument for working musicians needs a display face with a technical
+register, and reusing one family for both roles is what makes a system read as generic. The same
+family also serves the mono/data role, which fixes SongDetail silently falling back to DejaVu.
+Self-host both; no Google Fonts link; `font-display: swap` with a `size-adjust` fallback to keep
+CLS at zero. Why that family and not another is in
+`skills/cemurm-visual-system/references/apple-macos-visual-language.md`.
 
 **Why Inter:**
 - **Legible at every size** — critical for Stage Mode (large text at distance) and mobile (small text in lists)
@@ -419,6 +458,13 @@ Every empty state follows the same pattern:
 
 ## 9. Dark Mode vs Light Mode
 
+> **The light-mode column below describes a feature that does not exist.** Verified 2026-09-28:
+> there is no theme toggle anywhere in `src/`, `tailwind.config.js` declares zero light or dark
+> variants, and `src/app/index.css` hardcodes `color-scheme: dark`. Settings has no Appearance
+> section. The row "Toggle: Settings -> Appearance -> Dark/Light/System" is aspirational, and so is
+> the "Light mode accent shifts" decision in section 11. Kept here because deleting the table would
+> remove the record of what was once intended, and because dark-first is still the real rule.
+
 | Aspect | Dark Mode (Default) | Light Mode |
 |--------|-------------------|------------|
 | **When** | Stage Mode, low-light environments, evening use | Bright environments, projector displays |
@@ -434,6 +480,10 @@ Every empty state follows the same pattern:
 ---
 
 ## 10. Implementation Priority
+
+> **Stale, 2026-09-28.** These phases are historical. Current sequencing lives in
+> `docs/master-plan.md`, and `AGENTS.md` deliberately does not carry milestone status. The "Now
+> (Hito 1)" rows below describe a project state that no longer exists.
 
 | Phase | What to implement | When |
 |-------|------------------|------|
@@ -455,10 +505,10 @@ Every empty state follows the same pattern:
 | Mascot artwork | ⚠️ Placeholder | Concept/name approved; current art is placeholder until final design — [#34](https://github.com/davidjesus516/cemurm/issues/34) |
 | Typography | ✅ Approved — Inter | Finalized by group decision, no longer pending designer |
 | Notification tone | ✅ Approved — Hybrid contextual | Informativo para edits, motivacional para logros |
-| Light mode | ✅ Approved — same palette, inverted | Awaiting designer review for accent adjustments |
+| Light mode | ❌ Never built | Approved on paper, never implemented. No theme toggle in `src/`, no light tokens in the config. Dark-only is the real rule |
 | Celebration sound | ❌ Undecided | Short chime? Musical note? Silent? |
-| Light mode accent shifts | ⏳ Deferred to designer | Do amber/coral need lighter variants for white backgrounds? |
+| Light mode accent shifts | ❌ Moot | Moot if light mode is never built. See section 9 |ds? |
 
 ---
 
-*This document is the single source of truth for CEMURM's visual identity. Update it as decisions are finalized.*
+*This document was the single source of truth for CEMURM's visual identity. As of 2026-09-28 that role belongs to `skills/cemurm-visual-system/SKILL.md` for visual rules; this file remains the source of truth for voice and mascot. Update it as decisions are finalized.*

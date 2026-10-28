@@ -1,0 +1,70 @@
+{
+  // JSDoc + checkJs type baseline (odd/tasks/ts-checkjs-baseline.md).
+  //
+  // NOTE (deliberate deviation): global checkJs is OFF. With
+  // checkJs:true over this include, tsc type-checks EVERY module it can
+  // reach at once (~760 errors, ~530 of them in out-of-scope files such as
+  // gigs.js, rehearsals.js, services.js, comments.js, bandmates.js,
+  // announcements.js, search.js, offlineCache.js, readiness.js, duration.js,
+  // chordpro/parser.js). The ODD scopes the baseline to exactly four domain
+  // libs, so they opt in individually with the canonical per-file
+  // `// @ts-check` pragma — identical checking semantics for the opt-in
+  // files, exact checked surface. The remaining modules stay unchecked until
+  // a later pass; do NOT flip checkJs on globally before then.
+  //
+  // PATHS (updated by M0a + jsdoc-libs port): the original opt-in files moved
+  // when the tree was relocated into the ADR 0002 boundaries. The old include
+  // was ["src/lib"], which now holds only storage.js — tsc exited 0 while
+  // checking ONE untyped file, and the whole baseline was silently dead. The
+  // globs below are what actually admit the pragma'd files — the four
+  // post-M0a baseline files plus the relocated jsdoc-libs pass surface:
+  //   src/domain/music/{transpose,annotations}.js
+  //   src/data/repositories/{songs,setlists}.js
+  //   src/data/repositories/*.js (jsdoc-libs S02-S11 port)
+  //   src/domain/** (jsdoc-libs S04-S11 port)
+  //   src/integrations/** (jsdoc-libs S05-S08 port)
+  //   src/offline/** (jsdoc-libs S09/S11 port)
+  //   src/data/supabase.js (jsdoc-libs S11 port — src/data covers it)
+  // VERIFY AFTER ANY MOVE: `npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'`
+  // must stay > 1. A count of 1 means the baseline is dead again and the
+  // green exit is meaningless. 248 at F1: 172 TS/TSX (the template tree) + 76 JS.
+  "compilerOptions": {
+    "allowJs": true,
+    // strict is for the TS/TSX half (tw4-stack-foundation S4). Since F1 the
+    // vendored admin template's .ts/.tsx tree is admitted by `include`, and
+    // the path aliases below resolve its "@/..." and "src/..." imports.
+    // The same flag applies to the pragma'd .js files (checkJs off but
+    // @ts-check files are still checked), so the baseline stays the guard:
+    // tsc must exit 0 AND the listFiles count below must stay > 1 after any
+    // option change.
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "src/*": ["./src/*"]
+    },
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/domain",
+    "src/data",
+    "src/integrations",
+    "src/lib",
+    "src/offline",
+    "src/api",
+    "src/components",
+    "src/context",
+    "src/hooks",
+    "src/layouts",
+    "src/routes",
+    "src/types",
+    "src/views"
+  ]
+}

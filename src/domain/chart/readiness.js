@@ -1,0 +1,174 @@
+// @ts-check
+// Pure readiness logic — no DOM, no localStorage, safe in Node.
+// ponytail: split from songs.js so computeReadiness is importable in Node.
+
+import { parseChordPro } from './parser.js'
+
+/**
+ * The slice of a version computeReadiness reads: base key + chart body, plus
+ * the PDF-scan branch inputs. Every field is optional/nullish because the
+ * caller assembles this from a (possibly absent) version row, and the demo
+ * passes a null version to exercise the missing-key guard.
+ * @typedef {object} ReadinessInput
+ * @property {string | null | undefined} [key]
+ * @property {string | null | undefined} [body]
+ * @property {boolean | null | undefined} [hasPdfChart]
+ * @property {number | null | undefined} [sizeBytes]
+ */
+
+/**
+ * @typedef {object} Readiness
+ * @property {'ready' | 'draft'} status
+ * @property {string | null} reason
+ */
+
+/**
+ * Readiness for ONE version.
+ *
+ * Readiness rules (BDD order of precedence):
+ *   1. No key → "Not ready: missing base key"
+ *   2. PDF scan (hasPdfChart, Hito 5 #76): the scan IS the chart — ready when
+ *      a non-empty scan exists (sizeBytes > 0). "Legible" = non-empty scan;
+ *      visual legibility of the scan is human QA (documented limitation).
+ *   3. (ChordPro) No body or no chord line → "Not ready: no chord chart"
+ *   4. (ChordPro) No lyric text → "Not ready: missing lyrics section"
+ *   5. All present → ready
+ *
+ * song-lifecycle.feature:34 says "Readiness is tracked per version, not per
+ * song", and `song_versions.is_ready` exists for exactly that ("readiness PER
+ * VERSION — same song, two versions, two states", 0001_init.sql:110). This
+ * function used to take a song and answer for it as a whole, which made the
+ * per-version scenario unreachable and left `is_ready` with nothing computing
+ * it. The superseded note that said "Versioned readiness is Hito 3 — no version
+ * table here" is what the per-version decision overturned.
+ *
+ * The song-level answer is the current version's answer, not a blend — a song
+ * with three versions has one readiness value and it describes the version a
+ * reader would open.
+ *
+ * `retired` is an absence rather than a fourth state, by decision: retiring a
+ * version means it is no longer current, so readiness over the *current* version
+ * is undefined and the UI shows nothing. No `retired_at` column is needed and
+ * `is_ready` finally means something. The cost, stated plainly: a retired
+ * version renders nothing rather than a distinct label, so if the product later
+ * wants retired to look different from draft, this is the wrong shape and it is
+ * cheaper to reverse before call sites move than after.
+ *
+ * @param {ReadinessInput | null | undefined} version
+ * @returns {Readiness}
+ */
+export function computeReadiness(version) {
+  // `version.key.trim()` threw on a truthy non-string key — a number, an object, a
+  // boolean — and a key is text in this schema (song_versions.base_key is
+  // `text`, 0001_init.sql). A key that is not text is a missing key as far as
+  // readiness is concerned, so it takes the existing "missing base key" path
+  // rather than crashing the caller.
+  if (!version) return { status: 'draft', reason: 'Not ready: missing base key' }
+  const key = typeof version.key === 'string' ? version.key : ''
+  if (!key.trim()) {
+    return { status: 'draft', reason: 'Not ready: missing base key' }
+  }
+
+  if (version.hasPdfChart) {
+    return (version.sizeBytes ?? 0) > 0
+      ? { status: 'ready', reason: null }
+      : { status: 'draft', reason: 'Not ready: no PDF scan' }
+  }
+
+  if (!version.body || !version.body.trim()) {
+    return { status: 'draft', reason: 'Not ready: no chord chart' }
+  }
+
+  const parsed = parseChordPro(version.body)
+  const lyricsSections = parsed.sections.filter((s) => s.type === 'lyrics')
+
+  // At least one chord line
+  const hasChordLine = lyricsSections.some((s) =>
+    s.lines.some((l) => l.chords.length > 0),
+  )
+  if (!hasChordLine) {
+    return { status: 'draft', reason: 'Not ready: no chord chart' }
+  }
+
+  // At least one lyric text line
+  const hasLyricText = lyricsSections.some((s) =>
+    s.lines.some((l) => l.text.trim().length > 0),
+  )
+  if (!hasLyricText) {
+    return { status: 'draft', reason: 'Not ready: missing lyrics section' }
+  }
+
+  return { status: 'ready', reason: null }
+}
+
+// Self-check: node -e "import('./src/domain/chart/readiness.js').then(m => m.demo())"
+export function demo() {
+  /**
+   * @param {unknown} cond
+   * @param {string} msg
+   * @returns {void}
+   */
+  const assert = (cond, msg) => {
+    if (!cond) throw new Error(`readiness demo FAILED: ${msg}`)
+  }
+
+  // 1. Complete song → ready
+  const complete = computeReadiness({
+    key: 'C major',
+    body: '{key: C}\n[C]Hello [G]world\n[C]Goodbye',
+  })
+  assert(complete.status === 'ready', 'complete song should be ready')
+  assert(complete.reason === null, 'complete reason should be null')
+
+  // 2. No key → draft
+  const noKey = computeReadiness({
+    key: '',
+    body: '[C]Hello',
+  })
+  assert(noKey.status === 'draft', 'no key should be draft')
+  assert(noKey.reason === 'Not ready: missing base key', 'no key reason')
+
+  // 3. No body → draft
+  const noBody = computeReadiness({ key: 'G major', body: '' })
+  assert(noBody.status === 'draft', 'no body should be draft')
+  assert(noBody.reason === 'Not ready: no chord chart', 'no body reason')
+
+  // 4. Chords but no lyrics → draft
+  const chordsOnly = computeReadiness({
+    key: 'A major',
+    body: '[C][G][Am]',
+  })
+  assert(chordsOnly.status === 'draft', 'chords-only should be draft')
+  assert(chordsOnly.reason === 'Not ready: missing lyrics section', 'chords-only reason')
+
+  // 5. null song
+  const missing = computeReadiness(null)
+  assert(missing.status === 'draft', 'null song should be draft')
+
+  // ── Hito 5 #76: PDF scan branch ─────────────────────────────────────────
+  // 6. PDF with key + non-empty scan → ready ("legible" = non-empty scan)
+  const pdfReady = computeReadiness({
+    key: 'G major',
+    body: '',
+    hasPdfChart: true,
+    sizeBytes: 1024,
+  })
+  assert(pdfReady.status === 'ready', 'pdf with key + scan should be ready')
+  assert(pdfReady.reason === null, 'pdf ready reason should be null')
+
+  // 7. PDF without key → draft (missing base key wins)
+  const pdfNoKey = computeReadiness({ key: '', body: '', hasPdfChart: true, sizeBytes: 1024 })
+  assert(pdfNoKey.status === 'draft', 'pdf without key should be draft')
+  assert(pdfNoKey.reason === 'Not ready: missing base key', 'pdf no-key reason')
+
+  // 8. PDF with key but empty scan → draft
+  const pdfEmpty = computeReadiness({ key: 'C major', body: '', hasPdfChart: true, sizeBytes: 0 })
+  assert(pdfEmpty.status === 'draft', 'pdf with empty scan should be draft')
+  assert(pdfEmpty.reason === 'Not ready: no PDF scan', 'pdf empty-scan reason')
+
+  // 9. ChordPro path untouched by the pdf flag
+  const chordProWithPdfFlag = computeReadiness({ key: 'A major', body: '[C][G][Am]', hasPdfChart: false })
+  assert(chordProWithPdfFlag.reason === 'Not ready: missing lyrics section', 'chordpro path unchanged')
+
+  console.log('readiness demo OK')
+}

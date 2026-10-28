@@ -1,0 +1,146 @@
+/*
+ * CEMURM visual tokens — DESIGN RATIONALE ONLY. Not the token layer.
+ *
+ * READ THIS BEFORE BELIEVING ANYTHING BELOW.
+ *   * This file is NOT the token source. The `@theme` block in `src/app/index.css` is.
+ *   * This file is NOT imported by the app. Nothing in src/ references it; it is
+ *     a standalone :root block that reaches no stylesheet.
+ *   * This file is NOT read by any gate. `scripts/check-visual-contract.sh`
+ *     parses the `@theme` block in `src/app/index.css` and finds zero
+ *     references to this path.
+ *   * For every enforcement purpose it is SUPERSEDED by that `@theme` block.
+ *     Adding a colour here changes nothing that ships.
+ *
+ * WHY IT IS STILL HERE, and why nothing was deleted: the numbers below carry the
+ * reasoning that a config file cannot. The warm dark ramp, the measured
+ * foreground ratios, the rejected radius rule — that is the record of *why* the
+ * tokens were chosen, and it is worth keeping. But note that the ramp here is
+ * NOT the ramp that ships: this file proposes `--cem-bg: #0c0a09` where
+ * the `@theme` block declares `--color-cem-base: #0f172a`. Two different ramps, one
+ * of them live, neither pointing at the other. That divergence is the reason
+ * SKILL.md Hard Rule 1 no longer names this file as a token source, and why
+ * `check-visual-contract.sh` rule 08 now fails if the skill's declared token
+ * source and the file the gate reads are not the same file.
+ *
+ * Provenance of the numbers (design intent, not a spec):
+ *   - Dark ramp ....... the project brief: 4-5 steps, neutral or very slightly warm,
+ *                       replacing the borrowed Tailwind slate scale. The shipped
+ *                       `#0f172a` blue cast is the thing being removed. See
+ *                       references/apple-macos-visual-language.md for the Apple-side
+ *                       provenance of the semantic roles.
+ *   - Amber ........... the existing `cem.amber` #f59e0b, carried through unchanged. It
+ *                       is the only accent, and full saturation is permitted on exactly
+ *                       three things: the logo mark, the primary CTA, and the
+ *                       active/selected state.
+ *   - Stage palette .... the `cem.stage.*` values, reproduced byte-for-byte from
+ *                       the `@theme` block. IMPORTANT: measured 2026-09-28, every one of
+ *                       these five tokens has ZERO usages in src/. The projector surface
+ *                       runs on Tailwind's DEFAULT palette instead — StageMode.jsx has 42
+ *                       bg/text/border-black|white utilities and OverlayView.jsx has 7.
+ *                       Adopting this namespace is a class-name rename with no intended
+ *                       colour change. Nothing here has been legibility-tested.
+ *   - Radius ........... continuous-corner scale, radius increasing with component size.
+ *                       This deliberately replaces the previous "zero radius" rule.
+ *   - Elevation ........ three levels, shadow plus a hairline border. In dark mode most
+ *                       of the separation comes from surface lightness, not the shadow.
+ *
+ * Open gap: the amber, radius and spacing values are proposed, not measured. Legibility
+ * at distance for the projector surface is unsourced and is tracked as an open question
+ * in references/tier-3-performance-surfaces.md. Do not fill that gap with invented
+ * contrast ratios.
+ */
+
+:root {
+  /* ---------------------------------------------------------------- dark ramp */
+  /* Neutral, very slightly warm. Five steps; hierarchy is carried by value, not by
+     adding a colour per level. */
+  --cem-bg: #0c0a09;
+  --cem-surface: #1c1917;
+  --cem-elevated: #292524;
+  --cem-hover: #3a3533;
+
+  /* -------------------------------------------------------------- foreground */
+  /* Measured contrast, WCAG relative luminance, floor 4.5:1 for text:
+       text      on bg        18.92   on surface   16.20   on elevated  9.98
+       secondary on elevated   6.01   on hover      4.79
+     `--cem-hover` is held at #3a3533 rather than the stone-600 #44403c precisely so
+     the 4.79 holds. At #44403c this same secondary measures 4.07 and fails, which is the
+     defect the current `cem.secondary` (#94a3b8) already has in production — 2.96:1 on
+     `cem.hover` (#475569). Do not darken or lighten either value without re-measuring. */
+  --cem-text: #fafaf9;
+  --cem-secondary: #a8a29e;
+
+  /* ------------------------------------------------- fills and separators */
+  /* The existing `elevated`/`hover` tokens become overlays rather than solid steps. */
+  --cem-fill-subtle: rgb(255 255 255 / 4%);
+  --cem-fill-hover: rgb(255 255 255 / 8%);
+  --cem-separator: rgb(255 255 255 / 10%);
+  --cem-separator-strong: rgb(255 255 255 / 18%);
+
+  /* ------------------------------------------------------------------ accent */
+  /* The only saturated colour in the system. */
+  --cem-accent: #f59e0b;
+  --cem-accent-hover: #d97706;
+  --cem-accent-press: #b45309;
+  --cem-accent-quiet: rgb(245 158 11 / 12%);
+  --cem-on-accent: #1c1917;
+
+  /* --------------------------------------------------------- stage palette */
+  /* Unchanged from production. The projector surface uses these and nothing else. */
+  --cem-stage-bg: #000000;
+  --cem-stage-chord: #f59e0b;
+  --cem-stage-lyric: #f8fafc;
+  --cem-stage-section: #94a3b8;
+  --cem-stage-dim: #1e293b;
+
+  /* ------------------------------------------------------------------ shape */
+  /* Radius increases with component size. A fixed radius everywhere is the defect. */
+  --cem-radius-xs: 4px;    /* badges, count chips */
+  --cem-radius-sm: 6px;    /* inputs, small buttons */
+  --cem-radius-md: 10px;   /* cards, list rows, chat bubbles */
+  --cem-radius-lg: 14px;   /* panels, dialogs, popovers */
+  --cem-radius-xl: 20px;   /* large sheets */
+  --cem-radius-pill: 999px; /* only where a pill is the semantic form, never as a default */
+
+  /* --------------------------------------------------------------- elevation */
+  --cem-elev-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --cem-elev-2: 0 4px 12px rgb(0 0 0 / 45%);
+  --cem-elev-3: 0 12px 32px rgb(0 0 0 / 50%);
+  --cem-border: 1px solid var(--cem-separator);
+
+  /* ---------------------------------------------------------------- spacing */
+  /* 4px base. */
+  --cem-space-1: 4px;
+  --cem-space-2: 8px;
+  --cem-space-3: 12px;
+  --cem-space-4: 16px;
+  --cem-space-5: 20px;
+  --cem-space-6: 24px;
+  --cem-space-8: 32px;
+  --cem-space-10: 40px;
+  --cem-space-12: 48px;
+  --cem-space-16: 64px;
+
+  /* ----------------------------------------------------------------- motion */
+  /* CSS-native only. No animation library ships in the authenticated bundle. */
+  --cem-dur-instant: 80ms;  /* song change in Stage Mode — the live-service budget */
+  --cem-dur-fast: 120ms;
+  --cem-dur-base: 200ms;
+  --cem-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --cem-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ------------------------------------------------------------- materials */
+  /* The web stand-in for a macOS material. Only for floating chrome (tier 1). Never on
+     the projector surface: translucency destroys projector contrast. */
+  --cem-material: rgb(28 25 23 / 72%);
+  --cem-material-border: rgb(255 255 255 / 12%);
+  --cem-material-blur: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cem-dur-instant: 0ms;
+    --cem-dur-fast: 0ms;
+    --cem-dur-base: 0ms;
+  }
+}

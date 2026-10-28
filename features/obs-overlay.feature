@@ -19,6 +19,13 @@ Feature: OBS Overlay for Streaming
     Then the overlay shows nothing or an "inactive" state
     And no song data leaks outside the authorized stream
 
+  Scenario: The overlay URL carries a secret, not the session's row identifier
+    Given I enabled the overlay for setlist "Friday Gig"
+    When I inspect the overlay URL
+    Then it carries a dedicated access secret of its own
+    And it is not the identifier of my overlay record
+    And presenting that identifier instead is granted nothing
+
   ──────────────────────────────────────────────
   OVERLAY CONTENT
   ──────────────────────────────────────────────
@@ -62,3 +69,11 @@ Feature: OBS Overlay for Streaming
     When I disable the overlay during the stream
     Then the Browser Source URL immediately serves an inactive state
     And no further song data is pushed to that URL
+
+  Scenario: A leaked overlay URL can be rotated away without stopping the stream
+    Given the overlay is broadcasting
+    And the overlay URL was shared outside my session
+    When I rotate the overlay's access secret
+    Then the previous URL immediately serves an inactive state
+    And the new URL shows the current song
+    And the stream keeps running

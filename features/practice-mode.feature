@@ -183,12 +183,12 @@ Feature: Practice Mode
   NON-GOALS
   ──────────────────────────────────────────────
 
-  Scenario: Audio playback, recording, gamification, and shared practice are out of scope
+  Scenario: Audio playback, recording, and shared practice are out of scope
     Given I am in practice mode
     When I look for additional practice features
     Then no audio playback engine, backing tracks, or audio file import is offered
     And no slow-down or loop functionality exists for audio
     And no recording feature captures my practice performance
-    And no practice streaks, badges, or gamification elements exist — the analytics dashboard is the only consumption surface
-    And no shared or real-time practice session feature exists — practice is always personal
+    And no shared or real-time practice session feature exists — the session itself is always personal, even though education derives streaks and XP from it
     And no practice-mode-specific annotation feature exists — annotations are owned by collaborative-comments
+    And the streaks and XP derived from a session belong to education-student-progress — practice-mode still defines only the write path

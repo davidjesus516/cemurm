@@ -384,6 +384,26 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Edge Functions (WU4 — guardian consent by email)
+# ═══════════════════════════════════════════════════════════════════════════
+# send-guardian-consent is the app's FIRST server-side function and its first
+# outbound network call. Two properties are load-bearing and both are declared
+# here rather than in code, so a reviewer sees them without reading the handler:
+#
+#   verify_jwt = true — the caller is a SIGNED-IN MINOR asking for their own
+#   guardian's link to be sent. The function derives the account from the JWT
+#   `sub` and never from the request body, so this is what stops one minor from
+#   mailing a stranger's guardian. It also keeps the Resend key and the
+#   revocation token off an anonymous endpoint.
+#
+#   SITE_URL is NOT a secret and NOT in this file (config.toml is tracked).
+#   The guardian link is absolute, so the function needs the app origin; supply
+#   it per environment, or the function answers `app_url_not_configured` and
+#   sends nothing. See docs/local-dev.md.
+[functions.send-guardian-consent]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

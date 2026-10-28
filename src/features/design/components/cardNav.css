@@ -1,0 +1,572 @@
+/* cardNav.css — the CardNav stylesheet, split out of reference.css.
+
+   WHY THE SPLIT. reference.css is the ported stylesheet for the whole /design
+   gallery, and 15 components import it. While CardNav was loaded only by the
+   lazy /design route that was free: the file landed in the DesignSystem chunk.
+   AppLayout now renders CardNav, and AppLayout is not lazy, so every user of
+   the app was paying for the whole gallery stylesheet (~29 kB) on first paint
+   to style one nav bar. Measured: index.css 55.85 kB -> 84.38 kB.
+
+   These rules are moved VERBATIM. Nothing below is rewritten, re-tokenised or
+   reordered — this is the content reference.css:1358-1681 carried, which was
+   the CardNav section and the last one in that file.
+
+   /design is unaffected: DesignSystem renders CardNav through cardNav.jsx, and
+   cardNav.jsx imports THIS file, so the gallery gets exactly the rules it got
+   before. Verified by class ownership rather than assumed: every selector here
+   is reachable only from cardNav.jsx. DesignSystem.jsx names CardNav once, in
+   demo copy, and never as a className.
+
+   The last block, .app-nav, is NOT from the reference. It takes the bar out of
+   the reference's floating `position: absolute` and puts it back into flow for
+   the app shell. */
+
+@reference "../../../app/index.css";
+
+/* ============================================================ CardNav */
+/* The reference's colours are literals: a white bar, a near-black CTA that
+   darkens on hover, a translucent light hairline and a soft dark shadow. Rule
+   01a rejects every hex AND every colour function in src/, so each becomes an
+   @apply of the token that carries the same step of the ramp — bar →
+   cem.text, hairline → cem.elevated, shadow → the scale's shadow-md (the Dock
+   precedent), CTA → cem.base with cem.hover on hover. `.hamburger-line` keeps
+   `currentColor`, which the rule allows and this file already uses. The CTA
+   note: the component passes `buttonBgColor`/`buttonTextColor` inline, and an
+   inline style wins over this rule — exactly as upstream, kept for fidelity. */
+
+.card-nav-container {
+  position: absolute;
+  top: 2em;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 800px;
+  /* 50, NOT the reference's 99. Every modal in this app is `fixed inset-0
+     z-50` — FeedbackForm, ReportDialog, SongDetail, StageMode, Projection — so
+     a bar at 99 sat ABOVE its own Feedback modal and the dialog rendered
+     underneath it, unclickable. 50 is the project's own modal layer, so the
+     nav now shares it and the source order decides: the dialog is rendered
+     after the nav in the DOM and therefore paints on top. */
+  z-index: 50;
+  box-sizing: border-box;
+}
+
+.card-nav {
+  display: block;
+  height: 60px;
+  padding: 0;
+  @apply bg-cem-text;
+  border: 0.5px solid;
+  @apply border-cem-elevated;
+  border-radius: 0.75rem;
+  @apply shadow-md;
+  position: relative;
+  /* Above `.card-nav-dismiss` (z-index 1), so the bar and its panel stay
+     clickable while the layer underneath catches everything else. */
+  z-index: 2;
+  overflow: hidden;
+  /* No `will-change: height`. `height` is a layout property, so it does not
+     promote a layer — the hint only keeps the element treated as animating for
+     the life of the page. GSAP needs no equivalent: it writes the height
+     directly. */
+
+  /* Height is owned by GSAP (cardNav.jsx), not by a CSS transition. An earlier
+     version moved it to `transition: height` and measured better on every
+     metric that is easy to measure — 0 bytes, no reflow — and felt worse:
+     `height` and `opacity` became independent transitions with no way to
+     overlap, so the panel snapped open before the cards rose, and removing the
+     `.open` class hid the content on the first frame instead of after the
+     animation. The overlap between the two is the whole feel, and only a
+     timeline can express it. See the import comment in cardNav.jsx. */
+  height: 60px;
+}
+
+.card-nav-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.45rem 0.55rem 1.1rem;
+  z-index: 2;
+}
+
+.hamburger-menu {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  gap: 6px;
+}
+
+.hamburger-menu:hover .hamburger-line {
+  opacity: 0.75;
+}
+
+.hamburger-line {
+  width: 30px;
+  height: 2px;
+  background-color: currentColor;
+  transition:
+    transform 0.25s ease,
+    opacity 0.2s ease,
+    margin 0.3s ease;
+  transform-origin: 50% 50%;
+}
+
+.hamburger-menu.open .hamburger-line:first-child {
+  transform: translateY(4px) rotate(45deg);
+}
+
+.hamburger-menu.open .hamburger-line:last-child {
+  transform: translateY(-4px) rotate(-45deg);
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.logo {
+  height: 28px;
+}
+
+.card-nav-cta-button {
+  /* Reference default fill, tokenised; the component's inline colour props
+     override it, which is how upstream behaves too. */
+  @apply bg-cem-base text-cem-text;
+  border: none;
+  border-radius: calc(0.75rem - 0.35rem);
+  padding: 0 1rem;
+  height: 100%;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  align-items: center;
+}
+
+.card-nav-cta-button:hover {
+  @apply hover:bg-cem-hover;
+}
+
+/* The right-hand slot, when the caller fills it with a node (`ctaSlot`)
+   instead of the reference's text button.
+
+   Two behaviours, both required rather than decorative:
+
+   1. IT HIDES WHILE THE PANEL IS OPEN. The open panel already carries the
+      user strip with Log Out in it, and a second copy in the bar would be a
+      duplicate control in the same view. Faded rather than display:none so it
+      does not snap the layout as the bar opens.
+   2. IT IS ABSENT ON PHONE. The media query below already hides
+      `.card-nav-cta-button` under 768px; this selector shares the rule, so a
+      `ctaSlot` gets the same behaviour for free — which is what keeps the app's
+      Log Out off a 390px screen, where the hamburger alone is enough. */
+.card-nav-cta-slot {
+  display: flex;
+  align-items: center;
+  /* SYMMETRY WITH THE HAMBURGER. The reference's `.card-nav-top` pads
+     `0.5rem 0.45rem 0.55rem 1.1rem` — deliberately heavier on the left, where
+     the hamburger lives. Measured with the session control in the slot: the
+     hamburger sat 19px from the edge and this button 8px, which reads as an
+     accident rather than a layout. Matching the left inset puts both controls
+     the same distance in, so the bar is balanced with the panel closed — the
+     only state in which this slot is visible. */
+  margin-right: 0.65rem;
+  transition: opacity 0.2s ease;
+}
+
+.card-nav.open .card-nav-cta-slot {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .card-nav-cta-slot {
+    display: none;
+  }
+}
+
+.card-nav-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 60px;
+  bottom: 0;
+  padding: 0.5rem;
+  display: flex;
+  /* COLUMN, and the three cards live in `.card-nav-cards` below. They were
+     direct children of this row before the user strip was added, and that is
+     what broke them — see `.card-nav-cards`. */
+  flex-direction: column;
+  gap: 12px;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+
+  /* SCROLL INSIDE THE PANEL, NEVER THE PAGE.
+
+     `measureOpenHeight` clamps the panel to the viewport, so on a short phone
+     the content is taller than the space it has. Scrolling here rather than on
+     the document is the whole fix: the document scroll is what previously
+     carried the hamburger off screen and took the only close control with it.
+
+     `overscroll-behavior: contain` stops the scroll chaining to the page
+     behind, so reaching the bottom of the panel does not start moving the
+     content underneath it. `scrollbar-width: thin` because a full-width
+     scrollbar in a 390px panel eats a tenth of it. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* The three area cards, in their own row.
+
+   THE BUG THIS STRUCTURE FIXES. All four cards used to be flex items of ONE
+   row. The three area cards are `flex: 1 1 0` and the user strip was
+   `flex: 1 1 100%`, so the summed flex-basis was already 100% of the
+   container: free space computed to zero, nothing was left to distribute, and
+   the three cards collapsed to zero width while the strip took the full row.
+   Text then spilled out of a zero-width box, which is what the first render
+   showed.
+
+   Giving the strip its own row removes the competition entirely. The three
+   cards are now the only flex items of this row, so `1 1 0` does what it is
+   supposed to: split the width three ways. */
+.card-nav-cards {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.card-nav.open .card-nav-content {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.nav-card {
+  height: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: calc(0.75rem - 0.2rem);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* 20px 24px, up from the reference's 12px 16px. At 12/16 the label and its
+     links sat close enough to the edge to read as edge-clipped rather than
+     inset. */
+  padding: 20px 24px;
+  gap: 10px;
+  user-select: none;
+  /* A 1px edge in `elevated`. The cards sit on a `base` bar and the first one
+     was only one step lighter, which at a glance left Play reading as bare bar
+     with text on it rather than as a card. The border states the container
+     without moving it; the fill alone could not. */
+  border: 1px solid theme('colors.cem.elevated');
+
+  /* Transform and opacity are owned by GSAP too. The rise is staggered by the
+     timeline, not by a `transition-delay`. */
+}
+
+.nav-card-label {
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+
+.nav-card-links {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  /* 4px, up from the reference's 2px: at 2px a thirteen-route nav reads as one
+     block of text, and the rows stop being individually clickable-looking. */
+  gap: 4px;
+}
+
+.nav-card-link {
+  /* 18px, up from the reference's 16px. These are navigation targets, not body
+     copy, and 16px is small for the primary way around the app. */
+  font-size: 18px;
+  line-height: 1.4;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  /* Anchors the active-route dot. Without this, `position: absolute` on the
+     ::before would resolve against the card, not the link. */
+  position: relative;
+}
+
+.nav-card-link:hover {
+  opacity: 0.75;
+}
+
+/* The active route, in the project's one accent.
+
+   `.is-active` is applied by the caller's renderLink, not by this stylesheet's
+   own logic — CardNav is router-agnostic and cannot know which link matches the
+   current route. Amber is the sanctioned use of the accent (SKILL.md Hard Rule
+   2: "the active or selected state"), so this is not a new colour.
+
+   `currentColor` carries the icon too, because the arrow inherits from its
+   parent: the row reads as one active item instead of amber text beside a grey
+   arrow.
+
+   `font-weight: 600` is deliberately NOT used. The label's weight must not
+   change on navigation, because a layout that reflows when you move through it
+   is worse than one that does not; colour plus the icon is enough.
+
+   Contrast, measured on the actual card fills: amber on `surface` is 6.81:1,
+   which clears the 4.5:1 floor. On `hover` it would be 3.53:1 and fail — which
+   is the second reason the three cards share one `surface` fill. */
+.nav-card-link.is-active,
+.nav-card-link.is-active .nav-card-link-icon {
+  color: theme('colors.cem.amber');
+}
+
+/* THE ACTIVE ROUTE, SIGNALLED WITHOUT COLOUR.
+
+   Colour alone fails WCAG 2.x SC 1.4.1 (Use of Colour) — a user with low colour
+   discrimination cannot tell which route they are on, and `aria-current` only
+   helps assistive tech, not the sighted keyboard user. This adds a SHAPE: a
+   filled dot to the left of the row.
+
+   It is a `::before` pinned with `position: absolute` rather than a real flex
+   child, so switching routes does not reflow the label. That matters: this
+   component's own comment already rejects a `font-weight` change for exactly
+   this reason, and a dot that pushed the text sideways would reintroduce the
+   same problem in a different costume. */
+.nav-card-link.is-active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+/* ---------------------------------------------------------------------------
+   nav-user-strip — the FOURTH card, added by the CEMURM app nav.
+
+   It is a card, not a full-bleed footer: same padding, same gap and the same
+   radius as the three above, but `flex: 1 1 100%` gives it a full row of the
+   same grid. Sharing `.nav-card` is what makes it read as part of the set
+   instead of a bar bolted underneath.
+
+   Colour is `inherit`, never a utility class. The strip paints itself with the
+   token pair the caller passes (see `footerBgColor` / `footerTextColor`), and a
+   literal `text-cem-secondary` here would put a foreground on a raised fill —
+   rule 06's exact pairing. `opacity` on hover keeps the fill unchanged, so the
+   rule has nothing to catch.
+--------------------------------------------------------------------------- */
+.nav-user-strip {
+  /* Its own ROW now, so no `flex: 1 1 100%` — that basis was what starved the
+     three cards. It stretches across the column on the cross axis only, and
+     takes its height from its content. */
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.nav-user-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.nav-user-icon {
+  flex-shrink: 0;
+}
+
+.nav-user-push {
+  margin-left: auto;
+}
+
+.nav-user-button {
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.3s ease;
+}
+
+.nav-user-button:hover {
+  opacity: 0.75;
+}
+
+/* The organisation name is the one label that can be arbitrarily long, and the
+   strip shares a row with two buttons. It truncates rather than pushing Log Out
+   off the edge; `title` carries the full string. */
+.nav-user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .nav-user-strip {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   app-nav — the CEMURM app shell.
+
+   THE BAR MUST FLOAT, NOT PUSH. The reference is already `position: absolute`
+   with `z-index: 99`, and that is correct for an app shell: the panel opens
+   OVER the routed page. An earlier version of this file forced
+   `position: relative`, which put the bar back into flow — and because GSAP
+   animates the nav's height from 60px to its measured height, every expansion
+   physically pushed the whole page down. That is the behaviour this block
+   exists to prevent, so the absolute positioning is deliberately left alone.
+
+   WHAT CHANGES IS THE WIDTH, not the positioning. The reference caps itself at
+   800px and centres with `translateX(-50%)`, which is right for a hero and
+   wrong for an app: it would leave the 13 routes in a narrow pill. Here the bar
+   is full width, centred by `left: 50%` + the transform that `auto` below
+   replaces.
+
+   The 2em of breathing room moves from `top:` to `padding-top`, so the offset
+   survives without depending on `top` at all.
+--------------------------------------------------------------------------- */
+/* Click-outside layer. Invisible by design — it only needs to be a target that
+   sits above the page and below the bar, so it is a full-viewport box with no
+   background and no transitions of its own. */
+.card-nav-dismiss {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+  cursor: default;
+}
+
+.card-nav-container.app-nav {
+  /* THE REFERENCE'S CENTRING MUST BE UNDONE EXPLICITLY.
+
+     `.card-nav-container` ships `position: absolute; top: 2em; left: 50%;
+     transform: translateX(-50%)`. Two of those break the app shell:
+
+       * `top: 2em` plus the `padding-top` below would offset the bar twice.
+       * `transform` is the worse one: a transformed ancestor becomes the
+         containing block for `position: fixed` descendants, so
+         `.card-nav-dismiss` — which must cover the viewport to catch an
+         outside click — was instead confined to this container's box. Clicking
+         anywhere below the bar did nothing at all.
+
+     Both are reset here rather than left to cascade. */
+  top: 0;
+  transform: none;
+
+  /* CENTRING AN ABSOLUTE BOX. The container stays `position: absolute` — that
+     is what keeps the panel floating over the page — and an absolute box does
+     NOT honour `margin: 0 auto` the way a static one does: auto resolves to 0
+     for the inset side. Setting only `left: 0` therefore pinned the bar to the
+     viewport's left edge. Both insets must be 0 for the auto margins to
+     resolve, which is the standard absolute centring idiom. */
+  left: 0;
+  right: 0;
+
+  /* THE BAR LINES UP WITH THE CONTENT. The reference spans the full viewport
+     edge to edge, so at 1440px the bar started at x=0 while `<main>` — which is
+     `max-w-7xl ... px-4` — started at x=80. Same content, two different
+     columns, which is what made the bar read as unanchored.
+
+     `max-width: 80rem` + `padding: ... 1rem` is `max-w-7xl px-4` spelled out:
+     80rem is Tailwind's `max-w-7xl`, and the horizontal 1rem is the same
+     `px-4` the content carries, so bar and page share one measure exactly. */
+  width: auto;
+  max-width: 80rem;
+  margin: 0 auto;
+  /* 2rem of air above the bar. `<main>` carries `pt-10` for the gap below it,
+     so the closed bar has clear space on BOTH sides of it. */
+  padding: 2rem 1rem 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .card-nav-container {
+    width: 90%;
+    top: 1.2em;
+  }
+
+  .card-nav-top {
+    padding: 0.5rem 1rem;
+    justify-content: space-between;
+  }
+
+  .hamburger-menu {
+    order: 2;
+  }
+
+  .logo-container {
+    position: static;
+    transform: none;
+    order: 1;
+  }
+
+  .card-nav-cta-button {
+    display: none;
+  }
+
+  .card-nav-content {
+    gap: 8px;
+    padding: 0.5rem;
+    bottom: 0;
+    justify-content: flex-start;
+  }
+
+  /* On mobile the three cards stack vertically — the reference's own
+     behaviour. They are already a column's worth of row, so the inner
+     container turns to a column too. */
+  .card-nav-cards {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .nav-card {
+    height: auto;
+    min-height: 60px;
+    flex: 1 1 auto;
+    max-height: none;
+  }
+
+  .nav-card-label {
+    font-size: 18px;
+  }
+
+  .nav-card-link {
+    font-size: 15px;
+  }
+}

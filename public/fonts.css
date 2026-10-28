@@ -1,0 +1,100 @@
+/*
+ * Metric-compatible fallback for the Inter swap. L6, plan section 7.4.
+ *
+ * WHY THIS EXISTS AT ALL. @fontsource emits `font-display: swap` on every face,
+ * so Inter renders AFTER first paint. With a plain fallback the browser paints
+ * the fallback's metrics, then re-lays out when Inter arrives — that reflow is
+ * what plan 7.7's "CLS from fonts: 0" is measuring. The fix is to declare a
+ * fallback face whose ascent/descent/lineGap ratios MATCH Inter's, so the two
+ * occupy the same height and the swap moves no pixels.
+ *
+ * WHY IT LIVES IN public/ AND NOT src/app/index.css. index.css is not an allowed
+ * surface for this slice, and this is not app styling: it is a font asset
+ * concern, it must load independently of the CSS bundle so it is in place before
+ * the bundle parses, and @fontsource ships its faces the same way — as a
+ * separate file linked from the entry HTML. Keeping that shape means the same
+ * reasoning applies to both.
+ *
+ * size-adjust / ascent-override / descent-override / line-gap-override are the
+ * four descriptors that matter here. ascent and descent are Inter's own vertical
+ * metrics as ratios of em; size-adjust scales the fallback glyphs so its average
+ * advance matches Inter's. `Arial` is the named fallback because it is the one
+ * metric-compatible face available on essentially every target device — the
+ * budget in 7.7 targets cheap Android tablets, where the system font varies.
+ * `local()` first means a device that genuinely has Arial, or a font already
+ * named "Inter Fallback", pays no download at all.
+ *
+ * THE FOUR NUMBERS ARE MEASURED, NOT ESTIMATED. Read out of the shipped file
+ * `inter-latin-400-normal.woff2` with fontTools 4.66:
+ *
+ *   unitsPerEm 2048 · hhea.ascent 1984 (96.88% of em) · hhea.descent -494
+ *   (24.12% of em) · hhea.lineGap 0 (0.00%) · OS/2.xAvgCharWidth 1250
+ *
+ * and compared against Liberation Sans, which is metric-compatible with Arial —
+ * the face named in `src:` — and reports xAvgCharWidth 1187 on the same
+ * 2048 upm. size-adjust is therefore 1250 / 1187 = 105.31%: it scales the
+ * fallback's glyphs up until their average advance matches Inter's, which is
+ * what stops the swap from shifting the line. The three overrides are Inter's
+ * own vertical ratios, and lineGap is genuinely 0% — Inter has no line gap.
+ *
+ * These four values are identical across all four shipped weights (400/500/600/
+ * 700 all report 96.88% / 24.12% / 0%), so ONE fallback face covers all of them.
+ * If Inter is ever replaced by another family, every number here must be
+ * re-measured against the new font — a fallback with plausible-but-wrong ratios
+ * is worse than none, because it looks tuned.
+ */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Inter Fallback'), local('Arial');
+  size-adjust: 105.31%;
+  ascent-override: 96.88%;
+  descent-override: 24.12%;
+  line-gap-override: 0%;
+  font-display: swap;
+}
+
+/* ===========================================================================
+ * Inter itself — ONE variable file, latin subset, all four weights
+ * ===========================================================================
+ * Plan 7.4 asked for `@fontsource-variable/inter`: one file covering every
+ * weight, latin subset only, against a budget of "<= 2 files, <= 45 kB".
+ * What shipped first was four static latin faces, one per weight, measuring
+ * 96,744 bytes: the subset change without the variable change.
+ *
+ * WHY THE FAMILY IS STILL `Inter`. @fontsource-variable names the face
+ * `Inter Variable`, which would mean editing tailwind.config.js, public/fonts.css
+ * and every `font-sans` in the tree to keep one name. Declaring it `Inter` here
+ * costs nothing and moves nothing.
+ *
+ * WHY THE FILE LIVES IN public/ AND NOT IN THE CSS BUNDLE. Same reasoning as
+ * the fallback above: a font is an asset, it has to be resolvable before the
+ * bundle parses, and it is preloaded from index.html. Importing the woff2
+ * through Vite would give it a hashed filename and put it behind the bundler for
+ * no gain.
+ *
+ * THE METRICS ABOVE ARE STILL EXACT, and this was measured rather than assumed.
+ * The fallback's four descriptors come from Inter's own vertical metrics, and a
+ * variable font is the same typeface across a weight axis — so the question was
+ * whether fontsource's variable build reports the same numbers as its static
+ * one. Read with fontTools 4.66 on both shipped files:
+ *
+ *   variable inter-latin-wght-normal.woff2 · upm 2048 · ascent 1984 (96.88%)
+ *     descent -494 (24.12%) · lineGap 0 · xAvgCharWidth 1250
+ *   static   inter-latin-400-normal.woff2   · upm 2048 · ascent 1984 (96.88%)
+ *     descent -494 (24.12%) · lineGap 0 · xAvgCharWidth 1250
+ *
+ * Identical on every axis, so `size-adjust: 105.31%` still holds and the swap
+ * still moves no pixels. `weight: 100 900` is what makes this one file serve
+ * 400, 500, 600 and 700; without the range the browser would synthesise.
+ *
+ * 48,256 bytes against the four-file 96,744. The plan's "~45 kB" estimate was
+ * close; the budget said "<= 45 kB" and this is 3.2 kB over it, for one file
+ * instead of four. Flagged rather than rounded.
+ */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
