@@ -139,6 +139,69 @@
   .scope-col li { font-size: 11.5px; line-height: 1.5; color: var(--muted); padding-left: 14px; position: relative; }
   .scope-col li::before { content: '·'; position: absolute; left: 2px; color: var(--muted); }
 
+  /* ── Proposal annex: what the document asks for, against what exists ── */
+  .proposal-lead { font-size: 12px; line-height: 1.7; color: var(--muted); max-width: 820px; margin-bottom: 18px; }
+  .proposal-lead code { color: var(--accent7); font-size: 11px; }
+  .proposal-title-opt { font-size: 11.5px; line-height: 1.6; color: var(--text); opacity: 0.7; border-left: 2px solid var(--border); padding-left: 12px; margin-bottom: 22px; max-width: 820px; font-style: italic; }
+
+  .proposal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .pstat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .pstat b { display: block; font-size: 26px; line-height: 1.1; color: var(--text); font-weight: 700; }
+  .pstat span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .pstat.warn b { color: var(--accent4); }
+  .pstat.good b { color: var(--accent3); }
+
+  .cov-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--bg); margin-bottom: 10px; }
+  .cov-bar span { display: block; height: 100%; }
+  .cov-bar .exact { background: var(--accent3); }
+  .cov-bar .partial { background: var(--accent5); }
+  .cov-bar .missing { background: var(--danger); }
+  .cov-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 10.5px; color: var(--muted); margin-bottom: 12px; }
+  .proposal-note { font-size: 11px; line-height: 1.65; color: var(--muted); max-width: 780px; margin-bottom: 26px; opacity: 0.85; }
+  .cov-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+
+  .area-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .area-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .area-head h3 { font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .area-count { font-size: 10.5px; color: var(--accent3); white-space: nowrap; }
+  .area-count.zero { color: var(--danger); }
+  .tx-list { list-style: none; }
+  .tx { display: flex; gap: 10px; padding: 8px 16px; border-top: 1px solid rgba(45,49,65,0.5); align-items: flex-start; }
+  .tx:first-child { border-top: none; }
+  .tx-n { font-size: 9.5px; color: var(--muted); min-width: 18px; padding-top: 2px; }
+  .tx-body { flex: 1; }
+  .tx-what { font-size: 11.5px; line-height: 1.5; color: var(--text); display: block; }
+  .tx.blocked .tx-what { color: var(--muted); }
+  .tx-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .tchip { font-size: 9px; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); }
+  .tchip.missing { border-color: rgba(239,68,68,0.5); color: #f08585; background: rgba(239,68,68,0.08); }
+  .tchip.exact { border-color: rgba(52,211,153,0.35); color: var(--accent3); }
+  .tchip.partial { border-color: rgba(251,191,36,0.35); color: var(--accent5); }
+  .tx-flag { font-size: 9.5px; white-space: nowrap; padding-top: 3px; }
+  .tx-flag.ok { color: var(--accent3); }
+  .tx-flag.no { color: var(--danger); }
+
+  .proposal-details { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; }
+  .proposal-details summary { padding: 12px 16px; font-size: 11.5px; color: var(--accent); cursor: pointer; user-select: none; }
+  .proposal-details summary:hover { color: var(--text); }
+  .proposal-details[open] summary { border-bottom: 1px solid var(--border); }
+  .req-list, .cat-list { list-style: none; padding: 8px 16px 14px; }
+  .req-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(45,49,65,0.4); }
+  .req-row:last-child { border-bottom: none; }
+  .req-n { font-size: 9.5px; color: var(--accent); min-width: 18px; padding-top: 2px; }
+  .req-name { font-size: 11.5px; color: var(--text); font-weight: 600; display: block; margin-bottom: 2px; }
+  .req-desc { font-size: 10.5px; line-height: 1.55; color: var(--muted); display: block; }
+  .cat-row { display: grid; grid-template-columns: 1.1fr 0.9fr auto; gap: 10px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid rgba(45,49,65,0.4); font-size: 11px; }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-name { color: var(--text); }
+  .cat-target { font-size: 10.5px; color: var(--muted); }
+  .cat-row[data-table] { cursor: pointer; }
+  .cat-row[data-table]:hover .cat-target { color: var(--accent); }
+  .cat-state { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .cat-state.exact { color: var(--accent3); }
+  .cat-state.partial { color: var(--accent5); }
+  .cat-state.missing { color: var(--danger); }
+
   /* ── Process banner, over the canvas ───────────────────────────── */
   .process-banner { position: fixed; top: 53px; left: 272px; right: 12px; z-index: 80; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 14px; display: none; gap: 12px; align-items: flex-start; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
   .process-banner.open { display: flex; }
@@ -802,7 +865,9 @@ const GUIDE = {
       "Integraciones: MIDI, pantalla externa, overlay OBS, proyección, PDF"
     ],
     "excluded": [
-      "Educación (cursos, inscripción, progreso, asignaciones): 4 features y 67 escenarios, sin hito asignado",
+      "Educación (cursos, inscripción, progreso, evaluaciones): 4 features y 67 escenarios sin hito, y 10 transacciones del Proyecto IV",
+      "Inventario, préstamos y devoluciones de equipos: 7 transacciones del Proyecto IV, sin tablas ni features",
+      "Logística de evento (montaje, transporte, prueba de sonido): propuesta, sin tablas",
       "Beta polish (Hito 6): sin implementación",
       "App nativa de monitoreo y sincronización en vivo: decidida en 2026-10-19, sin código"
     ]
@@ -1734,6 +1799,1572 @@ const GUIDE = {
   }
 };
 
+const PROPOSAL = {
+  "source": "proyecto iv.docx",
+  "titles": [
+    "Sistema de Información basado en PWA para la Gestión Musical, Pedagógica y Operativa en la Asociación Civil Voces que se Unen.",
+    "Sistema de Información basado en PWA para la Gestión de Operaciones y Aprendizaje Musical en la Asociación Civil Voces que se Unen.",
+    "Sistema de Información basado en PWA para la Gestión Musical e Instruccional en la Asociación Civil Voces que se Unen."
+  ],
+  "requirements": [
+    {
+      "n": 1,
+      "name": "Gestión de usuarios y roles",
+      "description": "Permite administrar las cuentas de las personas que utilizan el sistema, controlar sus roles y definir a qué módulos y funciones pueden acceder.",
+      "transactions": [
+        "Registrar un usuario",
+        "Consultar el listado de usuarios",
+        "Consultar el detalle de un usuario",
+        "Modificar los datos de un usuario",
+        "Activar o desactivar una cuenta",
+        "Asignar o modificar roles y permisos",
+        "Consultar los usuarios según su rol"
+      ]
+    },
+    {
+      "n": 2,
+      "name": "Gestión de reportes y análisis",
+      "description": "Permite generar informes a partir de la información almacenada en los distintos módulos, para facilitar el seguimiento y la toma de decisiones.",
+      "transactions": [
+        "Seleccionar el módulo del cual se desea obtener información",
+        "Definir los filtros del reporte, como fechas, eventos o participantes",
+        "Generar un reporte",
+        "Consultar los resultados",
+        "Exportar o imprimir el reporte, si esta función se contempla",
+        "Consultar reportes anteriores, si se requiere conservarlos"
+      ]
+    },
+    {
+      "n": 3,
+      "name": "Gestión de eventos",
+      "description": "Permite administrar las presentaciones, ensayos, reuniones y conciertos de las agrupaciones musicales, manteniendo actualizados sus datos y estados.",
+      "transactions": [
+        "Registrar un evento",
+        "Consultar el listado de eventos",
+        "Consultar los detalles de un evento",
+        "Modificar la información de un evento",
+        "Reprogramar la fecha o el lugar",
+        "Cancelar un evento",
+        "Consultar el calendario de eventos",
+        "Asociar una agrupación al evento"
+      ]
+    },
+    {
+      "n": 4,
+      "name": "Gestión de asistentes y participantes",
+      "description": "Permite controlar qué personas participarán en cada evento y registrar si su asistencia está confirmada, pendiente o anulada.",
+      "transactions": [
+        "Inscribir o registrar un participante en un evento",
+        "Consultar los participantes inscritos",
+        "Confirmar la participación",
+        "Modificar los datos de participación",
+        "Anular la participación",
+        "Registrar la asistencia efectiva al evento, si se necesita",
+        "Generar un listado de participantes"
+      ]
+    },
+    {
+      "n": 5,
+      "name": "Gestión de escaleta",
+      "description": "Permite elaborar y administrar el orden de interpretación de las obras musicales durante un evento. La escaleta define la secuencia en que se ejecutarán las piezas.",
+      "transactions": [
+        "Crear una escaleta para un evento",
+        "Agregar obras musicales",
+        "Modificar el orden de las obras",
+        "Eliminar una obra de la escaleta",
+        "Registrar información adicional, como duración o pausas",
+        "Consultar la escaleta",
+        "Generar o imprimir la escaleta final"
+      ]
+    },
+    {
+      "n": 6,
+      "name": "Gestión de repertorio musical",
+      "description": "Permite mantener un catálogo centralizado de obras musicales, con información descriptiva y archivos multimedia asociados, para reutilizar las obras en distintos eventos y agrupaciones.",
+      "transactions": [
+        "Registrar una obra musical",
+        "Consultar el catálogo de obras",
+        "Consultar los detalles de una obra",
+        "Modificar los datos de una obra",
+        "Eliminar o desactivar una obra",
+        "Adjuntar archivos de audio, partituras o videos",
+        "Asignar obras a una agrupación",
+        "Buscar obras por título, autor, género u otros criterios"
+      ]
+    },
+    {
+      "n": 7,
+      "name": "Gestión agrupaciones",
+      "description": "Permite administrar las bandas, orquestas, conjuntos u otras agrupaciones musicales, incluyendo sus integrantes, repertorios y eventos asignados.",
+      "transactions": [
+        "Registrar una agrupación",
+        "Consultar las agrupaciones existentes",
+        "Modificar los datos de una agrupación",
+        "Eliminar o desactivar una agrupación",
+        "Asignar músicos a una agrupación",
+        "Retirar músicos de una agrupación",
+        "Asignar repertorios musicales",
+        "Asociar eventos a la agrupación",
+        "Consultar los eventos y repertorios asociados"
+      ]
+    },
+    {
+      "n": 8,
+      "name": "Gestión de músicos",
+      "description": "Permite mantener actualizada la ficha técnica y los datos personales y musicales de cada músico, así como su instrumento y sus vínculos con las agrupaciones",
+      "transactions": [
+        "Registrar un músico",
+        "Consultar el listado de músicos",
+        "Consultar la ficha técnica de un músico",
+        "Modificar sus datos",
+        "Eliminar o desactivar su ficha",
+        "Registrar los instrumentos que ejecuta",
+        "Asociar el músico a una agrupación",
+        "Consultar su participación en eventos"
+      ]
+    },
+    {
+      "n": 9,
+      "name": "Gestión de actividades y logística de eventos",
+      "description": "Permite planificar y coordinar las actividades necesarias para realizar un evento, como ensayos generales, pruebas de sonido, montaje, transporte y preparación del espacio.",
+      "transactions": [
+        "Registrar una actividad logística",
+        "Consultar las actividades programadas",
+        "Modificar una actividad",
+        "Asignar fecha, hora y lugar",
+        "Asignar responsables",
+        "Registrar recursos y equipos necesarios",
+        "Actualizar el estado de la actividad",
+        "Cancelar una actividad",
+        "Consultar el cronograma logístico del evento"
+      ]
+    },
+    {
+      "n": 10,
+      "name": "Gestión de estructura académica",
+      "description": "Permite administrar la organización académica de la institución, definiendo cómo se estructuran sus programas de formación.",
+      "transactions": [
+        "Registrar un programa académico",
+        "Consultar los programas disponibles",
+        "Modificar la información de un programa",
+        "Crear niveles, grados o ciclos académicos",
+        "Asociar asignaturas o áreas de formación",
+        "Definir los requisitos de cada nivel",
+        "Activar o desactivar una estructura académica"
+      ]
+    },
+    {
+      "n": 11,
+      "name": "Gestión de inscripción",
+      "description": "Permite gestionar las solicitudes de ingreso y las inscripciones de estudiantes a programas o cursos de la academia.",
+      "transactions": [
+        "Registrar una solicitud de inscripción",
+        "Consultar las solicitudes recibidas",
+        "Modificar los datos de una solicitud",
+        "Validar los requisitos de ingreso",
+        "Aprobar o rechazar una inscripción",
+        "Inscribir al estudiante en un programa o curso",
+        "Cancelar una inscripción",
+        "Consultar el estado de la inscripción"
+      ]
+    },
+    {
+      "n": 12,
+      "name": "Gestión de horarios",
+      "description": "Permite organizar los horarios de las clases, ensayos, talleres y otras actividades, evitando conflictos de disponibilidad entre instructores, estudiantes y espacios.",
+      "transactions": [
+        "Registrar un horario",
+        "Consultar los horarios disponibles",
+        "Modificar la fecha o la hora de una actividad",
+        "Asignar un instructor",
+        "Asignar estudiantes o grupos",
+        "Verificar conflictos de horario",
+        "Reprogramar una actividad",
+        "Cancelar un horario",
+        "Consultar el calendario académico"
+      ]
+    },
+    {
+      "n": 13,
+      "name": "Gestión de salones y espacios",
+      "description": "Permite administrar las aulas, salas de ensayo, auditorios y demás espacios utilizados por la academia y las agrupaciones musicales.",
+      "transactions": [
+        "Registrar un salón o espacio",
+        "Consultar los espacios disponibles",
+        "Modificar los datos de un espacio",
+        "Registrar su capacidad y equipamiento",
+        "Cambiar su estado de disponibilidad",
+        "Asignar un espacio a una actividad",
+        "Verificar reservas y posibles conflictos",
+        "Liberar o cancelar una reserva",
+        "Consultar el historial de uso de un espacio, si se requiere"
+      ]
+    },
+    {
+      "n": 14,
+      "name": "Gestión actividades académicas",
+      "description": "Permite planificar y administrar las clases, talleres, evaluaciones y sesiones prácticas en las que participan los estudiantes e instructores.",
+      "transactions": [
+        "Registrar una actividad académica",
+        "Consultar las actividades programadas",
+        "Modificar los datos de una actividad",
+        "Asignar un instructor",
+        "Inscribir o asociar estudiantes",
+        "Asignar un salón o espacio",
+        "Definir fecha, hora y duración",
+        "Registrar la realización de la actividad",
+        "Cancelar o reprogramar la actividad"
+      ]
+    },
+    {
+      "n": 15,
+      "name": "Gestión de seguimiento  y aprendizaje",
+      "description": "Permite consultar y registrar la evolución del aprendizaje de cada estudiante o músico, manteniendo un historial de avances, observaciones y aspectos que necesitan refuerzo.",
+      "transactions": [
+        "Consultar el historial de aprendizaje",
+        "Registrar una observación de progreso",
+        "Registrar fortalezas y dificultades",
+        "Actualizar el avance de un estudiante",
+        "Consultar los comentarios de los instructores",
+        "Registrar recomendaciones de mejora",
+        "Consultar la evolución por período o asignatura"
+      ]
+    },
+    {
+      "n": 16,
+      "name": "Gestión de proceso e historial académico",
+      "description": "Permite conservar y consultar el historial formal de la trayectoria académica de cada estudiante, incluyendo períodos cursados, asignaturas, inscripciones y resultados obtenidos.",
+      "transactions": [
+        "Registrar el inicio del proceso académico de un estudiante",
+        "Consultar su historial académico",
+        "Registrar las asignaturas o cursos cursados",
+        "Registrar la aprobación o reprobación de asignaturas",
+        "Registrar el avance entre niveles académicos",
+        "Consultar los períodos académicos anteriores",
+        "Registrar el cierre o finalización de un período",
+        "Generar un resumen de la trayectoria académica"
+      ]
+    },
+    {
+      "n": 17,
+      "name": "Gestión evaluaciones",
+      "description": "Permite planificar, registrar y consultar las evaluaciones realizadas a los estudiantes, incluyendo sus calificaciones y resultados académicos.",
+      "transactions": [
+        "Registrar una evaluación",
+        "Consultar las evaluaciones programadas",
+        "Modificar los datos de una evaluación",
+        "Asignar la evaluación a una asignatura o actividad",
+        "Registrar las calificaciones",
+        "Modificar una calificación autorizadamente",
+        "Consultar los resultados de una evaluación",
+        "Calcular o registrar promedios, según las reglas académicas",
+        "Registrar la recuperación de una evaluación, si aplica"
+      ]
+    },
+    {
+      "n": 18,
+      "name": "Gestión de instructores",
+      "description": "Permite administrar la ficha técnica y profesional de los profesores, incluyendo sus especialidades, datos de contacto y disponibilidad para las actividades académicas.",
+      "transactions": [
+        "Registrar un instructor",
+        "Consultar el listado de instructores",
+        "Consultar la ficha técnica del instructor",
+        "Modificar sus datos",
+        "Eliminar o desactivar su ficha",
+        "Registrar sus especialidades musicales",
+        "Asociarlo a asignaturas, cursos o talleres",
+        "Consultar sus horarios y actividades asignadas"
+      ]
+    },
+    {
+      "n": 19,
+      "name": "Gestión de estudiantes",
+      "description": "Permite administrar la información personal y académica de los estudiantes inscritos en la academia, manteniendo actualizados sus datos y su relación con los programas de formación.",
+      "transactions": [
+        "Registrar un estudiante",
+        "Consultar el listado de estudiantes",
+        "Consultar la ficha del estudiante",
+        "Modificar sus datos personales",
+        "Actualizar su información académica",
+        "Eliminar o desactivar su ficha, según las políticas de conservación de datos",
+        "Consultar sus inscripciones",
+        "Consultar sus cursos y actividades",
+        "Consultar su estado académico"
+      ]
+    },
+    {
+      "n": 20,
+      "name": "Gestión de inventario",
+      "description": "Permite llevar el control de los activos físicos de la academia y las agrupaciones musicales, registrando sus características técnicas, ubicación y estado.",
+      "transactions": [
+        "Registrar un activo",
+        "Consultar el inventario",
+        "Consultar la ficha técnica de un activo",
+        "Modificar sus datos",
+        "Actualizar su ubicación",
+        "Cambiar su estado, por ejemplo, disponible, en mantenimiento o fuera de servicio",
+        "Registrar la baja de un activo",
+        "Buscar activos por categoría, código o estado",
+        "Consultar el historial del activo, si se requiere"
+      ]
+    },
+    {
+      "n": 21,
+      "name": "Gestión de préstamos y asignaciones",
+      "description": "Permite controlar la entrega temporal de equipos e instrumentos a usuarios, músicos, instructores o responsables de eventos, registrando quién recibe cada activo, durante cuánto tiempo y cuándo lo devuelve.",
+      "transactions": [
+        "Registrar una solicitud de préstamo",
+        "Consultar los equipos disponibles",
+        "Aprobar o rechazar un préstamo, si se establece ese flujo",
+        "Asignar un equipo a un usuario",
+        "Vincular un préstamo a un evento",
+        "Registrar la fecha prevista de devolución",
+        "Confirmar la entrega del equipo",
+        "Registrar la devolución",
+        "Registrar observaciones sobre el estado del equipo",
+        "Consultar préstamos activos y vencidos",
+        "Consultar el historial de préstamos de un equipo o usuario"
+      ]
+    }
+  ],
+  "areas": [
+    {
+      "title": "Transacciones de gestión musical y eventos",
+      "transactions": [
+        {
+          "n": 1,
+          "what": "Registrar un evento y asociar la agrupación responsable.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Evento_Agrupacion",
+              "state": "partial"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 2,
+          "what": "Inscribir músicos en un evento.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Musico",
+              "state": "exact"
+            },
+            {
+              "name": "Participacion_Evento",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 3,
+          "what": "Registrar y confirmar la asistencia de los participantes.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Musico",
+              "state": "exact"
+            },
+            {
+              "name": "Usuario",
+              "state": "exact"
+            },
+            {
+              "name": "Participacion_Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Asistencia",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 4,
+          "what": "Crear la escaleta de un evento con sus obras musicales.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Escaleta",
+              "state": "exact"
+            },
+            {
+              "name": "Detalle_Escaleta",
+              "state": "exact"
+            },
+            {
+              "name": "Obra_Musical",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 5,
+          "what": "Asignar obras musicales al repertorio de una agrupación.",
+          "tables": [
+            {
+              "name": "Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Obra_Musical",
+              "state": "exact"
+            },
+            {
+              "name": "Repertorio_Agrupacion",
+              "state": "partial"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 6,
+          "what": "Registrar una agrupación con sus integrantes.",
+          "tables": [
+            {
+              "name": "Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Musico",
+              "state": "exact"
+            },
+            {
+              "name": "Integrante_Agrupacion",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 7,
+          "what": "Asignar un repertorio a un evento.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Repertorio_Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Escaleta",
+              "state": "exact"
+            },
+            {
+              "name": "Detalle_Escaleta",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 8,
+          "what": "Programar un ensayo y asignar participantes y espacio.",
+          "tables": [
+            {
+              "name": "Actividad_Logistica",
+              "state": "missing"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Musico",
+              "state": "exact"
+            },
+            {
+              "name": "Salon",
+              "state": "exact"
+            }
+          ],
+          "missing": [
+            "Actividad_Logistica"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 9,
+          "what": "Programar una prueba de sonido y asignar equipos.",
+          "tables": [
+            {
+              "name": "Actividad_Logistica",
+              "state": "missing"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Asignacion_Equipo",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Actividad_Logistica",
+            "Inventario",
+            "Asignacion_Equipo"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 10,
+          "what": "Consultar los eventos de una agrupación con sus músicos y repertorios.",
+          "tables": [
+            {
+              "name": "Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Evento_Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Integrante_Agrupacion",
+              "state": "exact"
+            },
+            {
+              "name": "Musico",
+              "state": "exact"
+            },
+            {
+              "name": "Repertorio_Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Obra_Musical",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        }
+      ],
+      "runnable": 8
+    },
+    {
+      "title": "Transacciones de gestión académica",
+      "transactions": [
+        {
+          "n": 11,
+          "what": "Inscribir a un estudiante en un programa académico.",
+          "tables": [
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Inscripcion",
+              "state": "missing"
+            },
+            {
+              "name": "Programa_Academico",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Estudiante",
+            "Inscripcion",
+            "Programa_Academico"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 12,
+          "what": "Inscribir a un estudiante en un curso o asignatura.",
+          "tables": [
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Inscripcion",
+              "state": "missing"
+            },
+            {
+              "name": "Curso",
+              "state": "missing"
+            },
+            {
+              "name": "Periodo_Academico",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Estudiante",
+            "Inscripcion",
+            "Curso",
+            "Periodo_Academico"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 13,
+          "what": "Crear una actividad académica y asignar instructor, estudiantes y salón.",
+          "tables": [
+            {
+              "name": "Actividad_Academica",
+              "state": "missing"
+            },
+            {
+              "name": "Instructor",
+              "state": "missing"
+            },
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Salon",
+              "state": "exact"
+            },
+            {
+              "name": "Horario",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Actividad_Academica",
+            "Instructor",
+            "Estudiante",
+            "Horario"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 14,
+          "what": "Programar una clase y validar la disponibilidad del instructor y del salón.",
+          "tables": [
+            {
+              "name": "Horario",
+              "state": "missing"
+            },
+            {
+              "name": "Instructor",
+              "state": "missing"
+            },
+            {
+              "name": "Salon",
+              "state": "exact"
+            },
+            {
+              "name": "Actividad_Academica",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Horario",
+            "Instructor",
+            "Actividad_Academica"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 15,
+          "what": "Registrar una evaluación y las calificaciones de los estudiantes.",
+          "tables": [
+            {
+              "name": "Evaluacion",
+              "state": "missing"
+            },
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Inscripcion",
+              "state": "missing"
+            },
+            {
+              "name": "Calificacion",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Evaluacion",
+            "Estudiante",
+            "Inscripcion",
+            "Calificacion"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 16,
+          "what": "Consultar el historial académico de un estudiante.",
+          "tables": [
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Inscripcion",
+              "state": "missing"
+            },
+            {
+              "name": "Curso",
+              "state": "missing"
+            },
+            {
+              "name": "Evaluacion",
+              "state": "missing"
+            },
+            {
+              "name": "Calificacion",
+              "state": "missing"
+            },
+            {
+              "name": "Periodo_Academico",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Estudiante",
+            "Inscripcion",
+            "Curso",
+            "Evaluacion",
+            "Calificacion",
+            "Periodo_Academico"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 17,
+          "what": "Registrar el seguimiento del aprendizaje de un estudiante.",
+          "tables": [
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Instructor",
+              "state": "missing"
+            },
+            {
+              "name": "Actividad_Academica",
+              "state": "missing"
+            },
+            {
+              "name": "Seguimiento_Aprendizaje",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Estudiante",
+            "Instructor",
+            "Actividad_Academica",
+            "Seguimiento_Aprendizaje"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 18,
+          "what": "Actualizar el avance académico de un estudiante en un programa.",
+          "tables": [
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Inscripcion",
+              "state": "missing"
+            },
+            {
+              "name": "Programa_Academico",
+              "state": "missing"
+            },
+            {
+              "name": "Curso",
+              "state": "missing"
+            },
+            {
+              "name": "Calificacion",
+              "state": "missing"
+            },
+            {
+              "name": "Historial_Academico",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Estudiante",
+            "Inscripcion",
+            "Programa_Academico",
+            "Curso",
+            "Calificacion",
+            "Historial_Academico"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 19,
+          "what": "Asignar un instructor a un curso y a un horario.",
+          "tables": [
+            {
+              "name": "Instructor",
+              "state": "missing"
+            },
+            {
+              "name": "Curso",
+              "state": "missing"
+            },
+            {
+              "name": "Horario",
+              "state": "missing"
+            },
+            {
+              "name": "Asignacion_Docente",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Instructor",
+            "Curso",
+            "Horario",
+            "Asignacion_Docente"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 20,
+          "what": "Consultar el progreso de los estudiantes de un instructor.",
+          "tables": [
+            {
+              "name": "Instructor",
+              "state": "missing"
+            },
+            {
+              "name": "Actividad_Academica",
+              "state": "missing"
+            },
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Seguimiento_Aprendizaje",
+              "state": "missing"
+            },
+            {
+              "name": "Evaluacion",
+              "state": "missing"
+            },
+            {
+              "name": "Calificacion",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Instructor",
+            "Actividad_Academica",
+            "Estudiante",
+            "Seguimiento_Aprendizaje",
+            "Evaluacion",
+            "Calificacion"
+          ],
+          "runnable": false
+        }
+      ],
+      "runnable": 0
+    },
+    {
+      "title": "Transacciones de inventario, préstamos y asignaciones",
+      "transactions": [
+        {
+          "n": 21,
+          "what": "Registrar un préstamo de equipo a un usuario.",
+          "tables": [
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Usuario",
+              "state": "exact"
+            },
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Detalle_Prestamo",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Prestamo",
+            "Inventario",
+            "Detalle_Prestamo"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 22,
+          "what": "Asignar instrumentos a músicos para un evento.",
+          "tables": [
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Musico",
+              "state": "exact"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Detalle_Prestamo",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Inventario",
+            "Prestamo",
+            "Detalle_Prestamo"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 23,
+          "what": "Registrar la devolución de un equipo y actualizar su estado.",
+          "tables": [
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Detalle_Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Devolucion",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Prestamo",
+            "Detalle_Prestamo",
+            "Inventario",
+            "Devolucion"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 24,
+          "what": "Consultar los equipos asignados a un evento.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Detalle_Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Usuario",
+              "state": "exact"
+            }
+          ],
+          "missing": [
+            "Prestamo",
+            "Detalle_Prestamo",
+            "Inventario"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 25,
+          "what": "Registrar un equipo y asociarlo a una ubicación.",
+          "tables": [
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Categoria_Activo",
+              "state": "missing"
+            },
+            {
+              "name": "Salon",
+              "state": "exact"
+            }
+          ],
+          "missing": [
+            "Inventario",
+            "Categoria_Activo"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 26,
+          "what": "Consultar el historial de préstamos de un equipo.",
+          "tables": [
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Detalle_Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Usuario",
+              "state": "exact"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            }
+          ],
+          "missing": [
+            "Inventario",
+            "Prestamo",
+            "Detalle_Prestamo"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 27,
+          "what": "Verificar la disponibilidad de equipos antes de asignarlos a una actividad.",
+          "tables": [
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Detalle_Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Actividad_Logistica",
+              "state": "missing"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            }
+          ],
+          "missing": [
+            "Inventario",
+            "Prestamo",
+            "Detalle_Prestamo",
+            "Actividad_Logistica"
+          ],
+          "runnable": false
+        }
+      ],
+      "runnable": 0
+    },
+    {
+      "title": "Transacciones de usuarios, permisos y reportes",
+      "transactions": [
+        {
+          "n": 28,
+          "what": "Registrar un usuario y asignarle un rol.",
+          "tables": [
+            {
+              "name": "Usuario",
+              "state": "exact"
+            },
+            {
+              "name": "Rol",
+              "state": "exact"
+            },
+            {
+              "name": "Usuario_Rol",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 29,
+          "what": "Asignar permisos a un rol.",
+          "tables": [
+            {
+              "name": "Rol",
+              "state": "exact"
+            },
+            {
+              "name": "Permiso",
+              "state": "missing"
+            },
+            {
+              "name": "Rol_Permiso",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Permiso",
+            "Rol_Permiso"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 30,
+          "what": "Consultar las actividades realizadas por un usuario.",
+          "tables": [
+            {
+              "name": "Usuario",
+              "state": "exact"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Actividad_Academica",
+              "state": "missing"
+            },
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Actividad_Academica",
+            "Prestamo"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 31,
+          "what": "Generar un reporte de asistencia a eventos.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Participacion_Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Asistencia",
+              "state": "exact"
+            },
+            {
+              "name": "Musico",
+              "state": "exact"
+            },
+            {
+              "name": "Usuario",
+              "state": "exact"
+            }
+          ],
+          "missing": [],
+          "runnable": true
+        },
+        {
+          "n": 32,
+          "what": "Generar un reporte de rendimiento académico.",
+          "tables": [
+            {
+              "name": "Estudiante",
+              "state": "missing"
+            },
+            {
+              "name": "Inscripcion",
+              "state": "missing"
+            },
+            {
+              "name": "Curso",
+              "state": "missing"
+            },
+            {
+              "name": "Evaluacion",
+              "state": "missing"
+            },
+            {
+              "name": "Calificacion",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Estudiante",
+            "Inscripcion",
+            "Curso",
+            "Evaluacion",
+            "Calificacion"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 33,
+          "what": "Generar un reporte de inventario y préstamos activos.",
+          "tables": [
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Detalle_Prestamo",
+              "state": "missing"
+            },
+            {
+              "name": "Usuario",
+              "state": "exact"
+            },
+            {
+              "name": "Evento",
+              "state": "exact"
+            }
+          ],
+          "missing": [
+            "Inventario",
+            "Prestamo",
+            "Detalle_Prestamo"
+          ],
+          "runnable": false
+        },
+        {
+          "n": 34,
+          "what": "Generar un reporte de programación de eventos y recursos asignados.",
+          "tables": [
+            {
+              "name": "Evento",
+              "state": "exact"
+            },
+            {
+              "name": "Agrupacion",
+              "state": "partial"
+            },
+            {
+              "name": "Actividad_Logistica",
+              "state": "missing"
+            },
+            {
+              "name": "Inventario",
+              "state": "missing"
+            },
+            {
+              "name": "Salon",
+              "state": "exact"
+            },
+            {
+              "name": "Horario",
+              "state": "missing"
+            }
+          ],
+          "missing": [
+            "Actividad_Logistica",
+            "Inventario",
+            "Horario"
+          ],
+          "runnable": false
+        }
+      ],
+      "runnable": 2
+    }
+  ],
+  "catalog": [
+    {
+      "name": "Evento",
+      "state": "exact",
+      "target": "events",
+      "note": null
+    },
+    {
+      "name": "Agrupacion",
+      "state": "partial",
+      "target": "organizations",
+      "note": "El tenant y sus sucursales; no existe una entidad \"agrupación\" con integrantes propios."
+    },
+    {
+      "name": "Evento_Agrupacion",
+      "state": "partial",
+      "target": "event_participants",
+      "note": "Vincula evento con organización, no con agrupación."
+    },
+    {
+      "name": "Musico",
+      "state": "exact",
+      "target": "profiles",
+      "note": null
+    },
+    {
+      "name": "Participacion_Evento",
+      "state": "exact",
+      "target": "event_rsvps",
+      "note": null
+    },
+    {
+      "name": "Usuario",
+      "state": "exact",
+      "target": "profiles",
+      "note": null
+    },
+    {
+      "name": "Asistencia",
+      "state": "exact",
+      "target": "event_rsvps",
+      "note": null
+    },
+    {
+      "name": "Escaleta",
+      "state": "exact",
+      "target": "setlists",
+      "note": null
+    },
+    {
+      "name": "Detalle_Escaleta",
+      "state": "exact",
+      "target": "setlist_items",
+      "note": null
+    },
+    {
+      "name": "Obra_Musical",
+      "state": "exact",
+      "target": "songs",
+      "note": null
+    },
+    {
+      "name": "Repertorio_Agrupacion",
+      "state": "partial",
+      "target": "collections",
+      "note": "Agrupa canciones, pero no está atado a una organización ni a una agrupación."
+    },
+    {
+      "name": "Integrante_Agrupacion",
+      "state": "exact",
+      "target": "org_memberships",
+      "note": null
+    },
+    {
+      "name": "Actividad_Logistica",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Salon",
+      "state": "exact",
+      "target": "venues",
+      "note": null
+    },
+    {
+      "name": "Inventario",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Asignacion_Equipo",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Estudiante",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Inscripcion",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Programa_Academico",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Curso",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Periodo_Academico",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Actividad_Academica",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Instructor",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Horario",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Evaluacion",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Calificacion",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Seguimiento_Aprendizaje",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Historial_Academico",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Asignacion_Docente",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Prestamo",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Detalle_Prestamo",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Devolucion",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Categoria_Activo",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Rol",
+      "state": "exact",
+      "target": "user_roles",
+      "note": null
+    },
+    {
+      "name": "Usuario_Rol",
+      "state": "exact",
+      "target": "user_roles",
+      "note": null
+    },
+    {
+      "name": "Permiso",
+      "state": "missing",
+      "target": null,
+      "note": null
+    },
+    {
+      "name": "Rol_Permiso",
+      "state": "missing",
+      "target": null,
+      "note": null
+    }
+  ],
+  "totals": {
+    "transactions": 34,
+    "runnable": 10,
+    "blocked": 24,
+    "tables": 37,
+    "exact": 12,
+    "partial": 3,
+    "missing": 22
+  }
+};
+
 const entityMap = {};
 ENTITIES.forEach(e => entityMap[e.id] = e);
 
@@ -2371,6 +4002,97 @@ function domainTargets(process) {
   return [...labels];
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// PROPOSAL ANNEX — the Proyecto IV document, measured against the schema
+//
+// The document proposes the whole system; the database implements part of
+// it. The annex exists to make that distance explicit instead of letting a
+// reader assume the proposal is already built.
+// ═══════════════════════════════════════════════════════════════════
+function renderProposal() {
+  const t = PROPOSAL.totals;
+  const pct = (n) => (n / t.tables) * 100;
+
+  const stats = `
+    <div class="proposal-stats">
+      <div class="pstat"><b>${t.transactions}</b><span>transacciones propuestas</span></div>
+      <div class="pstat good"><b>${t.runnable}</b><span>se pueden ejecutar hoy</span></div>
+      <div class="pstat warn"><b>${t.blocked}</b><span>chocan con tablas ausentes</span></div>
+      <div class="pstat warn"><b>${t.missing}</b><span>tablas sin implementar</span></div>
+    </div>
+    <div class="cov-bar">
+      <span class="exact" style="width:${pct(t.exact)}%"></span>
+      <span class="partial" style="width:${pct(t.partial)}%"></span>
+      <span class="missing" style="width:${pct(t.missing)}%"></span>
+    </div>
+    <div class="cov-legend">
+      <span><i style="background:var(--accent3)"></i>${t.exact} tablas existen con otro nombre</span>
+      <span><i style="background:var(--accent5)"></i>${t.partial} cubiertas en parte</span>
+      <span><i style="background:var(--danger)"></i>${t.missing} sin implementar, de ${t.tables} propuestas</span>
+    </div>`;
+
+  const areas = PROPOSAL.areas.map(area => {
+    const rows = area.transactions.map(tx => {
+      const chips = tx.runnable
+        ? ''
+        : `<div class="tx-chips">${tx.missing.map(m => `<span class="tchip missing">${esc(m)}</span>`).join('')}</div>`;
+      return `
+        <li class="tx ${tx.runnable ? 'ok' : 'blocked'}">
+          <span class="tx-n">${String(tx.n).padStart(2, '0')}</span>
+          <span class="tx-body">
+            <span class="tx-what">${esc(tx.what)}</span>${chips}
+          </span>
+          <span class="tx-flag ${tx.runnable ? 'ok' : 'no'}">${tx.runnable ? '✓ ejecutable' : tx.missing.length + ' sin tabla'}</span>
+        </li>`;
+    }).join('');
+    return `
+      <div class="area-card">
+        <div class="area-head">
+          <h3>${esc(area.title)}</h3>
+          <span class="area-count ${area.runnable === 0 ? 'zero' : ''}">${area.runnable}/${area.transactions.length} ejecutables</span>
+        </div>
+        <ul class="tx-list">${rows}</ul>
+      </div>`;
+  }).join('');
+
+  const requirements = PROPOSAL.requirements.map(r => `
+    <li class="req-row">
+      <span class="req-n">${r.n}</span>
+      <span>
+        <span class="req-name">${esc(r.name)}</span>
+        <span class="req-desc">${esc(r.description)}</span>
+      </span>
+    </li>`).join('');
+
+  const catalog = PROPOSAL.catalog.map(c => {
+    const target = c.target
+      ? `<span class="cat-target">${esc(c.target)}${c.state === 'partial' ? ' · parcial' : ''}</span>`
+      : '<span class="cat-target">—</span>';
+    return `
+      <li class="cat-row"${c.target ? ` data-table="${esc(c.target)}" title="${esc(c.note || 'Enfocar ' + c.target + ' en el diagrama')}"` : ''}>
+        <span class="cat-name">${esc(c.name)}</span>
+        ${target}
+        <span class="cat-state ${c.state}">${c.state === 'exact' ? 'existe' : c.state === 'partial' ? 'parcial' : 'ausente'}</span>
+      </li>`;
+  }).join('');
+
+  return `
+    ${stats}
+    <p class="proposal-note">
+      Una transacción cuenta como ejecutable solo si <strong>ninguna</strong> de sus tablas falta. Que dos de
+      tres existan no la vuelve parcial: sigue sin poder ejecutarse de punta a punta.
+    </p>
+    ${areas}
+    <details class="proposal-details">
+      <summary>Las ${PROPOSAL.requirements.length} funciones que pide el documento</summary>
+      <ul class="req-list">${requirements}</ul>
+    </details>
+    <details class="proposal-details">
+      <summary>Las ${t.tables} tablas propuestas y qué las cubre hoy · clic para ubicarla</summary>
+      <ul class="cat-list">${catalog}</ul>
+    </details>`;
+}
+
 function renderGuide() {
   const coreCards = GUIDE.core.map(c => `
     <div class="core-card" data-table="${esc(c.id)}">
@@ -2427,17 +4149,29 @@ function renderGuide() {
     </section>
 
     <section class="guide-section">
-      <h2>Alcance</h2>
+      <h2>Alcance implementado</h2>
       <div class="scope-grid">
         <div class="scope-col in">
           <h3>Incluido hoy</h3>
           <ul>${GUIDE.scope.included.map(item => `<li>${esc(item)}</li>`).join('')}</ul>
         </div>
         <div class="scope-col out">
-          <h3>Fuera de alcance</h3>
+          <h3>Fuera de la implementación actual</h3>
           <ul>${GUIDE.scope.excluded.map(item => `<li>${esc(item)}</li>`).join('')}</ul>
         </div>
       </div>
+    </section>
+
+    <section class="guide-section" id="proposal">
+      <h2>Propuesta del Proyecto IV — qué falta</h2>
+      <p class="proposal-lead">
+        El documento <code>${esc(PROPOSAL.source)}</code> define el sistema completo: gestión musical,
+        pedagógica y operativa. Esta base implementa la parte musical y comunitaria. El anexo mide la
+        distancia con las transacciones que el documento propone, contrastadas una por una contra las
+        tablas reales.
+      </p>
+      <p class="proposal-title-opt">${esc(PROPOSAL.titles[0])}</p>
+      ${renderProposal()}
     </section>
   `;
 }

@@ -1,0 +1,708 @@
+{
+ "_source": {
+  "file": "proyecto iv.docx",
+  "extracted": "2026-10-28",
+  "note": "Requerimientos, transacciones y nombres de tabla extraidos del documento. La numeracion de transacciones (1-34) es la del documento y no debe reordenarse."
+ },
+ "title_options": [
+  "Sistema de Información basado en PWA para la Gestión Musical, Pedagógica y Operativa en la Asociación Civil Voces que se Unen.",
+  "Sistema de Información basado en PWA para la Gestión de Operaciones y Aprendizaje Musical en la Asociación Civil Voces que se Unen.",
+  "Sistema de Información basado en PWA para la Gestión Musical e Instruccional en la Asociación Civil Voces que se Unen."
+ ],
+ "requirements": [
+  {
+   "n": 1,
+   "name": "Gestión de usuarios y roles",
+   "description": "Permite administrar las cuentas de las personas que utilizan el sistema, controlar sus roles y definir a qué módulos y funciones pueden acceder.",
+   "transactions": [
+    "Registrar un usuario",
+    "Consultar el listado de usuarios",
+    "Consultar el detalle de un usuario",
+    "Modificar los datos de un usuario",
+    "Activar o desactivar una cuenta",
+    "Asignar o modificar roles y permisos",
+    "Consultar los usuarios según su rol"
+   ]
+  },
+  {
+   "n": 2,
+   "name": "Gestión de reportes y análisis",
+   "description": "Permite generar informes a partir de la información almacenada en los distintos módulos, para facilitar el seguimiento y la toma de decisiones.",
+   "transactions": [
+    "Seleccionar el módulo del cual se desea obtener información",
+    "Definir los filtros del reporte, como fechas, eventos o participantes",
+    "Generar un reporte",
+    "Consultar los resultados",
+    "Exportar o imprimir el reporte, si esta función se contempla",
+    "Consultar reportes anteriores, si se requiere conservarlos"
+   ]
+  },
+  {
+   "n": 3,
+   "name": "Gestión de eventos",
+   "description": "Permite administrar las presentaciones, ensayos, reuniones y conciertos de las agrupaciones musicales, manteniendo actualizados sus datos y estados.",
+   "transactions": [
+    "Registrar un evento",
+    "Consultar el listado de eventos",
+    "Consultar los detalles de un evento",
+    "Modificar la información de un evento",
+    "Reprogramar la fecha o el lugar",
+    "Cancelar un evento",
+    "Consultar el calendario de eventos",
+    "Asociar una agrupación al evento"
+   ]
+  },
+  {
+   "n": 4,
+   "name": "Gestión de asistentes y participantes",
+   "description": "Permite controlar qué personas participarán en cada evento y registrar si su asistencia está confirmada, pendiente o anulada.",
+   "transactions": [
+    "Inscribir o registrar un participante en un evento",
+    "Consultar los participantes inscritos",
+    "Confirmar la participación",
+    "Modificar los datos de participación",
+    "Anular la participación",
+    "Registrar la asistencia efectiva al evento, si se necesita",
+    "Generar un listado de participantes"
+   ]
+  },
+  {
+   "n": 5,
+   "name": "Gestión de escaleta",
+   "description": "Permite elaborar y administrar el orden de interpretación de las obras musicales durante un evento. La escaleta define la secuencia en que se ejecutarán las piezas.",
+   "transactions": [
+    "Crear una escaleta para un evento",
+    "Agregar obras musicales",
+    "Modificar el orden de las obras",
+    "Eliminar una obra de la escaleta",
+    "Registrar información adicional, como duración o pausas",
+    "Consultar la escaleta",
+    "Generar o imprimir la escaleta final"
+   ]
+  },
+  {
+   "n": 6,
+   "name": "Gestión de repertorio musical",
+   "description": "Permite mantener un catálogo centralizado de obras musicales, con información descriptiva y archivos multimedia asociados, para reutilizar las obras en distintos eventos y agrupaciones.",
+   "transactions": [
+    "Registrar una obra musical",
+    "Consultar el catálogo de obras",
+    "Consultar los detalles de una obra",
+    "Modificar los datos de una obra",
+    "Eliminar o desactivar una obra",
+    "Adjuntar archivos de audio, partituras o videos",
+    "Asignar obras a una agrupación",
+    "Buscar obras por título, autor, género u otros criterios"
+   ]
+  },
+  {
+   "n": 7,
+   "name": "Gestión agrupaciones",
+   "description": "Permite administrar las bandas, orquestas, conjuntos u otras agrupaciones musicales, incluyendo sus integrantes, repertorios y eventos asignados.",
+   "transactions": [
+    "Registrar una agrupación",
+    "Consultar las agrupaciones existentes",
+    "Modificar los datos de una agrupación",
+    "Eliminar o desactivar una agrupación",
+    "Asignar músicos a una agrupación",
+    "Retirar músicos de una agrupación",
+    "Asignar repertorios musicales",
+    "Asociar eventos a la agrupación",
+    "Consultar los eventos y repertorios asociados"
+   ]
+  },
+  {
+   "n": 8,
+   "name": "Gestión de músicos",
+   "description": "Permite mantener actualizada la ficha técnica y los datos personales y musicales de cada músico, así como su instrumento y sus vínculos con las agrupaciones",
+   "transactions": [
+    "Registrar un músico",
+    "Consultar el listado de músicos",
+    "Consultar la ficha técnica de un músico",
+    "Modificar sus datos",
+    "Eliminar o desactivar su ficha",
+    "Registrar los instrumentos que ejecuta",
+    "Asociar el músico a una agrupación",
+    "Consultar su participación en eventos"
+   ]
+  },
+  {
+   "n": 9,
+   "name": "Gestión de actividades y logística de eventos",
+   "description": "Permite planificar y coordinar las actividades necesarias para realizar un evento, como ensayos generales, pruebas de sonido, montaje, transporte y preparación del espacio.",
+   "transactions": [
+    "Registrar una actividad logística",
+    "Consultar las actividades programadas",
+    "Modificar una actividad",
+    "Asignar fecha, hora y lugar",
+    "Asignar responsables",
+    "Registrar recursos y equipos necesarios",
+    "Actualizar el estado de la actividad",
+    "Cancelar una actividad",
+    "Consultar el cronograma logístico del evento"
+   ]
+  },
+  {
+   "n": 10,
+   "name": "Gestión de estructura académica",
+   "description": "Permite administrar la organización académica de la institución, definiendo cómo se estructuran sus programas de formación.",
+   "transactions": [
+    "Registrar un programa académico",
+    "Consultar los programas disponibles",
+    "Modificar la información de un programa",
+    "Crear niveles, grados o ciclos académicos",
+    "Asociar asignaturas o áreas de formación",
+    "Definir los requisitos de cada nivel",
+    "Activar o desactivar una estructura académica"
+   ]
+  },
+  {
+   "n": 11,
+   "name": "Gestión de inscripción",
+   "description": "Permite gestionar las solicitudes de ingreso y las inscripciones de estudiantes a programas o cursos de la academia.",
+   "transactions": [
+    "Registrar una solicitud de inscripción",
+    "Consultar las solicitudes recibidas",
+    "Modificar los datos de una solicitud",
+    "Validar los requisitos de ingreso",
+    "Aprobar o rechazar una inscripción",
+    "Inscribir al estudiante en un programa o curso",
+    "Cancelar una inscripción",
+    "Consultar el estado de la inscripción"
+   ]
+  },
+  {
+   "n": 12,
+   "name": "Gestión de horarios",
+   "description": "Permite organizar los horarios de las clases, ensayos, talleres y otras actividades, evitando conflictos de disponibilidad entre instructores, estudiantes y espacios.",
+   "transactions": [
+    "Registrar un horario",
+    "Consultar los horarios disponibles",
+    "Modificar la fecha o la hora de una actividad",
+    "Asignar un instructor",
+    "Asignar estudiantes o grupos",
+    "Verificar conflictos de horario",
+    "Reprogramar una actividad",
+    "Cancelar un horario",
+    "Consultar el calendario académico"
+   ]
+  },
+  {
+   "n": 13,
+   "name": "Gestión de salones y espacios",
+   "description": "Permite administrar las aulas, salas de ensayo, auditorios y demás espacios utilizados por la academia y las agrupaciones musicales.",
+   "transactions": [
+    "Registrar un salón o espacio",
+    "Consultar los espacios disponibles",
+    "Modificar los datos de un espacio",
+    "Registrar su capacidad y equipamiento",
+    "Cambiar su estado de disponibilidad",
+    "Asignar un espacio a una actividad",
+    "Verificar reservas y posibles conflictos",
+    "Liberar o cancelar una reserva",
+    "Consultar el historial de uso de un espacio, si se requiere"
+   ]
+  },
+  {
+   "n": 14,
+   "name": "Gestión actividades académicas",
+   "description": "Permite planificar y administrar las clases, talleres, evaluaciones y sesiones prácticas en las que participan los estudiantes e instructores.",
+   "transactions": [
+    "Registrar una actividad académica",
+    "Consultar las actividades programadas",
+    "Modificar los datos de una actividad",
+    "Asignar un instructor",
+    "Inscribir o asociar estudiantes",
+    "Asignar un salón o espacio",
+    "Definir fecha, hora y duración",
+    "Registrar la realización de la actividad",
+    "Cancelar o reprogramar la actividad"
+   ]
+  },
+  {
+   "n": 15,
+   "name": "Gestión de seguimiento  y aprendizaje",
+   "description": "Permite consultar y registrar la evolución del aprendizaje de cada estudiante o músico, manteniendo un historial de avances, observaciones y aspectos que necesitan refuerzo.",
+   "transactions": [
+    "Consultar el historial de aprendizaje",
+    "Registrar una observación de progreso",
+    "Registrar fortalezas y dificultades",
+    "Actualizar el avance de un estudiante",
+    "Consultar los comentarios de los instructores",
+    "Registrar recomendaciones de mejora",
+    "Consultar la evolución por período o asignatura"
+   ]
+  },
+  {
+   "n": 16,
+   "name": "Gestión de proceso e historial académico",
+   "description": "Permite conservar y consultar el historial formal de la trayectoria académica de cada estudiante, incluyendo períodos cursados, asignaturas, inscripciones y resultados obtenidos.",
+   "transactions": [
+    "Registrar el inicio del proceso académico de un estudiante",
+    "Consultar su historial académico",
+    "Registrar las asignaturas o cursos cursados",
+    "Registrar la aprobación o reprobación de asignaturas",
+    "Registrar el avance entre niveles académicos",
+    "Consultar los períodos académicos anteriores",
+    "Registrar el cierre o finalización de un período",
+    "Generar un resumen de la trayectoria académica"
+   ]
+  },
+  {
+   "n": 17,
+   "name": "Gestión evaluaciones",
+   "description": "Permite planificar, registrar y consultar las evaluaciones realizadas a los estudiantes, incluyendo sus calificaciones y resultados académicos.",
+   "transactions": [
+    "Registrar una evaluación",
+    "Consultar las evaluaciones programadas",
+    "Modificar los datos de una evaluación",
+    "Asignar la evaluación a una asignatura o actividad",
+    "Registrar las calificaciones",
+    "Modificar una calificación autorizadamente",
+    "Consultar los resultados de una evaluación",
+    "Calcular o registrar promedios, según las reglas académicas",
+    "Registrar la recuperación de una evaluación, si aplica"
+   ]
+  },
+  {
+   "n": 18,
+   "name": "Gestión de instructores",
+   "description": "Permite administrar la ficha técnica y profesional de los profesores, incluyendo sus especialidades, datos de contacto y disponibilidad para las actividades académicas.",
+   "transactions": [
+    "Registrar un instructor",
+    "Consultar el listado de instructores",
+    "Consultar la ficha técnica del instructor",
+    "Modificar sus datos",
+    "Eliminar o desactivar su ficha",
+    "Registrar sus especialidades musicales",
+    "Asociarlo a asignaturas, cursos o talleres",
+    "Consultar sus horarios y actividades asignadas"
+   ]
+  },
+  {
+   "n": 19,
+   "name": "Gestión de estudiantes",
+   "description": "Permite administrar la información personal y académica de los estudiantes inscritos en la academia, manteniendo actualizados sus datos y su relación con los programas de formación.",
+   "transactions": [
+    "Registrar un estudiante",
+    "Consultar el listado de estudiantes",
+    "Consultar la ficha del estudiante",
+    "Modificar sus datos personales",
+    "Actualizar su información académica",
+    "Eliminar o desactivar su ficha, según las políticas de conservación de datos",
+    "Consultar sus inscripciones",
+    "Consultar sus cursos y actividades",
+    "Consultar su estado académico"
+   ]
+  },
+  {
+   "n": 20,
+   "name": "Gestión de inventario",
+   "description": "Permite llevar el control de los activos físicos de la academia y las agrupaciones musicales, registrando sus características técnicas, ubicación y estado.",
+   "transactions": [
+    "Registrar un activo",
+    "Consultar el inventario",
+    "Consultar la ficha técnica de un activo",
+    "Modificar sus datos",
+    "Actualizar su ubicación",
+    "Cambiar su estado, por ejemplo, disponible, en mantenimiento o fuera de servicio",
+    "Registrar la baja de un activo",
+    "Buscar activos por categoría, código o estado",
+    "Consultar el historial del activo, si se requiere"
+   ]
+  },
+  {
+   "n": 21,
+   "name": "Gestión de préstamos y asignaciones",
+   "description": "Permite controlar la entrega temporal de equipos e instrumentos a usuarios, músicos, instructores o responsables de eventos, registrando quién recibe cada activo, durante cuánto tiempo y cuándo lo devuelve.",
+   "transactions": [
+    "Registrar una solicitud de préstamo",
+    "Consultar los equipos disponibles",
+    "Aprobar o rechazar un préstamo, si se establece ese flujo",
+    "Asignar un equipo a un usuario",
+    "Vincular un préstamo a un evento",
+    "Registrar la fecha prevista de devolución",
+    "Confirmar la entrega del equipo",
+    "Registrar la devolución",
+    "Registrar observaciones sobre el estado del equipo",
+    "Consultar préstamos activos y vencidos",
+    "Consultar el historial de préstamos de un equipo o usuario"
+   ]
+  }
+ ],
+ "areas": [
+  {
+   "title": "Transacciones de gestión musical y eventos",
+   "transactions": [
+    {
+     "n": 1,
+     "what": "Registrar un evento y asociar la agrupación responsable.",
+     "tables": [
+      "Evento",
+      "Agrupacion",
+      "Evento_Agrupacion"
+     ]
+    },
+    {
+     "n": 2,
+     "what": "Inscribir músicos en un evento.",
+     "tables": [
+      "Evento",
+      "Musico",
+      "Participacion_Evento"
+     ]
+    },
+    {
+     "n": 3,
+     "what": "Registrar y confirmar la asistencia de los participantes.",
+     "tables": [
+      "Evento",
+      "Musico",
+      "Usuario",
+      "Participacion_Evento",
+      "Asistencia"
+     ]
+    },
+    {
+     "n": 4,
+     "what": "Crear la escaleta de un evento con sus obras musicales.",
+     "tables": [
+      "Evento",
+      "Escaleta",
+      "Detalle_Escaleta",
+      "Obra_Musical"
+     ]
+    },
+    {
+     "n": 5,
+     "what": "Asignar obras musicales al repertorio de una agrupación.",
+     "tables": [
+      "Agrupacion",
+      "Obra_Musical",
+      "Repertorio_Agrupacion"
+     ]
+    },
+    {
+     "n": 6,
+     "what": "Registrar una agrupación con sus integrantes.",
+     "tables": [
+      "Agrupacion",
+      "Musico",
+      "Integrante_Agrupacion"
+     ]
+    },
+    {
+     "n": 7,
+     "what": "Asignar un repertorio a un evento.",
+     "tables": [
+      "Evento",
+      "Agrupacion",
+      "Repertorio_Agrupacion",
+      "Escaleta",
+      "Detalle_Escaleta"
+     ]
+    },
+    {
+     "n": 8,
+     "what": "Programar un ensayo y asignar participantes y espacio.",
+     "tables": [
+      "Actividad_Logistica",
+      "Evento",
+      "Musico",
+      "Salon"
+     ]
+    },
+    {
+     "n": 9,
+     "what": "Programar una prueba de sonido y asignar equipos.",
+     "tables": [
+      "Actividad_Logistica",
+      "Evento",
+      "Inventario",
+      "Asignacion_Equipo"
+     ]
+    },
+    {
+     "n": 10,
+     "what": "Consultar los eventos de una agrupación con sus músicos y repertorios.",
+     "tables": [
+      "Agrupacion",
+      "Evento_Agrupacion",
+      "Evento",
+      "Integrante_Agrupacion",
+      "Musico",
+      "Repertorio_Agrupacion",
+      "Obra_Musical"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Transacciones de gestión académica",
+   "transactions": [
+    {
+     "n": 11,
+     "what": "Inscribir a un estudiante en un programa académico.",
+     "tables": [
+      "Estudiante",
+      "Inscripcion",
+      "Programa_Academico"
+     ]
+    },
+    {
+     "n": 12,
+     "what": "Inscribir a un estudiante en un curso o asignatura.",
+     "tables": [
+      "Estudiante",
+      "Inscripcion",
+      "Curso",
+      "Periodo_Academico"
+     ]
+    },
+    {
+     "n": 13,
+     "what": "Crear una actividad académica y asignar instructor, estudiantes y salón.",
+     "tables": [
+      "Actividad_Academica",
+      "Instructor",
+      "Estudiante",
+      "Salon",
+      "Horario"
+     ]
+    },
+    {
+     "n": 14,
+     "what": "Programar una clase y validar la disponibilidad del instructor y del salón.",
+     "tables": [
+      "Horario",
+      "Instructor",
+      "Salon",
+      "Actividad_Academica"
+     ]
+    },
+    {
+     "n": 15,
+     "what": "Registrar una evaluación y las calificaciones de los estudiantes.",
+     "tables": [
+      "Evaluacion",
+      "Estudiante",
+      "Inscripcion",
+      "Calificacion"
+     ]
+    },
+    {
+     "n": 16,
+     "what": "Consultar el historial académico de un estudiante.",
+     "tables": [
+      "Estudiante",
+      "Inscripcion",
+      "Curso",
+      "Evaluacion",
+      "Calificacion",
+      "Periodo_Academico"
+     ]
+    },
+    {
+     "n": 17,
+     "what": "Registrar el seguimiento del aprendizaje de un estudiante.",
+     "tables": [
+      "Estudiante",
+      "Instructor",
+      "Actividad_Academica",
+      "Seguimiento_Aprendizaje"
+     ]
+    },
+    {
+     "n": 18,
+     "what": "Actualizar el avance académico de un estudiante en un programa.",
+     "tables": [
+      "Estudiante",
+      "Inscripcion",
+      "Programa_Academico",
+      "Curso",
+      "Calificacion",
+      "Historial_Academico"
+     ]
+    },
+    {
+     "n": 19,
+     "what": "Asignar un instructor a un curso y a un horario.",
+     "tables": [
+      "Instructor",
+      "Curso",
+      "Horario",
+      "Asignacion_Docente"
+     ]
+    },
+    {
+     "n": 20,
+     "what": "Consultar el progreso de los estudiantes de un instructor.",
+     "tables": [
+      "Instructor",
+      "Actividad_Academica",
+      "Estudiante",
+      "Seguimiento_Aprendizaje",
+      "Evaluacion",
+      "Calificacion"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Transacciones de inventario, préstamos y asignaciones",
+   "transactions": [
+    {
+     "n": 21,
+     "what": "Registrar un préstamo de equipo a un usuario.",
+     "tables": [
+      "Prestamo",
+      "Usuario",
+      "Inventario",
+      "Detalle_Prestamo"
+     ]
+    },
+    {
+     "n": 22,
+     "what": "Asignar instrumentos a músicos para un evento.",
+     "tables": [
+      "Inventario",
+      "Musico",
+      "Evento",
+      "Prestamo",
+      "Detalle_Prestamo"
+     ]
+    },
+    {
+     "n": 23,
+     "what": "Registrar la devolución de un equipo y actualizar su estado.",
+     "tables": [
+      "Prestamo",
+      "Detalle_Prestamo",
+      "Inventario",
+      "Devolucion"
+     ]
+    },
+    {
+     "n": 24,
+     "what": "Consultar los equipos asignados a un evento.",
+     "tables": [
+      "Evento",
+      "Prestamo",
+      "Detalle_Prestamo",
+      "Inventario",
+      "Usuario"
+     ]
+    },
+    {
+     "n": 25,
+     "what": "Registrar un equipo y asociarlo a una ubicación.",
+     "tables": [
+      "Inventario",
+      "Categoria_Activo",
+      "Salon"
+     ]
+    },
+    {
+     "n": 26,
+     "what": "Consultar el historial de préstamos de un equipo.",
+     "tables": [
+      "Inventario",
+      "Prestamo",
+      "Detalle_Prestamo",
+      "Usuario",
+      "Evento"
+     ]
+    },
+    {
+     "n": 27,
+     "what": "Verificar la disponibilidad de equipos antes de asignarlos a una actividad.",
+     "tables": [
+      "Inventario",
+      "Prestamo",
+      "Detalle_Prestamo",
+      "Actividad_Logistica",
+      "Evento"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Transacciones de usuarios, permisos y reportes",
+   "transactions": [
+    {
+     "n": 28,
+     "what": "Registrar un usuario y asignarle un rol.",
+     "tables": [
+      "Usuario",
+      "Rol",
+      "Usuario_Rol"
+     ]
+    },
+    {
+     "n": 29,
+     "what": "Asignar permisos a un rol.",
+     "tables": [
+      "Rol",
+      "Permiso",
+      "Rol_Permiso"
+     ]
+    },
+    {
+     "n": 30,
+     "what": "Consultar las actividades realizadas por un usuario.",
+     "tables": [
+      "Usuario",
+      "Evento",
+      "Actividad_Academica",
+      "Prestamo"
+     ]
+    },
+    {
+     "n": 31,
+     "what": "Generar un reporte de asistencia a eventos.",
+     "tables": [
+      "Evento",
+      "Participacion_Evento",
+      "Asistencia",
+      "Musico",
+      "Usuario"
+     ]
+    },
+    {
+     "n": 32,
+     "what": "Generar un reporte de rendimiento académico.",
+     "tables": [
+      "Estudiante",
+      "Inscripcion",
+      "Curso",
+      "Evaluacion",
+      "Calificacion"
+     ]
+    },
+    {
+     "n": 33,
+     "what": "Generar un reporte de inventario y préstamos activos.",
+     "tables": [
+      "Inventario",
+      "Prestamo",
+      "Detalle_Prestamo",
+      "Usuario",
+      "Evento"
+     ]
+    },
+    {
+     "n": 34,
+     "what": "Generar un reporte de programación de eventos y recursos asignados.",
+     "tables": [
+      "Evento",
+      "Agrupacion",
+      "Actividad_Logistica",
+      "Inventario",
+      "Salon",
+      "Horario"
+     ]
+    }
+   ]
+  }
+ ]
+}

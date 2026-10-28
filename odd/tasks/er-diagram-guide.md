@@ -79,6 +79,57 @@ the scope split into "Incluido hoy" (10) and "Fuera de alcance" (3). A caveat st
 numbers honestly: 133 foreign keys total = 50 to `auth.users` + 6 self-references + 77 drawn
 between `public` tables.
 
+### 3.7 The Proyecto IV proposal, measured against the schema
+
+`proyecto iv.docx` (Asociación Civil Voces que se Unen) is a **scope proposal**, not a
+description of what exists: 21 functional requirements, 34 numbered transactions, 37 proposed
+tables and an empty data dictionary. Attached to the guide as-is it would read as a spec the
+system meets, so it is attached as a gap analysis instead.
+
+`scripts/proyecto-iv-proposal.json` holds the document's content extracted verbatim —
+requirement names, transaction numbering 1–34 and the Spanish table names are the document's,
+and reordering them would break the reference a reader has on paper.
+
+`PROPOSAL_MAP` in the generator is curated, because turning `Obra_Musical` into a real table id
+cannot be derived from a database. What *is* derived is whether the target exists: a mapping
+pointing at a table the migrations never created **fails the build**. Three states, because two
+would lie — `exact` (same concept, another name), `partial` (a real table covers part of it),
+`missing` (nothing in `public` implements it).
+
+Measured result:
+
+| Dimension | Count |
+|---|---|
+| Transactions runnable end to end | **10 / 34** |
+| Transactions blocked by a missing table | 24 |
+| Proposed tables that exist | 12 exact + 3 partial |
+| Proposed tables missing | **22 / 37** |
+
+By area: musical/events 8/10 · academic **0/10** · inventory and loans **0/7** ·
+users/permissions/reports 2/7.
+
+**A transaction counts as runnable only when none of its tables is missing.** The first pass used
+"all exact / some / none" and called 19 of 34 *partial* — which is the wrong answer to the
+question the annex exists to answer. Two of three tables existing still means the transaction
+cannot run; reporting it as partial hides exactly the gap.
+
+Non-obvious mappings, all `partial` and stated in the UI rather than glossed over:
+`Agrupacion` → `organizations` (a tenant, not a group with its own members),
+`Evento_Agrupacion` → `event_participants` (links to an organization, not a group),
+`Repertorio_Agrupacion` → `collections` (groups songs, but is bound to neither an
+organization nor a group).
+
+A contradiction had to be resolved, not papered over: §3.6 said education and inventory were
+"fuera de alcance", while the proposal asks for them. The heading is now **"Alcance
+implementado"** with **"Fuera de la implementación actual"**, and the excluded list says what the
+document asks for and the database does not have — 10 academic transactions, 7 inventory/loan
+transactions, event logistics.
+
+UI: four stat tiles, a segmented coverage bar (12 green / 3 amber / 22 red), four area cards with
+all 34 transactions (red chips only on the blocking tables), and two `<details>` — the 21
+requirements and the 37-table catalog. A catalog row with a real target is clickable and focuses
+that table on the canvas.
+
 ## 4. Verification
 
 | Check | Result |
@@ -92,6 +143,9 @@ between `public` tables.
 | Console errors | none, both viewports |
 | `bash scripts/check-visual-contract.sh` | OK, 12 rules, 0 failing |
 | `pnpm lint` / `pnpm typecheck` | clean |
+| Proposal annex: 34 transaction rows, 24 blocked, 85 red chips | as rendered, 1920×867 |
+| Catalog row → canvas | `setlists` selected, guide closed, zoom 62% |
+| Console errors after the annex | none |
 
 **Deviation, stated because it matters:** `chrome-devtools` was the agreed tool and produced
 the guide/map/process evidence, but the browser then exited repeatedly and the MCP kept a stale
@@ -115,5 +169,6 @@ producing a wrong diagram.
 |---|---|
 | `scripts/build-er-diagram.mjs` | new — introspection, `DOMAINS`, `GUIDE`, validation |
 | `scripts/templates/er-diagram.html` | new — CSS, layout engine, guide, highlight painter |
-| `docs/er-diagram.html` | regenerated — 60 tables, 8 domains, 77 drawn relations, 9 processes |
+| `docs/er-diagram.html` | regenerated — 60 tables, 8 domains, 77 drawn relations, 9 processes, proposal annex |
+| `scripts/proyecto-iv-proposal.json` | new — the document's 21 requirements, 34 transactions, 37 table names, verbatim |
 | `skills/cemurm-uml-diagrams/SKILL.md` | one line: the diagram is generated, never edited |

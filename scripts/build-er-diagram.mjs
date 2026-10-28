@@ -47,6 +47,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATE_PATH = join(ROOT, 'scripts/templates/er-diagram.html');
 const OUTPUT_PATH = join(ROOT, 'docs/er-diagram.html');
+const PROPOSAL_PATH = join(ROOT, 'scripts/proyecto-iv-proposal.json');
 const CONTAINER = process.env.ER_DB_CONTAINER || 'supabase_db_cemurm';
 const DATA_SLOT = '/*__SCHEMA_DATA__*/';
 
@@ -135,7 +136,9 @@ const GUIDE = {
       'Integraciones: MIDI, pantalla externa, overlay OBS, proyección, PDF',
     ],
     excluded: [
-      'Educación (cursos, inscripción, progreso, asignaciones): 4 features y 67 escenarios, sin hito asignado',
+      'Educación (cursos, inscripción, progreso, evaluaciones): 4 features y 67 escenarios sin hito, y 10 transacciones del Proyecto IV',
+      'Inventario, préstamos y devoluciones de equipos: 7 transacciones del Proyecto IV, sin tablas ni features',
+      'Logística de evento (montaje, transporte, prueba de sonido): propuesta, sin tablas',
       'Beta polish (Hito 6): sin implementación',
       'App nativa de monitoreo y sincronización en vivo: decidida en 2026-10-19, sin código',
     ],
@@ -227,6 +230,128 @@ const GUIDE = {
     },
   ],
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// PROPOSAL — the Proyecto IV document, attached as a gap analysis.
+//
+// `scripts/proyecto-iv-proposal.json` is the document's content (21
+// requirements, 34 transactions, 37 proposed tables), extracted verbatim:
+// requirement names, transaction numbering and the Spanish table names are
+// the document's, not ours, and reordering them would break the reference
+// the reader has on paper.
+//
+// The mapping below is curated: turning "Obra_Musical" into a real table id
+// cannot be derived from a database. What IS derived is whether the target
+// exists — a mapping pointing at a table the migrations never created fails
+// the build, so a rename cannot leave a stale promise in the guide.
+//
+// Three states, because two would lie:
+//   exact   the proposed table is the same concept with another name
+//   partial a real table covers part of it, not all of it
+//   missing nothing in `public` implements it
+// ═══════════════════════════════════════════════════════════════════
+const PROPOSAL_MAP = {
+  Evento: { target: 'events', state: 'exact' },
+  Agrupacion: { target: 'organizations', state: 'partial', note: 'El tenant y sus sucursales; no existe una entidad "agrupación" con integrantes propios.' },
+  Evento_Agrupacion: { target: 'event_participants', state: 'partial', note: 'Vincula evento con organización, no con agrupación.' },
+  Musico: { target: 'profiles', state: 'exact' },
+  Participacion_Evento: { target: 'event_rsvps', state: 'exact' },
+  Usuario: { target: 'profiles', state: 'exact' },
+  Asistencia: { target: 'event_rsvps', state: 'exact' },
+  Escaleta: { target: 'setlists', state: 'exact' },
+  Detalle_Escaleta: { target: 'setlist_items', state: 'exact' },
+  Obra_Musical: { target: 'songs', state: 'exact' },
+  Repertorio_Agrupacion: { target: 'collections', state: 'partial', note: 'Agrupa canciones, pero no está atado a una organización ni a una agrupación.' },
+  Integrante_Agrupacion: { target: 'org_memberships', state: 'exact' },
+  Salon: { target: 'venues', state: 'exact' },
+  Rol: { target: 'user_roles', state: 'exact' },
+  Usuario_Rol: { target: 'user_roles', state: 'exact' },
+};
+
+function buildProposalLiteral(tables) {
+  let proposal;
+  try {
+    proposal = JSON.parse(readFileSync(PROPOSAL_PATH, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `No se pudo leer ${PROPOSAL_PATH}: ${error.message}\n` +
+      'Sin la propuesta el anexo no se puede dibujar; restaurá el archivo o quitá el anexo.',
+    );
+  }
+
+  // A mapping that points at a table the database does not have is a promise
+  // the guide would keep repeating after a rename. Fail instead.
+  for (const [proposed, entry] of Object.entries(PROPOSAL_MAP)) {
+    if (!tables.has(entry.target)) {
+      throw new Error(
+        `La propuesta mapea "${proposed}" a la tabla "${entry.target}", que no existe en la base.`,
+      );
+    }
+  }
+
+  const allProposed = [];
+  for (const area of proposal.areas) {
+    for (const transaction of area.transactions) {
+      for (const name of transaction.tables) {
+        if (!allProposed.includes(name)) allProposed.push(name);
+      }
+    }
+  }
+
+  const stateOf = (name) => (PROPOSAL_MAP[name] ? PROPOSAL_MAP[name].state : 'missing');
+
+  const catalog = allProposed.map((name) => {
+    const entry = PROPOSAL_MAP[name];
+    return {
+      name,
+      state: stateOf(name),
+      target: entry ? entry.target : null,
+      note: entry && entry.note ? entry.note : null,
+    };
+  });
+
+  // A transaction is only executable end to end when none of its tables is
+  // missing. "Touches three tables, two of them exist" is not a transaction
+  // you can run, and reporting it as partial hides exactly the gap the annex
+  // exists to show.
+  const areas = proposal.areas.map((area) => {
+    const transactions = area.transactions.map((transaction) => {
+      const missing = transaction.tables.filter((name) => stateOf(name) === 'missing');
+      return {
+        n: transaction.n,
+        what: transaction.what,
+        tables: transaction.tables.map((name) => ({ name, state: stateOf(name) })),
+        missing,
+        runnable: missing.length === 0,
+      };
+    });
+    return {
+      title: area.title,
+      transactions,
+      runnable: transactions.filter((t) => t.runnable).length,
+    };
+  });
+
+  const totalTransactions = areas.reduce((sum, area) => sum + area.transactions.length, 0);
+  const runnable = areas.reduce((sum, area) => sum + area.runnable, 0);
+
+  return `const PROPOSAL = ${JSON.stringify({
+    source: proposal._source.file,
+    titles: proposal.title_options,
+    requirements: proposal.requirements,
+    areas,
+    catalog,
+    totals: {
+      transactions: totalTransactions,
+      runnable,
+      blocked: totalTransactions - runnable,
+      tables: catalog.length,
+      exact: catalog.filter((c) => c.state === 'exact').length,
+      partial: catalog.filter((c) => c.state === 'partial').length,
+      missing: catalog.filter((c) => c.state === 'missing').length,
+    },
+  }, null, 2)};`;
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // INTROSPECTION
@@ -524,15 +649,19 @@ function main() {
   const edgeCounts = countEdges(tables);
   const data = buildDataLiteral(tables);
   const guide = buildGuideLiteral(tables, edgeCounts);
-  const output = template.replace(DATA_SLOT, `${data}\n\n${guide}`);
+  const proposal = buildProposalLiteral(tables);
+  const output = template.replace(DATA_SLOT, `${data}\n\n${guide}\n\n${proposal}`);
   writeFileSync(OUTPUT_PATH, output, 'utf8');
 
+  const proposalData = JSON.parse(proposal.replace(/^const PROPOSAL = /, '').replace(/;$/, ''));
   const { total, drawn, oneToOne, manyToMany } = edgeCounts;
   process.stdout.write(
     `docs/er-diagram.html regenerado\n` +
     `  ${tables.size} tablas · ${Object.keys(DOMAINS).length} dominios · ${total} FK en total\n` +
     `  ${drawn} relaciones dibujadas: ${oneToOne} 1:1 · ${manyToMany} N:M (puentes) · ${drawn - oneToOne - manyToMany} 1:N\n` +
-    `  ${GUIDE.processes.length} procesos explicados · ${GUIDE.core.length} tablas núcleo\n`,
+    `  ${GUIDE.processes.length} procesos explicados · ${GUIDE.core.length} tablas núcleo\n` +
+    `  Propuesta IV: ${proposalData.totals.transactions} transacciones (${proposalData.totals.runnable} ejecutables) · ` +
+    `${proposalData.totals.tables} tablas (${proposalData.totals.exact} existen · ${proposalData.totals.partial} parciales · ${proposalData.totals.missing} ausentes)\n`,
   );
 }
 
