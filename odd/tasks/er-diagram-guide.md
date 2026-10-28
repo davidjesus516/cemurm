@@ -12,7 +12,7 @@ Three defects, all found by looking at the artifact rather than at the code:
 
 | Defect | Evidence |
 |---|---|
-| The diagram **lied**. Hand-written, it showed 48 tables; the migrations created 60 | `docs/er-diagram.html` on `main` |
+| The diagram **lied**. Hand-written, it showed 48 tables; the migrations had created 60 | `docs/er-diagram.html` on `main` |
 | It **explained nothing**. 60 boxes, no ordering, no prose — a box is not an explanation | — |
 | "Ver todo" rendered a vertical strip at **13%**, unreadable | measured in Chrome at 1280×720 |
 
@@ -130,6 +130,27 @@ all 34 transactions (red chips only on the blocking tables), and two `<details>`
 requirements and the 37-table catalog. A catalog row with a real target is clickable and focuses
 that table on the canvas.
 
+### 3.8 Merging `main` broke the build on purpose — and that is the point
+
+`main` moved 91 commits while this branch was open, adding `0042`–`0045`: account export,
+erasure, import, and a member guard. Applying them locally took `public` from 60 to 61 tables,
+and the generator then refused to run:
+
+```
+Error: Tablas sin dominio asignado en DOMAIN_OF: account_erasure_requests
+Asignales un dominio; el diagrama no adivina.
+```
+
+That refusal is the feature. A diagram generated from a schema nobody re-read would have
+shipped 60 boxes for a 61-table database — wrong in exactly the way the hand-written one was.
+`account_erasure_requests` is now classified `tenancy`, next to `profiles` and
+`guardian_consents`, where an account-deletion request belongs.
+
+The merge also made "Incluido hoy" incomplete: export, import and erasure ship with repositories,
+domain modules and tests (`src/data/repositories/accountErasure.js`,
+`src/domain/account/`). Scope gained one line rather than letting the guide omit a shipped
+capability. The 77 drawn relations are unchanged — the new table has no foreign key.
+
 ## 4. Verification
 
 | Check | Result |
@@ -141,6 +162,7 @@ that table on the canvas.
 | Process "Biblioteca" at 1280 / 1920 | 83% / 100%, 7/7 highlighted inside |
 | Table click from the map | selected card fully visible; 13 relations listed in the detail panel |
 | Console errors | none, both viewports |
+| Regenerated after merging `main` (61 tables) | `DOMAINS` rejected the unclassified table before it could ship |
 | `bash scripts/check-visual-contract.sh` | OK, 12 rules, 0 failing |
 | `pnpm lint` / `pnpm typecheck` | clean |
 | Proposal annex: 34 transaction rows, 24 blocked, 85 red chips | as rendered, 1920×867 |
@@ -169,6 +191,6 @@ producing a wrong diagram.
 |---|---|
 | `scripts/build-er-diagram.mjs` | new — introspection, `DOMAINS`, `GUIDE`, validation |
 | `scripts/templates/er-diagram.html` | new — CSS, layout engine, guide, highlight painter |
-| `docs/er-diagram.html` | regenerated — 60 tables, 8 domains, 77 drawn relations, 9 processes, proposal annex |
+| `docs/er-diagram.html` | regenerated — 61 tables, 8 domains, 77 drawn relations, 9 processes, proposal annex |
 | `scripts/proyecto-iv-proposal.json` | new — the document's 21 requirements, 34 transactions, 37 table names, verbatim |
 | `skills/cemurm-uml-diagrams/SKILL.md` | one line: the diagram is generated, never edited |

@@ -73,6 +73,7 @@ const DOMAIN_OF = {
   organizations: 'tenancy', branches: 'tenancy', org_memberships: 'tenancy',
   user_roles: 'tenancy', invite_codes: 'tenancy', profiles: 'tenancy',
   user_preferences: 'tenancy', guardian_consents: 'tenancy',
+  account_erasure_requests: 'tenancy',
   // repertoire
   songs: 'repertoire', chart_files: 'repertoire', song_versions: 'repertoire',
   tags: 'repertoire', song_tags: 'repertoire', song_duplicates: 'repertoire',
@@ -125,6 +126,7 @@ const GUIDE = {
   scope: {
     included: [
       'Autenticación, perfiles y consentimiento de tutores',
+      'Cuenta: exportación, importación y borrado de datos, con purga de archivos',
       'Repertorio: canciones, versiones, charts y etiquetas',
       'Setlists, colecciones y edición colaborativa',
       'Organizaciones, sucursales, membresías y roles',

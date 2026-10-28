@@ -286,7 +286,17 @@ const DOMAINS = {
 };
 
 const ENTITIES = [
-  { id: 'branches', num: 1, domain: 'tenancy', cols: [
+  { id: 'account_erasure_requests', num: 1, domain: 'tenancy', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid' },
+      { name: 'requested_at', type: 'timestamptz' },
+      { name: 'scheduled_for', type: 'timestamptz' },
+      { name: 'cancelled_at', type: 'timestamptz' },
+      { name: 'completed_at', type: 'timestamptz' },
+      { name: 'storage_purged_at', type: 'timestamptz' },
+      { name: 'state', type: 'text' },
+  ]},
+  { id: 'branches', num: 2, domain: 'tenancy', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'name', type: 'text' },
@@ -294,7 +304,7 @@ const ENTITIES = [
       { name: 'status', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'guardian_consents', num: 2, domain: 'tenancy', cols: [
+  { id: 'guardian_consents', num: 3, domain: 'tenancy', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'guardian_name', type: 'text' },
@@ -312,7 +322,7 @@ const ENTITIES = [
       { name: 'updated_at', type: 'timestamptz' },
       { name: 'sharing_approval_token', type: 'uuid' },
   ]},
-  { id: 'invite_codes', num: 3, domain: 'tenancy', cols: [
+  { id: 'invite_codes', num: 4, domain: 'tenancy', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'kind', type: 'text' },
@@ -322,7 +332,7 @@ const ENTITIES = [
       { name: 'expires_at', type: 'timestamptz' },
       { name: 'used_at', type: 'timestamptz' },
   ]},
-  { id: 'org_memberships', num: 4, domain: 'tenancy', cols: [
+  { id: 'org_memberships', num: 5, domain: 'tenancy', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
@@ -332,7 +342,7 @@ const ENTITIES = [
       { name: 'joined_at', type: 'timestamptz' },
       { name: 'left_at', type: 'timestamptz' },
   ]},
-  { id: 'organizations', num: 5, domain: 'tenancy', cols: [
+  { id: 'organizations', num: 6, domain: 'tenancy', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'name', type: 'text' },
       { name: 'org_type', type: 'text' },
@@ -340,7 +350,7 @@ const ENTITIES = [
       { name: 'status', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'profiles', num: 6, domain: 'tenancy', cols: [
+  { id: 'profiles', num: 7, domain: 'tenancy', cols: [
       { name: 'id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
       { name: 'display_name', type: 'text' },
       { name: 'username', type: 'text' },
@@ -349,7 +359,7 @@ const ENTITIES = [
       { name: 'date_of_birth', type: 'date' },
       { name: 'is_minor', type: 'boolean' },
   ]},
-  { id: 'user_preferences', num: 7, domain: 'tenancy', cols: [
+  { id: 'user_preferences', num: 8, domain: 'tenancy', cols: [
       { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
       { name: 'transpose_offset', type: 'smallint' },
       { name: 'capo', type: 'smallint' },
@@ -357,11 +367,11 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'user_roles', num: 8, domain: 'tenancy', cols: [
+  { id: 'user_roles', num: 9, domain: 'tenancy', cols: [
       { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:N' },
       { name: 'role', type: 'text', pk: true },
   ]},
-  { id: 'chart_files', num: 9, domain: 'repertoire', cols: [
+  { id: 'chart_files', num: 10, domain: 'repertoire', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
       { name: 'format', type: 'chart_format' },
@@ -371,7 +381,7 @@ const ENTITIES = [
       { name: 'soft_deleted', type: 'boolean' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'external_enrichments', num: 10, domain: 'repertoire', cols: [
+  { id: 'external_enrichments', num: 11, domain: 'repertoire', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
       { name: 'source', type: 'text' },
@@ -381,7 +391,7 @@ const ENTITIES = [
       { name: 'applied_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'song_duplicates', num: 11, domain: 'repertoire', cols: [
+  { id: 'song_duplicates', num: 12, domain: 'repertoire', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'song_ids', type: 'uuid[]' },
       { name: 'canonical_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
@@ -390,11 +400,11 @@ const ENTITIES = [
       { name: 'unmerge_ok', type: 'boolean' },
       { name: 'decided_at', type: 'timestamptz' },
   ]},
-  { id: 'song_tags', num: 12, domain: 'repertoire', cols: [
+  { id: 'song_tags', num: 13, domain: 'repertoire', cols: [
       { name: 'song_id', type: 'uuid', pk: true, fk: 'songs', cardinality: 'N:M' },
       { name: 'tag_id', type: 'uuid', pk: true, fk: 'tags', cardinality: 'N:M' },
   ]},
-  { id: 'song_versions', num: 13, domain: 'repertoire', cols: [
+  { id: 'song_versions', num: 14, domain: 'repertoire', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
       { name: 'name', type: 'text' },
@@ -412,7 +422,7 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'change_note', type: 'text' },
   ]},
-  { id: 'songs', num: 14, domain: 'repertoire', cols: [
+  { id: 'songs', num: 15, domain: 'repertoire', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
@@ -429,18 +439,18 @@ const ENTITIES = [
       { name: 'license', type: 'text' },
       { name: 'license_confirmed', type: 'boolean' },
   ]},
-  { id: 'tags', num: 15, domain: 'repertoire', cols: [
+  { id: 'tags', num: 16, domain: 'repertoire', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'name', type: 'text' },
   ]},
-  { id: 'collection_songs', num: 16, domain: 'setlists', cols: [
+  { id: 'collection_songs', num: 17, domain: 'setlists', cols: [
       { name: 'collection_id', type: 'uuid', pk: true, fk: 'collections', cardinality: 'N:M' },
       { name: 'song_id', type: 'uuid', pk: true, fk: 'songs', cardinality: 'N:M' },
       { name: 'position', type: 'integer' },
   ]},
-  { id: 'collections', num: 17, domain: 'setlists', cols: [
+  { id: 'collections', num: 18, domain: 'setlists', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'owner_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
@@ -450,7 +460,7 @@ const ENTITIES = [
       { name: 'visibility', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'setlist_change_log', num: 18, domain: 'setlists', cols: [
+  { id: 'setlist_change_log', num: 19, domain: 'setlists', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
       { name: 'actor_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
@@ -458,14 +468,14 @@ const ENTITIES = [
       { name: 'detail', type: 'jsonb' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'setlist_collaborators', num: 19, domain: 'setlists', cols: [
+  { id: 'setlist_collaborators', num: 20, domain: 'setlists', cols: [
       { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists', cardinality: 'N:M' },
       { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
       { name: 'can_edit', type: 'boolean' },
       { name: 'invited_at', type: 'timestamptz' },
       { name: 'accepted_at', type: 'timestamptz' },
   ]},
-  { id: 'setlist_conflict_resolutions', num: 20, domain: 'setlists', cols: [
+  { id: 'setlist_conflict_resolutions', num: 21, domain: 'setlists', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
@@ -476,7 +486,7 @@ const ENTITIES = [
       { name: 'rule', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'setlist_items', num: 21, domain: 'setlists', cols: [
+  { id: 'setlist_items', num: 22, domain: 'setlists', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
@@ -487,7 +497,7 @@ const ENTITIES = [
       { name: 'midi_program', type: 'integer' },
       { name: 'notes', type: 'text' },
   ]},
-  { id: 'setlists', num: 22, domain: 'setlists', cols: [
+  { id: 'setlists', num: 23, domain: 'setlists', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
@@ -498,7 +508,7 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'personal_annotations', num: 23, domain: 'commentary', cols: [
+  { id: 'personal_annotations', num: 24, domain: 'commentary', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
@@ -508,7 +518,7 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'shared_comments', num: 24, domain: 'commentary', cols: [
+  { id: 'shared_comments', num: 25, domain: 'commentary', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
       { name: 'version_id', type: 'uuid', fk: 'song_versions', cardinality: '1:N' },
@@ -521,21 +531,21 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'event_participants', num: 25, domain: 'events', cols: [
+  { id: 'event_participants', num: 26, domain: 'events', cols: [
       { name: 'event_id', type: 'uuid', pk: true, fk: 'events', cardinality: 'N:M' },
       { name: 'org_id', type: 'uuid', pk: true, fk: 'organizations', cardinality: 'N:M' },
       { name: 'slot_time', type: 'timestamptz' },
       { name: 'slot_minutes', type: 'integer' },
       { name: 'sequence', type: 'integer' },
   ]},
-  { id: 'event_rsvps', num: 26, domain: 'events', cols: [
+  { id: 'event_rsvps', num: 27, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'event_id', type: 'uuid', fk: 'events', cardinality: '1:N' },
       { name: 'member_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'status', type: 'text' },
       { name: 'responded_at', type: 'timestamptz' },
   ]},
-  { id: 'event_setlists', num: 27, domain: 'events', cols: [
+  { id: 'event_setlists', num: 28, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'event_id', type: 'uuid', fk: 'events', cardinality: '1:N' },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
@@ -544,7 +554,7 @@ const ENTITIES = [
       { name: 'sequence', type: 'integer' },
       { name: 'visibility', type: 'text' },
   ]},
-  { id: 'events', num: 28, domain: 'events', cols: [
+  { id: 'events', num: 29, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'type', type: 'event_type' },
       { name: 'name', type: 'text' },
@@ -552,7 +562,7 @@ const ENTITIES = [
       { name: 'organizer_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'gigs', num: 29, domain: 'events', cols: [
+  { id: 'gigs', num: 30, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
@@ -565,7 +575,7 @@ const ENTITIES = [
       { name: 'shared_to_branch', type: 'boolean' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'performance_items', num: 30, domain: 'events', cols: [
+  { id: 'performance_items', num: 31, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'performance_id', type: 'uuid', fk: 'performances', cardinality: '1:N' },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
@@ -573,13 +583,13 @@ const ENTITIES = [
       { name: 'state', type: 'play_state' },
       { name: 'position', type: 'integer' },
   ]},
-  { id: 'performances', num: 31, domain: 'events', cols: [
+  { id: 'performances', num: 32, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'gig_id', type: 'uuid', fk: 'gigs', cardinality: '1:N' },
       { name: 'venue_id', type: 'uuid', fk: 'venues', cardinality: '1:N' },
       { name: 'performed_at', type: 'timestamptz' },
   ]},
-  { id: 'service_assignments', num: 32, domain: 'events', cols: [
+  { id: 'service_assignments', num: 33, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
       { name: 'block_id', type: 'uuid', fk: 'service_blocks', cardinality: '1:N' },
@@ -591,7 +601,7 @@ const ENTITIES = [
       { name: 'checkin_at', type: 'timestamptz' },
       { name: 'call_lead_minutes', type: 'integer' },
   ]},
-  { id: 'service_blocks', num: 33, domain: 'events', cols: [
+  { id: 'service_blocks', num: 34, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
       { name: 'name', type: 'text' },
@@ -600,7 +610,7 @@ const ENTITIES = [
       { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
       { name: 'start_offset_minutes', type: 'integer' },
   ]},
-  { id: 'service_change_log', num: 34, domain: 'events', cols: [
+  { id: 'service_change_log', num: 35, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
       { name: 'actor_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
@@ -608,7 +618,7 @@ const ENTITIES = [
       { name: 'detail', type: 'jsonb' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'service_plan_versions', num: 35, domain: 'events', cols: [
+  { id: 'service_plan_versions', num: 36, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
       { name: 'version_number', type: 'integer' },
@@ -618,7 +628,7 @@ const ENTITIES = [
       { name: 'published_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'published_at', type: 'timestamptz' },
   ]},
-  { id: 'services', num: 36, domain: 'events', cols: [
+  { id: 'services', num: 37, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
@@ -628,7 +638,7 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'starts_at', type: 'timestamptz' },
   ]},
-  { id: 'substitution_requests', num: 37, domain: 'events', cols: [
+  { id: 'substitution_requests', num: 38, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'assignment_id', type: 'uuid', fk: 'service_assignments', cardinality: '1:N' },
       { name: 'requested_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
@@ -638,20 +648,20 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'resolved_at', type: 'timestamptz' },
   ]},
-  { id: 'substitution_responses', num: 38, domain: 'events', cols: [
+  { id: 'substitution_responses', num: 39, domain: 'events', cols: [
       { name: 'request_id', type: 'uuid', pk: true, fk: 'substitution_requests', cardinality: 'N:M' },
       { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
       { name: 'status', type: 'text' },
       { name: 'responded_at', type: 'timestamptz' },
   ]},
-  { id: 'venues', num: 39, domain: 'events', cols: [
+  { id: 'venues', num: 40, domain: 'events', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'owner_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'name', type: 'text' },
       { name: 'location', type: 'text' },
       { name: 'type', type: 'text' },
   ]},
-  { id: 'bandmate_links', num: 40, domain: 'practice', cols: [
+  { id: 'bandmate_links', num: 41, domain: 'practice', cols: [
       { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:N' },
       { name: 'bandmate_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:N' },
       { name: 'status', type: 'text' },
@@ -659,7 +669,7 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'accepted_at', type: 'timestamptz' },
   ]},
-  { id: 'notification_preferences', num: 41, domain: 'practice', cols: [
+  { id: 'notification_preferences', num: 42, domain: 'practice', cols: [
       { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
       { name: 'push_enabled', type: 'boolean' },
       { name: 'categories', type: 'jsonb' },
@@ -667,7 +677,7 @@ const ENTITIES = [
       { name: 'quiet_end_at', type: 'time' },
       { name: 'weekly_digest', type: 'boolean' },
   ]},
-  { id: 'notifications', num: 42, domain: 'practice', cols: [
+  { id: 'notifications', num: 43, domain: 'practice', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'category', type: 'text' },
@@ -677,7 +687,7 @@ const ENTITIES = [
       { name: 'read_at', type: 'timestamptz' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'practice_sessions', num: 43, domain: 'practice', cols: [
+  { id: 'practice_sessions', num: 44, domain: 'practice', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
@@ -687,7 +697,7 @@ const ENTITIES = [
       { name: 'ended_at', type: 'timestamptz' },
       { name: 'offline_sync', type: 'uuid' },
   ]},
-  { id: 'rehearsal_items', num: 44, domain: 'practice', cols: [
+  { id: 'rehearsal_items', num: 45, domain: 'practice', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'rehearsal_id', type: 'uuid', fk: 'rehearsals', cardinality: '1:N' },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
@@ -697,7 +707,7 @@ const ENTITIES = [
       { name: 'notes', type: 'text' },
       { name: 'carry_over_to', type: 'uuid', fk: 'rehearsals', cardinality: '1:N' },
   ]},
-  { id: 'rehearsal_rsvps', num: 45, domain: 'practice', cols: [
+  { id: 'rehearsal_rsvps', num: 46, domain: 'practice', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'rehearsal_id', type: 'uuid', fk: 'rehearsals', cardinality: '1:N' },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
@@ -705,7 +715,7 @@ const ENTITIES = [
       { name: 'responded_at', type: 'timestamptz' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'rehearsals', num: 46, domain: 'practice', cols: [
+  { id: 'rehearsals', num: 47, domain: 'practice', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
       { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
@@ -719,7 +729,7 @@ const ENTITIES = [
       { name: 'created_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'dmca_notices', num: 47, domain: 'community', cols: [
+  { id: 'dmca_notices', num: 48, domain: 'community', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'kind', type: 'text' },
       { name: 'sender_name', type: 'text' },
@@ -731,7 +741,7 @@ const ENTITIES = [
       { name: 'case_id', type: 'uuid', fk: 'moderation_cases', cardinality: '1:N' },
       { name: 'status', type: 'text' },
   ]},
-  { id: 'feedback', num: 48, domain: 'community', cols: [
+  { id: 'feedback', num: 49, domain: 'community', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'kind', type: 'text' },
@@ -741,12 +751,12 @@ const ENTITIES = [
       { name: 'status', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'follows', num: 49, domain: 'community', cols: [
+  { id: 'follows', num: 50, domain: 'community', cols: [
       { name: 'follower_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
       { name: 'followed_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'moderation_cases', num: 50, domain: 'community', cols: [
+  { id: 'moderation_cases', num: 51, domain: 'community', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'public_song_id', type: 'uuid', fk: 'public_songs', cardinality: '1:N' },
       { name: 'reason_counts', type: 'jsonb' },
@@ -758,7 +768,7 @@ const ENTITIES = [
       { name: 'notes', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'public_songs', num: 51, domain: 'community', cols: [
+  { id: 'public_songs', num: 52, domain: 'community', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
       { name: 'contributor_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
@@ -769,12 +779,12 @@ const ENTITIES = [
       { name: 'status', type: 'text' },
       { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'rating_restrictions', num: 52, domain: 'community', cols: [
+  { id: 'rating_restrictions', num: 53, domain: 'community', cols: [
       { name: 'contributor_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
       { name: 'restricted_until', type: 'timestamptz' },
       { name: 'confirmed_violations', type: 'integer' },
   ]},
-  { id: 'reports', num: 53, domain: 'community', cols: [
+  { id: 'reports', num: 54, domain: 'community', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'public_song_id', type: 'uuid', fk: 'public_songs', cardinality: '1:N' },
       { name: 'reporter_id', type: 'uuid' },
@@ -782,7 +792,7 @@ const ENTITIES = [
       { name: 'status', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'audience_views', num: 54, domain: 'sync', cols: [
+  { id: 'audience_views', num: 55, domain: 'sync', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
       { name: 'token', type: 'text' },
@@ -791,7 +801,7 @@ const ENTITIES = [
       { name: 'push_token', type: 'text' },
       { name: 'created_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
   ]},
-  { id: 'device_configs', num: 55, domain: 'sync', cols: [
+  { id: 'device_configs', num: 56, domain: 'sync', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'device_id', type: 'text' },
@@ -799,19 +809,19 @@ const ENTITIES = [
       { name: 'pedal_switches', type: 'jsonb' },
       { name: 'display_mode', type: 'text' },
   ]},
-  { id: 'external_connections', num: 56, domain: 'sync', cols: [
+  { id: 'external_connections', num: 57, domain: 'sync', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'provider', type: 'text' },
       { name: 'status', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'midi_maps', num: 57, domain: 'sync', cols: [
+  { id: 'midi_maps', num: 58, domain: 'sync', cols: [
       { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists', cardinality: 'N:M' },
       { name: 'song_id', type: 'uuid', pk: true, fk: 'songs', cardinality: 'N:M' },
       { name: 'program', type: 'integer' },
   ]},
-  { id: 'outbox', num: 58, domain: 'sync', cols: [
+  { id: 'outbox', num: 59, domain: 'sync', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'device_id', type: 'text' },
@@ -824,7 +834,7 @@ const ENTITIES = [
       { name: 'created_at', type: 'timestamptz' },
       { name: 'synced_at', type: 'timestamptz' },
   ]},
-  { id: 'overlay_sessions', num: 59, domain: 'sync', cols: [
+  { id: 'overlay_sessions', num: 60, domain: 'sync', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
       { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
@@ -838,7 +848,7 @@ const ENTITIES = [
       { name: 'updated_at', type: 'timestamptz' },
       { name: 'access_token', type: 'uuid' },
   ]},
-  { id: 'scale_catalog', num: 60, domain: 'sync', cols: [
+  { id: 'scale_catalog', num: 61, domain: 'sync', cols: [
       { name: 'id', type: 'uuid', pk: true },
       { name: 'name', type: 'text' },
       { name: 'aliases', type: 'text[]' },
@@ -854,6 +864,7 @@ const GUIDE = {
   "scope": {
     "included": [
       "Autenticación, perfiles y consentimiento de tutores",
+      "Cuenta: exportación, importación y borrado de datos, con purga de archivos",
       "Repertorio: canciones, versiones, charts y etiquetas",
       "Setlists, colecciones y edición colaborativa",
       "Organizaciones, sucursales, membresías y roles",
