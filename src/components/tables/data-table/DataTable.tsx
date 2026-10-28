@@ -27,9 +27,9 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronsUpDown,
-  Trash2,
   Pencil,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import {
   Select,
   SelectContent,
@@ -66,6 +66,7 @@ const ROW_STATUS_CLASS: Record<string, string> = {
   'chart-2': 'bg-chart-2/15 text-chart-2',
   'chart-3': 'bg-success/15 text-success',
   'chart-4': 'bg-destructive/15 text-destructive',
+  neutral: 'bg-cem-hover text-cem-secondary-elevated',
   destructive: 'bg-destructive/15 text-destructive',
 }
 
@@ -103,7 +104,7 @@ const DataTable = <T extends Record<string, unknown>>({
 
   const paginationOptions = useMemo(() => {
     const sizes = [5, 10, 20, 50]
-    return sizes.filter((size) => size <= data.length)
+    return sizes.filter((size) => size <= Math.max(data.length, sizes[0]))
   }, [data.length])
 
   const columns = useMemo<ColumnDef<T, unknown>[]>(() => {
@@ -111,12 +112,21 @@ const DataTable = <T extends Record<string, unknown>>({
 
     const keys = Object.keys(data[0]).filter((key) => {
       const val = data[0][key]
-      return !Array.isArray(val) && key !== 'avatar' && key !== 'statuscolor'
+      return (
+        !Array.isArray(val) &&
+        key !== 'avatar' &&
+        key !== 'statuscolor' &&
+        key !== 'href'
+      )
     })
+
+    const HEADER_LABELS: Record<string, string> = { bpm: 'BPM' }
 
     const baseColumns = keys.map((col) => ({
       accessorKey: col as keyof T & string,
-      header: toTitleCase(col.replace(/([A-Z])/g, ' $1').trim()),
+      header:
+        HEADER_LABELS[col] ??
+        toTitleCase(col.replace(/([A-Z])/g, ' $1').trim()),
       cell: (info: CellContext<T, unknown>) => {
         const value = info.getValue()
 
@@ -361,20 +371,19 @@ const DataTable = <T extends Record<string, unknown>>({
 
     const actionColumn: ColumnDef<T, unknown> = {
       id: 'action',
-      header: 'Action',
+      header: 'Open',
       enableSorting: false,
-      cell: () => {
+      cell: (info) => {
+        const href = (info.row.original as Record<string, unknown>).href
+        if (typeof href !== 'string' || !href) return null
         return (
-          <div className='flex items-center gap-2'>
-            <Button
-              className='bg-cem-hover! rounded-md'>
-              <Pencil className='size-4 text-cem-amber' />
-            </Button>
-            <Button
-              className='bg-destructive/10! rounded-md'>
-              <Trash2 className='size-4 text-destructive' />
-            </Button>
-          </div>
+          <Link
+            to={href}
+            aria-label='Open row'
+            className='bg-cem-hover! rounded-md inline-flex h-8 w-8 items-center justify-center'
+          >
+            <Pencil className='size-4 text-cem-amber' />
+          </Link>
         )
       },
     }
@@ -420,7 +429,7 @@ const DataTable = <T extends Record<string, unknown>>({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', 'table-data.csv')
+    link.setAttribute('download', 'songs.csv')
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -436,20 +445,19 @@ const DataTable = <T extends Record<string, unknown>>({
             {/* Search + Download */}
             <CardHeader className='pb-4'>
               <div className='pt-0 flex items-center justify-between flex-wrap gap-4'>
-                <CardTitle>
-                  <h3 className='text-xl font-semibold'></h3>
-                    Employee Data Table
-                  
-                </CardTitle>
+                <CardTitle>Songs</CardTitle>
                 <div className='flex items-center gap-2 flex-wrap'>
                   <Input
                     type='text'
-                    className='max-w-96 lg:min-w-96 min-w-full placeholder:text-cem-text/20'
+                    aria-label='Search songs'
+                    className='max-w-96 lg:min-w-96 min-w-full placeholder:text-cem-secondary'
                     value={globalFilter ?? ''}
                     onChange={(e) => setGlobalFilter(e.target.value)}
-                    placeholder='Search your relevant items...'
+                    placeholder='Search songs...'
                   />
                   <Button
+                    type='button'
+                    aria-label='Download songs as CSV'
                     onClick={handleDownload}
                     className='p-2 px-4 rounded-md '>
                     <Icon
@@ -464,7 +472,7 @@ const DataTable = <T extends Record<string, unknown>>({
 
             {/* Table */}
             <CardContent>
-              <div className='overflow-x-auto border rounded-md border-ld'>
+              <div className='overflow-x-auto'>
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -558,7 +566,7 @@ const DataTable = <T extends Record<string, unknown>>({
                 <Select
                   value={String(table.getState().pagination.pageSize)}
                   onValueChange={(value) => table.setPageSize(Number(value))}>
-                  <SelectTrigger className='w-18! cursor-pointer'>
+                  <SelectTrigger id='pageSize' className='w-18! cursor-pointer'>
                     <SelectValue placeholder='Page size' />
                   </SelectTrigger>
                   <SelectContent>

@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         default: "cn-button-variant-default bg-cem-amber text-cem-base [a]:hover:bg-cem-amber/80",
         outline:
-          "cn-button-variant-outline border-cem-hover bg-cem-base hover:bg-cem-hover hover:text-cem-text aria-expanded:bg-cem-hover aria-expanded:text-cem-text dark:border-cem-hover dark:bg-cem-hover/30 dark:hover:bg-cem-hover/50",
+          "cn-button-variant-outline border-cem-hover! bg-cem-base hover:bg-cem-hover hover:text-cem-text aria-expanded:bg-cem-hover aria-expanded:text-cem-text dark:border-cem-hover! dark:bg-cem-hover/30 dark:hover:bg-cem-hover/50",
         secondary:
           "cn-button-variant-secondary bg-cem-elevated text-cem-text hover:bg-cem-elevated/80 aria-expanded:bg-cem-elevated aria-expanded:text-cem-text",
         ghost:
