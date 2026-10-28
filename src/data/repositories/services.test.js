@@ -24,7 +24,7 @@ vi.mock('../supabase.js', () => ({
 }))
 
 const { supabase } = await import('../supabase.js')
-const { assignMusician } = await import('./services.js')
+const { assignMusician, publishPlan, getPublishedPlan, listPlanVersions } = await import('./services.js')
 
 const ASSIGN = {
   serviceId: '11111111-1111-4111-8111-111111111111',
@@ -93,5 +93,52 @@ describe('assignMusician error mapping', () => {
     const err = await rejectionOf({ ...ASSIGN, part: '   ' })
     expect(err.message).toBe('Part is required.')
     expect(supabase.rpc).not.toHaveBeenCalled()
+  })
+})
+
+// Focused tests for the 0034 plan-freeze rejection surface (offboarding-cascade
+// carry-forward finding 3): publish_plan / get_published_plan / list_plan_versions
+// raise five distinct literals WITHOUT a trailing period, and none was in
+// USER_ERRORS — so every publish/history rejection reached the UI as the
+// generic fallback instead of its real message.
+//
+// The falsifiable property this file pins is set membership: remove any of the
+// five literals from USER_ERRORS and its case below goes red while the rest
+// stay green — same mutation-proof shape as the assignMusician cases above.
+describe('plan-freeze error mapping (0034)', () => {
+  /** @param {() => Promise<unknown>} fn */
+  async function rejectionOf_(fn) {
+    try {
+      await fn()
+    } catch (e) {
+      return /** @type {{ message?: string, code?: string }} */ (e)
+    }
+    throw new Error('expected the wrapper to reject, but it resolved')
+  }
+
+  const CASES = [
+    { message: 'Service not found', wrapper: () => publishPlan('svc') },
+    { message: 'Only the service leader can publish the plan', wrapper: () => publishPlan('svc') },
+    { message: 'A completed service is read-only', wrapper: () => publishPlan('svc') },
+    { message: 'Not visible to this user', wrapper: () => getPublishedPlan('svc') },
+    { message: 'Only the service leader can view version history', wrapper: () => listPlanVersions('svc') },
+  ]
+
+  it.each(CASES)('$message passes through verbatim', async ({ message, wrapper }) => {
+    state.rpcResult = { data: null, error: { message, code: 'P0001' } }
+    const err = await rejectionOf_(wrapper)
+    // The original error object must be re-thrown, not rebuilt: the offline
+    // drain classifies on `.code` (same contract as the assignMusician cases).
+    expect(err.message).toBe(message)
+    expect(err.code).toBe('P0001')
+  })
+
+  it('a publish failure the set does not carry still maps to the generic message', async () => {
+    state.rpcResult = {
+      data: null,
+      error: { message: 'could not announce new or existing functions' },
+    }
+    const err = await rejectionOf_(() => publishPlan('svc'))
+    expect(err.message).toBe('Something went wrong. Please try again.')
   })
 })

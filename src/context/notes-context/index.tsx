@@ -1,93 +1,66 @@
-import { createContext, useState, useEffect } from 'react';
-
+// Demo notes store.
+//
+// The notes screen has no CEMURM domain yet, so the demo keeps its content in
+// React state: no network calls, no Supabase writes, and every change is lost on
+// reload. The notes screen renders a demo notice that says exactly that.
+import { createContext, useState } from 'react';
 import React from 'react';
-import useSWR from 'swr';
-import { deleteFetcher, getFetcher, postFetcher, putFetcher } from 'src/api/global-fetcher';
+import { demoNotes } from '@/demo/content';
 import { notesType } from 'src/types/apps/notes';
 
-// Define context type
 interface NotesContextType {
   notes: notesType[];
-  loading: boolean;
-  error: Error | null;
   selectedNoteId: number;
   selectNote: (id: number) => void;
-  addNote: (newNote: notesType) => Promise<void>;
-  updateNote: (id: number, title: string, color: string) => Promise<void>;
-  deleteNote: (id: number) => Promise<void>;
+  addNote: (newNote: notesType) => void;
+  updateNote: (id: number, title: string) => void;
+  deleteNote: (id: number) => void;
 }
 
-// Initial context values
 const initialContext: NotesContextType = {
-  notes: [],
-  loading: true,
-  error: null,
-  selectedNoteId: 1,
+  notes: demoNotes,
+  selectedNoteId: demoNotes[0]?.id ?? 1,
   selectNote: () => {},
-  addNote: async () => {},
-  updateNote: async () => {},
-  deleteNote: async () => {},
+  addNote: () => {},
+  updateNote: () => {},
+  deleteNote: () => {},
 };
 
-// Create context
 export const NotesContext = createContext<NotesContextType>(initialContext);
 
-// Provider component
 export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [notes, setNotes] = useState<notesType[]>(initialContext.notes);
-  const [loading, setLoading] = useState<boolean>(initialContext.loading);
-  const [error, setError] = useState<Error | null>(initialContext.error);
-  const [selectedNoteId, setSelectedNoteId] = useState<number>(initialContext.selectedNoteId);
+  const [notes, setNotes] = useState<notesType[]>(demoNotes);
+  const [selectedNoteId, setSelectedNoteId] = useState<number>(
+    demoNotes[0]?.id ?? 1,
+  );
 
-  // Fetch notes from the server
-  const {
-    data: notesData,
-    isLoading: isNotesLoading,
-    error: notesError,
-    mutate,
-  } = useSWR('/api/data/notes/NotesData', getFetcher);
-  useEffect(() => {
-    if (notesData) {
-      setNotes(notesData.data);
-      setLoading(false);
-    } else if (notesError) {
-      setError(notesError);
-      setLoading(false);
-    } else {
-      setLoading(false);
-    }
-  }, [notesData, notesError, isNotesLoading]);
-
-  // Select a note by its ID
   const selectNote = (id: number) => {
     setSelectedNoteId(id);
   };
 
-  // Add a new note
-  const addNote = async (newNote: notesType) => {
-    try {
-      await mutate(postFetcher('/api/notes/add', newNote));
-    } catch (error) {
-      console.error('Error adding note:', error);
-    }
+  const addNote = (newNote: notesType) => {
+    const nextId = notes.reduce((max, note) => Math.max(max, note.id), 0) + 1;
+    const created: notesType = {
+      ...newNote,
+      id: nextId,
+      datef: new Date().toISOString(),
+      deleted: false,
+    };
+    setNotes((current) => [created, ...current]);
+    setSelectedNoteId(nextId);
   };
 
-  // Update a note by its ID
-  const updateNote = async (id: number, title: string, color: string) => {
-    try {
-      await mutate(putFetcher('/api/notes/update', { id, title, color }));
-    } catch (error) {
-      console.error('Error updating note:', error);
-    }
+  const updateNote = (id: number, title: string) => {
+    setNotes((current) =>
+      current.map((note) => (note.id === id ? { ...note, title } : note)),
+    );
   };
 
-  // Delete a note by its ID
-  const deleteNote = async (id: number) => {
-    try {
-      const response = await mutate(deleteFetcher('/api/notes/delete', { id }));
-      console.log(response.data);
-    } catch (error) {
-      console.error('Error deleting note:', error);
+  const deleteNote = (id: number) => {
+    const remaining = notes.filter((note) => note.id !== id);
+    setNotes(remaining);
+    if (selectedNoteId === id) {
+      setSelectedNoteId(remaining[0]?.id ?? 0);
     }
   };
 
@@ -95,8 +68,6 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <NotesContext.Provider
       value={{
         notes,
-        loading,
-        error,
         selectedNoteId,
         selectNote,
         addNote,

@@ -194,7 +194,7 @@ const PlaceholdersInput = forwardRef<
           type='text'
           disabled={disabled}
           className={cn(
-            'w-full bg-transparent text-sm text-cem-base pl-10 focus:outline-none dark:text-cem-text sm:text-base',
+            'w-full bg-transparent text-sm text-cem-text pl-10 focus:outline-none sm:text-base',
             animating && 'text-transparent',
             className
           )}

@@ -1,21 +1,12 @@
-
-import { Link } from 'react-router-dom'
-import LogoIcon from 'src/assets/images/logos/logoicon.svg'
-import { SidebarMenuButton } from 'src/components/ui/sidebar'
+import { Link } from "react-router-dom";
+import { CemurmMark } from "./FullLogo";
 
 const Logo = () => {
-    return (
-        <Link to={'/'}>
+  return (
+    <Link to="/dashboard" aria-label="CEMURM admin">
+      <CemurmMark />
+    </Link>
+  );
+};
 
-
-            <SidebarMenuButton
-                size="lg"
-                className="data-[state=open]:bg-cem-elevated data-[state=open]:text-cem-text"
-            >
-                <img src={LogoIcon} alt="logo" />
-            </SidebarMenuButton>
-        </Link>
-    )
-}
-
-export default Logo
+export default Logo;

@@ -14,14 +14,20 @@ import Loadable from '../layouts/full/shared/loadable/Loadable';
 // for a browser router whose root paths were absolute ("/", "/apps/blog
 // /post", ...). Absolute paths in nested children escape their parent prefix
 // in react-router v7, so every leading "/" is stripped. The 404 redirect is
-// the exception: a relative target inside the catch-all resolves against the
-// current path, so an unknown path would append "auth/404" forever. It stays
+// the exception: a relative target inside a catch-all resolves against the
+// current path, so an unknown path would append "auth/404" forever. They stay
 // absolute ("/dashboard/auth/404"). The demo screens now live under
 // /dashboard/... (e.g. /dashboard → dashboard, /dashboard/auth/404 → error
 // screen).
 /* ***Layouts**** */
 const FullLayout = Loadable(lazy(() => import('../layouts/full/FullLayout')));
 const BlankLayout = Loadable(lazy(() => import('../layouts/blank/BlankLayout')));
+
+// The demo ticket store is mounted once around the admin layout so a ticket
+// created on /dashboard/apps/tickets/create exists when the list route renders
+// (the template relied on a global SWR cache for that; local state needs a
+// shared provider).
+import { TicketProvider } from '../context/ticket-context';
 
 
 // dashboards
@@ -65,7 +71,11 @@ const Maintainance = Loadable(lazy(() => import('../views/auth/maintenance')));
 const Router = [
   {
     path: '',
-    element: <FullLayout />,
+    element: (
+      <TicketProvider>
+        <FullLayout />
+      </TicketProvider>
+    ),
     children: [
       { path: '', element: <ModernDashboard /> },
 
@@ -88,7 +98,7 @@ const Router = [
 
       { path: 'icons/iconify', element: <SolarIcon /> },
 
-    
+
       { path: '*', element: <Navigate to="/dashboard/auth/404" /> },
     ],
   },
@@ -106,7 +116,7 @@ const Router = [
       { path: 'auth/maintenance', element: <Maintainance /> },
       { path: '404', element: <Error /> },
       { path: 'auth/404', element: <Error /> },
-      { path: '*', element: <Navigate to="auth/404" /> },
+      { path: '*', element: <Navigate to="/dashboard/auth/404" /> },
     ],
   },
 ];

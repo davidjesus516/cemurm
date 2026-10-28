@@ -1,30 +1,25 @@
-import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import errorpage from "@/assets/images/backgrounds/404.svg"
+import { Link } from 'react-router-dom'
+import { buttonVariants } from '@/components/ui/button'
 
 const Error = () => {
   return (
-    <>
-      <div className="h-screen flex items-center justify-center ">
-        <div className="text-center">
-          <img
-            src={errorpage}
-            alt="error"
-            className="mb-20"
-            width={500}
-            height={500}
-          />
-          <h1 className="text-cem-text text-4xl mb-6">Opps!!!</h1>
-          <h6 className="text-xl text-cem-text">
-            This page you are looking for could not be found.
-          </h6>
-          <Button className="mt-6 mx-auto">
-            <Link to="/">Go Back to Home</Link>
-          </Button>
-        </div>
+    <div className='flex min-h-screen items-center justify-center px-4 py-12'>
+      <div className='max-w-md text-center'>
+        <p className='text-7xl font-semibold tracking-tight text-cem-amber'>
+          404
+        </p>
+        <h1 className='mt-4 text-2xl font-semibold text-cem-text'>
+          Page not found
+        </h1>
+        <p className='mt-2 text-sm text-cem-secondary'>
+          The page you are looking for does not exist or has moved.
+        </p>
+        <Link to='/dashboard' className={buttonVariants({ className: 'mt-6' })}>
+          Back to dashboard
+        </Link>
       </div>
-    </>
-  );
-};
+    </div>
+  )
+}
 
-export default Error;
+export default Error

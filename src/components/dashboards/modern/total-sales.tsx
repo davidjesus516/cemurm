@@ -1,8 +1,6 @@
-
-
 import { useEffect, useRef, useState } from "react";
 import { TrendingUp } from "lucide-react";
-import { Line, LineChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts";
+import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartConfig,
   ChartContainer,
@@ -10,77 +8,21 @@ import {
 } from "@/components/ui/chart";
 import { CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { DashboardCard } from "../../shared/dashboard-card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import type { ChartPoint, PeriodStats } from "@/hooks/shared/useAdminOverview";
 
-const allChartData: Record<string, { date: string; newUser: number; existingUser: number }[]> = {
-  "Last 30 Days": [
-    { date: "Mar 30", newUser: 12, existingUser: 20 },
-    { date: "Apr 1", newUser: 18, existingUser: 25 },
-    { date: "Apr 2", newUser: 14, existingUser: 22 },
-    { date: "Apr 4", newUser: 22, existingUser: 30 },
-    { date: "Apr 5", newUser: 16, existingUser: 18 },
-    { date: "Apr 7", newUser: 20, existingUser: 24 },
-    { date: "Apr 9", newUser: 18, existingUser: 32 },
-    { date: "Apr 11", newUser: 26, existingUser: 22 },
-    { date: "Apr 12", newUser: 20, existingUser: 26 },
-    { date: "Apr 14", newUser: 30, existingUser: 20 },
-    { date: "Apr 15", newUser: 22, existingUser: 28 },
-    { date: "Apr 17", newUser: 26, existingUser: 22 },
-    { date: "Apr 19", newUser: 28, existingUser: 18 },
-    { date: "Apr 20", newUser: 24, existingUser: 24 },
-    { date: "Apr 22", newUser: 38, existingUser: 18 },
-    { date: "Apr 23", newUser: 22, existingUser: 26 },
-    { date: "Apr 24", newUser: 20, existingUser: 22 },
-    { date: "Apr 26", newUser: 24, existingUser: 20 },
-    { date: "Apr 27", newUser: 18, existingUser: 24 },
-    { date: "Apr 29", newUser: 22, existingUser: 20 },
-    { date: "May 1", newUser: 20, existingUser: 18 },
-    { date: "May 4", newUser: 24, existingUser: 22 },
-  ],
-  "Last 7 Days": [
-    { date: "Apr 28", newUser: 18, existingUser: 22 },
-    { date: "Apr 29", newUser: 22, existingUser: 20 },
-    { date: "Apr 30", newUser: 20, existingUser: 28 },
-    { date: "May 1", newUser: 30, existingUser: 18 },
-    { date: "May 2", newUser: 24, existingUser: 26 },
-    { date: "May 3", newUser: 32, existingUser: 20 },
-    { date: "May 4", newUser: 22, existingUser: 28 },
-  ],
-  "Last 90 Days": [
-    { date: "Feb 1", newUser: 14, existingUser: 22 },
-    { date: "Feb 15", newUser: 20, existingUser: 28 },
-    { date: "Mar 1", newUser: 18, existingUser: 24 },
-    { date: "Mar 15", newUser: 26, existingUser: 20 },
-    { date: "Mar 30", newUser: 22, existingUser: 30 },
-    { date: "Apr 14", newUser: 32, existingUser: 22 },
-    { date: "Apr 22", newUser: 38, existingUser: 18 },
-    { date: "Apr 29", newUser: 24, existingUser: 26 },
-    { date: "May 4", newUser: 28, existingUser: 20 },
-  ],
-};
-
-const xAxisLabels: Record<string, Set<string>> = {
-  "Last 30 Days": new Set(["Mar 30", "Apr 4", "Apr 9", "Apr 14", "Apr 19", "Apr 24", "Apr 29", "May 4"]),
-  "Last 7 Days": new Set(["Apr 28", "Apr 29", "Apr 30", "May 1", "May 2", "May 3", "May 4"]),
-  "Last 90 Days": new Set(["Feb 1", "Feb 15", "Mar 1", "Mar 15", "Mar 30", "Apr 14", "Apr 29", "May 4"]),
-};
+interface TotalSalesProps {
+  chartData: ChartPoint[];
+  stats: PeriodStats;
+}
 
   // V1/S1: the template coloured the second series by mixing 60% of primary
   // with transparency through a banned functional colour (gate rule 01a). It
   // is re-anchored on the palette's amber token directly; the 60%-muted
   // companion rendering is retired (S4 delta, documented in the Log).
   const chartConfig = {
-  newUser: { label: "New User", color: "var(--color-cem-amber)" },
-  existingUser: { label: "Existing User", color: "var(--color-cem-amber)" },
+  songs: { label: "Songs", color: "var(--color-cem-amber)" },
+  setlists: { label: "Setlists", color: "var(--color-cem-amber)" },
 } satisfies ChartConfig;
-
-const periodOptions = ["Last 30 Days", "Last 7 Days", "Last 90 Days"];
 
 function useAnimatedNumber(target: number, duration = 450) {
   const [display, setDisplay] = useState(0);
@@ -141,11 +83,17 @@ function AnimatedTooltipContent({ active, payload, label, hideLabel = false, con
   );
 }
 
-export default function TotalSales() {
-  const [period, setPeriod] = useState(periodOptions[0]);
+function deltaLabel(value: number | null): string | null {
+  if (value === null) return null;
+  if (value === 0) return "no change";
+  return `${value > 0 ? "+" : ""}${value}%`;
+}
 
-  const chartData = allChartData[period];
-  const visibleLabels = xAxisLabels[period];
+export default function TotalSales({ chartData, stats }: TotalSalesProps) {
+  const maxValue = Math.max(
+    4,
+    ...chartData.map((point) => Math.max(point.songs, point.setlists)),
+  );
 
   return (
     <DashboardCard className="flex flex-col gap-0!">
@@ -153,47 +101,50 @@ export default function TotalSales() {
       <CardHeader className="border-b border-cem-hover">
         <CardTitle className="flex items-center gap-2">
           <TrendingUp size={16} className="text-cem-secondary-elevated" />
-          Sales Overview
+          Repertoire activity
         </CardTitle>
       </CardHeader>
 
       <CardContent className="p-5 flex flex-col gap-6">
-        {/* Stats row + period selector */}
+        {/* Stats row */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
-            <span className="text-base font-normal text-cem-text leading-6">Total Sales</span>
+            <span className="text-base font-normal text-cem-text leading-6">Songs added</span>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-2xl font-semibold tracking-[-0.3px] text-cem-text leading-8">
-                $12,450.00
+                {stats.songs.toLocaleString()}
               </span>
-              <span className="text-sm font-medium text-chart-2">+22%</span>
-              <span className="text-sm font-normal text-cem-secondary-elevated">vs last month</span>
+              {stats.songDelta === null ? (
+                <span className="text-sm font-normal text-cem-secondary-elevated">new this period</span>
+              ) : (
+                <>
+                  <span
+                    className={`text-sm font-medium ${stats.songDelta >= 0 ? 'text-success' : 'text-destructive'}`}
+                  >
+                    {deltaLabel(stats.songDelta)}
+                  </span>
+                  <span className="text-sm font-normal text-cem-secondary-elevated">vs previous period</span>
+                </>
+              )}
             </div>
+            <span className="text-sm font-normal text-cem-secondary-elevated">
+              {stats.setlists.toLocaleString()} {stats.setlists === 1 ? 'setlist' : 'setlists'} created
+              {stats.setlistDelta !== null && stats.setlistDelta !== 0
+                ? ` · ${deltaLabel(stats.setlistDelta)} vs previous period`
+                : ''}
+            </span>
           </div>
-
-          <Select value={period} onValueChange={(v) => v && setPeriod(v)}>
-            <SelectTrigger className="h-auto! w-fit text-sm font-medium text-cem-text border-cem-hover shadow-[0px_1px_2px_rgba(0,0,0,0.05)] cursor-pointer gap-1.5 px-3">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {periodOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="cursor-pointer">
-                  {opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Chart */}
         <ChartContainer config={chartConfig} className="h-[215px]! w-full">
           <LineChart
             data={chartData}
-            margin={{ top: 8, right: 4, bottom: 0, left: -10 }}
+            margin={{ top: 8, right: 30, bottom: 0, left: -10 }}
           >
             <CartesianGrid
               vertical={false}
-              stroke="var(--border)"
+              stroke="var(--color-cem-hover)"
               strokeDasharray="4 4"
             />
             <XAxis
@@ -201,36 +152,30 @@ export default function TotalSales() {
               tickLine={false}
               axisLine={false}
               tickMargin={10}
-              interval={0}
-              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-              tickFormatter={(v) => (visibleLabels.has(v) ? v : "")}
+              interval="preserveStartEnd"
+              minTickGap={32}
+              tick={{ fontSize: 12, fill: "var(--color-cem-secondary-elevated)" }}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tickMargin={4}
-              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-              ticks={[0, 10, 20, 30, 40]}
-              domain={[0, 40]}
-              tickFormatter={(v) => (v === 0 ? "0" : `${v}k`)}
+              allowDecimals={false}
+              tick={{ fontSize: 12, fill: "var(--color-cem-secondary-elevated)" }}
+              domain={[0, maxValue]}
+              tickCount={5}
             />
             <ChartTooltip
               cursor={{
-                stroke: "var(--border)",
+                stroke: "var(--color-cem-hover)",
                 strokeWidth: 1,
                 strokeDasharray: "4 4",
               }}
               content={<AnimatedTooltipContent config={chartConfig} />}
             />
-            <ReferenceLine
-              x="Apr 22"
-              stroke="var(--border)"
-              strokeWidth={1}
-              strokeDasharray="4 4"
-            />
-            {/* New User — solid primary */}
+            {/* Songs — solid primary */}
             <Line
-              dataKey="newUser"
+              dataKey="songs"
               type="linear"
               stroke="var(--color-cem-amber)"
               strokeWidth={1.5}
@@ -241,9 +186,9 @@ export default function TotalSales() {
               animationDuration={700}
               animationEasing="ease-out"
             />
-            {/* Existing User — dashed */}
+            {/* Setlists — dashed */}
             <Line
-              dataKey="existingUser"
+              dataKey="setlists"
               type="linear"
               stroke="var(--color-cem-amber)"
               strokeWidth={1.5}

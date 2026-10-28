@@ -6,104 +6,92 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import { PerformersData } from '../table-data'
-import { EllipsisVertical } from 'lucide-react'
+import { EllipsisVertical, ListMusic } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { PerformerRow } from '../table-data'
 
-const BasicTable = () => {
-  const tableActionData = [
-    { icon: 'solar:add-circle-outline', listtitle: 'Add' },
-    { icon: 'solar:pen-new-square-broken', listtitle: 'Edit' },
-    { icon: 'solar:trash-bin-minimalistic-outline', listtitle: 'Delete' },
-  ]
+interface BasicTableProps {
+  rows: PerformerRow[]
+}
 
+const BasicTable = ({ rows }: BasicTableProps) => {
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>
-         Basic Table
-          </CardTitle>
-        </CardHeader>
+    <Card>
+      <CardHeader>
+        <CardTitle>Setlists</CardTitle>
+      </CardHeader>
 
-        <CardContent>
-          <div className='flex flex-col border rounded-md border-ld'>
-            <div className='-m-1.5 overflow-x-auto'>
-              <div className='p-1.5 min-w-full inline-block align-middle'>
-                <div className='overflow-x-auto'>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className='text-sm font-semibold'>Assigned</TableHead>
-                        <TableHead className='text-sm font-semibold'>Project</TableHead>
-                        <TableHead className='text-sm font-semibold'>Priority</TableHead>
-                        <TableHead className='text-sm font-semibold'></TableHead>
-                      </TableRow>
-                    </TableHeader>
+      <CardContent>
+        <div className='overflow-x-auto'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className='text-sm font-semibold'>Setlist</TableHead>
+                <TableHead className='text-sm font-semibold'>Created</TableHead>
+                <TableHead className='text-sm font-semibold'>Visibility</TableHead>
+                <TableHead className='text-sm font-semibold'>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
 
-                    <TableBody>
-                      {PerformersData.map((item, index) => (
-                        <TableRow key={index} className='border-b border-cem-hover'>
-                          <TableCell className='min-w-[200px]'>
-                            <div className='flex gap-3 items-center'>
-                              <img
-                                src={item.profileImg}
-                                alt='profile'
-                                width={40}
-                                height={40}
-                                className='h-10 w-10 rounded-full'
-                              />
-                              <div>
-                                <h6 className='text-sm font-semibold mb-1'>{item.username}</h6>
-                                <p className='text-xs text-cem-secondary-elevated font-medium'>{item.designation}</p>
-                              </div>
-                            </div>
-                          </TableCell>
+            <TableBody>
+              {rows.length === 0 && (
+                <TableRow className='border-b border-cem-hover'>
+                  <TableCell
+                    colSpan={4}
+                    className='py-6 text-sm text-cem-secondary-elevated'
+                  >
+                    No setlists yet.
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((row) => (
+                <TableRow key={row.key} className='border-b border-cem-hover'>
+                  <TableCell className='min-w-[200px]'>
+                    <div className='flex gap-3 items-center'>
+                      <span className='flex h-10 w-10 items-center justify-center rounded-full border border-cem-hover shrink-0'>
+                        <ListMusic size={18} />
+                      </span>
+                      <div>
+                        <h6 className='text-sm font-semibold mb-1'>{row.title}</h6>
+                        <p className='text-xs text-cem-secondary-elevated font-medium'>
+                          {row.subtitle}
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
 
-                          <TableCell>
-                            <p className='text-cem-secondary-elevated text-sm font-medium'>{item.project}</p>
-                          </TableCell>
+                  <TableCell>
+                    <p className='text-cem-secondary-elevated text-sm font-medium'>
+                      {row.meta}
+                    </p>
+                  </TableCell>
 
-                          <TableCell>
-                            <Badge className={`text-sm rounded-full py-1 px-3 justify-center ${item.bgcolor}`}>
-                              {item.priority}
-                            </Badge>
-                          </TableCell>
+                  <TableCell>
+                    <Badge
+                      className={`text-sm rounded-full py-1 px-3 justify-center ${row.badgeClass}`}
+                    >
+                      {row.badge}
+                    </Badge>
+                  </TableCell>
 
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger>
-                                <span className='h-9 w-9 flex justify-center items-center rounded-full hover:bg-lightprimary hover:text-cem-amber cursor-pointer'>
-                                  <EllipsisVertical size={22} />
-                                </span>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align='end' className='w-40'>
-                                {tableActionData.map((action, idx) => (
-                                  <DropdownMenuItem key={idx} className='flex gap-3 items-center'>
-                                    <span>{action.listtitle}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </>
+                  <TableCell>
+                    <Link
+                      to={row.href}
+                      aria-label={`Open ${row.title}`}
+                      className='h-9 w-9 flex justify-center items-center rounded-full hover:bg-cem-hover hover:text-cem-amber cursor-pointer'
+                    >
+                      <EllipsisVertical size={22} />
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

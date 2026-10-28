@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Link } from "@tiptap/extension-link";
@@ -16,8 +15,6 @@ import { Bold, Code, Italic, Link2, List, ListOrdered, Redo, Underline as Underl
 import "./Tiptap.css";
 
 const MyEditor = () => {
-  const [editorContent, setEditorContent] = useState("");
-
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -25,14 +22,10 @@ const MyEditor = () => {
       Image,
       Underline,
       OrderedList,
-      OrderedList,
       BulletList,
       ListItem,
     ],
     content: "<p>Start typing...</p>",
-    onUpdate: ({ editor }) => {
-      setEditorContent(editor.getHTML());
-    },
     immediatelyRender: false,
   });
 
@@ -150,12 +143,6 @@ const MyEditor = () => {
 
       {/* Editor content area */}
       <EditorContent editor={editor} />
-
-      {/* Displaying the raw HTML content for testing */}
-      <div className="output">
-        <h3>Output</h3>
-        <div dangerouslySetInnerHTML={{ __html: editorContent }} />
-      </div>
     </div>
   );
 };

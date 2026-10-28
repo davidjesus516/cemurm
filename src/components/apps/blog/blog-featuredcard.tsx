@@ -40,10 +40,13 @@ const BlogFeaturedCard = ({ post, index }: Btype) => {
     <>
       {post ? (
         <div
-          className={`lg:col-span-${mainPost ? 8 : 4
-            } md:col-span-12 col-span-12`}
+          className={
+            mainPost
+              ? "lg:col-span-8 md:col-span-12 col-span-12"
+              : "lg:col-span-4 md:col-span-12 col-span-12"
+          }
         >
-          <div className="w-full h-[400px] p-0 overflow-hidden flex-row shadow-none relative group transition-shadow duration-300 ease-in-out">
+          <div className="relative h-[400px] w-full overflow-hidden rounded-xl ring-1 ring-cem-hover group">
             {/* Background Image */}
 
             <div className="absolute inset-0">
@@ -54,7 +57,7 @@ const BlogFeaturedCard = ({ post, index }: Btype) => {
                 width={786}
                 height={400}
               />
-              <div className="absolute inset-0 bg-cem-stage-bg opacity-50 mix-blend-multiply"></div>
+              <div className="absolute inset-0 bg-cem-base/70"></div>
             </div>
 
             <div>
@@ -71,17 +74,17 @@ const BlogFeaturedCard = ({ post, index }: Btype) => {
                   </div>
                   <div>
                     <h2 className="text-2xl text-cem-text my-6">
-                      <Link to={`/apps/blog/detail/${linkTo}`}> {title}</Link>
+                      <Link to={`/dashboard/apps/blog/detail/${linkTo}`}> {title}</Link>
                     </h2>
                     <div className="flex  gap-3">
-                      <div className="flex gap-2 items-center text-cem-text text-sm">
+                      <div className="flex gap-2 items-center text-cem-secondary-elevated text-sm">
                         <Eye size={18} /> {view}
                       </div>
-                      <div className="flex gap-2 items-center text-cem-text text-sm">
+                      <div className="flex gap-2 items-center text-cem-secondary-elevated text-sm">
                         <MessageSquare size={18} />{" "}
                         {comments?.length}
                       </div>
-                      <div className="ms-auto flex gap-2 items-center text-cem-text text-sm">
+                      <div className="ms-auto flex gap-2 items-center text-cem-secondary-elevated text-sm">
                         <Circle size={7} />
                         <small>
                           {createdAt

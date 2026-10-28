@@ -6,7 +6,6 @@ import BlogFeaturedCard from "./blog-featuredcard";
 
 import BlogCard from "./blog-card";
 import { BlogPostType } from "src/types/apps/blog";
-import StyleAwareWrapper from "src/components/shared/StyleAwareWrapper";
 
 const sortByDate = (items: BlogPostType[], direction: "asc" | "desc") => {
   const factor = direction === "asc" ? 1 : -1;
@@ -46,16 +45,14 @@ const BlogListing = () => {
   const featuredPosts = filterFeaturedPosts(posts);
 
   return (
-    <StyleAwareWrapper
-      lyraClassName="grid grid-cols-12 gap-px"
-      defaultClassName="grid grid-cols-12 gap-6">
+    <div className="grid grid-cols-12 gap-6">
       {featuredPosts.map((post, index) => {
         return <BlogFeaturedCard index={index} post={post} key={post.id} />;
       })}
       {blogPosts.map((post) => {
         return <BlogCard post={post} key={post.id} />;
       })}
-    </StyleAwareWrapper>
+    </div>
   );
 };
 export default BlogListing;

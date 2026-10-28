@@ -2,11 +2,11 @@
 import { useContext, useEffect, useState } from "react";
 
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BlogContext } from "src/context/blog-context";
+import { demoBlogCategories, demoBlogTags } from "@/demo/content";
 
 const CategoryTags = () => {
   const { posts } = useContext(BlogContext);
@@ -16,23 +16,10 @@ const CategoryTags = () => {
 
   const [Cats, setCats] = useState<string[]>([]);
   const [showCatOptions, setShowCatOptions] = useState<boolean>(false);
-  const [catOptions] = useState<string[]>([
-    "Technology",
-    "Lifestyle",
-    "Travel",
-    "Food",
-    "Business",
-    "social",
-  ]);
+  const [catOptions] = useState<string[]>(demoBlogCategories);
 
   const [showTagOptions, setShowTagOptions] = useState<boolean>(false);
-  const [tagOptions] = useState<string[]>([
-    "Trending",
-    "Tips",
-    "News",
-    "Guide",
-    "Popular",
-  ]);
+  const [tagOptions] = useState<string[]>(demoBlogTags);
 
   useEffect(() => {
     if (posts.length > 0) {
@@ -44,7 +31,7 @@ const CategoryTags = () => {
             : [firstPost.category]
         );
       }
-      setTags(["Trending"]);
+      setTags(["Setlist"]);
     }
   }, [posts]);
 
@@ -152,12 +139,6 @@ const CategoryTags = () => {
           </div>
         </div>
 
-        <div className="mt-2">
-          <Button variant="outline" className="">
-            <Plus size={18} /> Add selected category
-          </Button>
-        </div>
-
         <div className="mt-4">
           <div className="mb-2 block">
             <Label htmlFor="tags">Tags</Label>
@@ -191,11 +172,11 @@ const CategoryTags = () => {
             </small>
 
             {showTagOptions && (
-              <div>
+              <div className="absolute z-10 mt-1 w-full rounded-md bg-cem-surface shadow-lg">
                 {tagOptions.map((option, index) => (
                   <div
                     key={index}
-                    className="py-2 px-3 bg-hover cursor-pointer"
+                    className="cursor-pointer px-3 py-2 hover:bg-cem-hover"
                     onClick={() => handleTagClick(option)}
                   >
                     {option}
