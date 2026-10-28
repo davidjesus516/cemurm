@@ -27,21 +27,21 @@
   //   src/data/supabase.js (jsdoc-libs S11 port — src/data covers it)
   // VERIFY AFTER ANY MOVE: `npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'`
   // must stay > 1. A count of 1 means the baseline is dead again and the
-  // green exit is meaningless.
+  // green exit is meaningless. 248 at F1: 172 TS/TSX (the template tree) + 76 JS.
   "compilerOptions": {
     "allowJs": true,
-    // strict is for the TS/TSX half (tw4-stack-foundation S4). The vendored
-    // admin template's .ts/.tsx tree is NOT admitted yet: `include` still
-    // covers only the JS baseline directories, so tsc does not see src/views,
-    // src/components, src/layouts, src/api, src/context, src/hooks, src/routes
-    // or src/types.
-    // `pnpm typecheck` is therefore green without checking them.
-    // Tracking: odd/tasks/tw4-stack-foundation.md L5 (chained PR: path aliases
-    // for "@/..." and "src/...", missing deps, ~64 type errors). The same flag
-    // applies to the pragma'd .js files (checkJs off but @ts-check files are
-    // still checked), so the baseline stays the guard: tsc must exit 0 AND the
-    // listFiles count below must stay > 1 after any option change.
+    // strict is for the TS/TSX half (tw4-stack-foundation S4). Since F1 the
+    // vendored admin template's .ts/.tsx tree is admitted by `include`, and
+    // the path aliases below resolve its "@/..." and "src/..." imports.
+    // The same flag applies to the pragma'd .js files (checkJs off but
+    // @ts-check files are still checked), so the baseline stays the guard:
+    // tsc must exit 0 AND the listFiles count below must stay > 1 after any
+    // option change.
     "strict": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "src/*": ["./src/*"]
+    },
     "noEmit": true,
     "target": "ES2022",
     "module": "ESNext",
@@ -52,5 +52,19 @@
     "isolatedModules": true,
     "types": ["vite/client"]
   },
-  "include": ["src/domain", "src/data", "src/integrations", "src/lib", "src/offline"]
+  "include": [
+    "src/domain",
+    "src/data",
+    "src/integrations",
+    "src/lib",
+    "src/offline",
+    "src/api",
+    "src/components",
+    "src/context",
+    "src/hooks",
+    "src/layouts",
+    "src/routes",
+    "src/types",
+    "src/views"
+  ]
 }
