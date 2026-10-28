@@ -23,13 +23,13 @@ const Status = () => {
           <div className="flex justify-between items-center">
             <h5>Blog Status</h5>
             {selectedStatus === "Publish" ? (
-              <span className="h-3 w-3 p-0 bg-chart-2 rounded-full" />
+              <span className="h-3 w-3 p-0 bg-success rounded-full" />
             ) : selectedStatus === "Schedule" ? (
-              <span className="h-3 w-3 p-0 rounded-full" />
+              <span className="h-3 w-3 p-0 bg-warning rounded-full" />
             ) : selectedStatus === "Draft" ? (
-              <span className="h-3 w-3 p-0 rounded-full" />
+              <span className="h-3 w-3 p-0 bg-destructive rounded-full" />
             ) : (
-              <span className="h-3 w-3 p-0 bg-chart-4 rounded-full" />
+              <span className="h-3 w-3 p-0 bg-cem-secondary-elevated rounded-full" />
             )}
           </div>
         </CardTitle>

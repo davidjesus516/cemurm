@@ -1,23 +1,22 @@
 import BlogPost from "src/components/apps/blog/blog-post";
 import BreadcrumbComp from "src/layouts/full/shared/breadcrumb/BreadcrumbComp";
-import StyleAwareWrapper from "src/components/shared/StyleAwareWrapper";
-import StyleDivider from "src/components/shared/StyleDivider";
+import DemoNotice from "src/components/shared/DemoNotice";
 
 const BCrumb = [
-  { to: "/", title: "Home" },
+  { to: "/dashboard", title: "Home" },
   { title: "Blog app" },
 ];
 
 const Blog = () => {
   return (
-    <StyleAwareWrapper
-      lyraClassName="flex flex-col p-px gap-px bg-cem-hover"
-      defaultClassName="flex flex-col gap-4"
-    >
+    <div className="flex flex-col gap-4">
       <BreadcrumbComp title="Blog app" items={BCrumb} />
-      <StyleDivider />
+      <DemoNotice>
+        Demo content — CEMURM editorial examples. This view is not connected to
+        CEMURM data and nothing you change here is saved.
+      </DemoNotice>
       <BlogPost />
-    </StyleAwareWrapper>
+    </div>
   );
 };
 export default Blog;
