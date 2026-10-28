@@ -120,9 +120,9 @@ wrong `include` leaves `tsc` checking one untyped file and still exiting 0.
 npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 248 at F1 (172 TS/TSX + 76 JS)
 ```
 
-The template's demo layer needs three dev-only type packages: `msw` and `chance` are imported by
-`src/api/**` (a mock island not reached from the entry point), and `@types/lodash`, `@types/chance`
-and `@types/react-syntax-highlighter` cover the rest.
+The template's dead demo mocks (`chance` + MSW) were replaced by `src/demo/content.ts`, so neither
+is a dependency. The only type package the admitted tree still needs is
+`@types/react-syntax-highlighter`, used by the icon gallery.
 
 TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibility, odd/tasks/tw4-stack-foundation.md L3). Both quirks re-verified on 6.0.3:
 - `catch` variables infer `unknown`, so `e.message` needs a `/** @type {Error} */ (e)` cast.
