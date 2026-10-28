@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CEMURM — Diagrama Entidad-Relación (Schema v2)</title>
+<title>CEMURM — Esquema de base de datos</title>
 <style>
   :root {
     --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
@@ -28,7 +28,7 @@
   .controls button.active { color: var(--accent); border-color: var(--accent); background: rgba(108,140,255,0.1); }
 
   /* Sidebar */
-  .sidebar { position: fixed; top: 45px; left: 0; bottom: 0; width: 260px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; z-index: 50; padding: 12px 0; }
+  .sidebar { position: fixed; top: 45px; left: 0; bottom: 40px; width: 260px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; z-index: 50; padding: 12px 0; }
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .domain-group { margin-bottom: 8px; }
@@ -38,7 +38,10 @@
   .entity-list li { padding: 4px 16px 4px 32px; font-size: 12px; cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
   .entity-list li:hover { color: var(--text); background: var(--surface2); }
   .entity-list li.selected { color: var(--accent); background: rgba(108,140,255,0.08); }
-  .entity-list li .fk-count { font-size: 9px; color: var(--muted); margin-left: auto; background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+  .entity-list li .fk-count { font-size: 9px; color: var(--muted); margin-left: auto; background: var(--bg); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+  .entity-list li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .entity-list li .num { flex-shrink: 0; }
+  .sidebar-hint { padding: 8px 16px 10px; font-size: 10px; line-height: 1.5; color: var(--muted); border-bottom: 1px solid var(--border); margin-bottom: 6px; }
 
   /* Canvas */
   .canvas-area { position: fixed; top: 45px; left: 260px; right: 0; bottom: 0; overflow: hidden; cursor: grab; }
@@ -54,9 +57,7 @@
   .card-header .table-icon { font-size: 10px; opacity: 0.6; }
   .card-header .entity-name { font-weight: 700; font-size: 12px; color: #fff; }
   .card-header .entity-num { font-size: 9px; opacity: 0.5; margin-left: auto; }
-  .card-cols { padding: 6px 0; max-height: 200px; overflow-y: auto; }
-  .card-cols::-webkit-scrollbar { width: 3px; }
-  .card-cols::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .card-cols { padding: 6px 0; }
   .col-row { padding: 2px 10px; display: flex; align-items: center; gap: 6px; }
   .col-row:hover { background: var(--surface2); }
   .col-icon { font-size: 8px; width: 12px; text-align: center; flex-shrink: 0; }
@@ -64,8 +65,8 @@
   .col-icon.fk { color: var(--accent4); }
   .col-icon.jsonb { color: var(--accent6); }
   .col-icon.col { color: var(--muted); }
-  .col-name { font-size: 11px; color: var(--text); }
-  .col-type { font-size: 9px; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+  .col-name { font-size: 11px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-type { font-size: 9px; color: var(--muted); margin-left: auto; flex-shrink: 1; min-width: 0; max-width: 52%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
   .card-footer { padding: 5px 10px; border-top: 1px solid var(--border); font-size: 9px; color: var(--muted); }
 
   /* Connection lines — plain HTML divs inside #canvas, same coords as cards */
@@ -75,7 +76,8 @@
   #canvas .conn-lbl.highlighted { color: var(--accent); background: var(--surface2); }
 
   /* Minimap */
-  .minimap { position: fixed; bottom: 12px; right: 12px; width: 180px; height: 120px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; z-index: 50; overflow: hidden; }
+  .minimap { position: fixed; bottom: 12px; right: 12px; width: 180px; height: 120px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; z-index: 50; overflow: hidden; opacity: 0.45; transition: opacity 0.15s; }
+  .minimap:hover { opacity: 1; }
   .minimap-viewport { position: absolute; border: 1px solid var(--accent); background: rgba(108,140,255,0.08); border-radius: 1px; }
   .minimap-dot { position: absolute; width: 3px; height: 3px; border-radius: 50%; }
 
@@ -88,25 +90,99 @@
   .zoom-indicator { position: fixed; bottom: 12px; left: 272px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 10px; color: var(--muted); z-index: 50; }
 
   /* Legend */
-  .legend { position: fixed; bottom: 40px; left: 272px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; font-size: 10px; z-index: 50; display: flex; gap: 12px; align-items: center; }
+  .legend { position: fixed; bottom: 0; left: 0; width: 260px; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 10px; font-size: 9px; z-index: 60; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
   .legend-item { display: flex; align-items: center; gap: 4px; color: var(--muted); }
   .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* ── Guide: the explanation, shown before the map ───────────────── */
+  .guide { position: fixed; inset: 0; z-index: 300; background: var(--bg); overflow-y: auto; display: none; }
+  .guide.open { display: block; }
+  .guide-inner { max-width: 1180px; margin: 0 auto; padding: 52px 36px 80px; }
+  .guide-eyebrow { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .guide h1 { font-size: 30px; line-height: 1.25; font-weight: 700; color: var(--text); letter-spacing: -0.5px; margin-bottom: 18px; max-width: 820px; }
+  .guide-message { font-size: 15px; line-height: 1.75; color: var(--muted); max-width: 800px; margin-bottom: 22px; }
+  .guide-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 46px; }
+  .guide-actions button { padding: 8px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; font-family: inherit; cursor: pointer; }
+  .guide-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .guide-actions .primary { background: rgba(108,140,255,0.12); border-color: var(--accent); color: var(--accent); }
+  .guide-note { font-size: 11px; color: var(--muted); }
+  .guide-caveat { font-size: 11.5px; line-height: 1.7; color: var(--muted); max-width: 760px; margin: -30px 0 46px; opacity: 0.85; }
+  .guide-caveat code { color: var(--accent7); font-size: 11px; }
+
+  .guide-section { margin-bottom: 46px; }
+  .guide-section > h2 { font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+
+  .core-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .core-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .core-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .core-card .core-name { font-size: 13px; font-weight: 700; color: var(--accent5); margin-bottom: 6px; }
+  .core-card .core-meta { font-size: 10px; color: var(--accent); margin-bottom: 8px; }
+  .core-card .core-why { font-size: 11px; line-height: 1.55; color: var(--muted); }
+
+  .process-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }
+  .process-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; cursor: pointer; transition: border-color .15s, transform .15s; display: flex; flex-direction: column; gap: 10px; }
+  .process-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .process-head { display: flex; align-items: baseline; gap: 10px; }
+  .process-num { font-size: 10px; color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; flex-shrink: 0; }
+  .process-title { font-size: 14px; font-weight: 700; color: var(--text); }
+  .process-summary { font-size: 11.5px; line-height: 1.65; color: var(--muted); }
+  .process-tables { display: flex; flex-wrap: wrap; gap: 5px; }
+  .table-chip { font-size: 9.5px; padding: 2px 7px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); }
+  .process-foot { font-size: 9.5px; color: var(--muted); opacity: 0.8; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .scope-col { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+  .scope-col h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; }
+  .scope-col.in h3 { color: var(--accent3); }
+  .scope-col.out h3 { color: var(--accent4); }
+  .scope-col ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  .scope-col li { font-size: 11.5px; line-height: 1.5; color: var(--muted); padding-left: 14px; position: relative; }
+  .scope-col li::before { content: '·'; position: absolute; left: 2px; color: var(--muted); }
+
+  /* ── Process banner, over the canvas ───────────────────────────── */
+  .process-banner { position: fixed; top: 53px; left: 272px; right: 12px; z-index: 80; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 14px; display: none; gap: 12px; align-items: flex-start; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+  .process-banner.open { display: flex; }
+  .process-banner .pb-title { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .process-banner .pb-text { font-size: 11px; line-height: 1.55; color: var(--muted); flex: 1; }
+  .process-banner .pb-close { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; font-family: inherit; padding: 0 2px; }
+  .process-banner .pb-close:hover { color: var(--text); }
+
+  /* ── Map mode: 60 full cards never fit; 60 headers do ──────────── */
+  .canvas-area.map-mode .card-cols,
+  .canvas-area.map-mode .card-footer { display: none; }
+  .canvas-area.map-mode .entity-card .card-header { border-radius: 5px; }
+
+  /* Group label above each domain block on the canvas */
+  .canvas-domain { position: absolute; height: 22px; display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+  .canvas-domain-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .canvas-domain-name { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; opacity: 0.85; }
+  .canvas-domain:hover .canvas-domain-name { opacity: 1; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>CEMURM ER Diagram</h1>
-  <span class="stats">48 tables · 8 domains · schema v2</span>
+  <h1>CEMURM · Base de datos</h1>
+  <span class="stats" id="stats"></span>
   <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Search entities... (Ctrl+K)" />
+    <input type="text" id="searchInput" placeholder="Buscar tabla o columna… (Ctrl+K)" />
   </div>
   <div class="controls">
-    <button id="btnFit">Fit All</button>
-    <button id="btnReset">Reset</button>
-    <button id="btnGroupToggle" class="active">Group</button>
-    <button id="btnLabels" class="active">Labels</button>
+    <button id="btnGuide">Guía</button>
+    <button id="btnFit">Ver todo</button>
+    <button id="btnGroupToggle" class="active">Relaciones</button>
+    <button id="btnLabels" class="active">Tipos</button>
   </div>
+</div>
+
+<div class="process-banner" id="processBanner">
+  <span class="pb-title" id="pbTitle"></span>
+  <span class="pb-text" id="pbText"></span>
+  <button class="pb-close" id="pbClose" title="Cerrar">✕</button>
+</div>
+
+<div class="guide open" id="guide">
+  <div class="guide-inner" id="guideInner"></div>
 </div>
 
 <div class="sidebar" id="sidebar"></div>
@@ -131,478 +207,1539 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
-// DATA: All 48 tables with columns, types, and FK relationships
+// DATA — injected by scripts/build-er-diagram.mjs from the live database.
+// Do not edit this file: edit the generator, then re-run it.
 // ═══════════════════════════════════════════════════════════════════
+
 const DOMAINS = {
-  tenancy:      { label: 'Tenancy Spine',          color: '#6c8cff', order: 0 },
-  repertoire:   { label: 'Repertoire Core',        color: '#a78bfa', order: 1 },
-  setlists:     { label: 'Setlists & Collections', color: '#34d399', order: 2 },
-  commentary:   { label: 'Commentary',             color: '#f472b6', order: 3 },
-  events:       { label: 'Events & Performance',   color: '#fbbf24', order: 4 },
-  practice:     { label: 'Practice & Collaboration', color: '#fb923c', order: 5 },
-  community:    { label: 'Community & Moderation',  color: '#ef4444', order: 6 },
-  sync:         { label: 'Sync & Integrations',    color: '#38bdf8', order: 7 },
+  tenancy: { label: 'Tenencia y acceso', color: '#6c8cff', order: 0 },
+  repertoire: { label: 'Repertorio', color: '#a78bfa', order: 1 },
+  setlists: { label: 'Setlists y colecciones', color: '#34d399', order: 2 },
+  commentary: { label: 'Anotaciones', color: '#f472b6', order: 3 },
+  events: { label: 'Eventos y shows', color: '#fbbf24', order: 4 },
+  practice: { label: 'Práctica y colaboración', color: '#fb923c', order: 5 },
+  community: { label: 'Comunidad y moderación', color: '#ef4444', order: 6 },
+  sync: { label: 'Sincronización', color: '#38bdf8', order: 7 },
 };
 
 const ENTITIES = [
-  // ═══ TENANCY ═══
-  { id: 'organizations', num: 1, domain: 'tenancy', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'name', type: 'text' },
-    { name: 'org_type', type: 'text' },
-    { name: 'logo_url', type: 'text' },
-    { name: 'status', type: 'text' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'branches', num: 1, domain: 'tenancy', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'city', type: 'text' },
+      { name: 'status', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'branches', num: 2, domain: 'tenancy', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'name', type: 'text' },
-    { name: 'city', type: 'text' },
-    { name: 'status', type: 'text' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'guardian_consents', num: 2, domain: 'tenancy', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'guardian_name', type: 'text' },
+      { name: 'guardian_email', type: 'text' },
+      { name: 'consent_text', type: 'text' },
+      { name: 'consent_version', type: 'text' },
+      { name: 'status', type: 'text' },
+      { name: 'public_sharing_approved', type: 'boolean' },
+      { name: 'public_sharing_approved_at', type: 'timestamptz' },
+      { name: 'revocation_token', type: 'uuid' },
+      { name: 'consented_at', type: 'timestamptz' },
+      { name: 'revoked_at', type: 'timestamptz' },
+      { name: 'archived_at', type: 'timestamptz' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'updated_at', type: 'timestamptz' },
+      { name: 'sharing_approval_token', type: 'uuid' },
   ]},
-  { id: 'org_memberships', num: 3, domain: 'tenancy', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'branch_id', type: 'uuid', fk: 'branches' },
-    { name: 'role', type: 'text' },
-    { name: 'status', type: 'member_status' },
-    { name: 'joined_at', type: 'timestamptz' },
-    { name: 'left_at', type: 'timestamptz' },
+  { id: 'invite_codes', num: 3, domain: 'tenancy', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'kind', type: 'text' },
+      { name: 'code', type: 'text' },
+      { name: 'role', type: 'text' },
+      { name: 'created_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'expires_at', type: 'timestamptz' },
+      { name: 'used_at', type: 'timestamptz' },
   ]},
-  { id: 'user_roles', num: 4, domain: 'tenancy', cols: [
-    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'role', type: 'text', pk: true },
+  { id: 'org_memberships', num: 4, domain: 'tenancy', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
+      { name: 'role', type: 'text' },
+      { name: 'status', type: 'member_status' },
+      { name: 'joined_at', type: 'timestamptz' },
+      { name: 'left_at', type: 'timestamptz' },
   ]},
-  { id: 'invite_codes', num: 6, domain: 'tenancy', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'kind', type: 'text' },
-    { name: 'code', type: 'text' },
-    { name: 'role', type: 'text' },
-    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'expires_at', type: 'timestamptz' },
-    { name: 'used_at', type: 'timestamptz' },
+  { id: 'organizations', num: 5, domain: 'tenancy', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'name', type: 'text' },
+      { name: 'org_type', type: 'text' },
+      { name: 'logo_url', type: 'text' },
+      { name: 'status', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-
-  // ═══ REPERTOIRE ═══
-  { id: 'songs', num: 7, domain: 'repertoire', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'branch_id', type: 'uuid', fk: 'branches' },
-    { name: 'title', type: 'text' },
-    { name: 'artist', type: 'text' },
-    { name: 'genre', type: 'text' },
-    { name: 'source', type: 'text' },
-    { name: 'source_org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'is_deleted', type: 'boolean' },
-    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'updated_at', type: 'timestamptz' },
+  { id: 'profiles', num: 6, domain: 'tenancy', cols: [
+      { name: 'id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
+      { name: 'display_name', type: 'text' },
+      { name: 'username', type: 'text' },
+      { name: 'instrument', type: 'text' },
+      { name: 'avatar_url', type: 'text' },
+      { name: 'date_of_birth', type: 'date' },
+      { name: 'is_minor', type: 'boolean' },
   ]},
-  { id: 'chart_files', num: 40, domain: 'repertoire', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'format', type: 'chart_format' },
-    { name: 'object_key', type: 'text' },
-    { name: 'content', type: 'text' },
-    { name: 'size_bytes', type: 'integer' },
-    { name: 'soft_deleted', type: 'boolean' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'user_preferences', num: 7, domain: 'tenancy', cols: [
+      { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
+      { name: 'transpose_offset', type: 'smallint' },
+      { name: 'capo', type: 'smallint' },
+      { name: 'preferences', type: 'jsonb' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'song_versions', num: 8, domain: 'repertoire', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'name', type: 'text' },
-    { name: 'number', type: 'integer' },
-    { name: 'chart_file_id', type: 'uuid', fk: 'chart_files' },
-    { name: 'base_key', type: 'text' },
-    { name: 'base_tempo', type: 'integer' },
-    { name: 'duration_seconds', type: 'integer' },
-    { name: 'section_context', type: 'jsonb' },
-    { name: 'is_ready', type: 'boolean' },
-    { name: 'lineage_source', type: 'uuid', fk: 'song_versions(self)' },
-    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'change_note', type: 'text' },
+  { id: 'user_roles', num: 8, domain: 'tenancy', cols: [
+      { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:N' },
+      { name: 'role', type: 'text', pk: true },
   ]},
-  { id: 'tags', num: 9, domain: 'repertoire', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'name', type: 'text' },
+  { id: 'chart_files', num: 9, domain: 'repertoire', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'format', type: 'chart_format' },
+      { name: 'object_key', type: 'text' },
+      { name: 'content', type: 'text' },
+      { name: 'size_bytes', type: 'integer' },
+      { name: 'soft_deleted', type: 'boolean' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'song_tags', num: 9, domain: 'repertoire', cols: [
-    { name: 'song_id', type: 'uuid', pk: true, fk: 'songs' },
-    { name: 'tag_id', type: 'uuid', pk: true, fk: 'tags' },
+  { id: 'external_enrichments', num: 10, domain: 'repertoire', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'source', type: 'text' },
+      { name: 'field', type: 'text' },
+      { name: 'value', type: 'jsonb' },
+      { name: 'state', type: 'text' },
+      { name: 'applied_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'song_duplicates', num: 10, domain: 'repertoire', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'song_ids', type: 'uuid[]' },
-    { name: 'canonical_id', type: 'uuid', fk: 'songs' },
-    { name: 'merged_from', type: 'uuid', fk: 'songs' },
-    { name: 'decided_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'unmerge_ok', type: 'boolean' },
-    { name: 'decided_at', type: 'timestamptz' },
+  { id: 'song_duplicates', num: 11, domain: 'repertoire', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'song_ids', type: 'uuid[]' },
+      { name: 'canonical_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'merged_from', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'decided_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'unmerge_ok', type: 'boolean' },
+      { name: 'decided_at', type: 'timestamptz' },
   ]},
-  { id: 'external_enrichments', num: 11, domain: 'repertoire', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'source', type: 'text' },
-    { name: 'field', type: 'text' },
-    { name: 'value', type: 'jsonb' },
-    { name: 'state', type: 'text' },
-    { name: 'applied_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'song_tags', num: 12, domain: 'repertoire', cols: [
+      { name: 'song_id', type: 'uuid', pk: true, fk: 'songs', cardinality: 'N:M' },
+      { name: 'tag_id', type: 'uuid', pk: true, fk: 'tags', cardinality: 'N:M' },
   ]},
-
-  // ═══ SETLISTS & COLLECTIONS ═══
-  { id: 'setlists', num: 12, domain: 'setlists', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'branch_id', type: 'uuid', fk: 'branches' },
-    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'name', type: 'text' },
-    { name: 'visibility', type: 'text' },
-    { name: 'is_event_setlist', type: 'boolean' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'updated_at', type: 'timestamptz' },
+  { id: 'song_versions', num: 13, domain: 'repertoire', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'number', type: 'integer' },
+      { name: 'chart_file_id', type: 'uuid', fk: 'chart_files', cardinality: '1:N' },
+      { name: 'base_key', type: 'text' },
+      { name: 'base_tempo', type: 'integer' },
+      { name: 'duration_seconds', type: 'integer' },
+      { name: 'section_context', type: 'jsonb' },
+      { name: 'is_ready', type: 'boolean' },
+      { name: 'lineage_source', type: 'uuid', fk: 'song_versions(self)' },
+      { name: 'metadata', type: 'jsonb' },
+      { name: 'owner_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'created_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'change_note', type: 'text' },
   ]},
-  { id: 'setlist_collaborators', num: 12, domain: 'setlists', cols: [
-    { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists' },
-    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'can_edit', type: 'boolean' },
-    { name: 'invited_at', type: 'timestamptz' },
-    { name: 'accepted_at', type: 'timestamptz' },
+  { id: 'songs', num: 14, domain: 'repertoire', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
+      { name: 'title', type: 'text' },
+      { name: 'artist', type: 'text' },
+      { name: 'genre', type: 'text' },
+      { name: 'source', type: 'text' },
+      { name: 'source_org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'is_deleted', type: 'boolean' },
+      { name: 'created_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'updated_at', type: 'timestamptz' },
+      { name: 'year', type: 'integer' },
+      { name: 'license', type: 'text' },
+      { name: 'license_confirmed', type: 'boolean' },
   ]},
-  { id: 'setlist_items', num: 13, domain: 'setlists', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
-    { name: 'position', type: 'integer' },
-    { name: 'agreed_key', type: 'text' },
-    { name: 'vocal_parts', type: 'jsonb' },
-    { name: 'midi_program', type: 'integer' },
-    { name: 'notes', type: 'text' },
+  { id: 'tags', num: 15, domain: 'repertoire', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
   ]},
-  { id: 'collections', num: 14, domain: 'setlists', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'name', type: 'text' },
-    { name: 'description', type: 'text' },
-    { name: 'fork_of', type: 'uuid', fk: 'collections(self)' },
-    { name: 'visibility', type: 'text' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'collection_songs', num: 16, domain: 'setlists', cols: [
+      { name: 'collection_id', type: 'uuid', pk: true, fk: 'collections', cardinality: 'N:M' },
+      { name: 'song_id', type: 'uuid', pk: true, fk: 'songs', cardinality: 'N:M' },
+      { name: 'position', type: 'integer' },
   ]},
-  { id: 'collection_songs', num: 15, domain: 'setlists', cols: [
-    { name: 'collection_id', type: 'uuid', pk: true, fk: 'collections' },
-    { name: 'song_id', type: 'uuid', pk: true, fk: 'songs' },
-    { name: 'position', type: 'integer' },
+  { id: 'collections', num: 17, domain: 'setlists', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'owner_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'description', type: 'text' },
+      { name: 'fork_of', type: 'uuid', fk: 'collections(self)' },
+      { name: 'visibility', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-
-  // ═══ COMMENTARY ═══
-  { id: 'shared_comments', num: 16, domain: 'commentary', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
-    { name: 'anchor', type: 'jsonb' },
-    { name: 'parent_id', type: 'uuid', fk: 'shared_comments(self)' },
-    { name: 'author_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'body', type: 'text' },
-    { name: 'resolved', type: 'boolean' },
-    { name: 'deleted', type: 'boolean' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'updated_at', type: 'timestamptz' },
+  { id: 'setlist_change_log', num: 18, domain: 'setlists', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'actor_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'action', type: 'text' },
+      { name: 'detail', type: 'jsonb' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'personal_annotations', num: 17, domain: 'commentary', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'anchor', type: 'jsonb' },
-    { name: 'kind', type: 'text' },
-    { name: 'value', type: 'text' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'updated_at', type: 'timestamptz' },
+  { id: 'setlist_collaborators', num: 19, domain: 'setlists', cols: [
+      { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists', cardinality: 'N:M' },
+      { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
+      { name: 'can_edit', type: 'boolean' },
+      { name: 'invited_at', type: 'timestamptz' },
+      { name: 'accepted_at', type: 'timestamptz' },
   ]},
-
-  // ═══ EVENTS & PERFORMANCE ═══
-  { id: 'events', num: 18, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'type', type: 'event_type' },
-    { name: 'name', type: 'text' },
-    { name: 'status', type: 'text' },
-    { name: 'organizer_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'setlist_conflict_resolutions', num: 20, domain: 'setlists', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'op_name', type: 'text' },
+      { name: 'winner_author_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'winner_queued_at', type: 'timestamptz' },
+      { name: 'winner_op_key', type: 'uuid' },
+      { name: 'rule', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'event_participants', num: 18, domain: 'events', cols: [
-    { name: 'event_id', type: 'uuid', pk: true, fk: 'events' },
-    { name: 'org_id', type: 'uuid', pk: true, fk: 'organizations' },
-    { name: 'slot_time', type: 'timestamptz' },
-    { name: 'slot_minutes', type: 'integer' },
-    { name: 'sequence', type: 'integer' },
+  { id: 'setlist_items', num: 21, domain: 'setlists', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'version_id', type: 'uuid', fk: 'song_versions', cardinality: '1:N' },
+      { name: 'position', type: 'integer' },
+      { name: 'agreed_key', type: 'text' },
+      { name: 'vocal_parts', type: 'jsonb' },
+      { name: 'midi_program', type: 'integer' },
+      { name: 'notes', type: 'text' },
   ]},
-  { id: 'event_rsvps', num: 19, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'event_id', type: 'uuid', fk: 'events' },
-    { name: 'member_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'status', type: 'text' },
-    { name: 'responded_at', type: 'timestamptz' },
+  { id: 'setlists', num: 22, domain: 'setlists', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
+      { name: 'owner_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'visibility', type: 'text' },
+      { name: 'is_event_setlist', type: 'boolean' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'event_setlists', num: 18, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'event_id', type: 'uuid', fk: 'events' },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'group_name', type: 'text' },
-    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
-    { name: 'visibility', type: 'text' },
+  { id: 'personal_annotations', num: 23, domain: 'commentary', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'anchor', type: 'jsonb' },
+      { name: 'kind', type: 'text' },
+      { name: 'value', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'venues', num: 21, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'name', type: 'text' },
-    { name: 'location', type: 'text' },
-    { name: 'type', type: 'text' },
+  { id: 'shared_comments', num: 24, domain: 'commentary', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'version_id', type: 'uuid', fk: 'song_versions', cardinality: '1:N' },
+      { name: 'anchor', type: 'jsonb' },
+      { name: 'parent_id', type: 'uuid', fk: 'shared_comments(self)' },
+      { name: 'author_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'body', type: 'text' },
+      { name: 'resolved', type: 'boolean' },
+      { name: 'deleted', type: 'boolean' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'updated_at', type: 'timestamptz' },
   ]},
-  { id: 'gigs', num: 20, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'branch_id', type: 'uuid', fk: 'branches' },
-    { name: 'owner_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'name', type: 'text' },
-    { name: 'venue_id', type: 'uuid', fk: 'venues' },
-    { name: 'scheduled_at', type: 'timestamptz' },
-    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
-    { name: 'status', type: 'text' },
-    { name: 'shared_to_branch', type: 'boolean' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'event_participants', num: 25, domain: 'events', cols: [
+      { name: 'event_id', type: 'uuid', pk: true, fk: 'events', cardinality: 'N:M' },
+      { name: 'org_id', type: 'uuid', pk: true, fk: 'organizations', cardinality: 'N:M' },
+      { name: 'slot_time', type: 'timestamptz' },
+      { name: 'slot_minutes', type: 'integer' },
+      { name: 'sequence', type: 'integer' },
   ]},
-  { id: 'performances', num: 22, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'gig_id', type: 'uuid', fk: 'gigs' },
-    { name: 'venue_id', type: 'uuid', fk: 'venues' },
-    { name: 'performed_at', type: 'timestamptz' },
+  { id: 'event_rsvps', num: 26, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'event_id', type: 'uuid', fk: 'events', cardinality: '1:N' },
+      { name: 'member_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'status', type: 'text' },
+      { name: 'responded_at', type: 'timestamptz' },
   ]},
-  { id: 'performance_items', num: 22, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'performance_id', type: 'uuid', fk: 'performances' },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
-    { name: 'state', type: 'play_state' },
-    { name: 'position', type: 'integer' },
+  { id: 'event_setlists', num: 27, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'event_id', type: 'uuid', fk: 'events', cardinality: '1:N' },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'group_name', type: 'text' },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'sequence', type: 'integer' },
+      { name: 'visibility', type: 'text' },
   ]},
-  { id: 'services', num: 23, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'branch_id', type: 'uuid', fk: 'branches' },
-    { name: 'name', type: 'text' },
-    { name: 'status', type: 'text' },
-    { name: 'leader_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'events', num: 28, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'type', type: 'event_type' },
+      { name: 'name', type: 'text' },
+      { name: 'status', type: 'text' },
+      { name: 'organizer_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'service_blocks', num: 24, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'service_id', type: 'uuid', fk: 'services' },
-    { name: 'name', type: 'text' },
-    { name: 'position', type: 'integer' },
-    { name: 'time_budget', type: 'integer' },
-    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
+  { id: 'gigs', num: 29, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
+      { name: 'owner_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'venue_id', type: 'uuid', fk: 'venues', cardinality: '1:N' },
+      { name: 'scheduled_at', type: 'timestamptz' },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'status', type: 'text' },
+      { name: 'shared_to_branch', type: 'boolean' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'service_assignments', num: 25, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'service_id', type: 'uuid', fk: 'services' },
-    { name: 'block_id', type: 'uuid', fk: 'service_blocks' },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'part', type: 'text' },
-    { name: 'is_substitute', type: 'boolean' },
-    { name: 'covered_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'decided_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'checkin_at', type: 'timestamptz' },
+  { id: 'performance_items', num: 30, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'performance_id', type: 'uuid', fk: 'performances', cardinality: '1:N' },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'version_id', type: 'uuid', fk: 'song_versions', cardinality: '1:N' },
+      { name: 'state', type: 'play_state' },
+      { name: 'position', type: 'integer' },
   ]},
-  { id: 'substitution_requests', num: 26, domain: 'events', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'assignment_id', type: 'uuid', fk: 'service_assignments' },
-    { name: 'requested_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'scope', type: 'text' },
-    { name: 'candidates', type: 'uuid[]' },
-    { name: 'status', type: 'text' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'resolved_at', type: 'timestamptz' },
+  { id: 'performances', num: 31, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'gig_id', type: 'uuid', fk: 'gigs', cardinality: '1:N' },
+      { name: 'venue_id', type: 'uuid', fk: 'venues', cardinality: '1:N' },
+      { name: 'performed_at', type: 'timestamptz' },
   ]},
-
-  // ═══ PRACTICE & COLLABORATION ═══
-  { id: 'practice_sessions', num: 27, domain: 'practice', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
-    { name: 'instrument', type: 'text' },
-    { name: 'started_at', type: 'timestamptz' },
-    { name: 'ended_at', type: 'timestamptz' },
-    { name: 'offline_sync', type: 'uuid' },
+  { id: 'service_assignments', num: 32, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
+      { name: 'block_id', type: 'uuid', fk: 'service_blocks', cardinality: '1:N' },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'part', type: 'text' },
+      { name: 'is_substitute', type: 'boolean' },
+      { name: 'covered_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'decided_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'checkin_at', type: 'timestamptz' },
+      { name: 'call_lead_minutes', type: 'integer' },
   ]},
-  { id: 'rehearsals', num: 28, domain: 'practice', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'org_id', type: 'uuid', fk: 'organizations' },
-    { name: 'branch_id', type: 'uuid', fk: 'branches' },
-    { name: 'event_id', type: 'uuid', fk: 'events' },
-    { name: 'scope', type: 'text' },
-    { name: 'name', type: 'text' },
-    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
-    { name: 'timebox_minutes', type: 'integer' },
-    { name: 'status', type: 'text' },
-    { name: 'planned_for', type: 'timestamptz' },
-    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'service_blocks', num: 33, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'position', type: 'integer' },
+      { name: 'time_budget', type: 'integer' },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'start_offset_minutes', type: 'integer' },
   ]},
-  { id: 'rehearsal_items', num: 28, domain: 'practice', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'rehearsal_id', type: 'uuid', fk: 'rehearsals' },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'version_id', type: 'uuid', fk: 'song_versions' },
-    { name: 'outcome', type: 'text' },
-    { name: 'run_count', type: 'integer' },
-    { name: 'notes', type: 'text' },
-    { name: 'carry_over_to', type: 'uuid', fk: 'rehearsals(self)' },
+  { id: 'service_change_log', num: 34, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
+      { name: 'actor_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'action', type: 'text' },
+      { name: 'detail', type: 'jsonb' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'bandmate_links', num: 29, domain: 'practice', cols: [
-    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'bandmate_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'status', type: 'text' },
-    { name: 'invite_code_id', type: 'uuid', fk: 'invite_codes' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'accepted_at', type: 'timestamptz' },
+  { id: 'service_plan_versions', num: 35, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'service_id', type: 'uuid', fk: 'services', cardinality: '1:N' },
+      { name: 'version_number', type: 'integer' },
+      { name: 'status', type: 'text' },
+      { name: 'snapshot', type: 'jsonb' },
+      { name: 'reason', type: 'text' },
+      { name: 'published_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'published_at', type: 'timestamptz' },
   ]},
-  { id: 'notifications', num: 30, domain: 'practice', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'category', type: 'text' },
-    { name: 'title', type: 'text' },
-    { name: 'body', type: 'text' },
-    { name: 'payload', type: 'jsonb' },
-    { name: 'read_at', type: 'timestamptz' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'services', num: 36, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'status', type: 'text' },
+      { name: 'leader_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'starts_at', type: 'timestamptz' },
   ]},
-  { id: 'notification_preferences', num: 31, domain: 'practice', cols: [
-    { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'push_enabled', type: 'boolean' },
-    { name: 'categories', type: 'jsonb' },
-    { name: 'quiet_start_at', type: 'time' },
-    { name: 'quiet_end_at', type: 'time' },
-    { name: 'weekly_digest', type: 'boolean' },
+  { id: 'substitution_requests', num: 37, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'assignment_id', type: 'uuid', fk: 'service_assignments', cardinality: '1:N' },
+      { name: 'requested_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'scope', type: 'text' },
+      { name: 'candidates', type: 'uuid[]' },
+      { name: 'status', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'resolved_at', type: 'timestamptz' },
   ]},
-
-  // ═══ COMMUNITY & MODERATION ═══
-  { id: 'public_songs', num: 32, domain: 'community', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'song_id', type: 'uuid', fk: 'songs' },
-    { name: 'contributor_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'license', type: 'text' },
-    { name: 'license_confirmed', type: 'boolean' },
-    { name: 'lineage', type: 'uuid', fk: 'public_songs(self)' },
-    { name: 'linked_copies', type: 'uuid[]' },
-    { name: 'status', type: 'text' },
-    { name: 'updated_at', type: 'timestamptz' },
+  { id: 'substitution_responses', num: 38, domain: 'events', cols: [
+      { name: 'request_id', type: 'uuid', pk: true, fk: 'substitution_requests', cardinality: 'N:M' },
+      { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
+      { name: 'status', type: 'text' },
+      { name: 'responded_at', type: 'timestamptz' },
   ]},
-  { id: 'follows', num: 33, domain: 'community', cols: [
-    { name: 'follower_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'followed_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'venues', num: 39, domain: 'events', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'owner_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'name', type: 'text' },
+      { name: 'location', type: 'text' },
+      { name: 'type', type: 'text' },
   ]},
-  { id: 'reports', num: 34, domain: 'community', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'public_song_id', type: 'uuid', fk: 'public_songs' },
-    { name: 'reporter_id', type: 'uuid' },
-    { name: 'reason', type: 'report_reason' },
-    { name: 'status', type: 'text' },
-    { name: 'created_at', type: 'timestamptz' },
+  { id: 'bandmate_links', num: 40, domain: 'practice', cols: [
+      { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:N' },
+      { name: 'bandmate_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:N' },
+      { name: 'status', type: 'text' },
+      { name: 'invite_code_id', type: 'uuid', fk: 'invite_codes', cardinality: '1:N' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'accepted_at', type: 'timestamptz' },
   ]},
-  { id: 'moderation_cases', num: 35, domain: 'community', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'public_song_id', type: 'uuid', fk: 'public_songs' },
-    { name: 'reason_counts', type: 'jsonb' },
-    { name: 'grounds', type: 'text[]' },
-    { name: 'decision', type: 'text' },
-    { name: 'decider_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'appeal_of', type: 'uuid', fk: 'moderation_cases(self)' },
-    { name: 'decided_at', type: 'timestamptz' },
-    { name: 'notes', type: 'text' },
+  { id: 'notification_preferences', num: 41, domain: 'practice', cols: [
+      { name: 'user_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
+      { name: 'push_enabled', type: 'boolean' },
+      { name: 'categories', type: 'jsonb' },
+      { name: 'quiet_start_at', type: 'time' },
+      { name: 'quiet_end_at', type: 'time' },
+      { name: 'weekly_digest', type: 'boolean' },
   ]},
-  { id: 'rating_restrictions', num: 36, domain: 'community', cols: [
-    { name: 'contributor_id', type: 'uuid', pk: true, fk: 'auth.users' },
-    { name: 'restricted_until', type: 'timestamptz' },
-    { name: 'confirmed_violations', type: 'integer' },
+  { id: 'notifications', num: 42, domain: 'practice', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'category', type: 'text' },
+      { name: 'title', type: 'text' },
+      { name: 'body', type: 'text' },
+      { name: 'payload', type: 'jsonb' },
+      { name: 'read_at', type: 'timestamptz' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'dmca_notices', num: 44, domain: 'community', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'kind', type: 'text' },
-    { name: 'sender_name', type: 'text' },
-    { name: 'sender_email', type: 'text' },
-    { name: 'recipient_email', type: 'text' },
-    { name: 'subject_public_song_id', type: 'uuid', fk: 'public_songs' },
-    { name: 'received_at', type: 'timestamptz' },
-    { name: 'statutory_details', type: 'jsonb' },
-    { name: 'case_id', type: 'uuid', fk: 'moderation_cases' },
-    { name: 'status', type: 'text' },
+  { id: 'practice_sessions', num: 43, domain: 'practice', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'version_id', type: 'uuid', fk: 'song_versions', cardinality: '1:N' },
+      { name: 'instrument', type: 'text' },
+      { name: 'started_at', type: 'timestamptz' },
+      { name: 'ended_at', type: 'timestamptz' },
+      { name: 'offline_sync', type: 'uuid' },
   ]},
-
-  // ═══ SYNC & INTEGRATIONS ═══
-  { id: 'device_configs', num: 37, domain: 'sync', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'device_id', type: 'text' },
-    { name: 'midi_output', type: 'text' },
-    { name: 'pedal_switches', type: 'jsonb' },
-    { name: 'display_mode', type: 'text' },
+  { id: 'rehearsal_items', num: 44, domain: 'practice', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'rehearsal_id', type: 'uuid', fk: 'rehearsals', cardinality: '1:N' },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'version_id', type: 'uuid', fk: 'song_versions', cardinality: '1:N' },
+      { name: 'outcome', type: 'text' },
+      { name: 'run_count', type: 'integer' },
+      { name: 'notes', type: 'text' },
+      { name: 'carry_over_to', type: 'uuid', fk: 'rehearsals', cardinality: '1:N' },
   ]},
-  { id: 'midi_maps', num: 38, domain: 'sync', cols: [
-    { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists' },
-    { name: 'song_id', type: 'uuid', pk: true, fk: 'songs' },
-    { name: 'program', type: 'integer' },
+  { id: 'rehearsal_rsvps', num: 45, domain: 'practice', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'rehearsal_id', type: 'uuid', fk: 'rehearsals', cardinality: '1:N' },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'status', type: 'text' },
+      { name: 'responded_at', type: 'timestamptz' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'outbox', num: 39, domain: 'sync', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'device_id', type: 'text' },
-    { name: 'entity', type: 'text' },
-    { name: 'entity_id', type: 'uuid' },
-    { name: 'operation', type: 'text' },
-    { name: 'payload', type: 'jsonb' },
-    { name: 'seq', type: 'bigint' },
-    { name: 'state', type: 'text' },
-    { name: 'created_at', type: 'timestamptz' },
-    { name: 'synced_at', type: 'timestamptz' },
+  { id: 'rehearsals', num: 46, domain: 'practice', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'org_id', type: 'uuid', fk: 'organizations', cardinality: '1:N' },
+      { name: 'branch_id', type: 'uuid', fk: 'branches', cardinality: '1:N' },
+      { name: 'event_id', type: 'uuid', fk: 'events', cardinality: '1:N' },
+      { name: 'scope', type: 'text' },
+      { name: 'name', type: 'text' },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'timebox_minutes', type: 'integer' },
+      { name: 'status', type: 'text' },
+      { name: 'planned_for', type: 'timestamptz' },
+      { name: 'created_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'created_at', type: 'timestamptz' },
   ]},
-  { id: 'audience_views', num: 42, domain: 'sync', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'setlist_id', type: 'uuid', fk: 'setlists' },
-    { name: 'token', type: 'text' },
-    { name: 'expires_at', type: 'timestamptz' },
-    { name: 'user_id', type: 'uuid', fk: 'auth.users' },
-    { name: 'push_token', type: 'text' },
-    { name: 'created_by', type: 'uuid', fk: 'auth.users' },
+  { id: 'dmca_notices', num: 47, domain: 'community', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'kind', type: 'text' },
+      { name: 'sender_name', type: 'text' },
+      { name: 'sender_email', type: 'text' },
+      { name: 'recipient_email', type: 'text' },
+      { name: 'subject_public_song_id', type: 'uuid', fk: 'public_songs', cardinality: '1:N' },
+      { name: 'received_at', type: 'timestamptz' },
+      { name: 'statutory_details', type: 'jsonb' },
+      { name: 'case_id', type: 'uuid', fk: 'moderation_cases', cardinality: '1:N' },
+      { name: 'status', type: 'text' },
   ]},
-  { id: 'scale_catalog', num: 43, domain: 'sync', cols: [
-    { name: 'id', type: 'uuid', pk: true },
-    { name: 'name', type: 'text' },
-    { name: 'aliases', type: 'text[]' },
-    { name: 'intervals', type: 'integer[]' },
-    { name: 'parent_scale_id', type: 'uuid', fk: 'scale_catalog(self)' },
-    { name: 'rotation', type: 'integer' },
-    { name: 'cardinality', type: 'integer' },
+  { id: 'feedback', num: 48, domain: 'community', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'kind', type: 'text' },
+      { name: 'message', type: 'text' },
+      { name: 'screen', type: 'text' },
+      { name: 'diagnostics', type: 'jsonb' },
+      { name: 'status', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'follows', num: 49, domain: 'community', cols: [
+      { name: 'follower_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
+      { name: 'followed_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
+      { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'moderation_cases', num: 50, domain: 'community', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'public_song_id', type: 'uuid', fk: 'public_songs', cardinality: '1:N' },
+      { name: 'reason_counts', type: 'jsonb' },
+      { name: 'grounds', type: 'text[]' },
+      { name: 'decision', type: 'text' },
+      { name: 'decider_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'appeal_of', type: 'uuid', fk: 'moderation_cases(self)' },
+      { name: 'decided_at', type: 'timestamptz' },
+      { name: 'notes', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'public_songs', num: 51, domain: 'community', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'song_id', type: 'uuid', fk: 'songs', cardinality: '1:N' },
+      { name: 'contributor_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'license', type: 'text' },
+      { name: 'license_confirmed', type: 'boolean' },
+      { name: 'lineage', type: 'uuid', fk: 'public_songs(self)' },
+      { name: 'linked_copies', type: 'uuid[]' },
+      { name: 'status', type: 'text' },
+      { name: 'updated_at', type: 'timestamptz' },
+  ]},
+  { id: 'rating_restrictions', num: 52, domain: 'community', cols: [
+      { name: 'contributor_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: '1:1' },
+      { name: 'restricted_until', type: 'timestamptz' },
+      { name: 'confirmed_violations', type: 'integer' },
+  ]},
+  { id: 'reports', num: 53, domain: 'community', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'public_song_id', type: 'uuid', fk: 'public_songs', cardinality: '1:N' },
+      { name: 'reporter_id', type: 'uuid' },
+      { name: 'reason', type: 'report_reason' },
+      { name: 'status', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'audience_views', num: 54, domain: 'sync', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'token', type: 'text' },
+      { name: 'expires_at', type: 'timestamptz' },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'push_token', type: 'text' },
+      { name: 'created_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+  ]},
+  { id: 'device_configs', num: 55, domain: 'sync', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'device_id', type: 'text' },
+      { name: 'midi_output', type: 'text' },
+      { name: 'pedal_switches', type: 'jsonb' },
+      { name: 'display_mode', type: 'text' },
+  ]},
+  { id: 'external_connections', num: 56, domain: 'sync', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'provider', type: 'text' },
+      { name: 'status', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
+  ]},
+  { id: 'midi_maps', num: 57, domain: 'sync', cols: [
+      { name: 'setlist_id', type: 'uuid', pk: true, fk: 'setlists', cardinality: 'N:M' },
+      { name: 'song_id', type: 'uuid', pk: true, fk: 'songs', cardinality: 'N:M' },
+      { name: 'program', type: 'integer' },
+  ]},
+  { id: 'outbox', num: 58, domain: 'sync', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'device_id', type: 'text' },
+      { name: 'entity', type: 'text' },
+      { name: 'entity_id', type: 'uuid' },
+      { name: 'operation', type: 'text' },
+      { name: 'payload', type: 'jsonb' },
+      { name: 'seq', type: 'bigint' },
+      { name: 'state', type: 'text' },
+      { name: 'created_at', type: 'timestamptz' },
+      { name: 'synced_at', type: 'timestamptz' },
+  ]},
+  { id: 'overlay_sessions', num: 59, domain: 'sync', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'user_id', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'setlist_id', type: 'uuid', fk: 'setlists', cardinality: '1:N' },
+      { name: 'status', type: 'text' },
+      { name: 'mode', type: 'text' },
+      { name: 'song_index', type: 'integer' },
+      { name: 'song_total', type: 'integer' },
+      { name: 'song_title', type: 'text' },
+      { name: 'song_key', type: 'text' },
+      { name: 'chart_body', type: 'text' },
+      { name: 'updated_at', type: 'timestamptz' },
+      { name: 'access_token', type: 'uuid' },
+  ]},
+  { id: 'scale_catalog', num: 60, domain: 'sync', cols: [
+      { name: 'id', type: 'uuid', pk: true },
+      { name: 'name', type: 'text' },
+      { name: 'aliases', type: 'text[]' },
+      { name: 'intervals', type: 'integer[]' },
+      { name: 'parent_scale_id', type: 'uuid', fk: 'scale_catalog(self)' },
+      { name: 'rotation', type: 'integer' },
+      { name: 'cardinality', type: 'integer' },
   ]},
 ];
 
-// Entity lookup — needed by FK_EDGES cardinality determination
+const GUIDE = {
+  "message": "CEMURM es una aplicación web para músicos y comunidades musicales. Organiza un repertorio compartido, arma setlists, planifica servicios y ensayos, y acompaña la ejecución en vivo — incluso sin conexión. Toda esa actividad vive en una única base PostgreSQL: las tablas de este diagrama.",
+  "scope": {
+    "included": [
+      "Autenticación, perfiles y consentimiento de tutores",
+      "Repertorio: canciones, versiones, charts y etiquetas",
+      "Setlists, colecciones y edición colaborativa",
+      "Organizaciones, sucursales, membresías y roles",
+      "Servicios: planificación, congelado de plan y sustituciones",
+      "Ensayos, práctica y confirmación de asistencia",
+      "Shows, ensayos generales e historial de performance",
+      "Biblioteca pública, moderación y DMCA",
+      "Offline: cola de escritura y resolución de conflictos",
+      "Integraciones: MIDI, pantalla externa, overlay OBS, proyección, PDF"
+    ],
+    "excluded": [
+      "Educación (cursos, inscripción, progreso, asignaciones): 4 features y 67 escenarios, sin hito asignado",
+      "Beta polish (Hito 6): sin implementación",
+      "App nativa de monitoreo y sincronización en vivo: decidida en 2026-10-19, sin código"
+    ]
+  },
+  "core": [
+    {
+      "id": "songs",
+      "why": "Catálogo: todo lo que se toca, ensaya o publica empieza acá.",
+      "fanIn": 16
+    },
+    {
+      "id": "organizations",
+      "why": "Límite de aislamiento: dueña del repertorio, setlists, servicios y permisos.",
+      "fanIn": 13
+    },
+    {
+      "id": "setlists",
+      "why": "Qué se toca y en qué orden; puente entre repertorio y ejecución.",
+      "fanIn": 11
+    },
+    {
+      "id": "song_versions",
+      "why": "El arreglo concreto: tono, estructura y chart de una canción.",
+      "fanIn": 5
+    },
+    {
+      "id": "branches",
+      "why": "Subdivisión de la organización; acota el alcance de cada miembro.",
+      "fanIn": 6
+    }
+  ],
+  "processes": [
+    {
+      "id": "biblioteca",
+      "num": 1,
+      "title": "Biblioteca de canciones",
+      "summary": "La canción es la unidad central. Cada canción tiene versiones (arreglos); cada versión puede llevar su chart. Las etiquetas la clasifican y las fusiones de duplicados dejan rastro.",
+      "tables": [
+        "songs",
+        "song_versions",
+        "chart_files",
+        "tags",
+        "song_tags",
+        "song_duplicates",
+        "external_enrichments"
+      ],
+      "edges": [
+        {
+          "from": "song_versions",
+          "to": "songs",
+          "via": "song_id"
+        },
+        {
+          "from": "song_versions",
+          "to": "chart_files",
+          "via": "chart_file_id"
+        },
+        {
+          "from": "chart_files",
+          "to": "songs",
+          "via": "song_id"
+        },
+        {
+          "from": "song_tags",
+          "to": "songs",
+          "via": "song_id"
+        },
+        {
+          "from": "song_tags",
+          "to": "tags",
+          "via": "tag_id"
+        },
+        {
+          "from": "song_duplicates",
+          "to": "songs",
+          "via": "canonical_id"
+        },
+        {
+          "from": "song_duplicates",
+          "to": "songs",
+          "via": "merged_from"
+        },
+        {
+          "from": "external_enrichments",
+          "to": "songs",
+          "via": "song_id"
+        }
+      ],
+      "outgoing": [
+        {
+          "table": "songs",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "songs",
+          "column": "branch_id",
+          "to": "branches",
+          "external": false
+        },
+        {
+          "table": "songs",
+          "column": "source_org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "songs",
+          "column": "created_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "song_versions",
+          "column": "owner_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "song_versions",
+          "column": "created_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "tags",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "tags",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "song_duplicates",
+          "column": "decided_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "external_enrichments",
+          "column": "applied_by",
+          "to": "auth.users",
+          "external": true
+        }
+      ]
+    },
+    {
+      "id": "setlists",
+      "num": 2,
+      "title": "Armar un setlist",
+      "summary": "Un setlist es una lista ordenada de canciones para un contexto. Cada ítem fija canción y versión, así el arreglo no cambia solo. Las colecciones agrupan canciones fuera de un setlist.",
+      "tables": [
+        "setlists",
+        "setlist_items",
+        "setlist_collaborators",
+        "setlist_change_log",
+        "setlist_conflict_resolutions",
+        "collections",
+        "collection_songs"
+      ],
+      "edges": [
+        {
+          "from": "setlist_items",
+          "to": "setlists",
+          "via": "setlist_id"
+        },
+        {
+          "from": "setlist_collaborators",
+          "to": "setlists",
+          "via": "setlist_id"
+        },
+        {
+          "from": "setlist_change_log",
+          "to": "setlists",
+          "via": "setlist_id"
+        },
+        {
+          "from": "setlist_conflict_resolutions",
+          "to": "setlists",
+          "via": "setlist_id"
+        },
+        {
+          "from": "collection_songs",
+          "to": "collections",
+          "via": "collection_id"
+        }
+      ],
+      "outgoing": [
+        {
+          "table": "setlists",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "setlists",
+          "column": "branch_id",
+          "to": "branches",
+          "external": false
+        },
+        {
+          "table": "setlists",
+          "column": "owner_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "setlist_items",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "setlist_items",
+          "column": "version_id",
+          "to": "song_versions",
+          "external": false
+        },
+        {
+          "table": "setlist_collaborators",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "setlist_change_log",
+          "column": "actor_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "setlist_conflict_resolutions",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "setlist_conflict_resolutions",
+          "column": "winner_author_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "collections",
+          "column": "owner_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "collections",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "collection_songs",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        }
+      ]
+    },
+    {
+      "id": "show",
+      "num": 3,
+      "title": "Show y ejecución en vivo",
+      "summary": "Un show ocurre en un lugar y usa un setlist. Al ejecutarlo se registra qué se tocó, canción por canción: ese es el historial. En paralelo, un evento de organización convoca y confirma asistencia.",
+      "tables": [
+        "gigs",
+        "venues",
+        "performances",
+        "performance_items",
+        "events",
+        "event_setlists",
+        "event_participants",
+        "event_rsvps"
+      ],
+      "edges": [
+        {
+          "from": "gigs",
+          "to": "venues",
+          "via": "venue_id"
+        },
+        {
+          "from": "performances",
+          "to": "gigs",
+          "via": "gig_id"
+        },
+        {
+          "from": "performances",
+          "to": "venues",
+          "via": "venue_id"
+        },
+        {
+          "from": "performance_items",
+          "to": "performances",
+          "via": "performance_id"
+        },
+        {
+          "from": "event_setlists",
+          "to": "events",
+          "via": "event_id"
+        },
+        {
+          "from": "event_participants",
+          "to": "events",
+          "via": "event_id"
+        },
+        {
+          "from": "event_rsvps",
+          "to": "events",
+          "via": "event_id"
+        }
+      ],
+      "outgoing": [
+        {
+          "table": "gigs",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "gigs",
+          "column": "branch_id",
+          "to": "branches",
+          "external": false
+        },
+        {
+          "table": "gigs",
+          "column": "owner_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "gigs",
+          "column": "setlist_id",
+          "to": "setlists",
+          "external": false
+        },
+        {
+          "table": "venues",
+          "column": "owner_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "performance_items",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "performance_items",
+          "column": "version_id",
+          "to": "song_versions",
+          "external": false
+        },
+        {
+          "table": "events",
+          "column": "organizer_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "event_setlists",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "event_setlists",
+          "column": "setlist_id",
+          "to": "setlists",
+          "external": false
+        },
+        {
+          "table": "event_participants",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "event_rsvps",
+          "column": "member_id",
+          "to": "auth.users",
+          "external": true
+        }
+      ]
+    },
+    {
+      "id": "servicio",
+      "num": 4,
+      "title": "Servicio semanal: planificar, congelar, cubrir",
+      "summary": "El servicio se planifica en bloques; cada bloque usa un setlist y asigna personas. Publicar congela el plan en una versión. Si alguien falta, se abre una sustitución y se registran las respuestas. Todo cambio queda auditado.",
+      "tables": [
+        "services",
+        "service_blocks",
+        "service_assignments",
+        "service_plan_versions",
+        "substitution_requests",
+        "substitution_responses",
+        "service_change_log"
+      ],
+      "edges": [
+        {
+          "from": "service_blocks",
+          "to": "services",
+          "via": "service_id"
+        },
+        {
+          "from": "service_assignments",
+          "to": "services",
+          "via": "service_id"
+        },
+        {
+          "from": "service_assignments",
+          "to": "service_blocks",
+          "via": "block_id"
+        },
+        {
+          "from": "service_plan_versions",
+          "to": "services",
+          "via": "service_id"
+        },
+        {
+          "from": "substitution_requests",
+          "to": "service_assignments",
+          "via": "assignment_id"
+        },
+        {
+          "from": "substitution_responses",
+          "to": "substitution_requests",
+          "via": "request_id"
+        },
+        {
+          "from": "service_change_log",
+          "to": "services",
+          "via": "service_id"
+        }
+      ],
+      "outgoing": [
+        {
+          "table": "services",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "services",
+          "column": "branch_id",
+          "to": "branches",
+          "external": false
+        },
+        {
+          "table": "services",
+          "column": "leader_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "service_blocks",
+          "column": "setlist_id",
+          "to": "setlists",
+          "external": false
+        },
+        {
+          "table": "service_assignments",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "service_assignments",
+          "column": "covered_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "service_assignments",
+          "column": "decided_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "service_plan_versions",
+          "column": "published_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "substitution_requests",
+          "column": "requested_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "substitution_responses",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "service_change_log",
+          "column": "actor_id",
+          "to": "auth.users",
+          "external": true
+        }
+      ]
+    },
+    {
+      "id": "ensayo",
+      "num": 5,
+      "title": "Ensayos y práctica",
+      "summary": "Un ensayo puede colgar de un evento y de un setlist. Los ítems listan qué se va a ensayar y las confirmaciones dicen quién va. Un ítem pendiente puede arrastrarse al ensayo siguiente.",
+      "tables": [
+        "rehearsals",
+        "rehearsal_items",
+        "rehearsal_rsvps",
+        "practice_sessions"
+      ],
+      "edges": [
+        {
+          "from": "rehearsal_items",
+          "to": "rehearsals",
+          "via": "rehearsal_id"
+        },
+        {
+          "from": "rehearsal_items",
+          "to": "rehearsals",
+          "via": "carry_over_to"
+        },
+        {
+          "from": "rehearsal_rsvps",
+          "to": "rehearsals",
+          "via": "rehearsal_id"
+        }
+      ],
+      "outgoing": [
+        {
+          "table": "rehearsals",
+          "column": "org_id",
+          "to": "organizations",
+          "external": false
+        },
+        {
+          "table": "rehearsals",
+          "column": "branch_id",
+          "to": "branches",
+          "external": false
+        },
+        {
+          "table": "rehearsals",
+          "column": "event_id",
+          "to": "events",
+          "external": false
+        },
+        {
+          "table": "rehearsals",
+          "column": "setlist_id",
+          "to": "setlists",
+          "external": false
+        },
+        {
+          "table": "rehearsals",
+          "column": "created_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "rehearsal_items",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "rehearsal_items",
+          "column": "version_id",
+          "to": "song_versions",
+          "external": false
+        },
+        {
+          "table": "rehearsal_rsvps",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "practice_sessions",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "practice_sessions",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "practice_sessions",
+          "column": "version_id",
+          "to": "song_versions",
+          "external": false
+        }
+      ]
+    },
+    {
+      "id": "personas",
+      "num": 6,
+      "title": "Organización y personas",
+      "summary": "La organización es el límite de aislamiento: sucursales, membresías y roles deciden quién ve qué. Las invitaciones incorporan gente y el consentimiento de tutores cubre a menores.",
+      "tables": [
+        "organizations",
+        "branches",
+        "org_memberships",
+        "profiles",
+        "user_roles",
+        "invite_codes",
+        "bandmate_links",
+        "guardian_consents",
+        "user_preferences"
+      ],
+      "edges": [
+        {
+          "from": "branches",
+          "to": "organizations",
+          "via": "org_id"
+        },
+        {
+          "from": "org_memberships",
+          "to": "organizations",
+          "via": "org_id"
+        },
+        {
+          "from": "org_memberships",
+          "to": "branches",
+          "via": "branch_id"
+        },
+        {
+          "from": "invite_codes",
+          "to": "organizations",
+          "via": "org_id"
+        },
+        {
+          "from": "bandmate_links",
+          "to": "invite_codes",
+          "via": "invite_code_id"
+        }
+      ],
+      "outgoing": [
+        {
+          "table": "org_memberships",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "profiles",
+          "column": "id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "user_roles",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "invite_codes",
+          "column": "created_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "bandmate_links",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "bandmate_links",
+          "column": "bandmate_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "guardian_consents",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "user_preferences",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        }
+      ]
+    },
+    {
+      "id": "colaboracion",
+      "num": 7,
+      "title": "Colaboración y avisos",
+      "summary": "Sobre una canción o una versión se conversa con comentarios compartidos, o se anota en privado. Las notificaciones avisan de la actividad, con preferencias por usuario.",
+      "tables": [
+        "shared_comments",
+        "personal_annotations",
+        "notifications",
+        "notification_preferences"
+      ],
+      "edges": [],
+      "outgoing": [
+        {
+          "table": "shared_comments",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "shared_comments",
+          "column": "version_id",
+          "to": "song_versions",
+          "external": false
+        },
+        {
+          "table": "shared_comments",
+          "column": "author_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "personal_annotations",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "personal_annotations",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "notifications",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "notification_preferences",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        }
+      ]
+    },
+    {
+      "id": "comunidad",
+      "num": 8,
+      "title": "Comunidad y moderación",
+      "summary": "Publicar saca una canción del repertorio privado al catálogo público. Las denuncias se acumulan en casos con decisión y apelación; las restricciones limitan a quien reincide.",
+      "tables": [
+        "public_songs",
+        "reports",
+        "moderation_cases",
+        "dmca_notices",
+        "follows",
+        "rating_restrictions",
+        "feedback"
+      ],
+      "edges": [
+        {
+          "from": "reports",
+          "to": "public_songs",
+          "via": "public_song_id"
+        },
+        {
+          "from": "moderation_cases",
+          "to": "public_songs",
+          "via": "public_song_id"
+        },
+        {
+          "from": "dmca_notices",
+          "to": "public_songs",
+          "via": "subject_public_song_id"
+        },
+        {
+          "from": "dmca_notices",
+          "to": "moderation_cases",
+          "via": "case_id"
+        }
+      ],
+      "outgoing": [
+        {
+          "table": "public_songs",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "public_songs",
+          "column": "contributor_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "moderation_cases",
+          "column": "decider_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "follows",
+          "column": "follower_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "follows",
+          "column": "followed_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "rating_restrictions",
+          "column": "contributor_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "feedback",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "num": 9,
+      "title": "Offline, dispositivos y pantallas",
+      "summary": "La app funciona sin conexión: las escrituras esperan en una cola. Los dispositivos guardan su configuración, los mapas MIDI ligan setlist y canción, y las sesiones de overlay quedan registradas.",
+      "tables": [
+        "outbox",
+        "device_configs",
+        "midi_maps",
+        "overlay_sessions",
+        "audience_views",
+        "scale_catalog",
+        "external_connections"
+      ],
+      "edges": [],
+      "outgoing": [
+        {
+          "table": "outbox",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "device_configs",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "midi_maps",
+          "column": "setlist_id",
+          "to": "setlists",
+          "external": false
+        },
+        {
+          "table": "midi_maps",
+          "column": "song_id",
+          "to": "songs",
+          "external": false
+        },
+        {
+          "table": "overlay_sessions",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "overlay_sessions",
+          "column": "setlist_id",
+          "to": "setlists",
+          "external": false
+        },
+        {
+          "table": "audience_views",
+          "column": "setlist_id",
+          "to": "setlists",
+          "external": false
+        },
+        {
+          "table": "audience_views",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "audience_views",
+          "column": "created_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "external_connections",
+          "column": "user_id",
+          "to": "auth.users",
+          "external": true
+        }
+      ]
+    }
+  ],
+  "drawing": {
+    "total": 133,
+    "drawn": 77,
+    "hidden": 56,
+    "selfRefs": 6,
+    "external": 50
+  }
+};
+
 const entityMap = {};
 ENTITIES.forEach(e => entityMap[e.id] = e);
 
 // ═══════════════════════════════════════════════════════════════════
-// FK RELATIONSHIPS — extracted from DDL
+// FK RELATIONSHIPS — cardinality comes from the database constraints,
+// never from a table-name allowlist.
 // ═══════════════════════════════════════════════════════════════════
 const FK_EDGES = [];
 ENTITIES.forEach(e => {
@@ -610,69 +1747,90 @@ ENTITIES.forEach(e => {
     if (c.fk && !c.fk.includes('auth.users') && !c.fk.includes('(self)')) {
       FK_EDGES.push({
         from: e.id, fromCol: c.name, to: c.fk,
-        label: c.name.replace('_id', ''),
-        cardinality: fkCardinality(e.id, c.name, c.fk),
+        label: c.name.replace(/_id$/, ''),
+        cardinality: c.cardinality || '1:N',
       });
     }
   });
 });
 
-// Cardinality per relationship, derived from the DDL.
-//  - N:M  : pure join tables (composite PK of exactly two FKs) — "many" side on both ends
-//  - 1:1  : PK-is-also-FK (notification_preferences, rating_restrictions) or UNIQUE FK (performances.gig_id)
-//  - 1:N  : default — one parent, many children
-function fkCardinality(fromTable, fromCol, toTable) {
-  const t = entityMap[fromTable];
-  if (t) {
-    const pkCols  = t.cols.filter(c => c.pk);
-    const fkPkCols = pkCols.filter(c => c.fk);
-    if (pkCols.length === 2 && fkPkCols.length === 2
-        && (fromCol === fkPkCols[0].name || fromCol === fkPkCols[1].name)) {
-      return 'N:M';
-    }
-  }
-  if (fromTable === 'notification_preferences' || fromTable === 'rating_restrictions') return '1:1';
-  if (fromTable === 'performances' && fromCol === 'gig_id') return '1:1';
-  return '1:N';
+// ═══════════════════════════════════════════════════════════════════
+// LAYOUT — domain blocks packed on shelves.
+//
+// Stacking the domains in one column made "Ver todo" fit at 13%: a strip, not
+// a map. Packing them two-dimensionally raises the same 60 tables to a zoom
+// where the table names are readable.
+//
+// Two densities:
+//   full — header + every column + footer, used when one domain or process is
+//          in focus and there is room to read it.
+//   map  — header only, used by "Ver todo": 60 headers fit legibly; 60 full
+//          cards never do.
+// ═══════════════════════════════════════════════════════════════════
+const CARD_W = 250, CARD_H_BASE = 40, COL_H = 18;
+const CARD_GAP_X = 28, CARD_GAP_Y = 16;
+const DOMAIN_LABEL_H = 30, DOMAIN_GAP = 56;
+const MAP_CARD_H = 38, MAP_CARD_GAP_Y = 8;
+const SHELF_W = 2000;
+
+function cardHeight(entity, mapMode) {
+  return mapMode ? MAP_CARD_H : CARD_H_BASE + entity.cols.length * COL_H + 24;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// LAYOUT — group entities by domain in a grid
-// ═══════════════════════════════════════════════════════════════════
-const CARD_W = 240, CARD_H_BASE = 40, COL_H = 18, PADDING_X = 40, PADDING_Y = 50;
-const DOMAIN_GAP = 60;
-
-function layoutEntities() {
+function layoutEntities(mapMode, shelfWidth) {
   const positions = {};
-  const domainGroups = {};
-  ENTITIES.forEach(e => {
-    if (!domainGroups[e.domain]) domainGroups[e.domain] = [];
-    domainGroups[e.domain].push(e);
-  });
+  const anchors = [];
+  const shelfW = shelfWidth || SHELF_W;
+  const groups = {};
+  ENTITIES.forEach(e => { (groups[e.domain] || (groups[e.domain] = [])).push(e); });
 
-  let globalY = 40;
-  const sortedDomains = Object.keys(domainGroups).sort((a, b) => DOMAINS[a].order - DOMAINS[b].order);
+  const order = Object.keys(groups).sort((a, b) => DOMAINS[a].order - DOMAINS[b].order);
+  const gapY = mapMode ? MAP_CARD_GAP_Y : CARD_GAP_Y;
 
-  sortedDomains.forEach(domain => {
-    const entities = domainGroups[domain];
-    let x = 40;
-    let maxHeight = 0;
-    let colCount = 0;
-
-    entities.forEach(e => {
-      const cardH = CARD_H_BASE + e.cols.length * COL_H + 24;
-      positions[e.id] = { x, y: globalY, w: CARD_W, h: cardH, domain };
-      x += CARD_W + PADDING_X;
-      colCount++;
-      if (colCount % 4 === 0) { x = 40; globalY += maxHeight + PADDING_Y; maxHeight = 0; }
-      if (cardH > maxHeight) maxHeight = cardH;
+  const blocks = order.map(domain => {
+    const entities = groups[domain];
+    const cols = Math.max(1, Math.min(entities.length, Math.ceil(Math.sqrt(entities.length * 1.4))));
+    const rows = Math.ceil(entities.length / cols);
+    const rowHeights = new Array(rows).fill(0);
+    entities.forEach((e, i) => {
+      const r = Math.floor(i / cols);
+      rowHeights[r] = Math.max(rowHeights[r], cardHeight(e, mapMode));
     });
-    if (colCount % 4 !== 0) globalY += maxHeight + DOMAIN_GAP;
+    const h = DOMAIN_LABEL_H + rowHeights.reduce((a, b) => a + b, 0) + (rows - 1) * gapY;
+    return {
+      domain, entities, cols, rows, rowHeights, h,
+      w: cols * CARD_W + (cols - 1) * CARD_GAP_X,
+    };
   });
-  return positions;
+
+  let x = 0, y = 0, shelfHeight = 0;
+  blocks.forEach(block => {
+    if (x > 0 && x + block.w > shelfW) { x = 0; y += shelfHeight + DOMAIN_GAP; shelfHeight = 0; }
+
+    let rowY = y + DOMAIN_LABEL_H;
+    block.entities.forEach((e, i) => {
+      const r = Math.floor(i / block.cols);
+      const c = i % block.cols;
+      if (c === 0 && r > 0) rowY += block.rowHeights[r - 1] + gapY;
+      positions[e.id] = {
+        x: x + c * (CARD_W + CARD_GAP_X),
+        y: rowY,
+        w: CARD_W,
+        h: cardHeight(e, mapMode),
+        domain: block.domain,
+      };
+    });
+
+    anchors.push({ domain: block.domain, x, y, w: block.w, h: block.h });
+    x += block.w + DOMAIN_GAP;
+    shelfHeight = Math.max(shelfHeight, block.h);
+  });
+
+  return { positions, anchors };
 }
 
-const positions = layoutEntities();
+let positions = {};
+let blockAnchors = [];
 
 // ═══════════════════════════════════════════════════════════════════
 // RENDER
@@ -691,26 +1849,31 @@ let scale = 0.7, panX = 50, panY = 50;
 let selectedEntity = null;
 let showLabels = true;
 let groupMode = true;
+let mapMode = false;          // header-only density, used by "Ver todo"
+let activeProcess = null;     // the guide process currently framed
+let lastView = { kind: 'guide' };  // what to re-apply after a resize or re-layout
 
 function color(domain) { return DOMAINS[domain]?.color || '#666'; }
 
 // Build sidebar
 function buildSidebar() {
-  sidebar.innerHTML = '';
+  sidebar.innerHTML = '<div class="sidebar-hint">Clic en un dominio para enfocarlo. Ctrl+K para buscar.</div>';
   const sortedDomains = Object.keys(DOMAINS).sort((a, b) => DOMAINS[a].order - DOMAINS[b].order);
   sortedDomains.forEach(domain => {
     const entities = ENTITIES.filter(e => e.domain === domain);
     const group = document.createElement('div');
     group.className = 'domain-group';
-    group.innerHTML = `<div class="domain-header"><div class="dot" style="background:${DOMAINS[domain].color}"></div>${DOMAINS[domain].label} <span style="font-size:9px;opacity:0.5">(${entities.length})</span></div>`;
+    group.innerHTML = `<div class="domain-header" title="Enfocar este dominio"><div class="dot" style="background:${DOMAINS[domain].color}"></div>${DOMAINS[domain].label} <span style="font-size:9px;opacity:0.5">(${entities.length})</span></div>`;
+    group.querySelector('.domain-header').onclick = () => focusDomain(domain);
     const list = document.createElement('ul');
     list.className = 'entity-list';
     entities.forEach(e => {
       const fkCount = e.cols.filter(c => c.fk && !c.fk.includes('(self)')).length;
       const li = document.createElement('li');
       li.dataset.id = e.id;
-      li.innerHTML = `<span style="color:${color(e.domain)}">#${e.num}</span> ${e.id} <span class="fk-count">${fkCount} FK</span>`;
-      li.onclick = () => selectEntity(e.id);
+      li.title = e.id;
+      li.innerHTML = `<span class="num" style="color:${color(e.domain)}">#${e.num}</span><span class="name">${e.id}</span><span class="fk-count">${fkCount} FK</span>`;
+      li.onclick = () => (mapMode ? focusTable(e.id) : selectEntity(e.id));
       list.appendChild(li);
     });
     group.appendChild(list);
@@ -751,10 +1914,26 @@ function buildCards() {
       <div class="card-cols">${colsHtml}</div>
       <div class="card-footer">${DOMAINS[e.domain].label} · ${e.cols.length} cols · ${fkCount} FK</div>
     `;
-    card.onclick = () => selectEntity(e.id);
+    card.onclick = () => (mapMode ? focusTable(e.id) : selectEntity(e.id));
     card.onmouseenter = (ev) => showTooltip(ev, e);
     card.onmouseleave = () => hideTooltip();
     canvas.appendChild(card);
+  });
+
+  // Block labels. Without them the map is 60 colour-coded boxes and the reader
+  // has to count colours to find a group; the 30px band was already reserved.
+  blockAnchors.forEach(anchor => {
+    const label = document.createElement('div');
+    label.className = 'canvas-domain';
+    label.dataset.domain = anchor.domain;
+    label.style.left = anchor.x + 'px';
+    label.style.top = anchor.y + 'px';
+    label.style.width = anchor.w + 'px';
+    label.innerHTML =
+      `<span class="canvas-domain-dot" style="background:${color(anchor.domain)}"></span>` +
+      `<span class="canvas-domain-name" style="color:${color(anchor.domain)}">${DOMAINS[anchor.domain].label}</span>`;
+    label.onclick = () => focusDomain(anchor.domain);
+    canvas.appendChild(label);
   });
 }
 
@@ -823,49 +2002,74 @@ function buildConnections() {
 // ═══════════════════════════════════════════════════════════════════
 // INTERACTION
 // ═══════════════════════════════════════════════════════════════════
-function selectEntity(id) {
-  if (selectedEntity === id) { deselectAll(); return; }
+
+// One painter for every highlight source — a single table, a whole process, a
+// search result. Three separate copies of this logic is how they drift apart.
+// `edgeIsOn(from, to)` decides which connection lines light up.
+function paintHighlight(ids, selectedId, edgeIsOn) {
+  document.querySelectorAll('.entity-card').forEach(card => {
+    card.classList.remove('selected', 'dimmed', 'highlighted');
+    if (!ids) return;
+    if (selectedId && card.dataset.id === selectedId) card.classList.add('selected');
+    else if (ids.has(card.dataset.id)) card.classList.add('highlighted');
+    else card.classList.add('dimmed');
+  });
+
+  document.querySelectorAll('.entity-list li').forEach(li => {
+    li.classList.toggle('selected', !!selectedId && li.dataset.id === selectedId);
+  });
+
+  // A group label fades out when none of its tables is part of the highlight;
+  // otherwise a focused process still shows eight bright group names.
+  document.querySelectorAll('.canvas-domain').forEach(label => {
+    const domain = label.dataset.domain;
+    const has = ids && ENTITIES.some(e => e.domain === domain && ids.has(e.id));
+    label.style.opacity = ids ? (has ? '' : '0.22') : '';
+  });
+
+  const isOn = edgeIsOn || ((from, to) => ids.has(from) && ids.has(to));
+
+  dvConnections.querySelectorAll('.conn').forEach(line => {
+    const connected = !!ids && isOn(line.dataset.from, line.dataset.to);
+    line.classList.toggle('highlighted', connected);
+    line.style.opacity = ids ? (connected ? '' : '0.05') : '';
+  });
+  dvConnections.querySelectorAll('.conn-lbl').forEach(lbl => {
+    const connected = !!ids && isOn(lbl.dataset.from, lbl.dataset.to);
+    lbl.classList.toggle('highlighted', connected);
+    lbl.style.opacity = ids ? (connected ? '1' : '0.08') : '';
+  });
+}
+
+function highlightEntity(id) {
   selectedEntity = id;
   const related = new Set([id]);
   FK_EDGES.forEach(e => {
     if (e.from === id) related.add(e.to);
     if (e.to === id) related.add(e.from);
   });
+  paintHighlight(related, id, (from, to) => from === id || to === id);
+}
 
-  document.querySelectorAll('.entity-card').forEach(card => {
-    card.classList.remove('selected', 'dimmed', 'highlighted');
-    if (card.dataset.id === id) card.classList.add('selected');
-    else if (!related.has(card.dataset.id)) card.classList.add('dimmed');
-    else card.classList.add('highlighted');
-  });
-
-  document.querySelectorAll('.entity-list li').forEach(li => {
-    li.classList.toggle('selected', li.dataset.id === id);
-  });
-
-  dvConnections.querySelectorAll('.conn').forEach(line => {
-    const connected = (line.dataset.from === id || line.dataset.to === id);
-    line.classList.toggle('highlighted', connected);
-    if (!connected) line.style.opacity = '0.05';
-    else line.style.opacity = '';
-  });
-  dvConnections.querySelectorAll('.conn-lbl').forEach(lbl => {
-    const connected = (lbl.dataset.from === id || lbl.dataset.to === id);
-    lbl.classList.toggle('highlighted', connected);
-    lbl.style.opacity = connected ? '1' : '0.1';
-  });
-
-  // Scroll sidebar into view
+function selectEntity(id) {
+  if (selectedEntity === id) { deselectAll(); return; }
+  highlightEntity(id);
   const sidebarItem = document.querySelector(`.entity-list li[data-id="${id}"]`);
   if (sidebarItem) sidebarItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 function deselectAll() {
   selectedEntity = null;
-  document.querySelectorAll('.entity-card').forEach(c => c.classList.remove('selected', 'dimmed', 'highlighted'));
-  document.querySelectorAll('.entity-list li').forEach(l => l.classList.remove('selected'));
-  dvConnections.querySelectorAll('.conn').forEach(l => { l.classList.remove('highlighted'); l.style.opacity = ''; });
-  dvConnections.querySelectorAll('.conn-lbl').forEach(l => { l.classList.remove('highlighted'); l.style.opacity = ''; });
+  paintHighlight(null, null);
+}
+
+function applyHighlightState() {
+  if (activeProcess) {
+    const process = GUIDE.processes.find(p => p.id === activeProcess);
+    if (process) { paintHighlight(new Set(process.tables), null); return; }
+  }
+  if (selectedEntity) { highlightEntity(selectedEntity); return; }
+  paintHighlight(null, null);
 }
 
 function showTooltip(ev, entity) {
@@ -966,21 +2170,298 @@ function updateMinimap() {
 // ═══════════════════════════════════════════════════════════════════
 // CONTROLS
 // ═══════════════════════════════════════════════════════════════════
-document.getElementById('btnFit').onclick = () => {
+// ═══════════════════════════════════════════════════════════════════
+// VIEW — bounds, re-layout, and the three ways to frame the schema
+// ═══════════════════════════════════════════════════════════════════
+function boundsOf(ids, source) {
+  const pos = source || positions;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  Object.values(positions).forEach(p => {
-    if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
-    if (p.x + p.w > maxX) maxX = p.x + p.w; if (p.y + p.h > maxY) maxY = p.y + p.h;
+  ids.forEach(id => {
+    const p = pos[id];
+    if (!p) return;
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x + p.w > maxX) maxX = p.x + p.w;
+    if (p.y + p.h > maxY) maxY = p.y + p.h;
   });
-  const areaRect = canvasArea.getBoundingClientRect();
-  const contentW = maxX - minX + 80, contentH = maxY - minY + 80;
-  scale = Math.min(areaRect.width / contentW, areaRect.height / contentH, 1.2);
-  panX = (areaRect.width - contentW * scale) / 2 - (minX - 40) * scale;
-  panY = (areaRect.height - contentH * scale) / 2 - (minY - 40) * scale;
-  updateTransform();
-};
+  return { minX, minY, maxX, maxY };
+}
 
-document.getElementById('btnReset').onclick = () => { scale = 0.7; panX = 50; panY = 50; updateTransform(); deselectAll(); };
+// Pick the packing width that leaves the most of the schema on screen instead
+// of guessing a constant. A fixed shelf width is what left the last row of the
+// map hanging off the bottom edge.
+function chooseLayout(mapMode) {
+  const area = canvasArea.getBoundingClientRect();
+  const candidates = [1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000];
+  let best = null;
+  let bestScore = -1;
+
+  candidates.forEach(width => {
+    const candidate = layoutEntities(mapMode, width);
+    const b = boundsOf(Object.keys(candidate.positions), candidate.positions);
+    if (!isFinite(b.minX)) return;
+    const score = Math.min(
+      area.width / (b.maxX - b.minX + 80),
+      area.height / (b.maxY - b.minY + 80),
+    );
+    if (score > bestScore) { bestScore = score; best = candidate; }
+  });
+
+  return best || layoutEntities(mapMode);
+}
+
+// Breathing room kept between the framed content and the canvas edge. Without
+// it the map fits exactly, which reads as "clipped" to anyone looking at it.
+const VIEW_GUTTER = 26;
+
+function fitBounds(b, options) {
+  const opts = options || {};
+  if (!isFinite(b.minX)) return;
+  const areaRect = canvasArea.getBoundingClientRect();
+  const availW = areaRect.width - VIEW_GUTTER * 2;
+  const availH = areaRect.height - VIEW_GUTTER * 2;
+  const contentW = b.maxX - b.minX + 80;
+  const contentH = b.maxY - b.minY + 80;
+  let next = Math.min(availW / contentW, availH / contentH, opts.maxScale || 1.2);
+  // A framed group is panned, never shrunk into unreadable text: 0.62 keeps an
+  // 11px column name at ~7px — the floor for a projector legible-enough view.
+  if (opts.minScale) next = Math.max(opts.minScale, next);
+  scale = next;
+  panX = VIEW_GUTTER + (availW - contentW * scale) / 2 - (b.minX - 40) * scale;
+  panY = VIEW_GUTTER + (availH - contentH * scale) / 2 - (b.minY - 40) * scale;
+  updateTransform();
+}
+
+// A frame may overflow when `minScale` keeps the text readable, so the thing the
+// reader asked to see can land off-screen. Nudge the pan until it is fully
+// visible — the neighbours may be clipped, never the target.
+function ensureVisible(id) {
+  const p = positions[id];
+  if (!p) return;
+  const areaRect = canvasArea.getBoundingClientRect();
+  const pad = 12;
+  const left = p.x * scale + panX;
+  const top = p.y * scale + panY;
+  const right = left + p.w * scale;
+  const bottom = top + p.h * scale;
+
+  if (left < pad) panX += pad - left;
+  else if (right > areaRect.width - pad) panX -= right - (areaRect.width - pad);
+
+  if (top < pad) panY += pad - top;
+  else if (bottom > areaRect.height - pad) panY -= bottom - (areaRect.height - pad);
+
+  updateTransform();
+}
+
+function fitFocus(kind, value) {
+  if (kind === 'fit' || kind === 'guide') {
+    fitBounds(boundsOf(Object.keys(positions)), { minScale: 0.2 });
+    return;
+  }
+  let ids = [];
+  if (kind === 'domain') {
+    ids = ENTITIES.filter(e => e.domain === value).map(e => e.id);
+  } else if (kind === 'process') {
+    const process = GUIDE.processes.find(p => p.id === value);
+    if (process) ids = process.tables;
+  } else if (kind === 'table') {
+    ids = [value];
+    FK_EDGES.forEach(e => {
+      if (e.from === value) ids.push(e.to);
+      if (e.to === value) ids.push(e.from);
+    });
+  }
+  fitBounds(boundsOf(ids), { minScale: 0.62, maxScale: 1 });
+}
+
+function applyView() {
+  fitFocus(lastView.kind, lastView.value);
+}
+
+// Re-layout from scratch: density, cards, lines and the current frame.
+function renderAll() {
+  const layout = chooseLayout(mapMode);
+  positions = layout.positions;
+  blockAnchors = layout.anchors;
+  canvasArea.classList.toggle('map-mode', mapMode);
+  buildCards();
+  buildConnections();
+  applyView();
+  applyHighlightState();
+}
+
+function showAll() {
+  closeGuide();
+  hideBanner();
+  activeProcess = null;
+  selectedEntity = null;
+  mapMode = true;
+  lastView = { kind: 'fit' };
+  renderAll();
+}
+
+function focusDomain(domain) {
+  closeGuide();
+  hideBanner();
+  activeProcess = null;
+  selectedEntity = null;
+  mapMode = false;
+  lastView = { kind: 'domain', value: domain };
+  renderAll();
+}
+
+function focusProcess(id) {
+  const process = GUIDE.processes.find(p => p.id === id);
+  if (!process) return;
+  closeGuide();
+  selectedEntity = null;
+  activeProcess = id;
+  mapMode = false;
+  lastView = { kind: 'process', value: id };
+  renderAll();
+  showBanner(process);
+}
+
+function focusTable(id) {
+  closeGuide();
+  hideBanner();
+  activeProcess = null;
+  selectedEntity = id;
+  mapMode = false;
+  lastView = { kind: 'table', value: id };
+  renderAll();
+  // A table you clicked must be on screen in full. The neighbourhood may bleed
+  // past the edge; the card that was clicked may not.
+  ensureVisible(id);
+}
+
+document.getElementById('btnFit').onclick = showAll;
+
+// ═══════════════════════════════════════════════════════════════════
+// PROCESS BANNER
+// ═══════════════════════════════════════════════════════════════════
+const banner = document.getElementById('processBanner');
+
+function showBanner(process) {
+  document.getElementById('pbTitle').textContent =
+    String(process.num).padStart(2, '0') + ' · ' + process.title;
+  document.getElementById('pbText').textContent = process.summary;
+  banner.classList.add('open');
+}
+
+function hideBanner() { banner.classList.remove('open'); }
+
+document.getElementById('pbClose').onclick = hideBanner;
+
+// ═══════════════════════════════════════════════════════════════════
+// GUIDE — the explanation panel
+// ═══════════════════════════════════════════════════════════════════
+function esc(value) {
+  return String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+}
+
+function domainTargets(process) {
+  const labels = new Set();
+  process.outgoing.forEach(o => {
+    if (o.external) { labels.add('auth.users'); return; }
+    const entity = entityMap[o.to];
+    if (entity && DOMAINS[entity.domain]) labels.add(DOMAINS[entity.domain].label);
+  });
+  return [...labels];
+}
+
+function renderGuide() {
+  const coreCards = GUIDE.core.map(c => `
+    <div class="core-card" data-table="${esc(c.id)}">
+      <div class="core-name">${esc(c.id)}</div>
+      <div class="core-meta">${c.fanIn} tablas la referencian</div>
+      <div class="core-why">${esc(c.why)}</div>
+    </div>`).join('');
+
+  const processCards = GUIDE.processes.map(p => {
+    const chips = p.tables.slice(0, 5)
+      .map(t => `<span class="table-chip">${esc(t)}</span>`).join('') +
+      (p.tables.length > 5 ? `<span class="table-chip">+${p.tables.length - 5}</span>` : '');
+    const targets = domainTargets(p).slice(0, 4);
+    const foot = [
+      p.edges.length ? `${p.edges.length} relaciones internas` : null,
+      targets.length ? `se conecta con ${targets.join(', ')}` : null,
+    ].filter(Boolean).join(' · ');
+    return `
+    <div class="process-card" data-process="${esc(p.id)}">
+      <div class="process-head">
+        <span class="process-num">${String(p.num).padStart(2, '0')}</span>
+        <span class="process-title">${esc(p.title)}</span>
+      </div>
+      <div class="process-summary">${esc(p.summary)}</div>
+      <div class="process-tables">${chips}</div>
+      <div class="process-foot"><span>${foot}</span></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('guideInner').innerHTML = `
+    <div class="guide-eyebrow">CEMURM · Esquema de base de datos</div>
+    <h1>Qué guarda el sistema y cómo se conecta</h1>
+    <p class="guide-message">${esc(GUIDE.message)}</p>
+    <div class="guide-actions">
+      <button class="primary" data-action="explore">Explorar el esquema completo →</button>
+      <span class="guide-note">${ENTITIES.length} tablas · ${Object.keys(DOMAINS).length} dominios · ${FK_EDGES.length} relaciones</span>
+    </div>
+
+    <p class="guide-caveat">
+      Las ${GUIDE.drawing.total} claves foráneas de la base incluyen ${GUIDE.drawing.external} hacia
+      <code>auth.users</code> — Supabase Auth, no una tabla del dominio — y ${GUIDE.drawing.selfRefs}
+      auto-referencias que quedan escritas dentro de la misma tarjeta. El diagrama dibuja las
+      ${GUIDE.drawing.drawn} restantes, que son las relaciones entre tablas de <code>public</code>.
+    </p>
+
+    <section class="guide-section">
+      <h2>Tablas núcleo — las que más se referencian</h2>
+      <div class="core-grid">${coreCards}</div>
+    </section>
+
+    <section class="guide-section">
+      <h2>Procesos principales — clic para verlo en el diagrama</h2>
+      <div class="process-grid">${processCards}</div>
+    </section>
+
+    <section class="guide-section">
+      <h2>Alcance</h2>
+      <div class="scope-grid">
+        <div class="scope-col in">
+          <h3>Incluido hoy</h3>
+          <ul>${GUIDE.scope.included.map(item => `<li>${esc(item)}</li>`).join('')}</ul>
+        </div>
+        <div class="scope-col out">
+          <h3>Fuera de alcance</h3>
+          <ul>${GUIDE.scope.excluded.map(item => `<li>${esc(item)}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function openGuide() {
+  lastView = { kind: 'guide' };
+  document.getElementById('guide').classList.add('open');
+}
+
+function closeGuide() {
+  document.getElementById('guide').classList.remove('open');
+}
+
+document.getElementById('guideInner').addEventListener('click', (ev) => {
+  const processCard = ev.target.closest('[data-process]');
+  if (processCard) { focusProcess(processCard.dataset.process); return; }
+
+  const coreCard = ev.target.closest('[data-table]');
+  if (coreCard) { focusTable(coreCard.dataset.table); return; }
+
+  if (ev.target.closest('[data-action="explore"]')) showAll();
+});
+
+document.getElementById('btnGuide').onclick = openGuide;
 
 document.getElementById('btnGroupToggle').onclick = function() {
   groupMode = !groupMode;
@@ -994,36 +2475,46 @@ document.getElementById('btnLabels').onclick = function() {
   document.querySelectorAll('.col-type').forEach(el => el.style.display = showLabels ? '' : 'none');
 };
 
-// Search
+// Search — matches table names and column names, painted through the same
+// highlighter the guide uses.
 searchInput.addEventListener('input', (ev) => {
   const q = ev.target.value.toLowerCase().trim();
-  if (!q) { deselectAll(); return; }
+  if (!q) { applyHighlightState(); return; }
   const matches = ENTITIES.filter(e => e.id.includes(q) || e.cols.some(c => c.name.includes(q)));
-  if (matches.length === 1) selectEntity(matches[0].id);
-  else {
-    const matchIds = new Set(matches.map(m => m.id));
-    document.querySelectorAll('.entity-card').forEach(card => {
-      card.classList.toggle('dimmed', !matchIds.has(card.dataset.id));
-      card.classList.toggle('highlighted', matchIds.has(card.dataset.id));
-      card.classList.remove('selected');
-    });
-  }
+  if (matches.length === 1) { highlightEntity(matches[0].id); return; }
+  paintHighlight(new Set(matches.map(m => m.id)), null, () => false);
 });
 
 document.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Escape') deselectAll();
+  if (ev.key === 'Escape') {
+    if (document.getElementById('guide').classList.contains('open')) { closeGuide(); return; }
+    hideBanner();
+    activeProcess = null;
+    deselectAll();
+  }
   if ((ev.ctrlKey || ev.metaKey) && ev.key === 'k') { ev.preventDefault(); searchInput.focus(); }
 });
 
 // ═══════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════
+// Re-layout on resize: switching to a projector or a smaller window must not
+// leave the canvas framed for the previous viewport.
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (lastView.kind !== 'guide') renderAll(); }, 150);
+});
+
 buildSidebar();
-buildCards();
-buildConnections();
-updateTransform();
-// Auto-fit on first load
-setTimeout(() => document.getElementById('btnFit').click(), 100);
+document.getElementById('stats').textContent =
+  `${ENTITIES.length} tablas · ${Object.keys(DOMAINS).length} dominios · ${FK_EDGES.length} relaciones FK`;
+
+// The guide is the entry point. A reader needs to know what the system does
+// before 60 boxes mean anything, and the first paint is cheaper in map density.
+mapMode = true;
+renderGuide();
+renderAll();
 </script>
 </body>
 </html>
