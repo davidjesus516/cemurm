@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import NavItem from "../nav-items/index";
 import { cn } from "@/lib/utils";
+import { toAdminPath } from "@/lib/admin-path";
 import { useSidebar } from "@/components/ui/sidebar";
 import { MenuItem, ChildItem } from "../sidebaritems";
 
@@ -15,7 +16,7 @@ export default function NavCollapse({ menu, className }: NavCollapseProps) {
   const isCollapse = state === "collapsed";
 
   const isActiveRoute = (item: ChildItem): boolean => {
-    if (item.url && pathname === item.url) return true;
+    if (item.url && pathname === toAdminPath(item.url)) return true;
     if (item.items) return item.items.some(isActiveRoute);
     return false;
   };
@@ -52,7 +53,7 @@ export default function NavCollapse({ menu, className }: NavCollapseProps) {
               return (
                 <Link
                   key={index}
-                  to={item.url || "#"}
+                  to={toAdminPath(item.url)}
                   target={item.external ? "_blank" : undefined}
                   className={cn(
                     "flex items-center gap-3  rounded-md transition-all duration-200 ease-in-out ",
@@ -102,7 +103,7 @@ export default function NavCollapse({ menu, className }: NavCollapseProps) {
                     ) : (
                       <Link
                         key={index}
-                        to={sub.url || "#"}
+                        to={toAdminPath(sub.url)}
                         target={sub.external ? "_blank" : undefined}
                         className={cn(
                           "block rounded-md transition-all duration-200 ease-in-out",
@@ -110,7 +111,7 @@ export default function NavCollapse({ menu, className }: NavCollapseProps) {
                           className,
                         )}
                       >
-                        <NavItem item={sub} hasChildren={false} className={cn("px-2! py-1! my-1!", pathname === sub.url && "bg-cem-amber/5 text-cem-amber")} isActive={pathname === sub.url} />
+                        <NavItem item={sub} hasChildren={false} className={cn("px-2! py-1! my-1!", pathname === toAdminPath(sub.url) && "bg-cem-amber/5 text-cem-amber")} isActive={pathname === toAdminPath(sub.url)} />
                       </Link>
                     )
                   )}

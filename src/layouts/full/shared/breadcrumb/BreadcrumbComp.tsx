@@ -26,7 +26,7 @@ const BreadcrumbComp = ({ title }: BreadCrumbType) => {
             aria-label="Breadcrumb"
           >
             <li className="flex items-center">
-              <Link className="text-forground text-sm  leading-none" to="/">
+              <Link className="text-forground text-sm  leading-none" to="/dashboard">
                 Home
               </Link>
             </li>

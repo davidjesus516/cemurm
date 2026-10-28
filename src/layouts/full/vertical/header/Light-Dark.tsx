@@ -54,6 +54,7 @@ const LightDark = () => {
       {activeMode === "light" ? (
         <Button
           variant="ghost"
+          aria-label="Switch to dark theme"
           className=" h-10 w-10  hover:bg-cem-amber/5  rounded-full cursor-pointer"
           onClick={toggleTheme}
         >
@@ -63,6 +64,7 @@ const LightDark = () => {
         // Dark Mode Button
         <Button
           variant="ghost"
+          aria-label="Switch to light theme"
           className=" h-10 w-10  hover:bg-cem-amber/5  rounded-full cursor-pointer"
           onClick={toggleTheme}
         >
@@ -74,5 +76,3 @@ const LightDark = () => {
 };
 
 export default LightDark;
-
-

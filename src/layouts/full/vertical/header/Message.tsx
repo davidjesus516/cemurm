@@ -101,7 +101,7 @@ const Message = () => {
             </div>
           </SimpleBar>
           <div className="pt-5 px-6">
-            <Button className="w-full" render={<Link to="#" />}>
+            <Button className="w-full" nativeButton={false} render={<Link to="#" />}>
               See All Messages
             </Button>
           </div>
