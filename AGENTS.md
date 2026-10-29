@@ -73,10 +73,10 @@ not a failing run, they are a green run that tested less, so nothing inside the 
 them. Bash + grep only, same as the visual gate.
 
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
-no `tsc` (its `include` has no `supabase` path) and no ESLint (`--ext js,jsx` never enumerates
-`.ts`) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`. The glob is **quoted on
-purpose** — unquoted, bash expands `**` as `*` (globstar is off in Actions) and silently omits
-nested files. Still nothing in the JS gates reaches that path.
+no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,
+whose functions target Deno rather than Node) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`.
+The glob is **quoted** on purpose — unquoted, bash expands `**` as `*` (globstar is off in Actions)
+and silently omits nested files. Still nothing in the JS gates reaches that path.
 
 ## E2E is a separate workflow
 
