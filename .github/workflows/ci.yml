@@ -25,10 +25,10 @@ jobs:
       - run: pnpm lint
 
       # Edge function type-check. `supabase/functions/` is outside every other
-      # gate: `eslint` only enumerates js/jsx, and `tsconfig.json` has no
-      # supabase path. The glob is QUOTED on purpose — unquoted, bash expands
-      # `**` as `*` (globstar is off in Actions) and silently omits nested
-      # files; quoted, Deno expands it recursively.
+      # gate: `.eslintrc.cjs` ignores `supabase/` (these functions target Deno),
+      # and `tsconfig.json` has no supabase path. The glob is QUOTED on purpose —
+      # unquoted, bash expands `**` as `*` (globstar is off in Actions) and
+      # silently omits nested files; quoted, Deno expands it recursively.
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
