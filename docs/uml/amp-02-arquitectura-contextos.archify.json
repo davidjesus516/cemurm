@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "CEMURM — Arquitectura de la ampliación: C1 a C5",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/davidjesus516/cemurm",
+      "provider": "github",
+      "revision": "cc2e7f96f2995bc94d9be95b65b05ae4c8298ce1"
+    },
+    "views": [
+      {
+        "id": "orden",
+        "label": "Orden de construcción",
+        "focus": [
+          "memb",
+          "edu",
+          "evt",
+          "inv",
+          "ana"
+        ],
+        "note": "C1 desbloquea a los otros tres; C5 depende de C2 y C3."
+      },
+      {
+        "id": "superficie",
+        "label": "Superficie de datos",
+        "focus": [
+          "memb",
+          "edu",
+          "inv",
+          "evt"
+        ],
+        "note": "Qué.tables cambia y cuáles solo se cablean."
+      },
+      {
+        "id": "hoy",
+        "label": "Lo que ya existe",
+        "focus": [
+          "events_tbl",
+          "songs",
+          "orgs"
+        ],
+        "note": "El andamiaje que la ampliación reutiliza en vez de duplicar."
+      }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "cols": 4,
+    "gapX": 52,
+    "gapY": 38,
+    "cellW": 208,
+    "cellH": 74
+  },
+  "components": [
+    {
+      "id": "orgs",
+      "type": "database",
+      "label": "organizations y branches",
+      "sublabel": "ya existe",
+      "row": 0,
+      "col": 0,
+      "size": [
+        208,
+        74
+      ]
+    },
+    {
+      "id": "memb",
+      "type": "security",
+      "label": "C1 Identidad y roles",
+      "sublabel": "4 RPC · 1 tabla",
+      "tag": "Hito 7",
+      "row": 0,
+      "col": 1,
+      "sources": [
+        {
+          "path": "supabase/migrations/0016_org_repertoire_model.sql",
+          "line": 552,
+          "label": "grant select unicamente"
+        }
+      ],
+      "size": [
+        208,
+        74
+      ]
+    },
+    {
+      "id": "songs",
+      "type": "database",
+      "label": "songs y setlists",
+      "sublabel": "ya existe",
+      "row": 1,
+      "col": 0,
+      "size": [
+        208,
+        74
+      ]
+    },
+    {
+      "id": "edu",
+      "type": "backend",
+      "label": "C2 Formación",
+      "sublabel": "5 tablas",
+      "tag": "Hito 8",
+      "row": 1,
+      "col": 1,
+      "size": [
+        208,
+        74
+      ]
+    },
+    {
+      "id": "evt",
+      "type": "backend",
+      "label": "C3 Eventos",
+      "sublabel": "solo cliente",
+      "tag": "Hito 9",
+      "row": 1,
+      "col": 2,
+      "size": [
+        208,
+        74
+      ]
+    },
+    {
+      "id": "inv",
+      "type": "backend",
+      "label": "C4 Inventario",
+      "sublabel": "3 tablas",
+      "tag": "Hito 9",
+      "row": 1,
+      "col": 3,
+      "size": [
+        208,
+        74
+      ]
+    },
+    {
+      "id": "ana",
+      "type": "backend",
+      "label": "C5 Analítica",
+      "sublabel": "vistas y RPC",
+      "tag": "Hito 9",
+      "row": 2,
+      "col": 2,
+      "size": [
+        208,
+        74
+      ]
+    },
+    {
+      "id": "events_tbl",
+      "type": "database",
+      "label": "events y event_rsvps",
+      "sublabel": "RLS y GRANT listos",
+      "tag": "sin cliente",
+      "row": 2,
+      "col": 0,
+      "sources": [
+        {
+          "path": "supabase/migrations/0016_org_repertoire_model.sql",
+          "line": 556,
+          "label": "grant a authenticated"
+        }
+      ],
+      "size": [
+        208,
+        74
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "HOY — ya construido",
+      "wraps": [
+        "orgs",
+        "songs",
+        "events_tbl"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "AMPLIACIÓN",
+      "wraps": [
+        "memb",
+        "edu",
+        "evt",
+        "inv",
+        "ana"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "m-to-e",
+      "from": "memb",
+      "to": "edu",
+      "label": "roster escribible",
+      "variant": "security",
+      "labelDy": 24
+    },
+    {
+      "id": "m-to-v",
+      "from": "memb",
+      "to": "evt",
+      "label": "roster escribible",
+      "variant": "security"
+    },
+    {
+      "id": "m-to-i",
+      "from": "memb",
+      "to": "inv",
+      "label": "roster escribible",
+      "variant": "security",
+      "labelDy": -62
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cambio de esquema",
+      "items": [
+        "C1 añade 2 columnas, 1 tabla y 4 RPC sobre org_memberships",
+        "C2 añade 5 tablas con familia RLS completa",
+        "C4 añade 3 tablas; el índice parcial impide el préstamo doble",
+        "C3 y C5 no cambian el esquema en absoluto"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "El bloqueo que ordena el trabajo",
+      "items": [
+        "org_memberships es grant select únicamente (0016:552)",
+        "Sus tres políticas son SELECT: de 164 políticas vivas, ninguna escribe. Salir es lo único que sí se puede",
+        "C2, C3 y C4 dependen de poder escribir ahí: C1 va primero"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Lo que se reutiliza en vez de duplicar",
+      "items": [
+        "bandas serán organizaciones con org_type, no una entidad nueva",
+        "ejercicios apuntan a songs y song_versions con anchor de shared_comments",
+        "eventos usa events y event_rsvps, que ya tienen GRANT a authenticated"
+      ]
+    }
+  ]
+}
