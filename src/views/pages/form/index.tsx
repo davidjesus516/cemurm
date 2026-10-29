@@ -1,17 +1,18 @@
-import StyleDivider from 'src/components/shared/StyleDivider';
-import StyleAwareWrapper from 'src/components/shared/StyleAwareWrapper';
 import BreadcrumbComp from 'src/layouts/full/shared/breadcrumb/BreadcrumbComp';
 import FormCompo from 'src/components/form';
-const BCrumb = [{ to: '/', title: 'Home' }, { title: 'Form' }];
 
-function TablesPage() {
+const BCrumb = [
+  { to: '/dashboard', title: 'Home' },
+  { title: 'Form' },
+];
+
+function FormPage() {
   return (
-    <StyleAwareWrapper lyraClassName="flex flex-col p-px gap-px bg-cem-hover">
-      <BreadcrumbComp title="Form Elements" items={BCrumb} />
-      <StyleDivider />
+    <div className='flex flex-col gap-4'>
+      <BreadcrumbComp title='Form' items={BCrumb} />
       <FormCompo />
-    </StyleAwareWrapper>
+    </div>
   );
 }
 
-export default TablesPage;
+export default FormPage;

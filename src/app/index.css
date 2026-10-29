@@ -98,8 +98,10 @@
   --color-cem-secondary: #94a3b8;
   /* Exists because cem.secondary fails the 4.5:1 AA text floor on cem.elevated
      (4.04:1) and cem.hover (2.96:1). cem.secondary itself is unchanged: 318
-     usages sit on base/surface where it clears the floor. Kept, not renamed. */
-  --color-cem-secondary-elevated: #b0bccb;
+     usages sit on base/surface where it clears the floor. Kept, not renamed.
+     Raised from #b0bccb to #cbd5e1 so the token also clears the floor on
+     cem.hover (3.93:1 -> 5.10:1); the light theme uses #334155 below. */
+  --color-cem-secondary-elevated: #cbd5e1;
   --color-cem-amber: #f59e0b;
   --color-cem-coral: #f97316;
   --color-cem-emerald: #10b981;
@@ -110,6 +112,40 @@
   --color-cem-stage-lyric: #f8fafc;
   --color-cem-stage-section: #94a3b8;
   --color-cem-stage-dim: #1e293b;
+
+  /* -------------------------------------------------------------------------
+   * Light admin values
+   * -------------------------------------------------------------------------
+   * Inputs to the html.light mapping below, not a second palette: they are
+   * deliberately not named --color-* so they do not generate utilities. They
+   * live inside the sanctioned token block so the visual gate can keep
+   * enforcing "no raw colour literal outside @theme".
+   *
+   * Same one-accent language, neutral slate surfaces. Measured WCAG contrast
+   * (relative-luminance formula) on the light surfaces:
+   *   text #0f172a                 17.06 base / 17.85 surface / 16.30 elevated / 14.48 hover
+   *   secondary #475569             7.24 base /  7.58 surface /  6.92 elevated /  6.15 hover
+   *   secondary-elevated #334155    9.90 base / 10.35 surface /  9.45 elevated /  8.40 hover
+   *   amber #92400e                 6.78 base /  7.09 surface /  6.47 elevated /  5.75 hover
+   *   amber button text (cem-base on amber): 6.78
+   *   chart/status leaves            5.2-6.0 on base; all clear the 4.5:1 text floor.
+   * The amber is darker than the dark-theme #f59e0b because the button class is
+   * `bg-cem-amber text-cem-base`: in light mode `cem-base` is light, so the
+   * background must be dark enough to carry it. The same swap makes the dark
+   * theme work (light amber + dark base text).
+   * ------------------------------------------------------------------------- */
+  --cem-light-base: #f8fafc;
+  --cem-light-surface: #ffffff;
+  --cem-light-elevated: #f1f5f9;
+  --cem-light-hover: #e2e8f0;
+  --cem-light-text: #0f172a;
+  --cem-light-secondary: #475569;
+  --cem-light-secondary-elevated: #334155;
+  --cem-light-amber: #92400e;
+  --cem-light-coral: #9a3412;
+  --cem-light-emerald: #065f46;
+  --cem-light-rose: #9f1239;
+  --cem-light-sky: #075985;
 
   /* TW3 pulled the rest of the sans stack from tailwindcss/defaultTheme;
      v4 has no JS config, so the stack is spelled out here with Inter in front,
@@ -138,6 +174,44 @@
   --color-success: var(--color-cem-emerald);
   --color-warning: var(--color-cem-amber);
   --color-error: var(--color-cem-rose);
+}
+
+/* ===========================================================================
+ * Light admin theme mapping
+ * ===========================================================================
+ * The admin shell had a theme toggle that only added `html.light`; the cem
+ * leaves above are all dark-ramp values, so the toggle did not change a single
+ * surface. This block maps the same role variables to the light values declared
+ * in the @theme block.
+ *
+ * The class is scoped to the admin lifecycle by AdminThemeBoundary.jsx: it is
+ * removed when /dashboard unmounts, so the member app and the stage never inherit
+ * it. The stage namespace is deliberately absent: `cem.stage.*` is the
+ * projector palette and must stay black regardless of the admin theme.
+ * =========================================================================== */
+html.light {
+  color-scheme: light;
+  --color-cem-base: var(--cem-light-base);
+  --color-cem-surface: var(--cem-light-surface);
+  --color-cem-elevated: var(--cem-light-elevated);
+  --color-cem-hover: var(--cem-light-hover);
+  --color-cem-text: var(--cem-light-text);
+  --color-cem-secondary: var(--cem-light-secondary);
+  --color-cem-secondary-elevated: var(--cem-light-secondary-elevated);
+  --color-cem-amber: var(--cem-light-amber);
+
+  /* The semantic aliases are overridden explicitly. They point at the dark
+     leaves in @theme; without this mapping, chart and status colours would
+     stay at their dark-theme brightness on a light surface. */
+  --color-destructive: var(--cem-light-rose);
+  --color-chart-1: var(--cem-light-amber);
+  --color-chart-2: var(--cem-light-sky);
+  --color-chart-3: var(--cem-light-emerald);
+  --color-chart-4: var(--cem-light-rose);
+  --color-chart-5: var(--cem-light-coral);
+  --color-success: var(--cem-light-emerald);
+  --color-warning: var(--cem-light-amber);
+  --color-error: var(--cem-light-rose);
 }
 
 /* The radius scale itself. `inline` so the utilities read the --cem-radius-*

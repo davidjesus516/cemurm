@@ -36,7 +36,10 @@ describe('visual contract port', () => {
 
     const block = read(SCRIPT).match(/CSS_COLOUR_KEY_ALLOWLIST=\(([\s\S]*?)\n\)/)[1];
     const allow = [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1]).sort();
-    expect(allow).toEqual(declared.map(toKey).sort());
+    // The light theme re-declares existing colour keys to override them, so
+    // compare the unique declared set rather than every declaration line.
+    const declaredKeys = [...new Set(declared.map(toKey))].sort();
+    expect(allow).toEqual(declaredKeys);
   });
 
   it('every -cem-<token> utility names a declared --color token', () => {

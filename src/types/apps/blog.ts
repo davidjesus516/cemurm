@@ -24,6 +24,8 @@ export interface BlogPostType {
   id?: number | any;
   title?: string;
   content?: string;
+  body?: string[];
+  quote?: string;
   coverImg?: string;
   createdAt?: Date;
   view?: number;

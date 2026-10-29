@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,7 +14,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Icon } from '@iconify/react'
 import { Button } from '@/components/ui/button'
-
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Popover,
   PopoverContent,
@@ -24,13 +27,10 @@ import {
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 
-
-
-
 const Page = () => {
   const [time, setTime] = useState('')
   const [copied, setCopied] = useState(false)
-  const [website, setWebsite] = useState('www.tailwind-admin.com')
+  const [website, setWebsite] = useState('https://cemurm.app')
   const [switch1, setSwitch1] = useState(false)
   const [switch2, setSwitch2] = useState(true)
   const [switch3, setSwitch3] = useState(true)
@@ -49,13 +49,15 @@ const Page = () => {
   }
 
   return (
-    
-      <div className='grid grid-cols-1 xl:grid-cols-2 gap-px'>
-        <div className='flex flex-col gap-px'>
-          {/* Default Inputs */}
-          <div className='md:p-6 p-4 bg-cem-base'>
-            <h5 className='card-title'>Default Inputs</h5>
-            <div className='mt-6 flex flex-col gap-6'>
+    <div className='grid grid-cols-1 xl:grid-cols-2 gap-4 items-start'>
+      <div className='flex flex-col gap-4'>
+        {/* Default Inputs */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Default Inputs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='flex flex-col gap-6'>
               {/* Basic Input */}
               <div>
                 <Label htmlFor='name'>Input</Label>
@@ -78,7 +80,7 @@ const Page = () => {
               <div>
                 <Label htmlFor='countries'>Select Input</Label>
                 <Select>
-                  <SelectTrigger className='mt-2 w-full'>
+                  <SelectTrigger id='countries' className='mt-2 w-full'>
                     <SelectValue placeholder='Select an option' />
                   </SelectTrigger>
                   <SelectContent>
@@ -108,18 +110,20 @@ const Page = () => {
                   Date of birth
                 </Label>
                 <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger>
-                    <Button
-                      variant='outline'
-                      id='date'
-                      className='w-full justify-between font-normal hover:bg-transparent focus:border-cem-amber'>
-                      {date ? date.toLocaleDateString() : 'Select date'}
-                      <Icon
-                        icon='solar:calendar-minimalistic-linear'
-                        width={18}
-                        height={18}
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        variant='outline'
+                        id='date'
+                        className='w-full justify-between font-normal'
                       />
-                    </Button>
+                    }>
+                    {date ? date.toLocaleDateString() : 'Select date'}
+                    <Icon
+                      icon='solar:calendar-minimalistic-linear'
+                      width={18}
+                      height={18}
+                    />
                   </PopoverTrigger>
                   <PopoverContent
                     className='w-auto overflow-hidden p-0'
@@ -179,12 +183,16 @@ const Page = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Textarea */}
-          <div className='bg-cem-base md:p-6 p-4 gap-px'>
-            <h5 className='card-title'>Textarea Input</h5>
-            <div className='mt-6 flex flex-col gap-6'>
+        {/* Textarea */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Textarea Input</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='flex flex-col gap-6'>
               <div>
                 <Label htmlFor='comment'>Description</Label>
                 <Textarea
@@ -218,12 +226,16 @@ const Page = () => {
                 />
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Input Colors */}
-          <div className='bg-cem-base gap-px md:p-6 p-4'>
-            <h5 className='card-title'>Input Colors</h5>
-            <div className='mt-6 flex flex-col gap-6'>
+        {/* Input Colors */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Input Colors</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='flex flex-col gap-6'>
               <div>
                 <Label htmlFor='warning' className='text-warning'>
                   Warning
@@ -235,7 +247,7 @@ const Page = () => {
                 />
               </div>
               <div>
-                <Label htmlFor='info' className='text-info'>
+                <Label htmlFor='info' className='text-chart-2'>
                   Info
                 </Label>
                 <Input
@@ -255,24 +267,29 @@ const Page = () => {
                 />
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Right side */}
-        <div className='flex flex-col gap-px'>
-          {/* Input Group with Icons */}
-          <div className='bg-cem-base md:p-6 p-4'>
-            <h5 className='card-title'>Input Group</h5>
-            <div className='mt-6 flex flex-col gap-6'>
+      {/* Right side */}
+      <div className='flex flex-col gap-4'>
+        {/* Input Group with Icons */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Input Group</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='flex flex-col gap-6'>
               <div className='relative'>
                 <Icon
                   icon='solar:letter-linear'
                   width={18}
                   height={18}
-                  className='absolute left-3 top-1/2 -translate-y-1/2'
+                  className='absolute left-3 top-1/2 -translate-y-1/2 text-cem-secondary'
                 />
                 <Input
                   type='email'
+                  aria-label='Email address'
                   placeholder='name@example.com'
                   className='pl-10!'
                 />
@@ -283,9 +300,14 @@ const Page = () => {
                   icon='solar:phone-rounded-linear'
                   width={18}
                   height={18}
-                  className='absolute left-3 top-1/2 -translate-y-1/2'
+                  className='absolute left-3 top-1/2 -translate-y-1/2 text-cem-secondary'
                 />
-                <Input type='tel' placeholder='+1' className='pl-10!' />
+                <Input
+                  type='tel'
+                  aria-label='Phone number'
+                  placeholder='+1'
+                  className='pl-10!'
+                />
               </div>
 
               <div className='relative'>
@@ -293,11 +315,12 @@ const Page = () => {
                   icon='solar:global-linear'
                   width={18}
                   height={18}
-                  className='absolute left-3 top-1/2 -translate-y-1/2'
+                  className='absolute left-3 top-1/2 -translate-y-1/2 text-cem-secondary'
                 />
                 <Input
                   type='text'
-                  placeholder='www.example.com'
+                  aria-label='Website URL'
+                  placeholder='https://cemurm.app'
                   className='pl-10!'
                 />
               </div>
@@ -307,11 +330,12 @@ const Page = () => {
                   icon='solar:link-round-angle-linear'
                   width={18}
                   height={18}
-                  className='absolute left-3 top-1/2 -translate-y-1/2'
+                  className='absolute left-3 top-1/2 -translate-y-1/2 text-cem-secondary'
                 />
                 <Input
                   type='text'
-                  placeholder='www.tailwind-admin.com'
+                  aria-label='Profile link'
+                  placeholder='https://cemurm.app/setlists'
                   className='pl-10!'
                 />
               </div>
@@ -326,85 +350,123 @@ const Page = () => {
                     onChange={(e) => setWebsite(e.target.value)}
                   />
                   <button
+                    type='button'
                     onClick={handleCopy}
-                    className='px-3 py-1 text-sm rounded-md border border-ld bg-cem-amber/10 dark:bg-cem-amber/10 text-cem-amber hover:bg-cem-hover'>
+                    className='shrink-0 rounded-md border border-cem-hover bg-cem-amber/10 px-3 py-1 text-sm text-cem-amber hover:bg-cem-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-cem-secondary/50'>
                     {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* File Input */}
-          <div className='bg-cem-base md:p-6 p-4'>
-            <h5 className='card-title'>File Input</h5>
-            <Input type='file' className='mt-6' />
-          </div>
+        {/* File Input */}
+        <Card>
+          <CardHeader>
+            <CardTitle>File Input</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Input type='file' aria-label='Choose file' />
+          </CardContent>
+        </Card>
 
-          {/* Checkbox */}
-          <div className='bg-cem-base md:p-6 p-4'>
-            <h5 className='card-title'>Checkbox</h5>
-            <div className='flex gap-6 mt-6'>
+        {/* Checkbox */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Checkbox</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='flex flex-wrap gap-6'>
               <div className='flex items-center gap-2'>
-                <Checkbox id='default' />
-                <Label htmlFor='default'>Default</Label>
+                <Checkbox id='checkbox-default' />
+                <Label htmlFor='checkbox-default'>Default</Label>
               </div>
               <div className='flex items-center gap-2'>
-                <Checkbox id='checked' defaultChecked />
-                <Label htmlFor='checked'>Checked</Label>
+                <Checkbox id='checkbox-checked' defaultChecked />
+                <Label htmlFor='checkbox-checked'>Checked</Label>
               </div>
               <div className='flex items-center gap-2'>
-                <Checkbox id='disabled' disabled />
-                <Label htmlFor='disabled'>Disabled</Label>
+                <Checkbox id='checkbox-disabled' disabled />
+                <Label htmlFor='checkbox-disabled'>Disabled</Label>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Radio */}
-          <div className='bg-cem-base md:p-6 p-4'>
-            <h5 className='card-title'>Radio Buttons</h5>
-            <RadioGroup defaultValue='default' className='mt-6 flex gap-6'>
+        {/* Radio */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Radio Buttons</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup defaultValue='default' className='flex flex-wrap gap-6'>
               <div className='flex items-center gap-2'>
-                <RadioGroupItem value='default' id='default' />
-                <Label htmlFor='default'>Default</Label>
+                <RadioGroupItem value='default' id='radio-default' />
+                <Label htmlFor='radio-default'>Default</Label>
               </div>
               <div className='flex items-center gap-2'>
-                <RadioGroupItem value='selected' id='selected' />
-                <Label htmlFor='selected'>Selected</Label>
+                <RadioGroupItem value='selected' id='radio-selected' />
+                <Label htmlFor='radio-selected'>Selected</Label>
               </div>
               <div className='flex items-center gap-2'>
-                <RadioGroupItem value='disabled' id='disabled' disabled />
-                <Label htmlFor='disabled'>Disabled</Label>
+                <RadioGroupItem
+                  value='disabled'
+                  id='radio-disabled'
+                  disabled
+                />
+                <Label htmlFor='radio-disabled'>Disabled</Label>
               </div>
             </RadioGroup>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Switch */}
-          <div className='bg-cem-base md:p-6 p-4 h-full'>
-            <h5 className='card-title'>Toggle Switch</h5>
-            <div className='grid grid-cols-2 sm:grid-cols-3 gap-6 mt-6'>
+        {/* Switch */}
+        <Card className='h-full'>
+          <CardHeader>
+            <CardTitle>Toggle Switch</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='grid grid-cols-2 sm:grid-cols-3 gap-6'>
               <div className='flex items-center gap-2'>
-                <Switch checked={switch1} onCheckedChange={setSwitch1} />
-                <Label>Toggle me</Label>
+                <Switch
+                  id='switch-1'
+                  checked={switch1}
+                  onCheckedChange={setSwitch1}
+                />
+                <Label htmlFor='switch-1'>Toggle me</Label>
               </div>
               <div className='flex items-center gap-2'>
-                <Switch checked={switch2} onCheckedChange={setSwitch2} />
-                <Label>Toggle me (checked)</Label>
+                <Switch
+                  id='switch-2'
+                  checked={switch2}
+                  onCheckedChange={setSwitch2}
+                />
+                <Label htmlFor='switch-2'>Toggle me (checked)</Label>
               </div>
               <div className='flex items-center gap-2'>
-                <Switch disabled />
-                <Label>Disabled</Label>
+                <Switch id='switch-disabled' disabled />
+                <Label htmlFor='switch-disabled'>Disabled</Label>
               </div>
               <div className='flex items-center gap-2'>
-                <Switch checked disabled />
-                <Label>Disabled (checked)</Label>
+                <Switch id='switch-disabled-checked' checked disabled />
+                <Label htmlFor='switch-disabled-checked'>
+                  Disabled (checked)
+                </Label>
               </div>
-              <Switch checked={switch3} onCheckedChange={setSwitch3} />
+              <div className='flex items-center gap-2'>
+                <Switch
+                  id='switch-3'
+                  checked={switch3}
+                  onCheckedChange={setSwitch3}
+                />
+                <Label htmlFor='switch-3'>Toggle me (alternate)</Label>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
-
+    </div>
   )
 }
 

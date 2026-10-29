@@ -1,12 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// U5 mechanical lint header (odd/tasks/gerencial-template-import.md L2): the repo lint config
-// targets the musician side; this file is template code kept verbatim (S1), so the rule fires
-// it raises are disabled here rather than rewritten or weakened repo-wide in the lint config.
-import { createContext, useState, useEffect, ReactNode, Dispatch, SetStateAction } from 'react';
+// Demo blog store.
+//
+// The template's original context fetched /api/data/blog/BlogPosts from an
+// MSW worker that is never started, so the blog always rendered empty. The
+// demo keeps fixed content in React state instead: no network calls, no
+// Supabase writes, and every change is lost on reload. The blog screens show
+// a demo notice that says exactly that.
+import { createContext, useState, ReactNode, Dispatch, SetStateAction } from 'react';
 import { BlogPostType, BlogType } from 'src/types/apps/blog';
 import React from 'react';
-import useSWR from 'swr';
-import { getFetcher } from 'src/api/global-fetcher';
+import { demoBlogPosts } from '@/demo/content';
 
 // Define BlogContextProps interface
 export interface BlogContextProps {
@@ -25,10 +27,10 @@ export interface BlogContextProps {
 
 // Create context with default values
 export const BlogContext = createContext<BlogContextProps>({
-  posts: [],
+  posts: demoBlogPosts,
   sortBy: 'newest',
   selectedPost: null,
-  isLoading: true,
+  isLoading: false,
   setPosts: () => { },
   setSortBy: () => { },
   setSelectedPost: () => { },
@@ -39,30 +41,10 @@ export const BlogContext = createContext<BlogContextProps>({
 
 // BlogProvider component
 export const BlogProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [posts, setPosts] = useState<BlogPostType[]>([]);
+  const [posts, setPosts] = useState<BlogPostType[]>(demoBlogPosts);
   const [sortBy, setSortBy] = useState<string>('newest');
   const [selectedPost, setSelectedPost] = useState<BlogPostType | null>(null);
-  const [isLoading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<any>(null);
-
-  // Fetch Post data from the API
-  const {
-    data: postsData,
-    isLoading: isPostsLoading,
-    error: postsError,
-  } = useSWR('/api/data/blog/BlogPosts', getFetcher);
-
-  useEffect(() => {
-    if (postsData) {
-      setPosts(postsData.data);
-      setLoading(isPostsLoading);
-    } else if (postsError) {
-      setError(postsError);
-      setLoading(isPostsLoading);
-    } else {
-      setLoading(isPostsLoading);
-    }
-  }, [postsData, postsError, isPostsLoading]);
+  const [isLoading, setLoading] = useState<boolean>(false);
 
   // Adds a new comment to a specific post by updating the state.
   const addComment = (postId: number, newComment: BlogType) => {
@@ -83,7 +65,7 @@ export const BlogProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setSelectedPost,
     setLoading,
     addComment,
-    error,
+    error: null,
   };
 
   return <BlogContext.Provider value={value}>{children}</BlogContext.Provider>;
