@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEMURM — Esquema de base de datos</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
+    --border: #2d3141; --text: #e2e4e9; --muted: #8b8fa3;
+    --accent: #6c8cff; --accent2: #a78bfa; --accent3: #34d399;
+    --accent4: #f472b6; --accent5: #fbbf24; --accent6: #fb923c;
+    --accent7: #38bdf8; --danger: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+
+  /* Header */
+  .header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 14px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .header .stats { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .search-box { flex: 1; max-width: 320px; }
+  .search-box input { width: 100%; padding: 6px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12px; font-family: inherit; outline: none; }
+  .search-box input:focus { border-color: var(--accent); }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .controls button { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: 11px; cursor: pointer; font-family: inherit; }
+  .controls button:hover { color: var(--text); border-color: var(--accent); }
+  .controls button.active { color: var(--accent); border-color: var(--accent); background: rgba(108,140,255,0.1); }
+
+  /* Sidebar */
+  .sidebar { position: fixed; top: 45px; left: 0; bottom: 40px; width: 260px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; z-index: 50; padding: 12px 0; }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .domain-group { margin-bottom: 8px; }
+  .domain-header { padding: 6px 16px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .domain-header .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .entity-list { list-style: none; }
+  .entity-list li { padding: 4px 16px 4px 32px; font-size: 12px; cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+  .entity-list li:hover { color: var(--text); background: var(--surface2); }
+  .entity-list li.selected { color: var(--accent); background: rgba(108,140,255,0.08); }
+  .entity-list li .fk-count { font-size: 9px; color: var(--muted); margin-left: auto; background: var(--bg); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+  .entity-list li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .entity-list li .num { flex-shrink: 0; }
+  .sidebar-hint { padding: 8px 16px 10px; font-size: 10px; line-height: 1.5; color: var(--muted); border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+
+  /* Canvas */
+  .canvas-area { position: fixed; top: 45px; left: 260px; right: 0; bottom: 0; overflow: hidden; cursor: grab; }
+  .canvas-area.dragging { cursor: grabbing; }
+  #canvas { position: absolute; transform-origin: 0 0; }
+
+  /* Entity card */
+  .entity-card { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; min-width: 220px; max-width: 300px; font-size: 11px; transition: box-shadow 0.2s; cursor: pointer; z-index: 1; }
+  .entity-card:hover, .entity-card.highlighted { box-shadow: 0 0 0 2px var(--accent), 0 4px 20px rgba(0,0,0,0.4); z-index: 10; }
+  .entity-card.selected { box-shadow: 0 0 0 2px var(--accent2), 0 4px 20px rgba(167,139,250,0.3); z-index: 10; }
+  .entity-card.dimmed { opacity: 0.25; }
+  .card-header { padding: 8px 10px; border-radius: 5px 5px 0 0; display: flex; align-items: center; gap: 8px; }
+  .card-header .table-icon { font-size: 10px; opacity: 0.6; }
+  .card-header .entity-name { font-weight: 700; font-size: 12px; color: #fff; }
+  .card-header .entity-num { font-size: 9px; opacity: 0.5; margin-left: auto; }
+  .card-cols { padding: 6px 0; }
+  .col-row { padding: 2px 10px; display: flex; align-items: center; gap: 6px; }
+  .col-row:hover { background: var(--surface2); }
+  .col-icon { font-size: 8px; width: 12px; text-align: center; flex-shrink: 0; }
+  .col-icon.pk { color: var(--accent5); }
+  .col-icon.fk { color: var(--accent4); }
+  .col-icon.jsonb { color: var(--accent6); }
+  .col-icon.col { color: var(--muted); }
+  .col-name { font-size: 11px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-type { font-size: 9px; color: var(--muted); margin-left: auto; flex-shrink: 1; min-width: 0; max-width: 52%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+  .card-footer { padding: 5px 10px; border-top: 1px solid var(--border); font-size: 9px; color: var(--muted); }
+
+  /* Connection lines — plain HTML divs inside #canvas, same coords as cards */
+  #canvas .conn { position: absolute; height: 2px; width: 1px; transform-origin: 0 50%; border-radius: 1px; opacity: 0.35; pointer-events: none; z-index: 0; }
+  #canvas .conn.highlighted { opacity: 1; height: 3px; }
+  #canvas .conn-lbl { position: absolute; font-size: 8px; color: var(--muted); white-space: nowrap; background: var(--bg); padding: 0 3px; border-radius: 2px; pointer-events: none; z-index: 0; transform: translate(-50%, -50%); }
+  #canvas .conn-lbl.highlighted { color: var(--accent); background: var(--surface2); }
+
+  /* Minimap */
+  .minimap { position: fixed; bottom: 12px; right: 12px; width: 180px; height: 120px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; z-index: 50; overflow: hidden; opacity: 0.45; transition: opacity 0.15s; }
+  .minimap:hover { opacity: 1; }
+  .minimap-viewport { position: absolute; border: 1px solid var(--accent); background: rgba(108,140,255,0.08); border-radius: 1px; }
+  .minimap-dot { position: absolute; width: 3px; height: 3px; border-radius: 50%; }
+
+  /* Tooltip */
+  .tooltip { position: fixed; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; font-size: 11px; max-width: 300px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .tooltip .tt-title { font-weight: 700; margin-bottom: 4px; color: var(--accent); }
+  .tooltip .tt-body { color: var(--muted); line-height: 1.5; }
+
+  /* Zoom indicator */
+  .zoom-indicator { position: fixed; bottom: 12px; left: 272px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 10px; color: var(--muted); z-index: 50; }
+
+  /* Legend */
+  .legend { position: fixed; bottom: 0; left: 0; width: 260px; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 10px; font-size: 9px; z-index: 60; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* ── Guide: the explanation, shown before the map ───────────────── */
+  .guide { position: fixed; inset: 0; z-index: 300; background: var(--bg); overflow-y: auto; display: none; }
+  .guide.open { display: block; }
+  .guide-inner { max-width: 1180px; margin: 0 auto; padding: 52px 36px 80px; }
+  .guide-eyebrow { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .guide h1 { font-size: 30px; line-height: 1.25; font-weight: 700; color: var(--text); letter-spacing: -0.5px; margin-bottom: 18px; max-width: 820px; }
+  .guide-message { font-size: 15px; line-height: 1.75; color: var(--muted); max-width: 800px; margin-bottom: 22px; }
+  .guide-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 46px; }
+  .guide-actions button { padding: 8px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; font-family: inherit; cursor: pointer; }
+  .guide-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .guide-actions .primary { background: rgba(108,140,255,0.12); border-color: var(--accent); color: var(--accent); }
+  .guide-note { font-size: 11px; color: var(--muted); }
+  .guide-caveat { font-size: 11.5px; line-height: 1.7; color: var(--muted); max-width: 760px; margin: -30px 0 46px; opacity: 0.85; }
+  .guide-caveat code { color: var(--accent7); font-size: 11px; }
+
+  .guide-section { margin-bottom: 46px; }
+  .guide-section > h2 { font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+
+  .core-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .core-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .core-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .core-card .core-name { font-size: 13px; font-weight: 700; color: var(--accent5); margin-bottom: 6px; }
+  .core-card .core-meta { font-size: 10px; color: var(--accent); margin-bottom: 8px; }
+  .core-card .core-why { font-size: 11px; line-height: 1.55; color: var(--muted); }
+
+  .process-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }
+  .process-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; cursor: pointer; transition: border-color .15s, transform .15s; display: flex; flex-direction: column; gap: 10px; }
+  .process-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .process-head { display: flex; align-items: baseline; gap: 10px; }
+  .process-num { font-size: 10px; color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; flex-shrink: 0; }
+  .process-title { font-size: 14px; font-weight: 700; color: var(--text); }
+  .process-summary { font-size: 11.5px; line-height: 1.65; color: var(--muted); }
+  .process-tables { display: flex; flex-wrap: wrap; gap: 5px; }
+  .table-chip { font-size: 9.5px; padding: 2px 7px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); }
+  .process-foot { font-size: 9.5px; color: var(--muted); opacity: 0.8; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .scope-col { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+  .scope-col h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; }
+  .scope-col.in h3 { color: var(--accent3); }
+  .scope-col.out h3 { color: var(--accent4); }
+  .scope-col ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  .scope-col li { font-size: 11.5px; line-height: 1.5; color: var(--muted); padding-left: 14px; position: relative; }
+  .scope-col li::before { content: '·'; position: absolute; left: 2px; color: var(--muted); }
+
+  /* ── Proposal annex: what the document asks for, against what exists ── */
+  .proposal-lead { font-size: 12px; line-height: 1.7; color: var(--muted); max-width: 820px; margin-bottom: 18px; }
+  .proposal-lead code { color: var(--accent7); font-size: 11px; }
+  .proposal-title-opt { font-size: 11.5px; line-height: 1.6; color: var(--text); opacity: 0.7; border-left: 2px solid var(--border); padding-left: 12px; margin-bottom: 22px; max-width: 820px; font-style: italic; }
+
+  .proposal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .pstat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .pstat b { display: block; font-size: 26px; line-height: 1.1; color: var(--text); font-weight: 700; }
+  .pstat span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .pstat.warn b { color: var(--accent4); }
+  .pstat.good b { color: var(--accent3); }
+
+  .cov-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--bg); margin-bottom: 10px; }
+  .cov-bar span { display: block; height: 100%; }
+  .cov-bar .exact { background: var(--accent3); }
+  .cov-bar .partial { background: var(--accent5); }
+  .cov-bar .missing { background: var(--danger); }
+  .cov-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 10.5px; color: var(--muted); margin-bottom: 12px; }
+  .proposal-note { font-size: 11px; line-height: 1.65; color: var(--muted); max-width: 780px; margin-bottom: 26px; opacity: 0.85; }
+  .cov-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+
+  .area-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .area-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .area-head h3 { font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .area-count { font-size: 10.5px; color: var(--accent3); white-space: nowrap; }
+  .area-count.zero { color: var(--danger); }
+  .tx-list { list-style: none; }
+  .tx { display: flex; gap: 10px; padding: 8px 16px; border-top: 1px solid rgba(45,49,65,0.5); align-items: flex-start; }
+  .tx:first-child { border-top: none; }
+  .tx-n { font-size: 9.5px; color: var(--muted); min-width: 18px; padding-top: 2px; }
+  .tx-body { flex: 1; }
+  .tx-what { font-size: 11.5px; line-height: 1.5; color: var(--text); display: block; }
+  .tx.blocked .tx-what { color: var(--muted); }
+  .tx-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .tchip { font-size: 9px; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); }
+  .tchip.missing { border-color: rgba(239,68,68,0.5); color: #f08585; background: rgba(239,68,68,0.08); }
+  .tchip.exact { border-color: rgba(52,211,153,0.35); color: var(--accent3); }
+  .tchip.partial { border-color: rgba(251,191,36,0.35); color: var(--accent5); }
+  .tx-flag { font-size: 9.5px; white-space: nowrap; padding-top: 3px; }
+  .tx-flag.ok { color: var(--accent3); }
+  .tx-flag.no { color: var(--danger); }
+
+  .steps-title { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .step-list { list-style: none; counter-reset: step; margin-bottom: 26px; }
+  .step { background: var(--surface); border: 1px solid var(--border); border-left: 2px solid var(--accent3); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+  .step-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .step-n { font-size: 9.5px; color: var(--accent3); font-weight: 700; min-width: 14px; }
+  .step-head h3 { font-size: 12px; font-weight: 700; color: var(--text); flex: 1; }
+  .step-cost { font-size: 10.5px; color: var(--accent); white-space: nowrap; }
+  .step-what { font-size: 11px; line-height: 1.6; color: var(--muted); margin-bottom: 6px; }
+  .step-what strong { color: var(--text); }
+  .step-dep { font-size: 10px; line-height: 1.55; color: var(--muted); margin-top: 6px; opacity: 0.8; }
+  .tchip.new { border-color: rgba(148,163,184,0.4); color: var(--text); background: rgba(148,163,184,0.07); }
+  .areas-wrap { padding: 12px 16px 14px; }
+  .areas-wrap .area-card:last-child { margin-bottom: 0; }
+
+  .proposal-details { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; }
+  .proposal-details summary { padding: 12px 16px; font-size: 11.5px; color: var(--accent); cursor: pointer; user-select: none; }
+  .proposal-details summary:hover { color: var(--text); }
+  .proposal-details[open] summary { border-bottom: 1px solid var(--border); }
+  .req-list, .cat-list { list-style: none; padding: 8px 16px 14px; }
+  .req-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(45,49,65,0.4); }
+  .req-row:last-child { border-bottom: none; }
+  .req-n { font-size: 9.5px; color: var(--accent); min-width: 18px; padding-top: 2px; }
+  .req-name { font-size: 11.5px; color: var(--text); font-weight: 600; display: block; margin-bottom: 2px; }
+  .req-desc { font-size: 10.5px; line-height: 1.55; color: var(--muted); display: block; }
+  .cat-row { display: grid; grid-template-columns: 1.1fr 0.9fr auto; gap: 10px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid rgba(45,49,65,0.4); font-size: 11px; }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-name { color: var(--text); }
+  .cat-target { font-size: 10.5px; color: var(--muted); }
+  .cat-row[data-table] { cursor: pointer; }
+  .cat-row[data-table]:hover .cat-target { color: var(--accent); }
+  .cat-state { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .cat-state.exact { color: var(--accent3); }
+  .cat-state.partial { color: var(--accent5); }
+  .cat-state.missing { color: var(--danger); }
+
+  /* ── Process banner, over the canvas ───────────────────────────── */
+  .process-banner { position: fixed; top: 53px; left: 272px; right: 12px; z-index: 80; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 14px; display: none; gap: 12px; align-items: flex-start; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+  .process-banner.open { display: flex; }
+  .process-banner .pb-title { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .process-banner .pb-text { font-size: 11px; line-height: 1.55; color: var(--muted); flex: 1; }
+  .process-banner .pb-close { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; font-family: inherit; padding: 0 2px; }
+  .process-banner .pb-close:hover { color: var(--text); }
+
+  /* ── Map mode: 60 full cards never fit; 60 headers do ──────────── */
+  .canvas-area.map-mode .card-cols,
+  .canvas-area.map-mode .card-footer { display: none; }
+  .canvas-area.map-mode .entity-card .card-header { border-radius: 5px; }
+
+  /* Group label above each domain block on the canvas */
+  .canvas-domain { position: absolute; height: 22px; display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+  .canvas-domain-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .canvas-domain-name { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; opacity: 0.85; }
+  .canvas-domain:hover .canvas-domain-name { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CEMURM · Base de datos</h1>
+  <span class="stats" id="stats"></span>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Buscar tabla o columna… (Ctrl+K)" />
+  </div>
+  <div class="controls">
+    <button id="btnGuide">Guía</button>
+    <button id="btnFit">Ver todo</button>
+    <button id="btnGroupToggle" class="active">Relaciones</button>
+    <button id="btnLabels" class="active">Tipos</button>
+  </div>
+</div>
+
+<div class="process-banner" id="processBanner">
+  <span class="pb-title" id="pbTitle"></span>
+  <span class="pb-text" id="pbText"></span>
+  <button class="pb-close" id="pbClose" title="Cerrar">✕</button>
+</div>
+
+<div class="guide open" id="guide">
+  <div class="guide-inner" id="guideInner"></div>
+</div>
+
+<div class="sidebar" id="sidebar"></div>
+
+<div class="canvas-area" id="canvasArea">
+  <div id="canvas"></div>
+</div>
+
+<div class="minimap" id="minimap"></div>
+<div class="tooltip" id="tooltip"></div>
+<div class="zoom-indicator" id="zoomIndicator">100%</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent5)"></div>PK</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent4)"></div>FK</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent6)"></div>jsonb</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div>Column</div>
+  <div class="legend-item"><span style="color:var(--accent)">──</span> 1:N</div>
+  <div class="legend-item"><span style="color:var(--accent)">── N:M</span></div>
+  <div class="legend-item"><span style="color:var(--accent)">── 1:1</span></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// DATA — injected by scripts/build-er-diagram.mjs from the live database.
+// Do not edit this file: edit the generator, then re-run it.
+// ═══════════════════════════════════════════════════════════════════
+
+/*__SCHEMA_DATA__*/
+
+const entityMap = {};
+ENTITIES.forEach(e => entityMap[e.id] = e);
+
+// ═══════════════════════════════════════════════════════════════════
+// FK RELATIONSHIPS — cardinality comes from the database constraints,
+// never from a table-name allowlist.
+// ═══════════════════════════════════════════════════════════════════
+const FK_EDGES = [];
+ENTITIES.forEach(e => {
+  e.cols.forEach(c => {
+    if (c.fk && !c.fk.includes('auth.users') && !c.fk.includes('(self)')) {
+      FK_EDGES.push({
+        from: e.id, fromCol: c.name, to: c.fk,
+        label: c.name.replace(/_id$/, ''),
+        cardinality: c.cardinality || '1:N',
+      });
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// LAYOUT — domain blocks packed on shelves.
+//
+// Stacking the domains in one column made "Ver todo" fit at 13%: a strip, not
+// a map. Packing them two-dimensionally raises the same 60 tables to a zoom
+// where the table names are readable.
+//
+// Two densities:
+//   full — header + every column + footer, used when one domain or process is
+//          in focus and there is room to read it.
+//   map  — header only, used by "Ver todo": 60 headers fit legibly; 60 full
+//          cards never do.
+// ═══════════════════════════════════════════════════════════════════
+const CARD_W = 250, CARD_H_BASE = 40, COL_H = 18;
+const CARD_GAP_X = 28, CARD_GAP_Y = 16;
+const DOMAIN_LABEL_H = 30, DOMAIN_GAP = 56;
+const MAP_CARD_H = 38, MAP_CARD_GAP_Y = 8;
+const SHELF_W = 2000;
+
+function cardHeight(entity, mapMode) {
+  return mapMode ? MAP_CARD_H : CARD_H_BASE + entity.cols.length * COL_H + 24;
+}
+
+function layoutEntities(mapMode, shelfWidth) {
+  const positions = {};
+  const anchors = [];
+  const shelfW = shelfWidth || SHELF_W;
+  const groups = {};
+  ENTITIES.forEach(e => { (groups[e.domain] || (groups[e.domain] = [])).push(e); });
+
+  const order = Object.keys(groups).sort((a, b) => DOMAINS[a].order - DOMAINS[b].order);
+  const gapY = mapMode ? MAP_CARD_GAP_Y : CARD_GAP_Y;
+
+  const blocks = order.map(domain => {
+    const entities = groups[domain];
+    const cols = Math.max(1, Math.min(entities.length, Math.ceil(Math.sqrt(entities.length * 1.4))));
+    const rows = Math.ceil(entities.length / cols);
+    const rowHeights = new Array(rows).fill(0);
+    entities.forEach((e, i) => {
+      const r = Math.floor(i / cols);
+      rowHeights[r] = Math.max(rowHeights[r], cardHeight(e, mapMode));
+    });
+    const h = DOMAIN_LABEL_H + rowHeights.reduce((a, b) => a + b, 0) + (rows - 1) * gapY;
+    return {
+      domain, entities, cols, rows, rowHeights, h,
+      w: cols * CARD_W + (cols - 1) * CARD_GAP_X,
+    };
+  });
+
+  let x = 0, y = 0, shelfHeight = 0;
+  blocks.forEach(block => {
+    if (x > 0 && x + block.w > shelfW) { x = 0; y += shelfHeight + DOMAIN_GAP; shelfHeight = 0; }
+
+    let rowY = y + DOMAIN_LABEL_H;
+    block.entities.forEach((e, i) => {
+      const r = Math.floor(i / block.cols);
+      const c = i % block.cols;
+      if (c === 0 && r > 0) rowY += block.rowHeights[r - 1] + gapY;
+      positions[e.id] = {
+        x: x + c * (CARD_W + CARD_GAP_X),
+        y: rowY,
+        w: CARD_W,
+        h: cardHeight(e, mapMode),
+        domain: block.domain,
+      };
+    });
+
+    anchors.push({ domain: block.domain, x, y, w: block.w, h: block.h });
+    x += block.w + DOMAIN_GAP;
+    shelfHeight = Math.max(shelfHeight, block.h);
+  });
+
+  return { positions, anchors };
+}
+
+let positions = {};
+let blockAnchors = [];
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const dvConnections = document.createElement('div');  // holds connection lines
+dvConnections.style.cssText = 'position:absolute;top:0;left:0;';
+const canvasArea = document.getElementById('canvasArea');
+const sidebar = document.getElementById('sidebar');
+const tooltip = document.getElementById('tooltip');
+const minimapEl = document.getElementById('minimap');
+const zoomIndicator = document.getElementById('zoomIndicator');
+const searchInput = document.getElementById('searchInput');
+
+let scale = 0.7, panX = 50, panY = 50;
+let selectedEntity = null;
+let showLabels = true;
+let groupMode = true;
+let mapMode = false;          // header-only density, used by "Ver todo"
+let activeProcess = null;     // the guide process currently framed
+let lastView = { kind: 'guide' };  // what to re-apply after a resize or re-layout
+
+function color(domain) { return DOMAINS[domain]?.color || '#666'; }
+
+// Build sidebar
+function buildSidebar() {
+  sidebar.innerHTML = '<div class="sidebar-hint">Clic en un dominio para enfocarlo. Ctrl+K para buscar.</div>';
+  const sortedDomains = Object.keys(DOMAINS).sort((a, b) => DOMAINS[a].order - DOMAINS[b].order);
+  sortedDomains.forEach(domain => {
+    const entities = ENTITIES.filter(e => e.domain === domain);
+    const group = document.createElement('div');
+    group.className = 'domain-group';
+    group.innerHTML = `<div class="domain-header" title="Enfocar este dominio"><div class="dot" style="background:${DOMAINS[domain].color}"></div>${DOMAINS[domain].label} <span style="font-size:9px;opacity:0.5">(${entities.length})</span></div>`;
+    group.querySelector('.domain-header').onclick = () => focusDomain(domain);
+    const list = document.createElement('ul');
+    list.className = 'entity-list';
+    entities.forEach(e => {
+      const fkCount = e.cols.filter(c => c.fk && !c.fk.includes('(self)')).length;
+      const li = document.createElement('li');
+      li.dataset.id = e.id;
+      li.title = e.id;
+      li.innerHTML = `<span class="num" style="color:${color(e.domain)}">#${e.num}</span><span class="name">${e.id}</span><span class="fk-count">${fkCount} FK</span>`;
+      li.onclick = () => (mapMode ? focusTable(e.id) : selectEntity(e.id));
+      list.appendChild(li);
+    });
+    group.appendChild(list);
+    sidebar.appendChild(group);
+  });
+}
+
+// Build entity cards
+function buildCards() {
+  canvas.innerHTML = '';
+  canvas.appendChild(dvConnections);  // lines layer below cards
+  ENTITIES.forEach(e => {
+    const p = positions[e.id];
+    const card = document.createElement('div');
+    card.className = 'entity-card';
+    card.dataset.id = e.id;
+    card.style.left = p.x + 'px';
+    card.style.top = p.y + 'px';
+    card.style.width = p.w + 'px';
+
+    let colsHtml = e.cols.map(c => {
+      let icon = '○', iconClass = 'col';
+      if (c.pk) { icon = '◆'; iconClass = 'pk'; }
+      else if (c.fk) { icon = '◇'; iconClass = 'fk'; }
+      else if (c.type === 'jsonb') { icon = '⊕'; iconClass = 'jsonb'; }
+      const isSelf = c.fk && c.fk.includes('(self)');
+      const typeStr = c.type + (isSelf ? ' ↺' : c.fk ? ' → ' + c.fk.replace('(self)', '') : '');
+      return `<div class="col-row"><span class="col-icon ${iconClass}">${icon}</span><span class="col-name">${c.name}</span><span class="col-type">${typeStr}</span></div>`;
+    }).join('');
+
+    const fkCount = e.cols.filter(c => c.fk && !c.fk.includes('(self)')).length;
+    card.innerHTML = `
+      <div class="card-header" style="background:${color(e.domain)}22">
+        <span class="table-icon">⊞</span>
+        <span class="entity-name" style="color:${color(e.domain)}">${e.id}</span>
+        <span class="entity-num">#${e.num}</span>
+      </div>
+      <div class="card-cols">${colsHtml}</div>
+      <div class="card-footer">${DOMAINS[e.domain].label} · ${e.cols.length} cols · ${fkCount} FK</div>
+    `;
+    card.onclick = () => (mapMode ? focusTable(e.id) : selectEntity(e.id));
+    card.onmouseenter = (ev) => showTooltip(ev, e);
+    card.onmouseleave = () => hideTooltip();
+    canvas.appendChild(card);
+  });
+
+  // Block labels. Without them the map is 60 colour-coded boxes and the reader
+  // has to count colours to find a group; the 30px band was already reserved.
+  blockAnchors.forEach(anchor => {
+    const label = document.createElement('div');
+    label.className = 'canvas-domain';
+    label.dataset.domain = anchor.domain;
+    label.style.left = anchor.x + 'px';
+    label.style.top = anchor.y + 'px';
+    label.style.width = anchor.w + 'px';
+    label.innerHTML =
+      `<span class="canvas-domain-dot" style="background:${color(anchor.domain)}"></span>` +
+      `<span class="canvas-domain-name" style="color:${color(anchor.domain)}">${DOMAINS[anchor.domain].label}</span>`;
+    label.onclick = () => focusDomain(anchor.domain);
+    canvas.appendChild(label);
+  });
+}
+
+// Build HTML connection lines (plain divs — same coord space as cards)
+// Connect from nearest edges of the two rects, not from centers.
+function buildConnections() {
+  dvConnections.innerHTML = '';
+
+  // Point on the boundary of rect `r` closest to point p
+  function closestBoundaryPoint(r, px, py) {
+    const cx = Math.max(r.x, Math.min(px, r.x + r.w));
+    const cy = Math.max(r.y, Math.min(py, r.y + r.h));
+    if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) {
+      // p is inside the rect; snap to nearest edge
+      const dx = Math.min(px - r.x, r.x + r.w - px);
+      const dy = Math.min(py - r.y, r.y + r.h - py);
+      if (dx <= dy) return { x: (px < r.x + r.w / 2 ? r.x : r.x + r.w), y: cy };
+      return { x: cx, y: (py < r.y + r.h / 2 ? r.y : r.y + r.h) };
+    }
+    return { x: cx, y: cy };
+  }
+
+  FK_EDGES.forEach(edge => {
+    const fromPos = positions[edge.from];
+    const toPos = positions[edge.to];
+    if (!fromPos || !toPos) return;
+
+    const f = fromPos, t = toPos;
+    // Point on each rect's boundary nearest the OTHER rect's center
+    const p1 = closestBoundaryPoint(f, t.x + t.w / 2, t.y + t.h / 2);
+    const p2 = closestBoundaryPoint(t, f.x + f.w / 2, f.y + f.h / 2);
+
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return;
+
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    const line = document.createElement('div');
+    line.className = 'conn';
+    line.style.left = p1.x + 'px';
+    line.style.top = p1.y + 'px';
+    line.style.width = len + 'px';
+    line.style.background = color(entityMap[edge.from].domain);
+    line.style.transform = `rotate(${angle}deg)`;
+    line.dataset.from = edge.from;
+    line.dataset.to = edge.to;
+    line.dataset.cardinality = edge.cardinality;
+
+    // Cardinality label at midpoint — sibling of the line, not child (avoids rotation inheritance)
+    if (edge.cardinality !== '1:N') {
+      const lbl = document.createElement('div');
+      lbl.className = 'conn-lbl';
+      lbl.textContent = edge.cardinality;
+      lbl.style.left = ((p1.x + p2.x) / 2) + 'px';
+      lbl.style.top  = ((p1.y + p2.y) / 2) + 'px';
+      lbl.dataset.from = edge.from;
+      lbl.dataset.to = edge.to;
+      dvConnections.appendChild(lbl);
+    }
+
+    dvConnections.appendChild(line);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════════════════
+
+// One painter for every highlight source — a single table, a whole process, a
+// search result. Three separate copies of this logic is how they drift apart.
+// `edgeIsOn(from, to)` decides which connection lines light up.
+function paintHighlight(ids, selectedId, edgeIsOn) {
+  document.querySelectorAll('.entity-card').forEach(card => {
+    card.classList.remove('selected', 'dimmed', 'highlighted');
+    if (!ids) return;
+    if (selectedId && card.dataset.id === selectedId) card.classList.add('selected');
+    else if (ids.has(card.dataset.id)) card.classList.add('highlighted');
+    else card.classList.add('dimmed');
+  });
+
+  document.querySelectorAll('.entity-list li').forEach(li => {
+    li.classList.toggle('selected', !!selectedId && li.dataset.id === selectedId);
+  });
+
+  // A group label fades out when none of its tables is part of the highlight;
+  // otherwise a focused process still shows eight bright group names.
+  document.querySelectorAll('.canvas-domain').forEach(label => {
+    const domain = label.dataset.domain;
+    const has = ids && ENTITIES.some(e => e.domain === domain && ids.has(e.id));
+    label.style.opacity = ids ? (has ? '' : '0.22') : '';
+  });
+
+  const isOn = edgeIsOn || ((from, to) => ids.has(from) && ids.has(to));
+
+  dvConnections.querySelectorAll('.conn').forEach(line => {
+    const connected = !!ids && isOn(line.dataset.from, line.dataset.to);
+    line.classList.toggle('highlighted', connected);
+    line.style.opacity = ids ? (connected ? '' : '0.05') : '';
+  });
+  dvConnections.querySelectorAll('.conn-lbl').forEach(lbl => {
+    const connected = !!ids && isOn(lbl.dataset.from, lbl.dataset.to);
+    lbl.classList.toggle('highlighted', connected);
+    lbl.style.opacity = ids ? (connected ? '1' : '0.08') : '';
+  });
+}
+
+function highlightEntity(id) {
+  selectedEntity = id;
+  const related = new Set([id]);
+  FK_EDGES.forEach(e => {
+    if (e.from === id) related.add(e.to);
+    if (e.to === id) related.add(e.from);
+  });
+  paintHighlight(related, id, (from, to) => from === id || to === id);
+}
+
+function selectEntity(id) {
+  if (selectedEntity === id) { deselectAll(); return; }
+  highlightEntity(id);
+  const sidebarItem = document.querySelector(`.entity-list li[data-id="${id}"]`);
+  if (sidebarItem) sidebarItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function deselectAll() {
+  selectedEntity = null;
+  paintHighlight(null, null);
+}
+
+function applyHighlightState() {
+  if (activeProcess) {
+    const process = GUIDE.processes.find(p => p.id === activeProcess);
+    if (process) { paintHighlight(new Set(process.tables), null); return; }
+  }
+  if (selectedEntity) { highlightEntity(selectedEntity); return; }
+  paintHighlight(null, null);
+}
+
+function showTooltip(ev, entity) {
+  const related = FK_EDGES.filter(e => e.from === entity.id || e.to === entity.id);
+  const fksOut = related.filter(e => e.from === entity.id);
+  const fksIn = related.filter(e => e.to === entity.id);
+  let html = `<div class="tt-title">${entity.id} (#${entity.num})</div><div class="tt-body">`;
+  html += `<b>Domain:</b> ${DOMAINS[entity.domain].label}<br>`;
+  html += `<b>Columns:</b> ${entity.cols.length}<br>`;
+  if (fksOut.length) html += `<b>FK references (${fksOut.length}):</b><br>${fksOut.map(e => `· ${e.fromCol} → <b>${e.to}</b>`).join('<br>')}<br>`;
+  if (fksIn.length) html += `<b>Referenced by (${fksIn.length}):</b><br>${fksIn.map(e => `· <b>${e.from}</b> via ${e.fromCol}`).join('<br>')}`;
+  html += '</div>';
+  tooltip.innerHTML = html;
+  tooltip.style.display = 'block';
+  tooltip.style.left = (ev.clientX + 16) + 'px';
+  tooltip.style.top = (ev.clientY - 10) + 'px';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+// ═══════════════════════════════════════════════════════════════════
+// PAN & ZOOM
+// ═══════════════════════════════════════════════════════════════════
+function updateTransform() {
+  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  // SVG is inside #canvas — inherits transform automatically, no separate transform needed
+  zoomIndicator.textContent = Math.round(scale * 100) + '%';
+  updateMinimap();
+}
+
+let isDragging = false, dragStartX, dragStartY, panStartX, panStartY;
+canvasArea.addEventListener('mousedown', (ev) => {
+  if (ev.target.closest('.entity-card')) return;
+  isDragging = true; dragStartX = ev.clientX; dragStartY = ev.clientY;
+  panStartX = panX; panStartY = panY;
+  canvasArea.classList.add('dragging');
+});
+document.addEventListener('mousemove', (ev) => {
+  if (!isDragging) return;
+  panX = panStartX + (ev.clientX - dragStartX);
+  panY = panStartY + (ev.clientY - dragStartY);
+  updateTransform();
+});
+document.addEventListener('mouseup', () => { isDragging = false; canvasArea.classList.remove('dragging'); });
+
+canvasArea.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const rect = canvasArea.getBoundingClientRect();
+  const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+  const delta = ev.deltaY > 0 ? 0.9 : 1.1;
+  const newScale = Math.min(3, Math.max(0.15, scale * delta));
+  panX = mx - (mx - panX) * (newScale / scale);
+  panY = my - (my - panY) * (newScale / scale);
+  scale = newScale;
+  updateTransform();
+}, { passive: false });
+
+canvasArea.addEventListener('click', (ev) => {
+  if (!ev.target.closest('.entity-card')) deselectAll();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════════════════════════
+function updateMinimap() {
+  const mmW = 180, mmH = 120;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  Object.values(positions).forEach(p => {
+    if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+    if (p.x + p.w > maxX) maxX = p.x + p.w; if (p.y + p.h > maxY) maxY = p.y + p.h;
+  });
+  const contentW = maxX - minX + 80, contentH = maxY - minY + 80;
+  const mmScale = Math.min(mmW / contentW, mmH / contentH);
+
+  minimapEl.innerHTML = '';
+  ENTITIES.forEach(e => {
+    const p = positions[e.id];
+    const dot = document.createElement('div');
+    dot.className = 'minimap-dot';
+    dot.style.left = ((p.x - minX + 40) * mmScale) + 'px';
+    dot.style.top = ((p.y - minY + 40) * mmScale) + 'px';
+    dot.style.background = color(e.domain);
+    minimapEl.appendChild(dot);
+  });
+
+  // Viewport rectangle
+  const areaRect = canvasArea.getBoundingClientRect();
+  const vpX = (-panX / scale - minX + 40) * mmScale;
+  const vpY = (-panY / scale - minY + 40) * mmScale;
+  const vpW = (areaRect.width / scale) * mmScale;
+  const vpH = (areaRect.height / scale) * mmScale;
+  const vp = document.createElement('div');
+  vp.className = 'minimap-viewport';
+  vp.style.left = vpX + 'px'; vp.style.top = vpY + 'px';
+  vp.style.width = vpW + 'px'; vp.style.height = vpH + 'px';
+  minimapEl.appendChild(vp);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// VIEW — bounds, re-layout, and the three ways to frame the schema
+// ═══════════════════════════════════════════════════════════════════
+function boundsOf(ids, source) {
+  const pos = source || positions;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  ids.forEach(id => {
+    const p = pos[id];
+    if (!p) return;
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x + p.w > maxX) maxX = p.x + p.w;
+    if (p.y + p.h > maxY) maxY = p.y + p.h;
+  });
+  return { minX, minY, maxX, maxY };
+}
+
+// Pick the packing width that leaves the most of the schema on screen instead
+// of guessing a constant. A fixed shelf width is what left the last row of the
+// map hanging off the bottom edge.
+function chooseLayout(mapMode) {
+  const area = canvasArea.getBoundingClientRect();
+  const candidates = [1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000];
+  let best = null;
+  let bestScore = -1;
+
+  candidates.forEach(width => {
+    const candidate = layoutEntities(mapMode, width);
+    const b = boundsOf(Object.keys(candidate.positions), candidate.positions);
+    if (!isFinite(b.minX)) return;
+    const score = Math.min(
+      area.width / (b.maxX - b.minX + 80),
+      area.height / (b.maxY - b.minY + 80),
+    );
+    if (score > bestScore) { bestScore = score; best = candidate; }
+  });
+
+  return best || layoutEntities(mapMode);
+}
+
+// Breathing room kept between the framed content and the canvas edge. Without
+// it the map fits exactly, which reads as "clipped" to anyone looking at it.
+const VIEW_GUTTER = 26;
+
+function fitBounds(b, options) {
+  const opts = options || {};
+  if (!isFinite(b.minX)) return;
+  const areaRect = canvasArea.getBoundingClientRect();
+  const availW = areaRect.width - VIEW_GUTTER * 2;
+  const availH = areaRect.height - VIEW_GUTTER * 2;
+  const contentW = b.maxX - b.minX + 80;
+  const contentH = b.maxY - b.minY + 80;
+  let next = Math.min(availW / contentW, availH / contentH, opts.maxScale || 1.2);
+  // A framed group is panned, never shrunk into unreadable text: 0.62 keeps an
+  // 11px column name at ~7px — the floor for a projector legible-enough view.
+  if (opts.minScale) next = Math.max(opts.minScale, next);
+  scale = next;
+  panX = VIEW_GUTTER + (availW - contentW * scale) / 2 - (b.minX - 40) * scale;
+  panY = VIEW_GUTTER + (availH - contentH * scale) / 2 - (b.minY - 40) * scale;
+  updateTransform();
+}
+
+// A frame may overflow when `minScale` keeps the text readable, so the thing the
+// reader asked to see can land off-screen. Nudge the pan until it is fully
+// visible — the neighbours may be clipped, never the target.
+function ensureVisible(id) {
+  const p = positions[id];
+  if (!p) return;
+  const areaRect = canvasArea.getBoundingClientRect();
+  const pad = 12;
+  const left = p.x * scale + panX;
+  const top = p.y * scale + panY;
+  const right = left + p.w * scale;
+  const bottom = top + p.h * scale;
+
+  if (left < pad) panX += pad - left;
+  else if (right > areaRect.width - pad) panX -= right - (areaRect.width - pad);
+
+  if (top < pad) panY += pad - top;
+  else if (bottom > areaRect.height - pad) panY -= bottom - (areaRect.height - pad);
+
+  updateTransform();
+}
+
+function fitFocus(kind, value) {
+  if (kind === 'fit' || kind === 'guide') {
+    fitBounds(boundsOf(Object.keys(positions)), { minScale: 0.2 });
+    return;
+  }
+  let ids = [];
+  if (kind === 'domain') {
+    ids = ENTITIES.filter(e => e.domain === value).map(e => e.id);
+  } else if (kind === 'process') {
+    const process = GUIDE.processes.find(p => p.id === value);
+    if (process) ids = process.tables;
+  } else if (kind === 'table') {
+    ids = [value];
+    FK_EDGES.forEach(e => {
+      if (e.from === value) ids.push(e.to);
+      if (e.to === value) ids.push(e.from);
+    });
+  }
+  fitBounds(boundsOf(ids), { minScale: 0.62, maxScale: 1 });
+}
+
+function applyView() {
+  fitFocus(lastView.kind, lastView.value);
+}
+
+// Re-layout from scratch: density, cards, lines and the current frame.
+function renderAll() {
+  const layout = chooseLayout(mapMode);
+  positions = layout.positions;
+  blockAnchors = layout.anchors;
+  canvasArea.classList.toggle('map-mode', mapMode);
+  buildCards();
+  buildConnections();
+  applyView();
+  applyHighlightState();
+}
+
+function showAll() {
+  closeGuide();
+  hideBanner();
+  activeProcess = null;
+  selectedEntity = null;
+  mapMode = true;
+  lastView = { kind: 'fit' };
+  renderAll();
+}
+
+function focusDomain(domain) {
+  closeGuide();
+  hideBanner();
+  activeProcess = null;
+  selectedEntity = null;
+  mapMode = false;
+  lastView = { kind: 'domain', value: domain };
+  renderAll();
+}
+
+function focusProcess(id) {
+  const process = GUIDE.processes.find(p => p.id === id);
+  if (!process) return;
+  closeGuide();
+  selectedEntity = null;
+  activeProcess = id;
+  mapMode = false;
+  lastView = { kind: 'process', value: id };
+  renderAll();
+  showBanner(process);
+}
+
+function focusTable(id) {
+  closeGuide();
+  hideBanner();
+  activeProcess = null;
+  selectedEntity = id;
+  mapMode = false;
+  lastView = { kind: 'table', value: id };
+  renderAll();
+  // A table you clicked must be on screen in full. The neighbourhood may bleed
+  // past the edge; the card that was clicked may not.
+  ensureVisible(id);
+}
+
+document.getElementById('btnFit').onclick = showAll;
+
+// ═══════════════════════════════════════════════════════════════════
+// PROCESS BANNER
+// ═══════════════════════════════════════════════════════════════════
+const banner = document.getElementById('processBanner');
+
+function showBanner(process) {
+  document.getElementById('pbTitle').textContent =
+    String(process.num).padStart(2, '0') + ' · ' + process.title;
+  document.getElementById('pbText').textContent = process.summary;
+  banner.classList.add('open');
+}
+
+function hideBanner() { banner.classList.remove('open'); }
+
+document.getElementById('pbClose').onclick = hideBanner;
+
+// ═══════════════════════════════════════════════════════════════════
+// GUIDE — the explanation panel
+// ═══════════════════════════════════════════════════════════════════
+function esc(value) {
+  return String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+}
+
+function domainTargets(process) {
+  const labels = new Set();
+  process.outgoing.forEach(o => {
+    if (o.external) { labels.add('auth.users'); return; }
+    const entity = entityMap[o.to];
+    if (entity && DOMAINS[entity.domain]) labels.add(DOMAINS[entity.domain].label);
+  });
+  return [...labels];
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROPOSAL ANNEX — the Proyecto IV document, measured against the schema
+//
+// The document proposes the whole system; the database implements part of
+// it. The annex exists to make that distance explicit instead of letting a
+// reader assume the proposal is already built.
+// ═══════════════════════════════════════════════════════════════════
+function renderProposal() {
+  const t = PROPOSAL.totals;
+  const pct = (n) => (n / t.tables) * 100;
+
+  const stats = `
+    <div class="proposal-stats">
+      <div class="pstat"><b>${t.transactions}</b><span>transacciones propuestas</span></div>
+      <div class="pstat good"><b>${t.runnable}</b><span>se pueden ejecutar hoy</span></div>
+      <div class="pstat warn"><b>${t.blocked}</b><span>necesitan tablas nuevas</span></div>
+      <div class="pstat warn"><b>${t.missing}</b><span>tablas a construir</span></div>
+    </div>
+    <div class="cov-bar">
+      <span class="exact" style="width:${pct(t.exact)}%"></span>
+      <span class="partial" style="width:${pct(t.partial)}%"></span>
+      <span class="missing" style="width:${pct(t.missing)}%"></span>
+    </div>
+    <div class="cov-legend">
+      <span><i style="background:var(--accent3)"></i>${t.exact} tablas existen con otro nombre</span>
+      <span><i style="background:var(--accent5)"></i>${t.partial} cubiertas en parte</span>
+      <span><i style="background:var(--danger)"></i>${t.missing} sin implementar, de ${t.tables} propuestas</span>
+    </div>`;
+
+  const areas = PROPOSAL.areas.map(area => {
+    const rows = area.transactions.map(tx => {
+      const chips = tx.runnable
+        ? ''
+        : `<div class="tx-chips">${tx.missing.map(m => `<span class="tchip missing">${esc(m)}</span>`).join('')}</div>`;
+      return `
+        <li class="tx ${tx.runnable ? 'ok' : 'blocked'}">
+          <span class="tx-n">${String(tx.n).padStart(2, '0')}</span>
+          <span class="tx-body">
+            <span class="tx-what">${esc(tx.what)}</span>${chips}
+          </span>
+          <span class="tx-flag ${tx.runnable ? 'ok' : 'no'}">${tx.runnable ? '✓ ejecutable' : tx.missing.length + ' sin tabla'}</span>
+        </li>`;
+    }).join('');
+    return `
+      <div class="area-card">
+        <div class="area-head">
+          <h3>${esc(area.title)}</h3>
+          <span class="area-count ${area.runnable === 0 ? 'zero' : ''}">${area.runnable}/${area.transactions.length} ejecutables</span>
+        </div>
+        <ul class="tx-list">${rows}</ul>
+      </div>`;
+  }).join('');
+
+  const requirements = PROPOSAL.requirements.map(r => `
+    <li class="req-row">
+      <span class="req-n">${r.n}</span>
+      <span>
+        <span class="req-name">${esc(r.name)}</span>
+        <span class="req-desc">${esc(r.description)}</span>
+      </span>
+    </li>`).join('');
+
+  const catalog = PROPOSAL.catalog.map(c => {
+    const target = c.target
+      ? `<span class="cat-target">${esc(c.target)}${c.state === 'partial' ? ' · parcial' : ''}</span>`
+      : '<span class="cat-target">—</span>';
+    return `
+      <li class="cat-row"${c.target ? ` data-table="${esc(c.target)}" title="${esc(c.note || 'Enfocar ' + c.target + ' en el diagrama')}"` : ''}>
+        <span class="cat-name">${esc(c.name)}</span>
+        ${target}
+        <span class="cat-state ${c.state}">${c.state === 'exact' ? 'existe' : c.state === 'partial' ? 'parcial' : 'ausente'}</span>
+      </li>`;
+  }).join('');
+
+  const ladder = PROPOSAL.steps.map((step, i) => {
+    const own = step.own.map(name => `<span class="tchip new">${esc(name)}</span>`).join('');
+    const deps = step.borrowed.length
+      ? `<p class="step-dep">Necesita ${step.borrowed.length} tablas de pasos anteriores: ${step.borrowed.map(esc).join(', ')}.</p>`
+      : '';
+    return `
+      <li class="step">
+        <div class="step-head">
+          <span class="step-n">${i + 1}</span>
+          <h3>${esc(step.title.replace(/^Transacciones de /, ''))}</h3>
+          <span class="step-cost">${step.own.length} tablas</span>
+        </div>
+        <p class="step-what">${step.closes === step.transactions.length
+          ? `Deja el área en <strong>${step.closes} de ${step.transactions.length}</strong> ejecutables.`
+          : `Deja el área en <strong>${step.closes} de ${step.transactions.length}</strong>; las ${step.transactions.length - step.closes} restantes necesitan tablas de un paso posterior.`}</p>
+        <div class="tx-chips">${own}</div>
+        ${deps}
+      </li>`;
+  }).join('');
+
+  return `
+    ${stats}
+    <p class="proposal-note">
+      Una transacción cuenta como ejecutable solo si <strong>ninguna</strong> de sus tablas falta. Que dos de
+      tres existan no la vuelve parcial: sigue sin poder ejecutarse de punta a punta.
+    </p>
+    <h3 class="steps-title">Orden de trabajo sugerido</h3>
+    <p class="proposal-note">
+      Cada paso dice cuántas tablas construye y cuántas transacciones cierra, contando lo que dejaron
+      hecho los anteriores. Un paso solo arranca cuando ya existen las tablas que toma prestadas, así
+      que el orden no es preferencia: es dependencia. Los reportes van al final porque leen todo lo
+      demás, aunque solo aporten dos tablas propias.
+    </p>
+    <ol class="step-list">${ladder}</ol>
+    <details class="proposal-details">
+      <summary>Detalle: las ${PROPOSAL.areas.reduce((sum, a) => sum + a.transactions.length, 0)} transacciones del documento, por área</summary>
+      <div class="areas-wrap">${areas}</div>
+    </details>
+    <details class="proposal-details">
+      <summary>Las ${PROPOSAL.requirements.length} funciones que pide el documento</summary>
+      <ul class="req-list">${requirements}</ul>
+    </details>
+    <details class="proposal-details">
+      <summary>Las ${t.tables} tablas propuestas y qué las cubre hoy · clic para ubicarla</summary>
+      <ul class="cat-list">${catalog}</ul>
+    </details>`;
+}
+
+function renderGuide() {
+  const coreCards = GUIDE.core.map(c => `
+    <div class="core-card" data-table="${esc(c.id)}">
+      <div class="core-name">${esc(c.id)}</div>
+      <div class="core-meta">${c.fanIn} tablas la referencian</div>
+      <div class="core-why">${esc(c.why)}</div>
+    </div>`).join('');
+
+  const processCards = GUIDE.processes.map(p => {
+    const chips = p.tables.slice(0, 5)
+      .map(t => `<span class="table-chip">${esc(t)}</span>`).join('') +
+      (p.tables.length > 5 ? `<span class="table-chip">+${p.tables.length - 5}</span>` : '');
+    const targets = domainTargets(p).slice(0, 4);
+    const foot = [
+      p.edges.length ? `${p.edges.length} relaciones internas` : null,
+      targets.length ? `se conecta con ${targets.join(', ')}` : null,
+    ].filter(Boolean).join(' · ');
+    return `
+    <div class="process-card" data-process="${esc(p.id)}">
+      <div class="process-head">
+        <span class="process-num">${String(p.num).padStart(2, '0')}</span>
+        <span class="process-title">${esc(p.title)}</span>
+      </div>
+      <div class="process-summary">${esc(p.summary)}</div>
+      <div class="process-tables">${chips}</div>
+      <div class="process-foot"><span>${foot}</span></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('guideInner').innerHTML = `
+    <div class="guide-eyebrow">CEMURM · Esquema de base de datos</div>
+    <h1>Qué guarda el sistema y cómo se conecta</h1>
+    <p class="guide-message">${esc(GUIDE.message)}</p>
+    <div class="guide-actions">
+      <button class="primary" data-action="explore">Explorar el esquema completo →</button>
+      <span class="guide-note">${ENTITIES.length} tablas · ${Object.keys(DOMAINS).length} dominios · ${FK_EDGES.length} relaciones</span>
+    </div>
+
+    <p class="guide-caveat">
+      Las ${GUIDE.drawing.total} claves foráneas de la base incluyen ${GUIDE.drawing.external} hacia
+      <code>auth.users</code> — Supabase Auth, no una tabla del dominio — y ${GUIDE.drawing.selfRefs}
+      auto-referencias que quedan escritas dentro de la misma tarjeta. El diagrama dibuja las
+      ${GUIDE.drawing.drawn} restantes, que son las relaciones entre tablas de <code>public</code>.
+    </p>
+
+    <section class="guide-section">
+      <h2>Tablas núcleo — las que más se referencian</h2>
+      <div class="core-grid">${coreCards}</div>
+    </section>
+
+    <section class="guide-section">
+      <h2>Procesos principales — clic para verlo en el diagrama</h2>
+      <div class="process-grid">${processCards}</div>
+    </section>
+
+    <section class="guide-section">
+      <h2>Alcance implementado</h2>
+      <div class="scope-grid">
+        <div class="scope-col in">
+          <h3>Incluido hoy</h3>
+          <ul>${GUIDE.scope.included.map(item => `<li>${esc(item)}</li>`).join('')}</ul>
+        </div>
+        <div class="scope-col out">
+          <h3>Fuera de la implementación actual</h3>
+          <ul>${GUIDE.scope.excluded.map(item => `<li>${esc(item)}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-section" id="proposal">
+      <h2>Próximos pasos — lo que propone el Proyecto IV</h2>
+      <p class="proposal-lead">
+        El documento <code>${esc(PROPOSAL.source)}</code> propone el sistema completo: gestión musical,
+        pedagógica y operativa. Esta base implementa la parte musical y comunitaria. Lo que sigue son
+        <strong>propuestas, no compromisos</strong>: cada transacción del documento contrastada contra
+        las tablas reales, con el costo en tablas que exige y el orden en que se puede construir.
+      </p>
+      <p class="proposal-title-opt">${esc(PROPOSAL.titles[0])}</p>
+      ${renderProposal()}
+    </section>
+  `;
+}
+
+function openGuide() {
+  lastView = { kind: 'guide' };
+  document.getElementById('guide').classList.add('open');
+}
+
+function closeGuide() {
+  document.getElementById('guide').classList.remove('open');
+}
+
+document.getElementById('guideInner').addEventListener('click', (ev) => {
+  const processCard = ev.target.closest('[data-process]');
+  if (processCard) { focusProcess(processCard.dataset.process); return; }
+
+  const coreCard = ev.target.closest('[data-table]');
+  if (coreCard) { focusTable(coreCard.dataset.table); return; }
+
+  if (ev.target.closest('[data-action="explore"]')) showAll();
+});
+
+document.getElementById('btnGuide').onclick = openGuide;
+
+document.getElementById('btnGroupToggle').onclick = function() {
+  groupMode = !groupMode;
+  this.classList.toggle('active', groupMode);
+  dvConnections.style.display = groupMode ? '' : 'none';
+};
+
+document.getElementById('btnLabels').onclick = function() {
+  showLabels = !showLabels;
+  this.classList.toggle('active', showLabels);
+  document.querySelectorAll('.col-type').forEach(el => el.style.display = showLabels ? '' : 'none');
+};
+
+// Search — matches table names and column names, painted through the same
+// highlighter the guide uses.
+searchInput.addEventListener('input', (ev) => {
+  const q = ev.target.value.toLowerCase().trim();
+  if (!q) { applyHighlightState(); return; }
+  const matches = ENTITIES.filter(e => e.id.includes(q) || e.cols.some(c => c.name.includes(q)));
+  if (matches.length === 1) { highlightEntity(matches[0].id); return; }
+  paintHighlight(new Set(matches.map(m => m.id)), null, () => false);
+});
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') {
+    if (document.getElementById('guide').classList.contains('open')) { closeGuide(); return; }
+    hideBanner();
+    activeProcess = null;
+    deselectAll();
+  }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === 'k') { ev.preventDefault(); searchInput.focus(); }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+// Re-layout on resize: switching to a projector or a smaller window must not
+// leave the canvas framed for the previous viewport.
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (lastView.kind !== 'guide') renderAll(); }, 150);
+});
+
+buildSidebar();
+document.getElementById('stats').textContent =
+  `${ENTITIES.length} tablas · ${Object.keys(DOMAINS).length} dominios · ${FK_EDGES.length} relaciones FK`;
+
+// The guide is the entry point. A reader needs to know what the system does
+// before 60 boxes mean anything, and the first paint is cheaper in map density.
+mapMode = true;
+renderGuide();
+renderAll();
+</script>
+</body>
+</html>
