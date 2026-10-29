@@ -125,10 +125,43 @@ implementado"** with **"Fuera de la implementación actual"**, and the excluded 
 document asks for and the database does not have — 10 academic transactions, 7 inventory/loan
 transactions, event logistics.
 
-UI: four stat tiles, a segmented coverage bar (12 green / 3 amber / 22 red), four area cards with
-all 34 transactions (red chips only on the blocking tables), and two `<details>` — the 21
-requirements and the 37-table catalog. A catalog row with a real target is clickable and focuses
-that table on the canvas.
+UI: four stat tiles, a segmented coverage bar (12 green / 3 amber / 22 red), the step ladder,
+and three `<details>` — the 34 transactions per area, the 21 requirements, and the 37-table
+catalog. A catalog row with a real target is clickable and focuses that table on the canvas.
+
+### 3.7.1 The annex reads as next steps, not as an audit
+
+A gap analysis answers "how far off are we". The reader's actual question is "what do we build
+next", so the section is titled **"Próximos pasos — lo que propone el Proyecto IV"** and opens
+with **"propuestas, no compromisos"**. The distance is still measured; it is now expressed as
+work.
+
+**Ordering cost alone was wrong.** Sorting the four areas by the tables they own put "users,
+permissions and reports" first with two tables — but four of its seven transactions read
+academic and inventory tables that do not exist, so it can close one transaction, not seven.
+Cost is not the constraint; dependency is. Steps are now ordered topologically: a step becomes
+available when every table it borrows is already built, and among the available ones the cheapest
+goes first. Ownership is assigned to the area that first asks for a table in document order,
+which separates a table an area builds from a table it merely reads.
+
+The ladder the data produces:
+
+| # | Step | Own tables | Leaves the area at |
+|---|---|---|---|
+| 1 | Musical management and events | 3 | **10 / 10** |
+| 2 | Inventory, loans and assignments | 4 | **7 / 7** (borrows 2 from step 1) |
+| 3 | Academic management | 13 | **10 / 10** |
+| 4 | Users, permissions and reports | 2 | **7 / 7** (borrows 11 from steps 1–3) |
+
+**3 + 4 + 13 + 2 = 22**, exactly the tables missing, and building all four leaves nothing
+blocked. Both facts are build-time assertions (`Los pasos planifican N tablas...`,
+`Los pasos no cubren las transacciones...`): a ladder is the thing a reader will act on, so an
+incomplete one must fail the build rather than read plausibly.
+
+Counts are cumulative, not per-area: inventory shows 7/7 because step 1 already built the two
+tables it borrows. Counting only its own tables read "0/7" for a step that in fact finishes the
+area. Collapsing the 34 transactions into a `<details>` took the guide from 4424 to 3209 px
+scrolled.
 
 ### 3.8 Merging `main` broke the build on purpose — and that is the point
 
@@ -163,6 +196,8 @@ capability. The 77 drawn relations are unchanged — the new table has no foreig
 | Table click from the map | selected card fully visible; 13 relations listed in the detail panel |
 | Console errors | none, both viewports |
 | Regenerated after merging `main` (61 tables) | `DOMAINS` rejected the unclassified table before it could ship |
+| Ladder accounting | 3 + 4 + 13 + 2 = 22 tables, all 34 transactions covered — asserted at build time |
+| Annex DOM after the reframe | 4 steps, 34 transaction rows inside the detail, 3 collapsed `<details>`, no console errors |
 | `bash scripts/check-visual-contract.sh` | OK, 12 rules, 0 failing |
 | `pnpm lint` / `pnpm typecheck` | clean |
 | Proposal annex: 34 transaction rows, 24 blocked, 85 red chips | as rendered, 1920×867 |

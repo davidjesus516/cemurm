@@ -316,7 +316,7 @@ function buildProposalLiteral(tables) {
   // missing. "Touches three tables, two of them exist" is not a transaction
   // you can run, and reporting it as partial hides exactly the gap the annex
   // exists to show.
-  const areas = proposal.areas.map((area) => {
+  const areas = proposal.areas.map((area, areaIndex) => {
     const transactions = area.transactions.map((transaction) => {
       const missing = transaction.tables.filter((name) => stateOf(name) === 'missing');
       return {
@@ -329,19 +329,101 @@ function buildProposalLiteral(tables) {
     });
     return {
       title: area.title,
+      index: areaIndex,
       transactions,
       runnable: transactions.filter((t) => t.runnable).length,
     };
   });
 
+  // A missing table belongs to the area that first asks for it in the
+  // document. Everything else is a dependency: "generar un reporte de
+  // rendimiento académico" is filed under users and reports, but it cannot
+  // exist before the academic tables do. Splitting ownership from dependency
+  // is what turns the gap into an order of work.
+  const home = {};
+  proposal.areas.forEach((area, areaIndex) => {
+    for (const transaction of area.transactions) {
+      for (const name of transaction.tables) {
+        if (stateOf(name) !== 'missing') continue;
+        if (!(name in home)) home[name] = areaIndex;
+      }
+    }
+  });
+
+  for (const area of areas) {
+    const own = [];
+    const borrowed = [];
+    for (const transaction of area.transactions) {
+      for (const name of transaction.missing) {
+        const bucket = home[name] === area.index ? own : borrowed;
+        if (!bucket.includes(name)) bucket.push(name);
+      }
+    }
+    area.own = own;
+    area.borrowed = borrowed;
+    // What this area can close without asking anything of another area.
+    area.afterOwnStep = area.transactions.filter(
+      (transaction) => transaction.missing.every((name) => home[name] === area.index),
+    ).length;
+  }
+
+  // Steps in buildable order. Cost alone lies: "users and reports" owns only
+  // two tables and looks cheapest, but four of its seven transactions read
+  // academic and inventory tables that do not exist yet, so it is last.
+  // A step becomes available when every table it borrows is already built;
+  // among the available ones the cheapest goes first.
+  const pending = areas.filter((area) => area.own.length > 0);
+  const built = new Set(catalog.filter((c) => c.state !== 'missing').map((c) => c.name));
+  const steps = [];
+  while (pending.length > 0) {
+    const ready = pending.filter((area) => area.borrowed.every((name) => built.has(name)));
+    if (ready.length === 0) {
+      // Unreachable with this document, but a cycle must not silently produce
+      // an order that cannot be built.
+      steps.push(...pending);
+      break;
+    }
+    ready.sort((a, b) => a.own.length - b.own.length || a.index - b.index);
+    const next = ready[0];
+    pending.splice(pending.indexOf(next), 1);
+    for (const name of next.own) built.add(name);
+    // Cumulative: a step closes what the previous steps made possible too.
+    // Counting only its own tables made inventory read "0/7" while it is in
+    // fact complete the moment the two tables it borrows from music exist.
+    next.closes = next.transactions.filter((transaction) =>
+      transaction.missing.every((name) => built.has(name)),
+    ).length;
+    steps.push(next);
+  }
+
+  // Two invariants, checked at build time because the ladder is the thing a
+  // reader will act on: the steps must account for every missing table
+  // exactly once, and building all of them must leave nothing blocked.
+  const plannedTables = steps.reduce((sum, step) => sum + step.own.length, 0);
+  if (plannedTables !== Object.keys(home).length) {
+    throw new Error(
+      `Los pasos planifican ${plannedTables} tablas, pero la propuesta tiene ${Object.keys(home).length} ausentes.`,
+    );
+  }
+  const stillBlocked = areas.flatMap((area) =>
+    area.transactions.filter((transaction) => !transaction.missing.every((name) => built.has(name))),
+  );
+  if (stillBlocked.length > 0) {
+    throw new Error(
+      `Los pasos no cubren las transacciones ${stillBlocked.map((t) => t.n).join(', ')}.`,
+    );
+  }
+
   const totalTransactions = areas.reduce((sum, area) => sum + area.transactions.length, 0);
   const runnable = areas.reduce((sum, area) => sum + area.runnable, 0);
+  const missingTables = Object.keys(home).length;
 
   return `const PROPOSAL = ${JSON.stringify({
     source: proposal._source.file,
     titles: proposal.title_options,
     requirements: proposal.requirements,
     areas,
+    steps,
     catalog,
     totals: {
       transactions: totalTransactions,
@@ -351,6 +433,7 @@ function buildProposalLiteral(tables) {
       exact: catalog.filter((c) => c.state === 'exact').length,
       partial: catalog.filter((c) => c.state === 'partial').length,
       missing: catalog.filter((c) => c.state === 'missing').length,
+      missingTables,
     },
   }, null, 2)};`;
 }

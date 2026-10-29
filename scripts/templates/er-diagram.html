@@ -181,6 +181,20 @@
   .tx-flag.ok { color: var(--accent3); }
   .tx-flag.no { color: var(--danger); }
 
+  .steps-title { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .step-list { list-style: none; counter-reset: step; margin-bottom: 26px; }
+  .step { background: var(--surface); border: 1px solid var(--border); border-left: 2px solid var(--accent3); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+  .step-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .step-n { font-size: 9.5px; color: var(--accent3); font-weight: 700; min-width: 14px; }
+  .step-head h3 { font-size: 12px; font-weight: 700; color: var(--text); flex: 1; }
+  .step-cost { font-size: 10.5px; color: var(--accent); white-space: nowrap; }
+  .step-what { font-size: 11px; line-height: 1.6; color: var(--muted); margin-bottom: 6px; }
+  .step-what strong { color: var(--text); }
+  .step-dep { font-size: 10px; line-height: 1.55; color: var(--muted); margin-top: 6px; opacity: 0.8; }
+  .tchip.new { border-color: rgba(148,163,184,0.4); color: var(--text); background: rgba(148,163,184,0.07); }
+  .areas-wrap { padding: 12px 16px 14px; }
+  .areas-wrap .area-card:last-child { margin-bottom: 0; }
+
   .proposal-details { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; }
   .proposal-details summary { padding: 12px 16px; font-size: 11.5px; color: var(--accent); cursor: pointer; user-select: none; }
   .proposal-details summary:hover { color: var(--text); }
@@ -928,8 +942,8 @@ function renderProposal() {
     <div class="proposal-stats">
       <div class="pstat"><b>${t.transactions}</b><span>transacciones propuestas</span></div>
       <div class="pstat good"><b>${t.runnable}</b><span>se pueden ejecutar hoy</span></div>
-      <div class="pstat warn"><b>${t.blocked}</b><span>chocan con tablas ausentes</span></div>
-      <div class="pstat warn"><b>${t.missing}</b><span>tablas sin implementar</span></div>
+      <div class="pstat warn"><b>${t.blocked}</b><span>necesitan tablas nuevas</span></div>
+      <div class="pstat warn"><b>${t.missing}</b><span>tablas a construir</span></div>
     </div>
     <div class="cov-bar">
       <span class="exact" style="width:${pct(t.exact)}%"></span>
@@ -987,13 +1001,44 @@ function renderProposal() {
       </li>`;
   }).join('');
 
+  const ladder = PROPOSAL.steps.map((step, i) => {
+    const own = step.own.map(name => `<span class="tchip new">${esc(name)}</span>`).join('');
+    const deps = step.borrowed.length
+      ? `<p class="step-dep">Necesita ${step.borrowed.length} tablas de pasos anteriores: ${step.borrowed.map(esc).join(', ')}.</p>`
+      : '';
+    return `
+      <li class="step">
+        <div class="step-head">
+          <span class="step-n">${i + 1}</span>
+          <h3>${esc(step.title.replace(/^Transacciones de /, ''))}</h3>
+          <span class="step-cost">${step.own.length} tablas</span>
+        </div>
+        <p class="step-what">${step.closes === step.transactions.length
+          ? `Deja el área en <strong>${step.closes} de ${step.transactions.length}</strong> ejecutables.`
+          : `Deja el área en <strong>${step.closes} de ${step.transactions.length}</strong>; las ${step.transactions.length - step.closes} restantes necesitan tablas de un paso posterior.`}</p>
+        <div class="tx-chips">${own}</div>
+        ${deps}
+      </li>`;
+  }).join('');
+
   return `
     ${stats}
     <p class="proposal-note">
       Una transacción cuenta como ejecutable solo si <strong>ninguna</strong> de sus tablas falta. Que dos de
       tres existan no la vuelve parcial: sigue sin poder ejecutarse de punta a punta.
     </p>
-    ${areas}
+    <h3 class="steps-title">Orden de trabajo sugerido</h3>
+    <p class="proposal-note">
+      Cada paso dice cuántas tablas construye y cuántas transacciones cierra, contando lo que dejaron
+      hecho los anteriores. Un paso solo arranca cuando ya existen las tablas que toma prestadas, así
+      que el orden no es preferencia: es dependencia. Los reportes van al final porque leen todo lo
+      demás, aunque solo aporten dos tablas propias.
+    </p>
+    <ol class="step-list">${ladder}</ol>
+    <details class="proposal-details">
+      <summary>Detalle: las ${PROPOSAL.areas.reduce((sum, a) => sum + a.transactions.length, 0)} transacciones del documento, por área</summary>
+      <div class="areas-wrap">${areas}</div>
+    </details>
     <details class="proposal-details">
       <summary>Las ${PROPOSAL.requirements.length} funciones que pide el documento</summary>
       <ul class="req-list">${requirements}</ul>
@@ -1074,12 +1119,12 @@ function renderGuide() {
     </section>
 
     <section class="guide-section" id="proposal">
-      <h2>Propuesta del Proyecto IV — qué falta</h2>
+      <h2>Próximos pasos — lo que propone el Proyecto IV</h2>
       <p class="proposal-lead">
-        El documento <code>${esc(PROPOSAL.source)}</code> define el sistema completo: gestión musical,
-        pedagógica y operativa. Esta base implementa la parte musical y comunitaria. El anexo mide la
-        distancia con las transacciones que el documento propone, contrastadas una por una contra las
-        tablas reales.
+        El documento <code>${esc(PROPOSAL.source)}</code> propone el sistema completo: gestión musical,
+        pedagógica y operativa. Esta base implementa la parte musical y comunitaria. Lo que sigue son
+        <strong>propuestas, no compromisos</strong>: cada transacción del documento contrastada contra
+        las tablas reales, con el costo en tablas que exige y el orden en que se puede construir.
       </p>
       <p class="proposal-title-opt">${esc(PROPOSAL.titles[0])}</p>
       ${renderProposal()}
