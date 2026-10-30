@@ -89,3 +89,24 @@ on the triage surface. Verified after reset: `authenticated=ar` at table level,
 - The 401-line `package.json` / `pnpm-lock.yaml` / `AGENTS.md` diff was **not** feature work: it was
   the branch sitting 3 commits behind `main`, where #421 dropped the template mock dependencies.
   Merging `main` removed it instead of shipping it.
+
+## Opened PRs
+
+| Slice | PR | Branch | Commit |
+|---|---|---|---|
+| S1 | #430 | `feat/feedback-triage-pr1-db` | `d100f18` |
+| S2 | #433 | `feat/feedback-triage-pr2-edge` | `35759cc` |
+| S3 | #431 | `feat/feedback-triage-pr3-ui` | `8c5b0c9` |
+| S4 | #432 | `feat/feedback-triage-pr4-docs` | `bee77c1` |
+
+All four target `main`. Merge order is bottom-up: S1 → S2 → S3 → S4. The four commits were rebased
+onto `86ab810` before opening, and the rebased tree is byte-identical to the merged tree the gates
+ran against (`3ad5b97`), so the verification evidence below applies to exactly the pushed bytes.
+
+### What is still unverified
+
+- The Edge Function's happy path never ran: no GitHub token is configured locally. Only
+  `deno check` covers it.
+- `/feedback-triage` was never exercised in a browser. The access rule is verified by reading the
+  route tree, not by running it.
+- The 13 BDD scenarios have no step definitions, so `pnpm test:gherkin` does not execute them.
