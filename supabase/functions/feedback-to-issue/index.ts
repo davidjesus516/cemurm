@@ -187,8 +187,8 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    return new Response(JSON.stringify({ error: message }), {
+    console.error('feedback-to-issue failed:', e)
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
