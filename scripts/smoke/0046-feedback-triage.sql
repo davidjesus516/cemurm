@@ -1,7 +1,8 @@
 -- 0046 Feedback triage smoke (local dev only; fresh reset DB, single run).
 -- Scope: the migration surface of 0046_feedback_triage_and_github_link.sql --
 -- the seven audit/GitHub columns on public.feedback, the three inbox indexes,
--- the updated_at trigger, private.is_system_admin, the column-scoped UPDATE
+-- the updated_at trigger, the two staff policies (which reuse 0016's
+-- private.session_has_system_role rather than adding a second admin helper), the column-scoped UPDATE
 -- grant that makes feedback_update_staff reachable (0033 granted only
 -- insert+select), the absence of a DELETE grant, and the resulting RLS
 -- behaviour end to end.
@@ -14,7 +15,7 @@
 -- top-level statements. Fixtures are FIXED literals in the 30000…9c range,
 -- clear of the seed's 30000000-… setlist family and of the 6xx/7xx/8xx/9a/9b
 -- fixtures owned by the earlier smokes.
--- expects 15 PASS / 0 FAIL
+-- expects 14 PASS / 0 FAIL
 set client_min_messages to notice;
 
 create or replace function tmp_assert(p_name text, p_ok boolean) returns void language plpgsql as $$
@@ -68,20 +69,16 @@ select tmp_assert(
   )
 );
 
--- ══════════════ 2. HELPER + PRIVILEGES ══════════════
+-- ══════════════ 2. POLICIES + PRIVILEGES ══════════════
+-- 0046 adds no admin helper: both policies call 0016's
+-- private.session_has_system_role('system_admin'), which binds auth.uid()
+-- internally. Assert the policies exist rather than a helper this migration
+-- deliberately did not create.
 select tmp_assert(
-  '0046 private.is_system_admin(uuid) exists',
-  exists (
-    select 1 from pg_proc p
-      join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'private' and p.proname = 'is_system_admin'
-       and p.pronargs = 1
-  )
-);
-
-select tmp_assert(
-  '0046 authenticated can execute private.is_system_admin',
-  has_function_privilege('authenticated', 'private.is_system_admin(uuid)', 'EXECUTE')
+  '0046 both staff triage policies exist',
+  (select count(*) from pg_policies
+     where schemaname = 'public' and tablename = 'feedback'
+       and policyname in ('feedback_select_staff', 'feedback_update_staff')) = 2
 );
 
 -- The regression T6 closes: 0033 granted only insert+select, so the
