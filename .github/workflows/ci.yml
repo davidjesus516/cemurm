@@ -53,6 +53,12 @@ jobs:
       # suite could see them. Bash + grep only, same as the visual gate.
       - run: bash scripts/check-test-integrity.sh
 
+      # The agent guard is a policy, and a policy nobody verifies decays the same
+      # way `.only` did. This asserts the rules themselves: DROP/TRUNCATE blocked,
+      # `supabase db reset` still allowed, generated artifacts excluded from the
+      # PR budget, exit 2 on a block and 0 otherwise.
+      - run: node scripts/hooks/pre-tool-guard.selftest.mjs
+
       - run: pnpm test
 
       - run: pnpm test:gherkin

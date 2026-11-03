@@ -1,0 +1,295 @@
+#!/usr/bin/env node
+/**
+ * Self-test for the PreToolUse guard.
+ *
+ * Run with: node scripts/hooks/pre-tool-guard.selftest.mjs
+ *
+ * Not a Vitest file on purpose: vitest.config.js only includes src/**\/*.test.js,
+ * and widening it to cover scripts/ would pull the whole harness into the unit tier
+ * for three files that spawn processes.
+ */
+
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+import {
+  judgeBash,
+  judgePrSize,
+  judgeWrite,
+  mentionsPrCreate,
+  parseNumstat,
+  PR_LINE_BUDGET,
+} from './rules.mjs';
+
+const GUARD = fileURLToPath(new URL('./pre-tool-guard.mjs', import.meta.url));
+
+let passed = 0;
+const failures = [];
+
+/**
+ * @param {string} name
+ * @param {() => boolean | string} check
+ */
+function assert(name, check) {
+  let result;
+  try {
+    result = check();
+  } catch (error) {
+    result = `threw ${String(error)}`;
+  }
+
+  if (result === true) {
+    passed += 1;
+    return;
+  }
+
+  failures.push(`${name}${typeof result === 'string' ? `\n    ${result}` : ''}`);
+}
+
+/** @param {string} command @returns {string | null} */
+function bashRule(command) {
+  return judgeBash(command)?.rule ?? null;
+}
+
+// --- destructive SQL ---------------------------------------------------------
+
+assert('blocks DROP TABLE through psql', () =>
+  bashRule('psql -U postgres -c "drop table songs"') === 'destructive-sql',
+);
+
+assert('blocks TRUNCATE through docker exec psql', () =>
+  bashRule('docker exec -i supabase_db_cemurm psql -U postgres -c "truncate songs"') ===
+  'destructive-sql',
+);
+
+assert('allows grepping for drop table', () =>
+  bashRule('grep -rn "drop table" docs/') === null,
+);
+
+assert('allows writing drop table into a scratch file', () =>
+  bashRule('echo "drop table songs" > /tmp/scratch.sql') === null,
+);
+
+assert('allows the smoke-test psql invocation', () =>
+  bashRule(
+    'docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts/smoke/0028-import-integrations.sql',
+  ) === null,
+);
+
+// --- supabase ----------------------------------------------------------------
+
+assert('blocks supabase db push', () => bashRule('supabase db push') === 'supabase-db-push');
+
+assert('blocks supabase link', () =>
+  bashRule('supabase link --project-ref abcdef') === 'supabase-link',
+);
+
+assert('allows supabase db reset (the smoke tests require it)', () =>
+  bashRule('supabase db reset') === null,
+);
+
+// --- working tree ------------------------------------------------------------
+
+assert('blocks git clean -xdf', () => bashRule('git clean -xdf') === 'git-clean');
+
+assert('blocks rm -rf on the repo root', () => bashRule('rm -rf .') === 'recursive-rm');
+
+assert('blocks sudo rm -rf on the repo root', () => bashRule('sudo rm -rf .') === 'recursive-rm');
+
+assert('does not block a commit message that quotes a dangerous command', () =>
+  bashRule('git commit -m "docs: rm -rf . is forbidden"') === null,
+);
+
+assert('does not block grepping for a forbidden command', () =>
+  bashRule('grep -rn "supabase db push" docs/') === null,
+);
+
+assert('blocks rm -rf on the migrations', () =>
+  bashRule('rm -rf supabase/migrations') === 'recursive-rm',
+);
+
+assert('allows rm -rf on node_modules', () => bashRule('rm -rf node_modules') === null);
+
+assert('allows rm -rf inside a scratch dir', () =>
+  bashRule('rm -rf /tmp/opencode/scratch') === null,
+);
+
+assert('allows ordinary commands', () => bashRule('pnpm test && pnpm lint') === null);
+
+// --- migrations --------------------------------------------------------------
+
+assert('blocks DROP TABLE written into a migration', () =>
+  judgeWrite({
+    file_path: 'supabase/migrations/0046_cleanup.sql',
+    content: 'drop table songs;',
+  })?.rule === 'destructive-migration',
+);
+
+assert('blocks TRUNCATE written into a migration', () =>
+  judgeWrite({
+    file_path: 'supabase/migrations/0046_cleanup.sql',
+    content: 'truncate songs;',
+  })?.rule === 'destructive-migration',
+);
+
+assert('allows a migration that declares destructive-ok', () =>
+  judgeWrite({
+    file_path: 'supabase/migrations/0046_cleanup.sql',
+    content: '-- destructive-ok: fixture rows only, rebuilt by the seed\ndrop table songs;',
+  }) === null,
+);
+
+assert('allows a non-destructive migration', () =>
+  judgeWrite({
+    file_path: 'supabase/migrations/0046_cleanup.sql',
+    content: 'alter table songs add column key_signature text;',
+  }) === null,
+);
+
+assert('allows dropping a column anywhere', () =>
+  judgeWrite({
+    file_path: 'supabase/migrations/0046_cleanup.sql',
+    content: 'alter table songs drop column legacy_flag;',
+  }) === null,
+);
+
+assert('ignores non-migration files', () =>
+  judgeWrite({ file_path: 'src/domain/music/transpose.js', content: '// drop table' }) === null,
+);
+
+// --- PR size -----------------------------------------------------------------
+
+const NUMSTAT = [
+  '120\t40\tdocs/uml/build-all.sh',
+  '300\t250\tsrc/features/stage/pages/StageMode.jsx',
+  '14909\t0\tdocs/uml/uc-04-alcance-institucional.html',
+  '-\t-\tpublic/icon-512.png',
+  '50\t0\tpnpm-lock.yaml',
+].join('\n');
+
+assert('excludes generated artifacts and binaries from the authored count', () => {
+  const { authored, excluded } = parseNumstat(NUMSTAT);
+  const total = authored.reduce((sum, file) => sum + file.lines, 0);
+  if (total !== 710) return `expected 710 authored lines, got ${total}`;
+  if (excluded.length !== 3) return `expected 3 excluded entries, got ${excluded.length}`;
+  return true;
+});
+
+assert('blocks a PR over the budget', () => {
+  const size = judgePrSize('gh pr create --base main', NUMSTAT);
+  if (!size) return 'expected a block';
+  if (size.total !== 710) return `expected 710, got ${size.total}`;
+  return true;
+});
+
+assert(`allows a PR at exactly ${PR_LINE_BUDGET} lines`, () =>
+  judgePrSize('gh pr create', `400\t0\tsrc/x.js`) === null,
+);
+
+assert('allows the documented size:exception escape hatch', () =>
+  judgePrSize('gh pr create --label size:exception', NUMSTAT) === null,
+);
+
+assert('ignores a PR whose authored content fits the budget', () =>
+  judgePrSize('gh pr create', '100\t20\tsrc/x.js\n14909\t0\tdocs/uml/x.html') === null,
+);
+
+assert('detects gh pr create at a command boundary', () =>
+  mentionsPrCreate('git checkout -b x && gh pr create --base main') &&
+  mentionsPrCreate('gh pr create --title "x"') &&
+  !mentionsPrCreate('echo "gh pr create" >> notes.md'),
+);
+
+// --- end to end --------------------------------------------------------------
+
+assert('exit 2 and a reason on a blocked command', () => {
+  const { status, stderr } = runGuard({ tool_name: 'Bash', tool_input: { command: 'rm -rf .' } });
+  if (status !== 2) return `expected exit 2, got ${status}`;
+  if (!stderr.includes('recursive delete')) return `unexpected stderr: ${stderr.slice(0, 120)}`;
+  return true;
+});
+
+assert('exit 0 on an allowed command', () => {
+  const { status } = runGuard({ tool_name: 'Bash', tool_input: { command: 'pnpm test' } });
+  return status === 0 ? true : `expected exit 0, got ${status}`;
+});
+
+assert('exit 0 when the payload is not JSON', () => {
+  try {
+    execFileSync('node', [GUARD], { input: 'not json', encoding: 'utf8', stdio: 'pipe' });
+    return true;
+  } catch (error) {
+    return `expected exit 0, got ${error.status}`;
+  }
+});
+
+/** @param {Record<string, unknown>} payload */
+function runGuard(payload) {
+  try {
+    execFileSync('node', [GUARD], {
+      input: JSON.stringify(payload),
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return { status: 0, stderr: '' };
+  } catch (error) {
+    return { status: error.status ?? -1, stderr: String(error.stderr ?? '') };
+  }
+}
+
+// --- opencode adapter --------------------------------------------------------
+// Same policy, second runtime. Both adapters read scripts/hooks/rules.mjs, so a
+// drift here means an adapter is broken, not that the policy differs.
+
+{
+  let hook;
+  const plugin = (await import('../../.opencode/plugins/cemurm-guard/index.js')).default;
+
+  await plugin.setup({
+    location: { directory: process.cwd() },
+    permission: {
+      hook: async (_name, callback) => {
+        hook = callback;
+        return { dispose() {} };
+      },
+    },
+  });
+
+  const cases = [
+    ['psql -U postgres -c "drop table songs"', 'deny'],
+    ['docker exec -i supabase_db_cemurm psql -c "truncate songs"', 'deny'],
+    ['rm -rf .', 'deny'],
+    [`supabase db ${'push'}`, 'deny'],
+    ['supabase link --project-ref abc', 'deny'],
+    ['git clean -xdf', 'deny'],
+    // No `gh pr create` deny case here: it depends on how much the current branch
+    // holds against a real base, so it would pass locally and fail on a shallow CI
+    // checkout. The PR-size verdict itself is covered by the parseNumstat/judgePrSize
+    // cases above, and the CLI is exercised by .github/workflows/pr-size.yml.
+    ['supabase db reset', 'allow'],
+    ['pnpm test', 'allow'],
+    ['grep -rn "drop table" docs/', 'allow'],
+    ['git commit -m "docs: rm -rf is forbidden"', 'allow'],
+    ['gh pr create --base main --label size:exception --title x', 'allow'],
+  ];
+
+  for (const [command, expected] of cases) {
+    assert(`opencode adapter: ${expected} ${command}`, () => {
+      const event = { action: 'shell', resources: [command], effect: 'allow' };
+      hook(event);
+      const actual = event.effect === 'deny' ? 'deny' : 'allow';
+      return actual === expected ? true : `expected ${expected}, got ${actual}`;
+    });
+  }
+}
+
+// --- report ------------------------------------------------------------------
+
+if (failures.length === 0) {
+  console.log(`${passed} checks passed.`);
+  process.exit(0);
+}
+
+console.error(`${passed} passed, ${failures.length} failed:\n`);
+for (const failure of failures) console.error(`  ✗ ${failure}\n`);
+process.exit(1);
