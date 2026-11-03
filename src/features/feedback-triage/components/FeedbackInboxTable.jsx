@@ -8,6 +8,7 @@ export function FeedbackInboxTable({ items, onSelect }) {
             <th className="py-2">Type</th>
             <th className="py-2">Status</th>
             <th className="py-2">Message</th>
+            <th className="py-2">Submitter</th>
             <th className="py-2">Screen</th>
             <th className="py-2">GitHub</th>
             <th className="py-2">Created</th>
@@ -23,6 +24,7 @@ export function FeedbackInboxTable({ items, onSelect }) {
               <td className="py-2">{item.kind === 'bug_report' ? 'Bug' : 'Feedback'}</td>
               <td className="py-2">{item.status}</td>
               <td className="py-2 max-w-md truncate">{item.message}</td>
+              <td className="py-2" title={item.user_id}>{item.submitter || '-'}</td>
               <td className="py-2">{item.screen || '-'}</td>
               <td className="py-2">
                 {item.github_issue_url ? (

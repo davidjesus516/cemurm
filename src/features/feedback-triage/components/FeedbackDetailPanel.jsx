@@ -15,7 +15,10 @@ export function FeedbackDetailPanel({ item, onClose, onStatusChange, onPromote }
         <div><b>Kind:</b> {item.kind}</div>
         <div><b>Status:</b> {item.status}</div>
         <div><b>Screen:</b> {item.screen || '-'}</div>
-        <div><b>User:</b> {item.user_id}</div>
+        <div>
+          <b>User:</b>{' '}
+          <span title={item.user_id}>{item.submitter || item.user_id || '-'}</span>
+        </div>
         <div><b>Created:</b> {new Date(item.created_at).toLocaleString()}</div>
         {item.updated_at && <div><b>Updated:</b> {new Date(item.updated_at).toLocaleString()}</div>}
         {item.github_issue_url && (

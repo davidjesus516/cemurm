@@ -1,5 +1,24 @@
 import { supabase } from '../../../data/supabase'
 
+// Resolves each report's user_id to a human-readable submitter label.
+// profiles is RLS self-read only (0006), so a direct join would silently
+// return nothing for anyone else's row; private.display_name_for is the
+// security-definer function that reads display_name/username for any id.
+async function resolveSubmitters(items) {
+  const ids = [...new Set((items || []).map((i) => i.user_id).filter(Boolean))]
+  if (ids.length === 0) return items
+  const names = await Promise.all(
+    ids.map((id) =>
+      supabase
+        .rpc('display_name_for', { p_user_id: id })
+        .then((r) => r.data ?? 'Someone')
+        .catch(() => 'Someone'),
+    ),
+  )
+  const byId = Object.fromEntries(ids.map((id, i) => [id, names[i]]))
+  return (items || []).map((i) => ({ ...i, submitter: byId[i.user_id] || 'Someone' }))
+}
+
 export async function fetchFeedback({ kind, status } = {}) {
   let query = supabase
     .from('feedback')
@@ -15,7 +34,7 @@ export async function fetchFeedback({ kind, status } = {}) {
 
   const { data, error } = await query
   if (error) throw error
-  return data || []
+  return resolveSubmitters(data)
 }
 
 export async function updateFeedbackStatus(id, status, userId) {
