@@ -122,3 +122,12 @@ That is the drift on `main` reproduced by the check, not a simulated failure.
 ## Progress
 
 T1–T7 tracked as three commits. See "Verification evidence" below once recorded.
+
+- `e59a3de` — T1, PR template.
+- `434f1b1` — T2, CI token scope.
+- `cbf2ced` — this record.
+- PR #435, opened against `main`, reviewer requested.
+
+T3–T5 are parked at `/tmp/opencode/check-doc-counts.sh.parked` and land stacked on #434 as a
+second PR (branch `chore/doc-count-gate`) once #434 is rebased onto `main` — it is currently five
+commits behind, and stacking on a stale branch multiplies the rebase for no gain.
