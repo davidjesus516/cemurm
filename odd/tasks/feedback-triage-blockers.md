@@ -66,8 +66,9 @@ on the triage surface. Verified after reset: `authenticated=ar` at table level,
 - `pnpm test` → `Test Files 27 passed`, `Tests 496 passed`.
 - `bash scripts/check-visual-contract.sh` → `visual contract: OK (12 rules checked, 0 failing)`;
   rule 01b 0 occurrences, rule 02 still 240/240 (ratchet untouched).
-- `supabase db reset` → all 46 migrations applied, seed loaded, 0046 clean.
-- `scripts/smoke/0046-feedback-triage.sql` → **15 PASS / 0 FAIL** (13 `tmp_assert` + 2
+- `supabase db reset` → all 44 migrations applied (43 on `main` plus `0046`; `0021`/`0022`
+  are a deliberate gap), seed loaded, 0046 clean.
+- `scripts/smoke/0046-feedback-triage.sql` → **14 PASS / 0 FAIL** (13 `tmp_assert` + 1
   `tmp_expect_error`).
 - No test was edited, skipped or weakened.
 

@@ -20,7 +20,7 @@
 
 ## 3) Edge Function
 - [x] Create `supabase/functions/feedback-to-issue/index.ts`
-- [ ] Document secrets in `docs/local-dev.md` (PAT + GitHub App notes)
+- [x] Document secrets in `docs/local-dev.md` (PAT + repo overrides, and why the screenshot is dropped)
 - [ ] Test locally with `supabase functions serve` and curl
 - [x] Handle authz, idempotency, errors (JWT -> `user_roles` service-role check -> 403/500; already-promoted returns the existing link)
 
@@ -37,7 +37,7 @@
   - [x] `index.js`
 - [x] Create `src/app/guards/RequireSystemAdmin.jsx` (access-denied state + `<Outlet />`)
 - [x] Add route in `src/app/router.jsx` guarded by `RequireAuth` + `RequireSystemAdmin`
-- [ ] Add navigation entry visible only to system_admin
+- [x] Add navigation entry — rendered for every signed-in user, the way `Moderation` already is; the route itself is guarded by `RequireSystemAdmin`, so the entry is a signpost, not the gate
 - [x] Wire service to Supabase and Edge Function
 
 ## 5) QA & Docs
