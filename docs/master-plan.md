@@ -103,19 +103,19 @@ native track has no entry in that order yet; it gets one once OD-1–OD-3 are se
 ## 0. State of play — verified, not read from prose
 
 Prose in this repo has drifted. These are the facts, checked against git and code on
-**2026-11-04 at `main` = `2e5f497`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
+**2026-11-04 at `main` = `d324021`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
 `e849738`, re-verified 2026-10-12 at `c14e977`, re-verified 2026-11-01 at `86ab810`, and
 re-verified 2026-11-04 after #430 merged `0046`):
 
 | Fact | Value |
 |---|---|
-| `main` | `2e5f497`, in sync with `origin/main` (was `86ab810` at the 2026-11-01 pass, `d3f1269` at the 2026-10-13 re-verification, `a610dd0` before that, and `c14e977` before that) |
+| `main` | `d324021`, in sync with `origin/main` (was `2e5f497` when the feedback-triage chain merged, `86ab810` at the 2026-11-01 pass, `d3f1269` at the 2026-10-13 re-verification, `a610dd0` before that, and `c14e977` before that) |
 | **Test files on `main`** | **32** — 27 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 23 at the 2026-10-12 pass, 17 at `c14e977`, and 9 at `e849738`) |
 | **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck`, plus the `test:e2e*` family (`test:e2e`, `:ci`, `:chromium`, `:firefox`, `:webkit`, `:debug`, `:headed`) |
 | **CI on `main`** | `install --frozen-lockfile → lint → deno check 'supabase/functions/**/*.ts' → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-migrations-unique.sh → check-visual-contract.sh` (both gates run last on purpose: a gate that precedes `test`/`build` exits 1 under `set -euo pipefail` and marks them SKIPPED) |
 | **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, 3 chained jobs (`e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each gating the next through `needs`) |
 | `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
-| Feature files | **46**, 734 scenarios — was 42 / 656 at `8b66394` |
+| Feature files | **47**, 747 scenarios — was 46 / 734 before the feedback-triage feature landed, 42 / 656 at `8b66394` |
 | Migrations on `main` | **44 files, numbered `0001`–`0046`, with `0021`/`0022` a deliberate free gap** — was 43 through `0045` at the 2026-11-01 pass, 38 through `0040` at the 2026-10-12 pass, and 27 with a gap at `0021` before that |
 | Next free migration number | **`0047`.** `0021`/`0022` remain deliberately free, and everything from `0036` to `0046` is taken (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`, `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`, `0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`) |
 | Smoke scripts on `main` | **22**, `scripts/smoke/` from `0021-plan-freeze.sql` to `0046-feedback-triage.sql`. Not in CI and not wired to any pnpm script — manual, and a smoke filename is not a migration number |

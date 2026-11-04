@@ -1,8 +1,8 @@
-# Migration and smoke inventory — refresh against `main` = `2e5f497`
+# Migration and smoke inventory — refresh against `main` = `d324021`
 
 - **Change:** documentation repair of the inventory that every agent reads before writing a
   migration.
-- **Branch:** `docs/migration-smoke-inventory`, from `origin/main` = `2e5f497`.
+- **Branch:** `docs/migration-smoke-inventory`, from `origin/main` = `d324021`.
   Re-verified after #430 merged `0046`: the counts below are the post-merge measurement, and the
   earlier `86ab810` figures are kept only inside the historical notes.
 - **TDD:** off (`openspec/config.yaml:13`, `strict_tdd: false`). Docs-only: no source behaviour, no
@@ -45,13 +45,14 @@ dated snapshots ("33 migrations, `0001`–`0033`, contiguous", verified 2026-09-
 | `AGENTS.md` | smoke scripts | 16, through `0039` | **22, through `0046-feedback-triage.sql`** |
 | `AGENTS.md` | smoke coverage | only `0036`/`0040` named as missing | explicit **has / has not** split |
 | `AGENTS.md` | "wrong four times" | 4 | **5**, with the date and the exact stale claim recorded |
-| `master-plan.md` §0 | header base | 2026-10-12 at `c14e977` | **2026-11-04 at `2e5f497`**, with the earlier passes listed |
-| `master-plan.md` §0 | `main` | `d3f1269` | **`2e5f497`** |
+| `master-plan.md` §0 | header base | 2026-10-12 at `c14e977` | **2026-11-04 at `d324021`**, with the earlier passes listed |
+| `master-plan.md` §0 | `main` | `d3f1269` | **`d324021`** |
 | `master-plan.md` §0 | test files | 23 (18 + 5) | **32 (27 + 5)** |
 | `master-plan.md` §0 | migrations / next free | 38 / `0041` | **44 / `0047` free** |
 | `master-plan.md` §0 | smoke scripts | *(no row)* | **new row: 22, manual, not in CI, filename ≠ migration number** |
 | `master-plan.md` §0 | Hito 6 | "not started — no implementation" | **privacy slice shipped** (`0038`/`0039`, `0042`–`0044`); four features unstarted |
 | `master-plan.md` §0 | `@ts-check` opt-ins | 47; `tsc --listFiles` 62 | **48**; the 62 is labelled "at `c14e977`, not re-measured" |
+| `master-plan.md` §0 + `AGENTS.md` §Methodology | `.feature` files / scenarios | 46 / 734 | **47 / 747** — the feedback-triage feature added 13 scenarios |
 | `master-plan.md` §2 | post-mortem block | 38 / `0040` / next `0041` | **44 / `0046` / `0047` free**, with the old numbers kept as the measurement the block was written against |
 
 ## Verification
@@ -61,30 +62,38 @@ Every number in the prose is asserted against git, not eyeballed:
 ```bash
 fail=0
 chk() { if [ "$2" = "$3" ]; then echo "PASS  $1 = $3"; else echo "FAIL  $1: prose $2, measured $3"; fail=1; fi; }
-mig=$(git ls-tree --name-only origin/main supabase/migrations/ | wc -l);      chk "migrations"        44 "$mig"
-smo=$(git ls-tree --name-only origin/main scripts/smoke/ | wc -l);            chk "smokes"            22 "$smo"
-tst=$(git ls-tree -r --name-only origin/main src/ | grep -cE '\.test\.(js|jsx)$'); chk "test files"   32 "$tst"
-tsc_=$(git grep -l '@ts-check' origin/main -- 'src/**/*.js' | wc -l);         chk "ts-check opt-ins"  48 "$tsc_"
-fea=$(git ls-tree --name-only origin/main features/ | wc -l);                 chk "feature files"     46 "$fea"
-tip=$(git rev-parse --short origin/main);                                     chk "main tip"      2e5f497 "$tip"
-git diff --check; exit $fail
+mig=$(git ls-tree --name-only origin/main supabase/migrations/ | wc -l);          chk "migrations"        44 "$mig"
+smo=$(git ls-tree --name-only origin/main scripts/smoke/ | wc -l);                chk "smokes"            22 "$smo"
+tst=$(git ls-tree -r --name-only origin/main src/ | grep -cE '\.test\.(js|jsx)$'); chk "test files"      32 "$tst"
+ght=$(git ls-tree -r --name-only origin/main src/test/gherkin/ | grep -cE '\.test\.(js|jsx)$'); chk "gherkin-tier files" 5 "$ght"
+tsc_=$(git grep -l '@ts-check' origin/main -- 'src/**/*.js' | wc -l);             chk "ts-check opt-ins"  48 "$tsc_"
+fea=$(git ls-tree --name-only origin/main features/ | wc -l);                     chk "feature files"     47 "$fea"
+sce=$(git archive origin/main features | tar -xO --wildcards '*.feature' | grep -cE '^\s*(Scenario|Scenario Outline):'); chk "gherkin scenarios" 747 "$sce"
+tip=$(git rev-parse --short origin/main);                                         chk "main tip"      d324021 "$tip"
+for f in odd/tasks/offboarding-cascade.md odd/tasks/account-data-export-and-erasure.md odd/tasks/hito5-substitutions-and-coverage.md; do
+  git cat-file -e origin/main:$f 2>/dev/null && echo "OK    $f" || { echo "MISSING $f"; fail=1; }
+done
+free=$(git ls-tree --name-only origin/main supabase/migrations/ | grep -c '^0047'); chk "0047 free on main" 0 "$free"
+git diff --check && echo "no whitespace errors" || fail=1
+if git grep -nE '^(<<<<<<<|>>>>>>>) ' -- . >/dev/null 2>&1; then echo "conflict markers found"; fail=1; else echo "no conflict markers"; fi
+[ $fail -eq 0 ] && echo "RESULT: ALL PASS" || echo "RESULT: FAILURES"
 ```
 
-Result at `main` = `2e5f497`:
+Result at `main` = `d324021`:
 
 ```
 PASS  migrations = 44
 PASS  smokes = 22
 PASS  test files = 32
-PASS    gherkin-tier files = 5
+PASS  gherkin-tier files = 5
 PASS  ts-check opt-ins = 48
-PASS  feature files = 46
-PASS  gherkin scenarios = 734
-PASS  main tip = 2e5f497
+PASS  feature files = 47
+PASS  gherkin scenarios = 747
+PASS  main tip = d324021
 OK    odd/tasks/offboarding-cascade.md
 OK    odd/tasks/account-data-export-and-erasure.md
 OK    odd/tasks/hito5-substitutions-and-coverage.md
-OK    0047 free on main
+PASS  0047 free on main = 0
 no whitespace errors
 no conflict markers
 RESULT: ALL PASS
