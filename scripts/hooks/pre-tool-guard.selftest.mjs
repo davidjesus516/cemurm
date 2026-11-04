@@ -10,10 +10,14 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   judgeBash,
+  judgeMigrationContent,
   judgePrSize,
   judgeWrite,
   mentionsPrCreate,
@@ -156,6 +160,89 @@ assert('allows dropping a column anywhere', () =>
 assert('ignores non-migration files', () =>
   judgeWrite({ file_path: 'src/domain/music/transpose.js', content: '// drop table' }) === null,
 );
+
+// --- migration content rule (shared with CI) ---------------------------------
+// judgeWrite is a thin wrapper over judgeMigrationContent; CI scans files with
+// the same function, so these cases pin the rule both surfaces enforce.
+
+assert('judgeMigrationContent blocks DROP TABLE', () =>
+  judgeMigrationContent('supabase/migrations/0046_cleanup.sql', 'drop table songs;')
+    ?.rule === 'destructive-migration',
+);
+
+assert('judgeMigrationContent blocks TRUNCATE', () =>
+  judgeMigrationContent('supabase/migrations/0046_cleanup.sql', 'truncate songs;')
+    ?.rule === 'destructive-migration',
+);
+
+assert('judgeMigrationContent allows the destructive-ok marker', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    '-- destructive-ok: fixture rows only, rebuilt by the seed\ndrop table songs;',
+  ) === null,
+);
+
+assert('judgeMigrationContent allows DROP COLUMN', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    'alter table songs drop column legacy_flag;',
+  ) === null,
+);
+
+assert('judgeMigrationContent ignores non-migration paths', () =>
+  judgeMigrationContent('docs/sql-notes.md', 'drop table songs;') === null,
+);
+
+/** Spawn the CI check from `cwd` and return its exit status. */
+const CHECK = fileURLToPath(new URL('../check-migrations-destructive.mjs', import.meta.url));
+
+/**
+ * @param {string} cwd
+ * @returns {number}
+ */
+function runCheck(cwd) {
+  try {
+    execFileSync('node', [CHECK], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return 0;
+  } catch (error) {
+    return error.status ?? -1;
+  }
+}
+
+/** @param {string} name @param {string} content @returns {string} scratch dir to remove */
+function scratchMigration(name, content) {
+  const dir = mkdtempSync(join(tmpdir(), 'cemurm-mig-check-'));
+  mkdirSync(join(dir, 'supabase/migrations'), { recursive: true });
+  writeFileSync(join(dir, 'supabase/migrations', name), content);
+  return dir;
+}
+
+assert('ci check exits 0 on a clean migration tree', () => {
+  const dir = scratchMigration('0001_t.sql', 'create table songs ();\n');
+  try {
+    return runCheck(dir) === 0 ? true : 'expected exit 0';
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+assert('ci check exits 1 on destructive SQL without the marker', () => {
+  const dir = scratchMigration('0001_bad.sql', 'drop table songs;\n');
+  try {
+    return runCheck(dir) === 1 ? true : 'expected exit 1';
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+assert('ci check honors the destructive-ok marker', () => {
+  const dir = scratchMigration('0001_ok.sql', '-- destructive-ok: fixture only\ndrop table temp_fixture;\n');
+  try {
+    return runCheck(dir) === 0 ? true : 'expected exit 0';
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 // --- PR size -----------------------------------------------------------------
 

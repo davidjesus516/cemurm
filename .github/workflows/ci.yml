@@ -77,6 +77,18 @@ jobs:
       # ran.
       - run: bash scripts/check-migrations-unique.sh
 
+      # Destructive SQL in migrations. The Claude Code PreToolUse hook blocks
+      # the Write/Edit that introduces a DROP or TRUNCATE; this scans the files
+      # themselves, so the same rule holds for runtimes whose permission hook
+      # only sees the path (OpenCode), for a human writing SQL directly, and
+      # for anything else that never met a hook. No database, no network --
+      # same rule (judgeMigrationContent from scripts/hooks/rules.mjs) and same
+      # escape hatch (-- destructive-ok) as the hook. Here rather than before
+      # test and build for the same reason as the two gates above: it can exit
+      # 1, and a failing step under set -euo pipefail marks everything after
+      # it SKIPPED.
+      - run: node scripts/check-migrations-destructive.mjs
+
       # Visual contract gate. Bash + grep only, so it needs no install step, and
       # it deliberately runs LAST rather than before test and build: a gate that
       # precedes them exits 1 under set -euo pipefail, which marks test and

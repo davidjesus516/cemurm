@@ -103,13 +103,27 @@ before this unit was committed.
 
 - `authored-lines` reports; it does not block a merge until the job is marked as a required
   status check in the `checks` ruleset. That is a repository-admin action, not a code change.
-- The migration-content rule is enforced by the Claude Code adapter and the rules module, but
+- ~~The migration-content rule is enforced by the Claude Code adapter and the rules module, but
   OpenCode's `permission.hook` for `edit` receives the path, not the file bytes, so that
-  runtime cannot evaluate it. Moving it to a CI check over `supabase/migrations/` would cover
-  every origin.
+  runtime cannot evaluate it.~~ Closed: `scripts/check-migrations-destructive.mjs` scans
+  `supabase/migrations/*.sql` in CI (full tree, `--base <ref>` for the per-PR path) with the
+  same `judgeMigrationContent` rule and the same `-- destructive-ok` escape hatch — see L2.
 
 ## Log
 
 - L1: the maintainer asked for agent hooks that prevent deleting a table or emptying the
   database, and for the OpenCode equivalent, and stated that oversized PRs must be avoided
   in every case, not only from an agent session.
+- L2 (2026-11-04): the migration-content rule got its CI surface, closing the second Open
+  item. `judgeMigrationContent(path, content)` was extracted from `judgeWrite` in
+  `scripts/hooks/rules.mjs` — one rule home, two enforcement surfaces (the PreToolUse hook
+  wraps it with the tool input; CI calls it per file). The new check scans every migration
+  by default and, with `--base <ref>`, only migrations changed since that ref, falling back
+  to the full scan when the diff is unreadable — missing a violation is worse than
+  re-reading reviewed files. Wired into `ci.yml` next to `check-migrations-unique.sh`,
+  after test and build, for the same `set -euo pipefail` reason the other failing gates
+  sit there. Selftest grew from 43 to 51 checks: five pin `judgeMigrationContent` (block
+  DROP/TRUNCATE, allow the marker, allow DROP COLUMN, ignore non-migration paths) and
+  three spawn the check itself against scratch trees (exit 0 clean, exit 1 destructive,
+  exit 0 with the marker). Verified against the real tree: 43 migrations, 0 findings;
+  a manual negative run exits 1 with the full reason and passes with the marker.

@@ -185,16 +185,20 @@ function judgeRecursiveRm(flat) {
 }
 
 /**
- * Decide whether a Write/Edit must be blocked.
+ * Decide whether a migration's content must be blocked.
  *
- * @param {{ file_path?: string, path?: string, content?: string, new_string?: string }} toolInput
- * @returns {{ rule: string, reason: string } | null}
+ * Shared by both enforcement surfaces that can read file bytes: the Claude
+ * Code PreToolUse hook (which sees Write/Edit content) and the CI check over
+ * `supabase/migrations/` (which covers humans and runtimes whose permission
+ * hook only ever sees the path). Same rule, one home.
+ *
+ * @param {string} path
+ * @param {string} content
+ * @returns {{ rule: string, reason: string } | null} null means "no objection".
  */
-export function judgeWrite(toolInput) {
-  const path = String(toolInput?.file_path ?? toolInput?.path ?? '');
+export function judgeMigrationContent(path, content) {
   if (!MIGRATION_PATH.test(path)) return null;
-
-  const content = String(toolInput?.content ?? toolInput?.new_string ?? '');
+  content = String(content ?? '');
   if (!content) return null;
   if (!SQL_DESTRUCTIVE.test(content)) return null;
   if (/--\s*destructive-ok\b/i.test(content)) return null;
@@ -214,6 +218,20 @@ export function judgeWrite(toolInput) {
       'That marker is the reviewable record. Without it the rule holds.',
     ].join('\n'),
   };
+}
+
+/**
+ * Decide whether a Write/Edit must be blocked.
+ *
+ * @param {{ file_path?: string, path?: string, content?: string, new_string?: string }} toolInput
+ * @returns {{ rule: string, reason: string } | null}
+ */
+export function judgeWrite(toolInput) {
+  const path = String(toolInput?.file_path ?? toolInput?.path ?? '');
+  if (!MIGRATION_PATH.test(path)) return null;
+
+  const content = String(toolInput?.content ?? toolInput?.new_string ?? '');
+  return judgeMigrationContent(path, content);
 }
 
 /**
