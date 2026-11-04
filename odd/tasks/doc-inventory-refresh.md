@@ -1,8 +1,10 @@
-# Migration and smoke inventory — refresh against `main` = `86ab810`
+# Migration and smoke inventory — refresh against `main` = `2e5f497`
 
 - **Change:** documentation repair of the inventory that every agent reads before writing a
   migration.
-- **Branch:** `docs/migration-smoke-inventory`, from `origin/main` = `86ab810`.
+- **Branch:** `docs/migration-smoke-inventory`, from `origin/main` = `2e5f497`.
+  Re-verified after #430 merged `0046`: the counts below are the post-merge measurement, and the
+  earlier `86ab810` figures are kept only inside the historical notes.
 - **TDD:** off (`openspec/config.yaml:13`, `strict_tdd: false`). Docs-only: no source behaviour, no
   test runner involved. Verification is that each number in the prose is re-measured from git and
   matches, plus CI on the PR.
@@ -16,14 +18,15 @@
 
 > Migrations: **38 files on `main`**, numbered `0001`–`0040` … **The next free number is `0041`.**
 
-`origin/main` carried **43 migrations through `0045_respond_member_guard.sql`**. `0041`–`0045` are
-all taken. An agent following that paragraph picks a number that already exists;
+`origin/main` carried **44 migrations through `0046_feedback_triage_and_github_link.sql`** at the
+2026-11-04 re-verification (43 through `0045` when this record was written). `0041`–`0046` are all
+taken. An agent following that paragraph picks a number that already exists;
 `scripts/check-migrations-unique.sh` catches the collision in CI, so the cost is a wasted cycle, not
 corruption — but the file states a fact that is false, which is the failure mode this repo keeps
 recording (backlog #10–#12: a gate or a directive that reports something it never checked).
 
-The smoke section was wrong the same way: "16 files … through `0039`" against 21 files through
-`0045`. `docs/master-plan.md` §0 — the table introduced as "verified, not read from prose" — carried
+The smoke section was wrong the same way: "16 files … through `0039`" against 22 files through
+`0046` (21 through `0045` at the time of writing). `docs/master-plan.md` §0 — the table introduced as "verified, not read from prose" — carried
 the same 38 / `0040` / next `0041`, plus stale `main`, test-file, `@ts-check` and Hito 6 rows.
 
 ## Scope (authorised)
@@ -37,19 +40,19 @@ dated snapshots ("33 migrations, `0001`–`0033`, contiguous", verified 2026-09-
 
 | File | Fact | Was | Now |
 |---|---|---|---|
-| `AGENTS.md` | migrations on `main` | 38, `0001`–`0040` | **43, `0001`–`0045`**, `0021`/`0022` still a deliberate gap |
-| `AGENTS.md` | next free number | `0041` | **`0046` on `main`, claimed by the open feedback-triage chain (#430); `0047` first unclaimed** |
-| `AGENTS.md` | smoke scripts | 16, through `0039` | **21, through `0045-respond-member-guard.sql`** |
+| `AGENTS.md` | migrations on `main` | 38, `0001`–`0040` | **44, `0001`–`0046`**, `0021`/`0022` still a deliberate gap |
+| `AGENTS.md` | next free number | `0041` | **`0047` — `0046` merged in #430** |
+| `AGENTS.md` | smoke scripts | 16, through `0039` | **22, through `0046-feedback-triage.sql`** |
 | `AGENTS.md` | smoke coverage | only `0036`/`0040` named as missing | explicit **has / has not** split |
 | `AGENTS.md` | "wrong four times" | 4 | **5**, with the date and the exact stale claim recorded |
-| `master-plan.md` §0 | header base | 2026-10-12 at `c14e977` | **2026-11-01 at `86ab810`**, with the earlier passes listed |
-| `master-plan.md` §0 | `main` | `d3f1269` | **`86ab810`** |
+| `master-plan.md` §0 | header base | 2026-10-12 at `c14e977` | **2026-11-04 at `2e5f497`**, with the earlier passes listed |
+| `master-plan.md` §0 | `main` | `d3f1269` | **`2e5f497`** |
 | `master-plan.md` §0 | test files | 23 (18 + 5) | **32 (27 + 5)** |
-| `master-plan.md` §0 | migrations / next free | 38 / `0041` | **43 / `0046` claimed, `0047` free** |
-| `master-plan.md` §0 | smoke scripts | *(no row)* | **new row: 21, manual, not in CI, filename ≠ migration number** |
+| `master-plan.md` §0 | migrations / next free | 38 / `0041` | **44 / `0047` free** |
+| `master-plan.md` §0 | smoke scripts | *(no row)* | **new row: 22, manual, not in CI, filename ≠ migration number** |
 | `master-plan.md` §0 | Hito 6 | "not started — no implementation" | **privacy slice shipped** (`0038`/`0039`, `0042`–`0044`); four features unstarted |
 | `master-plan.md` §0 | `@ts-check` opt-ins | 47; `tsc --listFiles` 62 | **48**; the 62 is labelled "at `c14e977`, not re-measured" |
-| `master-plan.md` §2 | post-mortem block | 38 / `0040` / next `0041` | **43 / `0045` / `0046` claimed, `0047` free**, with the old numbers kept as the measurement the block was written against |
+| `master-plan.md` §2 | post-mortem block | 38 / `0040` / next `0041` | **44 / `0046` / `0047` free**, with the old numbers kept as the measurement the block was written against |
 
 ## Verification
 
@@ -58,26 +61,26 @@ Every number in the prose is asserted against git, not eyeballed:
 ```bash
 fail=0
 chk() { if [ "$2" = "$3" ]; then echo "PASS  $1 = $3"; else echo "FAIL  $1: prose $2, measured $3"; fail=1; fi; }
-mig=$(git ls-tree --name-only origin/main supabase/migrations/ | wc -l);      chk "migrations"        43 "$mig"
-smo=$(git ls-tree --name-only origin/main scripts/smoke/ | wc -l);            chk "smokes"            21 "$smo"
+mig=$(git ls-tree --name-only origin/main supabase/migrations/ | wc -l);      chk "migrations"        44 "$mig"
+smo=$(git ls-tree --name-only origin/main scripts/smoke/ | wc -l);            chk "smokes"            22 "$smo"
 tst=$(git ls-tree -r --name-only origin/main src/ | grep -cE '\.test\.(js|jsx)$'); chk "test files"   32 "$tst"
 tsc_=$(git grep -l '@ts-check' origin/main -- 'src/**/*.js' | wc -l);         chk "ts-check opt-ins"  48 "$tsc_"
 fea=$(git ls-tree --name-only origin/main features/ | wc -l);                 chk "feature files"     46 "$fea"
-tip=$(git rev-parse --short origin/main);                                     chk "main tip"      86ab810 "$tip"
+tip=$(git rev-parse --short origin/main);                                     chk "main tip"      2e5f497 "$tip"
 git diff --check; exit $fail
 ```
 
-Result at `main` = `86ab810`:
+Result at `main` = `2e5f497`:
 
 ```
-PASS  migrations = 43
-PASS  smokes = 21
+PASS  migrations = 44
+PASS  smokes = 22
 PASS  test files = 32
 PASS    gherkin-tier files = 5
 PASS  ts-check opt-ins = 48
 PASS  feature files = 46
 PASS  gherkin scenarios = 734
-PASS  main tip = 86ab810
+PASS  main tip = 2e5f497
 OK    odd/tasks/offboarding-cascade.md
 OK    odd/tasks/account-data-export-and-erasure.md
 OK    odd/tasks/hito5-substitutions-and-coverage.md
