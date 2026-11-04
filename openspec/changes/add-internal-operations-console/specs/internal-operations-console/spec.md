@@ -2,8 +2,11 @@
 
 ## Purpose
 
-A staff-only console at `/dashboard` for `system_admin` and `community_moderator`
-accounts, from `features/internal-operations-console.feature` (29 scenarios).
+A staff-only console at `/dashboard` for `system_admin` and
+`community_moderator` accounts, from `features/internal-operations-console.feature`
+(29 scenarios). `/dashboard` is the **proposed** path; the route decision is
+open (see the proposal's Open questions — the path is currently mounted
+behind `RequireOrgOwner`, which denies these roles).
 It gives staff work a shell of its own — its own sidebar, no member navigation —
 and collects the five surfaces that are currently either scattered through the
 member app or unreachable: moderation, repertoire promotion, feedback triage,
