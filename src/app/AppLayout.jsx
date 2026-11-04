@@ -57,6 +57,7 @@ const NAV_CARDS = [
     textColor: 'text',
     links: [
       { label: 'Moderation', href: '/moderation', ariaLabel: 'Go to Moderation' },
+      { label: 'Feedback Triage', href: '/feedback-triage', ariaLabel: 'Go to Feedback Triage' },
       { label: 'Notifications', href: '/notifications', ariaLabel: 'Go to Notifications' },
       { label: 'Settings', href: '/settings', ariaLabel: 'Go to Settings' },
       { label: 'Storage', href: '/settings/storage', ariaLabel: 'Go to Storage' },
