@@ -5,14 +5,16 @@ Runner: `node scripts/hooks/pre-tool-guard.selftest.mjs`.
 
 ## Size exception
 
-Measured against `origin/main` at commit `adc8400`: **948 authored changed lines**, over the
-400 budget. The exception is accepted because the unit cannot be split without producing a
+Measured against `origin/main` at commit `b2ce413`: **1,492 authored changed lines**, over the
+400 budget. (It was 948 against `adc8400` when the PR opened; the rebase and the comment-stripping
+fix below account for the rest, and the selftest grew from 295 to 455 lines with the checks that
+pin it.) The exception is accepted because the unit cannot be split without producing a
 non-functional half:
 
 - The rules module, both adapters and the selftest are one artifact. A guard without its
   selftest is unverified, and three adapters without the shared module are three drifting
   policies — the exact defect this unit exists to remove.
-- The selftest alone is 295 of the 948 lines, and 11 of its checks exercise the second
+- The selftest alone is 455 of the 1,492 lines, and 11 of its checks exercise the second
   adapter against the same matrix. Splitting it would leave one adapter untested in whichever slice
   lands second.
 - The CI gate is 106 lines across two files and is meaningless before the rules module exists.
@@ -85,14 +87,14 @@ local branch that can be months stale and inflates the count by an order of magn
 ## Verification
 
 ```
-node scripts/hooks/pre-tool-guard.selftest.mjs   # 54 checks, both adapters
+node scripts/hooks/pre-tool-guard.selftest.mjs   # 61 checks, both adapters
 pnpm lint
 pnpm typecheck
 pnpm test                                        # 496 tests
 bash scripts/check-test-integrity.sh
 pnpm build
-node scripts/check-migrations-destructive.mjs                    # exit 0, 43 files
-node scripts/check-pr-size.mjs --base origin/main --head HEAD   # exit 1 at 1,128
+node scripts/check-migrations-destructive.mjs                    # exit 0, 44 files
+node scripts/check-pr-size.mjs --base origin/main --head HEAD   # exit 1 at 1,492
 PR_LABELS=size:exception node scripts/check-pr-size.mjs --base origin/main --head HEAD  # exit 0
 ```
 
@@ -147,3 +149,14 @@ before this unit was committed.
   when its directory is unreadable; the selftest step sits before `pnpm test` in `ci.yml` and
   hides a product failure; the Claude crash branch tells the model to edit a file the same
   branch blocks. None block this candidate; each is separate later work.
+- L5 (2026-11-04): the CI surface the rule got in L2 failed the moment it met a real migration.
+  `check-migrations-destructive.mjs` blocked `0046_feedback_triage_and_github_link.sql`, which
+  drops a trigger and two policies and then explains in a comment that 0033 left `TRUNCATE` in
+  `authenticated`'s default grant — a sentence about a privilege, read as a truncate statement.
+  The scan now strips SQL comments first, quote-aware: string literals, quoted identifiers and
+  dollar-quoted bodies are copied through, so `execute $q$ truncate songs $q$` still blocks, and a
+  `--` inside `'a--b'` can no longer truncate the line and hide a real `DROP` behind it. Postgres
+  nests block comments, so depth is tracked. The `-- destructive-ok` marker is read from the raw
+  file, since it is a comment itself. Selftest 54 → 61: three comment shapes must be ignored and
+  four executable shapes must still block. `AGENTS.md` gained both new steps in its CI chain,
+  which this branch had already made false.
