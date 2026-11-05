@@ -7,6 +7,7 @@ import {
   RequireGuardianConsent,
 } from './providers/AuthGuards.jsx'
 import { AuthProvider } from './providers/useAuth.jsx'
+import { RequireSystemAdmin } from './guards/RequireSystemAdmin.jsx'
 // L5 — every route element below is React.lazy. Section 7.1 makes this a
 // PREREQUISITE for the landing, not an optimisation: before it, the whole app was
 // one 295 kB gzip chunk, so `motion` (measured at 43 kB gzip) rode along to every
@@ -66,6 +67,7 @@ const Profile = lazy(() => import('../features/library/pages/Profile.jsx'))
 const Moderation = lazy(() => import('../features/moderation/pages/Moderation.jsx'))
 const Storage = lazy(() => import('../features/settings/pages/Storage.jsx'))
 const Settings = lazy(() => import('../features/settings/pages/Settings.jsx'))
+const FeedbackTriagePage = lazy(() => import('../features/feedback-triage/pages/FeedbackTriagePage.jsx'))
 const NotFound = lazy(() => import('../features/shell/pages/NotFound.jsx'))
 const Landing = lazy(() => import('../features/landing/pages/Landing.jsx'))
 // Dashboard template subtree (U3/S3, odd/tasks/gerencial-template-import.md).
@@ -144,6 +146,10 @@ const router = createBrowserRouter([
               { path: '/notifications', element: defer(<Notifications />) },
               { path: '/settings', element: defer(<Settings />) },
               { path: '/settings/storage', element: defer(<Storage />) },
+              {
+                element: <RequireSystemAdmin />,
+                children: [{ path: '/feedback-triage', element: defer(<FeedbackTriagePage />) }],
+              },
             ],
           },
         ],
