@@ -26,9 +26,10 @@ The typecheck line is worse than drift — it instructs contributors to skip a g
 
 ## Why now
 
-`AGENTS.md` was re-counted on 2026-11-01 and found wrong by five migrations and five smokes,
-which is what PR #434 exists to correct. That PR fixes the numbers; it does not stop the next
-drift. This change adds the machine check beside the fix.
+`AGENTS.md` was re-counted on 2026-11-01 and found wrong by five migrations and five smokes.
+PR #434 corrected those numbers and merged on 2026-11-04, so `main` is accurate again today —
+which is exactly the state in which drift goes unnoticed. #434 fixed the numbers; it does not
+stop the next drift. This change adds the machine check beside the fix.
 
 ## Scope
 
@@ -73,8 +74,9 @@ Out of scope:
 
 - [x] T1 — PR template: remove the false "CI does not run it" claim for `pnpm typecheck`.
 - [x] T2 — `ci.yml`: declare `permissions: contents: read`.
-- [ ] T3 — `scripts/check-doc-counts.sh` — **deferred**, written and verified, parked for the
-      stacked PR on #434.
+- [ ] T3 — `scripts/check-doc-counts.sh` — **deferred**. It was written and verified during this
+      unit, but it was parked in `/tmp/opencode/`, which does not survive a reboot, so the file
+      is gone and the script has to be re-derived for the follow-up.
 - [ ] T4 — `ci.yml`: run the new check before the visual gate — **deferred** with T3.
 - [ ] T5 — `AGENTS.md`: correct the counts — **deferred**, owned by #434.
 - [x] T6 — Verification: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:gherkin`,
@@ -128,6 +130,8 @@ T1–T7 tracked as three commits. See "Verification evidence" below once recorde
 - `cbf2ced` — this record.
 - PR #435, opened against `main`, reviewer requested.
 
-T3–T5 are parked at `/tmp/opencode/check-doc-counts.sh.parked` and land stacked on #434 as a
-second PR (branch `chore/doc-count-gate`) once #434 is rebased onto `main` — it is currently five
-commits behind, and stacking on a stale branch multiplies the rebase for no gain.
+T3–T5 land as a follow-up PR (branch `chore/doc-count-gate`), now unblocked: #434 merged on
+2026-11-04 with the corrected counts, so the check can be green on `main`. The script itself is
+**not** parked anywhere durable — it lived at `/tmp/opencode/check-doc-counts.sh.parked`, and that
+path no longer exists. The numbers it asserted are preserved in the evidence block above; the
+script has to be written again.
