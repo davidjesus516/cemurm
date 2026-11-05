@@ -120,6 +120,94 @@ assert('allows rm -rf inside a scratch dir', () =>
 
 assert('allows ordinary commands', () => bashRule('pnpm test && pnpm lint') === null);
 
+// --- shell indirection -------------------------------------------------------
+// A wrapper or a quote is how a shell defers a command, not a different policy.
+// The rule has to look one level in, or it only blocks the spelling its own
+// tests use.
+
+assert('blocks supabase db push behind bash -lc', () =>
+  bashRule("bash -lc 'supabase db push'") === 'supabase-db-push',
+);
+
+assert('blocks supabase db push behind an inline assignment', () =>
+  bashRule('FOO=1 supabase db push') === 'supabase-db-push',
+);
+
+assert('blocks supabase db push inside a subshell', () =>
+  bashRule('(supabase db push)') === 'supabase-db-push',
+);
+
+assert('blocks a path-qualified supabase link', () =>
+  bashRule('./supabase link --project-ref abcdef') === 'supabase-link',
+);
+
+assert('blocks destructive SQL behind sh -c', () =>
+  bashRule(`sh -c 'psql -c "drop table songs"'`) === 'destructive-sql',
+);
+
+assert('blocks git clean -f behind sudo', () =>
+  bashRule('sudo git clean -xdf') === 'git-clean',
+);
+
+assert('allows a wrapped command that breaks no rule', () =>
+  bashRule("bash -lc 'pnpm test'") === null,
+);
+
+// Recursion has to survive the quoting style, not just the single-quoted one.
+// Escaped double quotes are how a nested `bash -c` is written inside another.
+assert('blocks git clean -f behind two layers of bash -c', () =>
+  bashRule('bash -c "bash -c \\"git clean -xdf\\""') === 'git-clean',
+);
+
+assert('blocks supabase db push behind two layers of bash -c', () =>
+  bashRule('bash -lc "bash -lc \'supabase db push\'"') === 'supabase-db-push',
+);
+
+// --- delete target spellings -------------------------------------------------
+// The same directory written three ways is still the same directory.
+
+assert('blocks rm -rf on a dot-prefixed migrations path', () =>
+  bashRule('rm -rf ./supabase/migrations') === 'recursive-rm',
+);
+
+assert('blocks rm -rf on the migrations with a trailing slash', () =>
+  bashRule('rm -rf supabase/migrations/') === 'recursive-rm',
+);
+
+assert('blocks rm -rf on a dot-prefixed .git', () =>
+  bashRule('rm -rf ./.git') === 'recursive-rm',
+);
+
+assert('blocks rm -rf on an absolute path into the migrations', () =>
+  bashRule('rm -rf /home/dev/cemurm/supabase/migrations') === 'recursive-rm',
+);
+
+assert('still allows rm -rf on an unrelated absolute directory', () =>
+  bashRule('rm -rf /home/dev/cemurm/dist') === null,
+);
+
+assert('blocks an interior dot-segment path into the migrations', () =>
+  bashRule('rm -rf supabase/./migrations') === 'recursive-rm',
+);
+
+assert('blocks a trailing dot-segment path into the migrations', () =>
+  bashRule('rm -rf supabase/migrations/.') === 'recursive-rm',
+);
+
+assert('allows a recursive delete of build output however spelled', () =>
+  [
+    'rm -rf dist',
+    'rm -rf ./dist',
+    'rm -rf dist/',
+    'rm -rf ./dist/',
+    'rm -rf dist/assets',
+    'rm -rf node_modules',
+    'rm -rf ./node_modules',
+    'rm -rf /tmp/scratch-1234',
+    'rm -rf ../tmp-build',
+  ].every((command) => bashRule(command) === null),
+);
+
 // --- migrations --------------------------------------------------------------
 
 assert('blocks DROP TABLE written into a migration', () =>
@@ -294,6 +382,17 @@ assert('ci check honors the destructive-ok marker', () => {
   const dir = scratchMigration('0001_ok.sql', '-- destructive-ok: fixture only\ndrop table temp_fixture;\n');
   try {
     return runCheck(dir) === 0 ? true : 'expected exit 0';
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// A gate that cannot see its input is not green. Reporting "0 files scanned"
+// and exiting 0 is the failure mode this repository rewrote other gates to avoid.
+assert('ci check exits non-zero when the migrations directory is missing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cemurm-mig-missing-'));
+  try {
+    return runCheck(dir) !== 0 ? true : 'expected a non-zero exit, got 0';
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
