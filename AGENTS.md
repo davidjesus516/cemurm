@@ -58,6 +58,7 @@ pnpm install --frozen-lockfile
 → pnpm build
 → bash scripts/check-migrations-unique.sh
 → node scripts/check-migrations-destructive.mjs
+→ bash scripts/check-doc-counts.sh
 → bash scripts/check-visual-contract.sh
 ```
 
@@ -84,6 +85,13 @@ plugin and CI from drifting into three policies. The escape hatch is a comment i
 itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is reviewable where
 the data loss would be. Comments are stripped before the scan, because `0046` explains that a
 revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate statement.
+
+**The counts are now a gate too.** `check-doc-counts.sh` reads the migration count, the smoke
+count, the feature and scenario counts and the next free migration number from `AGENTS.md` and
+`docs/master-plan.md`, and compares each against the tree. It exists because the numbers in this
+file have been wrong every time anybody re-counted them — five times, most recently on 2026-11-01 —
+and each drift was found by hand. Fixing a number is a PR's work; this stops the next drift. If it
+fails, fix the document: the tree is the fact and the prose is a copy.
 
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
 no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,
@@ -209,9 +217,8 @@ creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
   matter, so take the first free number nobody has claimed — `0047` today, because the lowest free
-  slot `0046` is already claimed by the open feedback-triage chain (#430). `0033_feedback.sql` is
-  the precedent for renumbering when the natural slot is gone; it is self-contained, so `0033` cost
-  nothing.
+  slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
+  natural slot is gone; it is self-contained, so `0033` cost nothing.
 - **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
   free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
   `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
