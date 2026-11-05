@@ -1,13 +1,13 @@
 schema: spec-driven
 
 context: |
-  PWA for musicians: repertoires, setlists, live performance, offline-first (Vite 6 + React 18 JSX + Tailwind 3, react-router-dom 7).
-  Backend: local Supabase (supabase start, API 127.0.0.1:54321), NOT linked to a hosted project. Schema is built by supabase/migrations/0001-0033.sql (33 files, contiguous) plus supabase/seed.sql; supabase/migrations/0001_init.sql declares the v2 model (48 tables).
-  Product source of truth: features/*.feature (45 Gherkin files, 713 scenarios), docs/database-schema-v2.md, docs/technical-spec.md.
+  PWA for musicians: repertoires, setlists, live performance, offline-first (Vite 8 + React 19 JSX + Tailwind 4, react-router-dom 7).
+  Backend: local Supabase (supabase start, API 127.0.0.1:54321), NOT linked to a hosted project. Schema is built by supabase/migrations/0001-0046.sql (44 files; 0021/0022 kept deliberately free) plus supabase/seed.sql; supabase/migrations/0001_init.sql declares the v2 model (48 tables).
+  Product source of truth: features/*.feature (47 Gherkin files, 734+ scenarios), docs/database-schema-v2.md, docs/technical-spec.md.
   Package manager: pnpm v11 (lockfile pnpm-lock.yaml; never npm install / npm run *).
-  Testing: Vitest 5.0.2, `pnpm test` (9 test files, 307 tests), node environment, colocated <module>.test.js. Tests are CHARACTERIZATION tests — they assert what the code does today, including known-buggy behaviour, so a red test is a finding to report, never a reason to weaken the assertion.
-  Type checking: per-file opt-in. Global checkJs is deliberately OFF; 47 files carry `// @ts-check`. Run `pnpm typecheck`.
-  CI: .github/workflows/ci.yml on push to main and every PR — install --frozen-lockfile, lint, check-visual-contract.sh, test, build. typecheck is NOT in CI.
+  Testing: Vitest 5.0.5, `pnpm test` (27 test files) + `pnpm test:gherkin` (5 gherkin files), node environment, colocated <module>.test.js. Tests are CHARACTERIZATION tests — they assert what the code does today, including known-buggy behaviour, so a red test is a finding to report, never a reason to weaken the assertion.
+  Type checking: per-file opt-in. Global checkJs is deliberately OFF; 48 files carry `// @ts-check`. Run `pnpm typecheck`.
+  CI: .github/workflows/ci.yml on push to main and every PR — install --frozen-lockfile, lint, deno check, typecheck, check-test-integrity.sh, test, test:gherkin, build, check-visual-contract.sh (runs LAST).
   src/ is post-relocation: src/app/main.jsx is the entrypoint, not src/main.jsx.
 
 strict_tdd: false
@@ -26,9 +26,9 @@ strict_tdd: false
 
 projects:
   - path: "."
-    stack: "Vite 6 + React 18 JSX + Tailwind 3 + @supabase/supabase-js 2.116"
+    stack: "Vite 8 + React 19 JSX + Tailwind 4 + @supabase/supabase-js 2.116"
     test_command: "pnpm test"
-    test_framework: "Vitest 5.0.2"
+    test_framework: "Vitest 5.0.5"
     # No coverage command: @vitest/coverage-v8 is NOT installed and package.json has no
     # coverage script. Left empty rather than inventing one. Add the provider first, then fill.
     coverage_command: ""
@@ -43,14 +43,12 @@ testing:
   e2e: false           # no browser automation is installed
   coverage: false      # no coverage provider installed (see coverage_command above)
   notes: >
-    Corrected 2026-09-30 against main = 762a040. The previous version of this block said
-    "No workspace-level test command exists; package.json scripts are dev/build/preview/lint only"
-    and set six flags false. All of that was wrong: `pnpm test` exists, Vitest is the only
-    test dependency (5.0.2 since #236; 3.2.7 when this note was corrected), and CI runs the suite. unit=true reflects 307 passing tests across 9 files in
-    src/domain/** and src/integrations/spotify.js. integration/e2e/coverage stay false because that
-    tooling genuinely does not exist — do not read those three as "untested", read them as
-    "unbuilt". The SQL smoke tests under scripts/smoke/ are manual-only and not a JS test tier.
-    Never synthesize a test runner: the real one is already here.
+    Corrected 2026-10-30 against main = 8b9de12. `pnpm test` exists and Vitest is the only
+    test dependency (5.0.5). unit=true reflects 27 passing test files across src/** plus
+    5 gherkin files run via `pnpm test:gherkin` (separate tier, not part of `pnpm test`).
+    integration/e2e/coverage stay false because that tooling genuinely does not exist — do not read
+    those three as "untested", read them as "unbuilt". The SQL smoke tests under scripts/smoke/ are
+    manual-only and not a JS test tier. Never synthesize a test runner: the real one is already here.
 
 rules:
   proposal:
