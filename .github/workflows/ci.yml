@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only by declaration, not by inheritance. The repository default happens to be
+# read-only today, but that is a setting somebody can flip without a diff, a review
+# or a test noticing. Every job below only checks out code and installs public
+# packages, so `contents: read` is the whole of what this workflow needs.
+permissions:
+  contents: read
+
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
