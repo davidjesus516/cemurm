@@ -87,7 +87,7 @@ local branch that can be months stale and inflates the count by an order of magn
 ## Verification
 
 ```
-node scripts/hooks/pre-tool-guard.selftest.mjs   # 61 checks, both adapters
+node scripts/hooks/pre-tool-guard.selftest.mjs   # 77 checks, both adapters
 pnpm lint
 pnpm typecheck
 pnpm test                                        # 496 tests
@@ -160,3 +160,36 @@ before this unit was committed.
   file, since it is a comment itself. Selftest 54 → 61: three comment shapes must be ignored and
   four executable shapes must still block. `AGENTS.md` gained both new steps in its CI chain,
   which this branch had already made false.
+- L6 (2026-11-04): guard hardening, the follow-up L4 pointed at. Three holes, each named by
+  the review and each closed with a test that failed first:
+  (1) **shell indirection** — `bash -lc 'supabase db push'`, `FOO=1 supabase db push`,
+      `(supabase db push)`, a `./`-prefixed `supabase link` and `sudo git clean -xdf` slipped
+      past the start-of-segment match. Segments are now split after unwrapping
+      `bash|sh|zsh|dash|ksh -c` recursively, and the command position is read from
+      `commandWords()`, which drops surrounding parens, leading `VAR=value` assignments and the
+      `sudo|env|command|exec|nohup|time` wrappers, and resolves `./x` and `/usr/bin/x` to `x`.
+  (2) **target spellings** — a dot-prefixed migrations path, a trailing slash, a dot-prefixed
+      `.git` and an absolute path into the migrations now match. Targets are normalized
+      (quotes, backslashes, doubled slashes, `./`, trailing slash) before the denylist check,
+      and a protected suffix (`.git`, `supabase/migrations`, `supabase/seed.sql`) matches at
+      any depth. `dist/`, `node_modules/` and arbitrary scratch paths stay allowed.
+  (3) **fail-open scan** — `check-migrations-destructive.mjs` printed `0 files scanned` and
+      exited 0 when `supabase/migrations` could not be read. It now exits 2 with the directory
+      and the failure, because a missing directory is a misconfiguration, not a clean tree.
+  RED evidence: 11 of the new assertions failed against the previous rules; the twelfth, the
+  missing-directory case, exited 0. Selftest 61 → 77 checks. A hand matrix outside the selftest
+  (11 permitted, 11 blocked) found 0 wrong verdicts.
+  Independent verification (gentle-ai-verify) passed all three claims with no blockers; it
+  compared candidate against baseline commit by commit and confirmed every blocked spelling
+  returned ALLOW at the baseline, so the new assertions are not tautological. Its one in-scope
+  advisory — `/./` interior and `/.` trailing segments still normalized past the denylist — is
+  closed here and pinned, along with a durable probe that the build-output spellings stay
+  allowed. The remaining advisories it raised (quoted `VAR="a b"` assignments, flags between a
+  wrapper and the command, glob and brace targets, and non-`;` indirection such as
+  `echo … | bash`) are unchanged from the baseline and need a quote-aware tokenizer, which is
+  its own unit, not a patch on this one.
+  Known limit, unchanged and now easier to hit: the splitter does not understand quotes, so a
+  shell command whose *data* contains a `;`-separated blocked command (a `node -e` one-liner,
+  for example) is judged as if it ran it. It blocked one of this unit's own verification
+  commands. A real tokenizer is the fix; a false positive costs a retry, a missed true positive
+  costs the database, so the trade still points the same way.

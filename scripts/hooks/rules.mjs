@@ -48,6 +48,15 @@ const DANGEROUS_RM_TARGETS = new Set([
 
 const MIGRATION_PATH = /(?:^|\/)supabase\/migrations\/[^/]+\.sql$/;
 
+/** Shell words that only decorate the command that follows them. */
+const SHELL_PREFIX_WORDS = new Set(['sudo', 'env', 'command', 'exec', 'nohup', 'time']);
+
+/** Interpreters whose `-c` argument is a command line of its own. */
+const SHELL_INTERPRETERS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
+
+/** Paths that stay out of `rm -rf` however they are spelled. */
+const PROTECTED_SUFFIXES = ['.git', 'supabase/migrations', 'supabase/seed.sql'];
+
 /**
  * Detect a `gh pr create` invocation at a command boundary.
  *
@@ -75,14 +84,14 @@ export function judgeBash(command) {
   if (typeof command !== 'string' || !command.trim()) return null;
 
   const flat = command.replace(/\s+/g, ' ').trim();
-  const segments = command
-    .split(/\n|&&|\|\||;/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
+  const segments = commandSegments(command);
 
   // Rules 1-3 match at command position, not anywhere in the string: a `grep`
-  // for "supabase db push" is reading, not pushing.
-  const startsWith = (pattern) => segments.some((segment) => pattern.test(segment));
+  // for "supabase db push" is reading, not pushing. `commandWords` strips the
+  // shell's decoration first, so `FOO=1`, `sudo` and `./` do not hide that
+  // position.
+  const head = (segment) => commandName(commandWords(segment)[0]);
+  const words = (segment) => commandWords(segment).map(stripQuotes);
 
   if (segments.some((segment) => SQL_EXECUTION.test(segment) && SQL_DESTRUCTIVE.test(segment))) {
     return {
@@ -103,7 +112,10 @@ export function judgeBash(command) {
     };
   }
 
-  if (startsWith(/^supabase\s+db\s+push\b/)) {
+  if (segments.some((segment) => {
+    const parts = words(segment);
+    return head(segment) === 'supabase' && parts[1] === 'db' && parts[2] === 'push';
+  })) {
     return {
       rule: 'supabase-db-push',
       reason: [
@@ -116,7 +128,7 @@ export function judgeBash(command) {
     };
   }
 
-  if (startsWith(/^supabase\s+link\b/)) {
+  if (segments.some((segment) => head(segment) === 'supabase' && words(segment)[1] === 'link')) {
     return {
       rule: 'supabase-link',
       reason: [
@@ -129,7 +141,12 @@ export function judgeBash(command) {
     };
   }
 
-  if (startsWith(/^git\s+clean\b[^\n]*\s(?:-[a-zA-Z]*f[a-zA-Z]*|--force)\b/)) {
+  if (segments.some((segment) => {
+    if (head(segment) !== 'git' || words(segment)[1] !== 'clean') return false;
+    return words(segment)
+      .slice(2)
+      .some((word) => /^-[a-zA-Z]*f/.test(word) || word === '--force');
+  })) {
     return {
       rule: 'git-clean',
       reason: [
@@ -142,32 +159,127 @@ export function judgeBash(command) {
     };
   }
 
-  const rmReason = judgeRecursiveRm(flat);
+  const rmReason = judgeRecursiveRm(segments);
   if (rmReason) return rmReason;
 
   return null;
 }
 
 /**
- * @param {string} flat
+ * A segment's words, with the shell's decoration removed: surrounding parens
+ * and leading `VAR=value` assignments or wrapper words are not the command.
+ *
+ * @param {string} segment
+ * @returns {string[]}
+ */
+function commandWords(segment) {
+  const text = segment.trim().replace(/^\(+/, '').replace(/\)+$/, '').trim();
+  const words = text.split(/\s+/).filter(Boolean);
+
+  let index = 0;
+  while (index < words.length) {
+    const word = stripQuotes(words[index]);
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || SHELL_PREFIX_WORDS.has(word)) {
+      index += 1;
+      continue;
+    }
+    break;
+  }
+
+  return words.slice(index);
+}
+
+/** `./supabase` and `/usr/bin/supabase` name the same command. */
+function commandName(word) {
+  return stripQuotes(word ?? '').replace(/^.*\//, '');
+}
+
+/**
+ * The command line split into the segments that are executed, with
+ * `bash -c '<command>'` replaced by the command it defers to.
+ *
+ * @param {string} command
+ * @returns {string[]}
+ */
+function commandSegments(command) {
+  const out = [];
+  for (const raw of command.split(/\n|&&|\|\||;/)) {
+    const segment = raw.trim();
+    if (!segment) continue;
+
+    const deferred = deferredCommand(segment);
+    if (deferred) {
+      out.push(...commandSegments(deferred));
+      continue;
+    }
+    out.push(segment);
+  }
+  return out;
+}
+
+/**
+ * The command a shell interpreter was asked to run, or null when this segment
+ * is not one. Recursion terminates because each layer drops the interpreter.
+ *
+ * @param {string} segment
+ * @returns {string | null}
+ */
+function deferredCommand(segment) {
+  const words = commandWords(segment);
+  if (!words.length || !SHELL_INTERPRETERS.has(commandName(words[0]))) return null;
+
+  const flag = words.findIndex((word) => /^-[a-zA-Z]*c$/.test(stripQuotes(word)));
+  if (flag === -1) return null;
+
+  const inner = stripQuotes(words.slice(flag + 1).join(' ').trim());
+  return inner && inner !== segment.trim() ? inner : null;
+}
+
+/**
+ * The path the shell would act on: no quotes, no doubled separators, no
+ * leading `./`, no trailing slash.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+function normalizePath(value) {
+  const unquoted = stripQuotes(value).replace(/\\/g, '/');
+  const rooted = unquoted
+    .replace(/\/{2,}/g, '/')
+    .replace(/^(?:\.\/)+/, '')
+    .replace(/\/\.(?=\/|$)/g, '');
+  if (!rooted) return '.';
+  return rooted.replace(/\/+$/, '') || '/';
+}
+
+/**
+ * @param {string} target
+ * @returns {boolean}
+ */
+function isDangerousTarget(target) {
+  const normalized = normalizePath(target);
+  if (DANGEROUS_RM_TARGETS.has(normalized)) return true;
+  return PROTECTED_SUFFIXES.some(
+    (suffix) => normalized === suffix || normalized.endsWith(`/${suffix}`),
+  );
+}
+
+/**
+ * @param {string[]} segments
  * @returns {{ rule: string, reason: string } | null}
  */
-function judgeRecursiveRm(flat) {
-  for (const segment of flat.split(/\n|&&|\|\||;/)) {
+function judgeRecursiveRm(segments) {
+  for (const segment of segments) {
+    const words = commandWords(segment).map(stripQuotes);
     // `rm` at command position: a commit message that says "rm -rf ." is text.
-    const match = /^\s*(?:sudo\s+)?rm\b([^;&|]*)/.exec(segment);
-    if (!match) continue;
+    if (commandName(words[0]) !== 'rm') continue;
 
-    const args = match[1] ?? '';
-    const recursive = /\s-[a-zA-Z]*[rR]/.test(args) || /--recursive\b/.test(args);
+    const args = words.slice(1);
+    const recursive = args.some((word) => /^-[a-zA-Z]*[rR]/.test(word) || word === '--recursive');
     if (!recursive) continue;
 
-    const targets = args
-      .split(/\s+/)
-      .filter((token) => token && !token.startsWith('-'))
-      .map(stripQuotes);
-
-    const hit = targets.find((target) => DANGEROUS_RM_TARGETS.has(target));
+    const targets = args.filter((token) => token && !token.startsWith('-'));
+    const hit = targets.find(isDangerousTarget);
     if (!hit) continue;
 
     return {

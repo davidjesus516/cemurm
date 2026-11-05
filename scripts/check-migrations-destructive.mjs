@@ -35,9 +35,15 @@ function listMigrations() {
     return readdirSync(MIGRATIONS_DIR)
       .filter((name) => name.endsWith('.sql'))
       .sort();
-  } catch {
-    // A tree without the directory has nothing to scan; that is not an error.
-    return [];
+  } catch (error) {
+    // A gate that cannot see its input is not green. Reporting "0 files scanned"
+    // and exiting 0 is indistinguishable from a clean tree, so this fails
+    // instead — a missing directory is a misconfiguration, not a result.
+    process.stderr.write(
+      `check-migrations-destructive: cannot read ${MIGRATIONS_DIR} from ${process.cwd()}: ${String(error)}\n` +
+        'Run this from the repository root, or fix the directory this gate expects.\n',
+    );
+    process.exit(2);
   }
 }
 
