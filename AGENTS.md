@@ -52,10 +52,12 @@ pnpm install --frozen-lockfile
 → deno check 'supabase/functions/**/*.ts'
 → pnpm typecheck
 → bash scripts/check-test-integrity.sh
+→ node scripts/hooks/pre-tool-guard.selftest.mjs
 → pnpm test
 → pnpm test:gherkin
 → pnpm build
 → bash scripts/check-migrations-unique.sh
+→ node scripts/check-migrations-destructive.mjs
 → bash scripts/check-visual-contract.sh
 ```
 
@@ -72,6 +74,16 @@ by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm t
 **`check-test-integrity.sh` fails on `.only`, `.skip` and `.todo`** in any test file. Those are
 not a failing run, they are a green run that tested less, so nothing inside the suite could see
 them. Bash + grep only, same as the visual gate.
+
+**Two gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
+(destructive SQL blocked, `supabase db reset` still allowed, exit 2 on a block, `size:exception`
+clearing only the size verdict), and `check-migrations-destructive.mjs` applies the destructive-SQL
+rule to the migration files rather than to the tool call that wrote them — the same rule from the
+same module (`scripts/hooks/rules.mjs`), which is what keeps the Claude Code hook, the OpenCode
+plugin and CI from drifting into three policies. The escape hatch is a comment in the migration
+itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is reviewable where
+the data loss would be. Comments are stripped before the scan, because `0046` explains that a
+revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate statement.
 
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
 no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,

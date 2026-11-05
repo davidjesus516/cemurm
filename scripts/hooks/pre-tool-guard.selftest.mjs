@@ -193,6 +193,61 @@ assert('judgeMigrationContent ignores non-migration paths', () =>
   judgeMigrationContent('docs/sql-notes.md', 'drop table songs;') === null,
 );
 
+// Comments are prose, not statements. `0046` revokes a grant and then explains
+// that the revoked privilege list includes TRUNCATE; the raw scan read that
+// sentence as data loss and failed CI on a migration that destroys nothing.
+assert('judgeMigrationContent ignores a line comment that mentions TRUNCATE', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    '-- the residual grant includes TRUNCATE, which RLS does not cover\ngrant select on table songs to authenticated;',
+  ) === null,
+);
+
+assert('judgeMigrationContent ignores a block comment that mentions DROP TABLE', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    '/* this used to run drop table songs; it no longer does */\nalter table songs add column title text;',
+  ) === null,
+);
+
+assert('judgeMigrationContent ignores a comment inside a nested block comment', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    '/* outer /* inner truncate songs; */ still a comment */\nselect 1;',
+  ) === null,
+);
+
+// The strip must not become a bypass: anything the database would execute still
+// counts, including a `--` that is really part of a string literal, and SQL
+// assembled inside a dollar-quoted body.
+assert('judgeMigrationContent still blocks DROP TABLE after a string containing --', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    "select 'a--b'; drop table songs;",
+  )?.rule === 'destructive-migration',
+);
+
+assert('judgeMigrationContent still blocks SQL inside a dollar-quoted body', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    'do $body$ begin execute $q$ truncate songs $q$; end $body$;',
+  )?.rule === 'destructive-migration',
+);
+
+assert('judgeMigrationContent still blocks DROP TABLE on the line after a string with a quote escape', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    "select 'it''s fine';\ndrop table songs;",
+  )?.rule === 'destructive-migration',
+);
+
+assert('judgeMigrationContent still blocks when only the comment is destructive-looking', () =>
+  judgeMigrationContent(
+    'supabase/migrations/0046_cleanup.sql',
+    '-- nothing here\ndrop schema private cascade;',
+  )?.rule === 'destructive-migration',
+);
+
 /** Spawn the CI check from `cwd` and return its exit status. */
 const CHECK = fileURLToPath(new URL('../check-migrations-destructive.mjs', import.meta.url));
 

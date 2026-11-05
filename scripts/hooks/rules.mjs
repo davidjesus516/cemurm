@@ -185,6 +185,113 @@ function judgeRecursiveRm(flat) {
 }
 
 /**
+ * Remove SQL comments, leaving string literals and quoted identifiers intact.
+ *
+ * The destructive scan cannot run on raw text. `0046` revokes a grant and then
+ * explains, in a comment, that the revoked privilege list includes TRUNCATE —
+ * prose about a privilege, not a statement that truncates anything. A plain
+ * regex read that comment as a data-loss statement and failed CI on a migration
+ * that destroys nothing.
+ *
+ * Stripping is quote-aware on purpose. A naive `--` strip would treat the `--`
+ * inside `'a--b'` as the start of a comment and drop the rest of the line, and
+ * a dollar-quoted body (`execute $sql$ drop table x $sql$`) is executable SQL:
+ * hiding it would turn this guard into a bypass. Comments go, everything a
+ * database would execute stays.
+ *
+ * @param {string} sql
+ * @returns {string}
+ */
+function stripSqlComments(sql) {
+  let out = '';
+  let i = 0;
+  /** @type {string | null} */
+  let dollarTag = null;
+
+  while (i < sql.length) {
+    // Inside `$tag$ … $tag$`: copy through verbatim until the tag closes.
+    if (dollarTag) {
+      if (sql.startsWith(dollarTag, i)) {
+        out += dollarTag;
+        i += dollarTag.length;
+        dollarTag = null;
+      } else {
+        out += sql[i];
+        i += 1;
+      }
+      continue;
+    }
+
+    const ch = sql[i];
+
+    // Single-quoted string, double-quoted identifier: copy through verbatim,
+    // honouring the doubled-quote escape (`''` / `""`).
+    if (ch === "'" || ch === '"') {
+      out += ch;
+      i += 1;
+      while (i < sql.length) {
+        out += sql[i];
+        if (sql[i] === ch) {
+          if (sql[i + 1] === ch) {
+            out += sql[i + 1];
+            i += 2;
+            continue;
+          }
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      continue;
+    }
+
+    // Dollar-quoted body opener: `$$` or `$tag$`.
+    if (ch === '$') {
+      const tag = /^\$[A-Za-z_]*\$/.exec(sql.slice(i));
+      if (tag) {
+        dollarTag = tag[0];
+        out += dollarTag;
+        i += dollarTag.length;
+        continue;
+      }
+    }
+
+    // Line comment.
+    if (ch === '-' && sql[i + 1] === '-') {
+      while (i < sql.length && sql[i] !== '\n') i += 1;
+      continue;
+    }
+
+    // Block comment. Postgres nests them, so track depth rather than stopping
+    // at the first `*/`.
+    if (ch === '/' && sql[i + 1] === '*') {
+      let depth = 1;
+      i += 2;
+      while (i < sql.length && depth > 0) {
+        if (sql[i] === '/' && sql[i + 1] === '*') {
+          depth += 1;
+          i += 2;
+          continue;
+        }
+        if (sql[i] === '*' && sql[i + 1] === '/') {
+          depth -= 1;
+          i += 2;
+          continue;
+        }
+        i += 1;
+      }
+      out += ' ';
+      continue;
+    }
+
+    out += ch;
+    i += 1;
+  }
+
+  return out;
+}
+
+/**
  * Decide whether a migration's content must be blocked.
  *
  * Shared by both enforcement surfaces that can read file bytes: the Claude
@@ -200,8 +307,9 @@ export function judgeMigrationContent(path, content) {
   if (!MIGRATION_PATH.test(path)) return null;
   content = String(content ?? '');
   if (!content) return null;
-  if (!SQL_DESTRUCTIVE.test(content)) return null;
+  // The escape hatch is a comment, so it is read before comments are stripped.
   if (/--\s*destructive-ok\b/i.test(content)) return null;
+  if (!SQL_DESTRUCTIVE.test(stripSqlComments(content))) return null;
 
   return {
     rule: 'destructive-migration',
