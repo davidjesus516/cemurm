@@ -131,7 +131,7 @@ before this unit was committed.
   exit 0 with the marker). Verified against the real tree: 43 migrations, 0 findings;
   a manual negative run exits 1 with the full reason and passes with the marker.
 - L3 (2026-11-04): native review of the guards candidate ran four lenses (risk, resilience,
-  readability, reliability) and returned one CRITICAL finding, fixed in `f3e0d97`. Both
+  readability, reliability) and returned one CRITICAL finding, fixed in `cdc5fad`. Both
   adapters routed a Bash call to the PR-size verdict as soon as it contained a `gh pr create`
   segment, so `judgeBash` never ran and a forbidden operation sharing that line — recursive
   delete, `supabase db push`, destructive SQL — reached the tool while the guard reported
