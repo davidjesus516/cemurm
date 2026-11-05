@@ -89,6 +89,14 @@ jobs:
       # it SKIPPED.
       - run: node scripts/check-migrations-destructive.mjs
 
+      # Counts stated in AGENTS.md and docs/master-plan.md, checked against the
+      # tree. Those files tell the next agent how many migrations exist and
+      # which number is free; the numbers have been wrong every time anyone
+      # re-counted them, five times in AGENTS.md alone. Correcting a number is a
+      # PR's work; this is what stops the next drift. Bash + grep only, and here
+      # for the same set -euo pipefail reason as the gates around it.
+      - run: bash scripts/check-doc-counts.sh
+
       # Visual contract gate. Bash + grep only, so it needs no install step, and
       # it deliberately runs LAST rather than before test and build: a gate that
       # precedes them exits 1 under set -euo pipefail, which marks test and
