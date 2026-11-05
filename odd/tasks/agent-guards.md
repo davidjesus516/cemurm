@@ -5,7 +5,7 @@ Runner: `node scripts/hooks/pre-tool-guard.selftest.mjs`.
 
 ## Size exception
 
-Measured against `origin/main` at commit `b2ce413`: **1,492 authored changed lines**, over the
+Measured against `origin/main` at commit `86d9d43`: **1,504 authored changed lines**, over the
 400 budget. (It was 948 against `adc8400` when the PR opened; the rebase and the comment-stripping
 fix below account for the rest, and the selftest grew from 295 to 455 lines with the checks that
 pin it.) The exception is accepted because the unit cannot be split without producing a
@@ -14,7 +14,7 @@ non-functional half:
 - The rules module, both adapters and the selftest are one artifact. A guard without its
   selftest is unverified, and three adapters without the shared module are three drifting
   policies — the exact defect this unit exists to remove.
-- The selftest alone is 455 of the 1,492 lines, and 11 of its checks exercise the second
+- The selftest alone is 455 of the 1,504 lines, and 11 of its checks exercise the second
   adapter against the same matrix. Splitting it would leave one adapter untested in whichever slice
   lands second.
 - The CI gate is 106 lines across two files and is meaningless before the rules module exists.
@@ -94,7 +94,7 @@ pnpm test                                        # 496 tests
 bash scripts/check-test-integrity.sh
 pnpm build
 node scripts/check-migrations-destructive.mjs                    # exit 0, 44 files
-node scripts/check-pr-size.mjs --base origin/main --head HEAD   # exit 1 at 1,492
+node scripts/check-pr-size.mjs --base origin/main --head HEAD   # exit 1 at 1,504
 PR_LABELS=size:exception node scripts/check-pr-size.mjs --base origin/main --head HEAD  # exit 0
 ```
 
