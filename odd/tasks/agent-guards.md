@@ -193,3 +193,6 @@ before this unit was committed.
   for example) is judged as if it ran it. It blocked one of this unit's own verification
   commands. A real tokenizer is the fix; a false positive costs a retry, a missed true positive
   costs the database, so the trade still points the same way.
+  RDD assessment of this commit against `aa097b6`: `medium`, `review_due: false`
+  (`under_budget`), so no second native review was entered — the independent verifier covers
+  the Risk item this unit names.
