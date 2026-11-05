@@ -37,9 +37,11 @@ export default {
         let verdict;
 
         try {
-          verdict = mentionsPrCreate(resource)
-            ? evaluatePrCreate(resource, cwd)
-            : judgeBash(resource);
+          // A `gh pr create` segment does not exempt the rest of the command
+          // line: the size verdict supplements the bash rules, it never
+          // replaces them.
+          verdict = judgeBash(resource);
+          if (!verdict && mentionsPrCreate(resource)) verdict = evaluatePrCreate(resource, cwd);
         } catch (error) {
           // Fail closed: a guard that fails open is not a guard.
           event.effect = 'deny';

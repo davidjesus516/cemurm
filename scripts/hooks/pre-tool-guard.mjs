@@ -30,7 +30,10 @@ function main() {
   try {
     if (toolName === 'Bash') {
       const command = String(toolInput.command ?? '');
-      verdict = mentionsPrCreate(command) ? evaluatePrCreate(command, cwd) : judgeBash(command);
+      // A `gh pr create` segment does not exempt the rest of the command line:
+      // the size verdict supplements the bash rules, it never replaces them.
+      verdict = judgeBash(command);
+      if (!verdict && mentionsPrCreate(command)) verdict = evaluatePrCreate(command, cwd);
     } else if (toolName === 'Write' || toolName === 'Edit') {
       verdict = judgeWrite(toolInput);
     }

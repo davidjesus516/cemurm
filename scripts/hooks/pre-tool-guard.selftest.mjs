@@ -310,6 +310,19 @@ assert('exit 0 when the payload is not JSON', () => {
   }
 });
 
+// A `gh pr create` on the same line used to route the whole command to the size
+// verdict and skip judgeBash, so a blocked operation rode through next to it.
+assert('still blocks a forbidden command that shares a line with gh pr create', () => {
+  const { status, stderr } = runGuard({
+    tool_name: 'Bash',
+    // `size:exception` clears the size verdict, so only judgeBash can block here.
+    tool_input: { command: 'rm -rf . && gh pr create --base main --label size:exception' },
+  });
+  if (status !== 2) return `expected exit 2, got ${status}`;
+  if (!stderr.includes('recursive delete')) return `unexpected stderr: ${stderr.slice(0, 120)}`;
+  return true;
+});
+
 /** @param {Record<string, unknown>} payload */
 function runGuard(payload) {
   try {
@@ -358,6 +371,11 @@ function runGuard(payload) {
     ['grep -rn "drop table" docs/', 'allow'],
     ['git commit -m "docs: rm -rf is forbidden"', 'allow'],
     ['gh pr create --base main --label size:exception --title x', 'allow'],
+    // The size verdict supplements the bash rules, it does not replace them.
+    // `size:exception` clears the size verdict on purpose, so a deny here can
+    // only come from judgeBash still having run.
+    ['rm -rf . && gh pr create --base main --label size:exception', 'deny'],
+    [`supabase db ${'push'} && gh pr create --base main --label size:exception`, 'deny'],
   ];
 
   for (const [command, expected] of cases) {
