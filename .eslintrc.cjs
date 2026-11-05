@@ -18,6 +18,11 @@ module.exports = {
   },
   overrides: [
     {
+      // Build scripts run in Node, not the browser.
+      files: ['scripts/**/*.mjs'],
+      env: { browser: false, node: true },
+    },
+    {
       // TS/TSX half (tw4-stack-foundation S5, odd/tasks/tw4-stack-foundation.md
       // L3). Scoped to src/ on purpose: --ext ts,tsx would also admit
       // supabase/functions/*.ts, which run on Deno and sit outside every
