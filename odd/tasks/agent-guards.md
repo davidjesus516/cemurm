@@ -12,8 +12,8 @@ non-functional half:
 - The rules module, both adapters and the selftest are one artifact. A guard without its
   selftest is unverified, and three adapters without the shared module are three drifting
   policies — the exact defect this unit exists to remove.
-- The selftest alone is 295 of the 948 lines, and 43 of its checks exercise both adapters
-  against the same matrix. Splitting it would leave one adapter untested in whichever slice
+- The selftest alone is 295 of the 948 lines, and 11 of its checks exercise the second
+  adapter against the same matrix. Splitting it would leave one adapter untested in whichever slice
   lands second.
 - The CI gate is 106 lines across two files and is meaningless before the rules module exists.
 
@@ -85,12 +85,13 @@ local branch that can be months stale and inflates the count by an order of magn
 ## Verification
 
 ```
-node scripts/hooks/pre-tool-guard.selftest.mjs   # 43 checks, both adapters
+node scripts/hooks/pre-tool-guard.selftest.mjs   # 54 checks, both adapters
 pnpm lint
 pnpm typecheck
 pnpm test                                        # 496 tests
 bash scripts/check-test-integrity.sh
 pnpm build
+node scripts/check-migrations-destructive.mjs                    # exit 0, 43 files
 node scripts/check-pr-size.mjs --base origin/main --head HEAD   # exit 1 at 1,128
 PR_LABELS=size:exception node scripts/check-pr-size.mjs --base origin/main --head HEAD  # exit 0
 ```
@@ -127,3 +128,22 @@ before this unit was committed.
   three spawn the check itself against scratch trees (exit 0 clean, exit 1 destructive,
   exit 0 with the marker). Verified against the real tree: 43 migrations, 0 findings;
   a manual negative run exits 1 with the full reason and passes with the marker.
+- L3 (2026-11-04): native review of the guards candidate ran four lenses (risk, resilience,
+  readability, reliability) and returned one CRITICAL finding, fixed in `f3e0d97`. Both
+  adapters routed a Bash call to the PR-size verdict as soon as it contained a `gh pr create`
+  segment, so `judgeBash` never ran and a forbidden operation sharing that line — recursive
+  delete, `supabase db push`, destructive SQL — reached the tool while the guard reported
+  success. Both now judge the bash rules first and add the size verdict only when bash has no
+  objection; pinned twice (PreToolUse exit 2, OpenCode deny) with a combined line whose size
+  verdict is cleared by `size:exception`, so only `judgeBash` can block it. RED evidence:
+  the pre-fix adapters exit 0 on that line, the fixed ones exit 2. A targeted validator then
+  re-checked only the correction and approved. Authority burned under
+  `review-9579b54b322af81a`; selftest 51 → 54 checks.
+- L4 (2026-11-04): the review's non-blocking findings are recorded as follow-ups, not fixed
+  here: `bash -lc 'supabase db push'`-style indirection and `./`-or-slash variants of the
+  protected delete targets slip past the start-of-segment match; the `-- destructive-ok`
+  marker waives a whole file rather than one statement; the blocked-command echo can carry a
+  credential into the transcript; `check-migrations-destructive.mjs` reports "0 files" green
+  when its directory is unreadable; the selftest step sits before `pnpm test` in `ci.yml` and
+  hides a product failure; the Claude crash branch tells the model to edit a file the same
+  branch blocks. None block this candidate; each is separate later work.
