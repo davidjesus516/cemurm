@@ -53,6 +53,12 @@ jobs:
       # suite could see them. Bash + grep only, same as the visual gate.
       - run: bash scripts/check-test-integrity.sh
 
+      # The agent guard is a policy, and a policy nobody verifies decays the same
+      # way `.only` did. This asserts the rules themselves: DROP/TRUNCATE blocked,
+      # `supabase db reset` still allowed, generated artifacts excluded from the
+      # PR budget, exit 2 on a block and 0 otherwise.
+      - run: node scripts/hooks/pre-tool-guard.selftest.mjs
+
       - run: pnpm test
 
       - run: pnpm test:gherkin
@@ -70,6 +76,18 @@ jobs:
       # reviewer cannot tell a real downstream failure from a check that never
       # ran.
       - run: bash scripts/check-migrations-unique.sh
+
+      # Destructive SQL in migrations. The Claude Code PreToolUse hook blocks
+      # the Write/Edit that introduces a DROP or TRUNCATE; this scans the files
+      # themselves, so the same rule holds for runtimes whose permission hook
+      # only sees the path (OpenCode), for a human writing SQL directly, and
+      # for anything else that never met a hook. No database, no network --
+      # same rule (judgeMigrationContent from scripts/hooks/rules.mjs) and same
+      # escape hatch (-- destructive-ok) as the hook. Here rather than before
+      # test and build for the same reason as the two gates above: it can exit
+      # 1, and a failing step under set -euo pipefail marks everything after
+      # it SKIPPED.
+      - run: node scripts/check-migrations-destructive.mjs
 
       # Visual contract gate. Bash + grep only, so it needs no install step, and
       # it deliberately runs LAST rather than before test and build: a gate that
