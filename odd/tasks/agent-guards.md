@@ -87,7 +87,7 @@ local branch that can be months stale and inflates the count by an order of magn
 ## Verification
 
 ```
-node scripts/hooks/pre-tool-guard.selftest.mjs   # 77 checks, both adapters
+node scripts/hooks/pre-tool-guard.selftest.mjs   # 79 checks, both adapters
 pnpm lint
 pnpm typecheck
 pnpm test                                        # 496 tests
@@ -177,7 +177,7 @@ before this unit was committed.
       exited 0 when `supabase/migrations` could not be read. It now exits 2 with the directory
       and the failure, because a missing directory is a misconfiguration, not a clean tree.
   RED evidence: 11 of the new assertions failed against the previous rules; the twelfth, the
-  missing-directory case, exited 0. Selftest 61 → 77 checks. A hand matrix outside the selftest
+  missing-directory case, exited 0. Selftest 61 → 79 checks. A hand matrix outside the selftest
   (11 permitted, 11 blocked) found 0 wrong verdicts.
   Independent verification (gentle-ai-verify) passed all three claims with no blockers; it
   compared candidate against baseline commit by commit and confirmed every blocked spelling
@@ -196,3 +196,18 @@ before this unit was committed.
   RDD assessment of this commit against `aa097b6`: `medium`, `review_due: false`
   (`under_budget`), so no second native review was entered — the independent verifier covers
   the Risk item this unit names.
+
+- L7 (2026-11-04): rebased onto `main` after #438 merged, which is where this unit's premise
+  changed. `fix/guard-hardening` was cut from the pre-rewrite `chore/agent-guards`, so it also
+  carried every commit #438 already landed. Only the two hardening commits remain on top of the
+  merged guard, which is why the delta is 4 files rather than 13 — the rest is already in `main`.
+  Two conflicts, both in this record: the selftest count (both sides stale; the merged number was
+  61 and the delta made it 79) and the L5 entry, since #438's comment-stripping fix and this
+  hardening are both real history and neither replaces the other.
+  One hole found while reviewing the delta and closed here: `bash -c "bash -c \"git clean
+  -xdf\""` still passed, because `stripQuotes` did not unescape `\"`, so the second unwrap saw
+  `\"git` at command position instead of `git`. That is the same indirection class this unit
+  exists to close, one quoting style over, and it cost two lines to fix rather than a note.
+  `stripQuotes` now unescapes backslash-quoted characters before stripping the surrounding pair.
+  RED evidence: the new assertion fails against the previous `stripQuotes` (`78 passed, 1 failed`)
+  and passes after. Selftest 77 → 79.

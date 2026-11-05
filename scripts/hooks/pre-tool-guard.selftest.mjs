@@ -153,6 +153,16 @@ assert('allows a wrapped command that breaks no rule', () =>
   bashRule("bash -lc 'pnpm test'") === null,
 );
 
+// Recursion has to survive the quoting style, not just the single-quoted one.
+// Escaped double quotes are how a nested `bash -c` is written inside another.
+assert('blocks git clean -f behind two layers of bash -c', () =>
+  bashRule('bash -c "bash -c \\"git clean -xdf\\""') === 'git-clean',
+);
+
+assert('blocks supabase db push behind two layers of bash -c', () =>
+  bashRule('bash -lc "bash -lc \'supabase db push\'"') === 'supabase-db-push',
+);
+
 // --- delete target spellings -------------------------------------------------
 // The same directory written three ways is still the same directory.
 

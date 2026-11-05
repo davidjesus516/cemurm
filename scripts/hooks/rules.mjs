@@ -543,8 +543,22 @@ export function judgePrSize(segment, numstat, { budget = PR_LINE_BUDGET, base = 
   };
 }
 
+/**
+ * A token without its shell quoting.
+ *
+ * Backslash-escaped quotes are unescaped first. Without that,
+ * `bash -c "bash -c \"git clean -xdf\""` leaves the inner layer wrapped in
+ * `\"`, so the second unwrap never sees an interpreter at command position and
+ * the command reads as `\"git`. That is the same indirection hole this unit
+ * exists to close, one quoting style over.
+ *
+ * @param {string} token
+ * @returns {string}
+ */
 function stripQuotes(token) {
-  return token.replace(/^['"]|['"]$/g, '');
+  return token
+    .replace(/\\(["'])/g, '$1')
+    .replace(/^['"]+|['"]+$/g, '');
 }
 
 function truncate(value, max) {
