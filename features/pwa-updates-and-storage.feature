@@ -183,11 +183,12 @@ Feature: PWA Updates and Storage
   NON-GOALS
   ──────────────────────────────────────────────
 
-  Scenario: No native update channel, partial updates, extra telemetry, worker internals, or user-data eviction
+  Scenario: No native app-store or manual download update channel, partial updates, extra telemetry, worker internals, or user-data eviction
     Given the runtime feature set is reviewed
     When I look for additional update and storage machinery
-    Then no native app-store or manual download update channel exists — updates flow only through the service worker
+    Then no native app-store or manual download update channel exists — updates flow only through the service worker for the PWA surface
     And no delta or chunked partial updates are applied — updates always install the complete new app build
     And no telemetry is collected beyond what analytics-and-insights owns
     And no service-worker internals (registration, cache names, install logs) are shown to the user
     And no user-authored data is ever evicted automatically under any storage pressure
+    And a native app may have its own update channel (app-store or manual download) independent of the PWA service worker flow
