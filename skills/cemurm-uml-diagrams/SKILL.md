@@ -38,7 +38,7 @@ and before reviewing or regenerating one already under `docs/uml/`.
 | Need | Type |
 |---|---|
 | Actors, use cases, `«include»`/`«extend»` | PlantUML `usecase` → Kroki |
-| Entities, attributes, cardinality | `docs/er-diagram.html` (exists, 48 tables) |
+| Entities, attributes, cardinality | `docs/er-diagram.html` — **generated**, never edited: `node scripts/build-er-diagram.mjs` |
 | Message order between two actors | PlantUML `sequence` |
 | State machine (`draft → ready → retired`) | PlantUML `lifecycle` |
 | Components and trust boundaries | archify `architecture` |
