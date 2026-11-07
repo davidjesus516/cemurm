@@ -687,6 +687,13 @@ const ENTITIES = [
       { name: 'diagnostics', type: 'jsonb' },
       { name: 'status', type: 'text' },
       { name: 'created_at', type: 'timestamptz' },
+      { name: 'updated_at', type: 'timestamptz' },
+      { name: 'updated_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
+      { name: 'github_issue_number', type: 'integer' },
+      { name: 'github_issue_url', type: 'text' },
+      { name: 'github_repo', type: 'text' },
+      { name: 'promoted_at', type: 'timestamptz' },
+      { name: 'promoted_by', type: 'uuid', fk: 'auth.users', cardinality: '1:N' },
   ]},
   { id: 'follows', num: 50, domain: 'community', cols: [
       { name: 'follower_id', type: 'uuid', pk: true, fk: 'auth.users', cardinality: 'N:M' },
@@ -1656,6 +1663,18 @@ const GUIDE = {
           "column": "user_id",
           "to": "auth.users",
           "external": true
+        },
+        {
+          "table": "feedback",
+          "column": "updated_by",
+          "to": "auth.users",
+          "external": true
+        },
+        {
+          "table": "feedback",
+          "column": "promoted_by",
+          "to": "auth.users",
+          "external": true
         }
       ]
     },
@@ -1739,11 +1758,11 @@ const GUIDE = {
     }
   ],
   "drawing": {
-    "total": 133,
+    "total": 135,
     "drawn": 77,
-    "hidden": 56,
+    "hidden": 58,
     "selfRefs": 6,
-    "external": 50
+    "external": 52
   }
 };
 
