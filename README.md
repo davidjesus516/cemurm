@@ -10,13 +10,13 @@ CEMURM lets individual musicians and bands organize their song libraries, create
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18+ / Vite / Tailwind CSS |
+| Frontend | React 19 / Vite 8 / Tailwind 4 |
 | Backend | Supabase — **local stack** (`supabase start`; PostgreSQL 17 + GoTrue auth + RLS), API at `http://127.0.0.1:54321`. **Not linked to a hosted project** — see [`docs/local-dev.md`](docs/local-dev.md) |
 | File Storage | Supabase Storage (`charts` bucket, private, owner-folder RLS) — shipped (Hito 5, migration `0027`); Cloudflare R2 remains an option in the deployment plan |
 | Music Notation | ChordPro (custom JS parser — live); MusicXML (OSMD), ABC (abcjs) planned |
 | Offline | Service worker (`public/sw.js`) + IndexedDB read cache, offline write queue, background-sync drain — shipped (Hito 2) |
 | APIs | LRCLIB, MusicBrainz, Spotify — enrichment clients shipped (Hito 5, migration `0026`), default to a deterministic **mock** until live flags are set |
-| Deployment | Frontend is local dev only (Vite) — **CI exists** (`.github/workflows/ci.yml`, push to `main` + every PR: install → lint → visual gate → test → build). No deploy pipeline yet; Vercel/R2 hosting planned |
+| Deployment | Frontend is local dev only (Vite) — **CI exists** (`.github/workflows/ci.yml`, push to `main` + every PR: install → lint → typecheck → test → test:gherkin → build → visual gate). The visual gate runs LAST so its failures sit next to a known-green run. No deploy pipeline yet; Vercel/R2 hosting planned |
 
 ## Quick Start
 
@@ -55,8 +55,8 @@ The app will be available at `http://localhost:5173`.
 | `pnpm check:visual` | the visual contract gate (`scripts/check-visual-contract.sh`), also wired into CI |
 
 **Full verification for a change** = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
-CI runs `install → lint → check:visual → test → build`; `typecheck` is deliberately **not** in CI,
-so run it locally before claiming a change is done.
+CI runs `install → lint → typecheck → test → test:gherkin → build → check-visual-contract.sh` (visual gate LAST);
+`typecheck` runs inside CI as well as locally — run it before claiming a change is done.
 
 ## Documentation
 

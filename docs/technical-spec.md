@@ -8,17 +8,17 @@ CEMURM (Community-Centered Musical Repertories Manager) is a Progressive Web App
 
 ```mermaid
 flowchart LR
-    Musician["Musician"] --> PWA["CEMURM PWA<br/>React 18 + Vite + Tailwind<br/>JS/JSX"]
-    PWA -->|supabase-js| Hosted["Supabase hosted project<br/>GoTrue auth + PostgreSQL with RLS<br/>+ definer RPCs"]
+    Musician["Musician"] --> PWA["CEMURM PWA<br/>React 19 + Vite 8 + Tailwind 4<br/>JS/JSX"]
+    PWA -->|supabase-js| Local["Supabase local stack<br/>PostgreSQL 17 + GoTrue auth + RLS<br/>API at http://127.0.0.1:54321"]
     PWA <--> Offline["Offline layer<br/>Service Worker public/sw.js<br/>+ IndexedDB read cache and write queue"]
     PWA <--> DomainLibs["Domain libs<br/>ChordPro parser/renderer, transpose, search"]
-    Hosted <--> Local["Local stack<br/>supabase start<br/>same migrations"]
+    Local <--> Migrations["Migrations<br/>supabase/migrations/0001-0046<br/>+ supabase/seed.sql"]
     R2["Cloudflare R2<br/>large file storage"] -. planned .-> PWA
     ExtApis["LRCLIB / MusicBrainz / Spotify"] -. planned .-> PWA
     Wasm["WASM modules<br/>Rust to wasm-pack"] -. planned .-> DomainLibs
 ```
 
-The diagram above is the current state: the PWA talks to the hosted Supabase project via `supabase-js` and keeps an offline layer (service worker + IndexedDB) plus domain libraries client-side; the local stack applies the same migrations for dev/reset. Dashed nodes are planned (Hito 5+). For interactive versions, see [architecture diagram](docs/diagrams/architecture.html) and [hito roadmap](docs/diagrams/hito-roadmap.html) (archify HTML exports).
+The diagram above is the current state: the PWA talks to the **local Supabase stack** via `supabase-js` and keeps an offline layer (service worker + IndexedDB) plus domain libraries client-side; migrations are applied locally by `supabase/migrations/` (`0001`–`0046`, with `0021`/`0022` kept deliberately free). Dashed nodes are planned (Hito 5+). For interactive versions, see [architecture diagram](docs/diagrams/architecture.html) and [hito roadmap](docs/diagrams/hito-roadmap.html) (archify HTML exports).
 
 ## 3. Tech Stack
 
@@ -27,11 +27,11 @@ The diagram above is the current state: the PWA talks to the hosted Supabase pro
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | JavaScript (ES2022+) | JS/JSX | Primary frontend language — TypeScript is planned for a future migration (see §10.8 D1) |
-| React | 18+ | UI framework |
-| Vite | 5+ | Build tool and dev server |
-| Tailwind CSS | 3+ | Utility-first styling |
-| React Router | 6+ | Client-side routing |
-| Zustand (planned) | 4+ | Lightweight state management — not installed today; React context (`useAuth.jsx`) covers current state |
+| React | 19+ | UI framework |
+| Vite | 8+ | Build tool and dev server |
+| Tailwind CSS | 4+ | Utility-first styling |
+| React Router | 7+ | Client-side routing |
+| Zustand | — | Not used — state lives in React context and hooks (`src/app/providers/`); no `src/store/` directory |
 
 ### 3.2 Music Notation
 
@@ -236,19 +236,14 @@ cemurm/
 
 ## 7. Deployment
 
-> **Current status (verified 2026-09-30 against `main` = `762a040`):** the data layer runs against a
+> **Current status (verified against `main`):** the data layer runs against a
 > **local Supabase stack** (`supabase start`, `supabase/config.toml`, API `http://127.0.0.1:54321`)
-> — schema, RLS, GoTrue auth, and RPCs are applied there by `supabase/migrations/` (**33 migrations,
-> `0001`–`0033`, contiguous**) plus `supabase/seed.sql`. This project is **NOT linked to a hosted
+> — schema, RLS, GoTrue auth, and RPCs are applied there by `supabase/migrations/` (**44 migrations,
+> `0001`–`0046`, with `0021`/`0022` kept deliberately free**) plus `supabase/seed.sql`. This project is **NOT linked to a hosted
 > Supabase project**; any hosted URL elsewhere in this document is stale and should be read as a
 > plan, not as state. `docs/local-dev.md` is authoritative for the local stack.
 >
-> **Correction to a 2026-09-23 status line in this section:** it stated the data layer was deployed
-> to a hosted project, that migrations stopped at `0019`, and that there was "no CI/deploy". All
-> three were wrong — the stack is local, migrations run through `0033`, and **CI exists**
-> (`.github/workflows/ci.yml`, on push to `main` and every PR: `install --frozen-lockfile → lint →
-> check-visual-contract.sh → test → build`). The table below remains the **deployment plan**; what
-> has actually shipped is recorded in `docs/mvp-scope.md`.
+> **CI exists** (`.github/workflows/ci.yml`, on push to `main` and every PR): `install --frozen-lockfile → lint → deno check → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-visual-contract.sh` (**visual gate runs LAST**). The table below remains the **deployment plan**; what has actually shipped is recorded in `docs/mvp-scope.md`.
 
 | Service | URL | Notes |
 |---------|-----|-------|

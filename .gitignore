@@ -61,6 +61,7 @@ CEMURM/
 .reflection/
 .codegraph/
 /.agents
-/.claude
+/.claude/*
+!/.claude/settings.json
 .playwright-mcp/
 deno.lock

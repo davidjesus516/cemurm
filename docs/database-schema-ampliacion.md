@@ -1,7 +1,7 @@
 # CEMURM — Ampliación institucional: modelo de datos de C1–C4
 
 **Estado:** especificación en revisión. **No aplicada.** Ninguna migración de este documento corrió.
-**Base:** `main` = `d3f1269`, 38 migraciones (`0001`–`0040`, hueco deliberado en `0021`/`0022`).
+**Base:** `main` = `8b9de12`, 44 migraciones (`0001`–`0046`, hueco deliberado en `0021`/`0022`).
 **Change:** `openspec/changes/ampliar-alcance-institucional`
 **Alcance:** las 9 tablas nuevas de C1–C4 y los 4 RPC de C1. C3 no necesita migración — ver §5.
 
@@ -142,7 +142,7 @@ Esta es la parte que más importa, porque es la que **desbloquea** C2, C3 y C4. 
 --
 -- NOTA SOBRE EL ESTADO ACTUAL, porque el change se apoya en el: org_memberships
 -- no esta completamente sin escribir. `leave_organization` (0016:455-459) la
--- actualiza, y es lo unico que lo hace en las 38 migraciones. Lo que no existe
+-- actualiza, y es lo unico que lo hace en las 44 migraciones. Lo que no existe
 -- es alta, cambio de rol ni baja de terceros. Este §2 agrega las tres acciones
 -- que faltan y no toca la cuarta.
 --

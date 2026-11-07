@@ -18,6 +18,15 @@ module.exports = {
   },
   overrides: [
     {
+      // Node ESM scripts (scripts/**/*.mjs) run in Node, not in the browser the
+      // base config targets, so without this override every `process.exit()` in
+      // them is a `no-undef` error. The agent guards, their selftest and the
+      // PR-size gates are all `.mjs`. `.opencode/` is not listed: eslint ignores
+      // dotfolders by default, and the plugin there imports these same modules.
+      files: ['scripts/**/*.mjs'],
+      env: { browser: false, node: true, es2022: true },
+    },
+    {
       // TS/TSX half (tw4-stack-foundation S5, odd/tasks/tw4-stack-foundation.md
       // L3). Scoped to src/ on purpose: --ext ts,tsx would also admit
       // supabase/functions/*.ts, which run on Deno and sit outside every
