@@ -3,7 +3,7 @@
 > **Estado:** propuesta. No autorizada. Ningún PR abierto, ninguna migración escrita.
 > **Change:** `openspec/changes/ampliar-alcance-institucional`
 > **Modelo de datos:** `docs/database-schema-ampliacion.md` · **Pantallas:** `docs/wireframes.md` §6
-> **Diagramas:** los dos diagramas previstos — `docs/uml/amp-01-estado-requerimientos.html` y `docs/uml/amp-02-arquitectura-contextos.html` — **nunca se generaron y no existen en el árbol**. El único artefacto real de `docs/uml/` para este change es `uc-04-alcance-institucional.puml` / `.svg`.
+> **Diagramas:** de los dos previstos, **solo existe `amp-02`**. `docs/uml/amp-02-arquitectura-contextos.html` está generado a partir de `docs/uml/amp-02-arquitectura-contextos.archify.json` y muestra el orden C1→C5, la superficie de datos y las dependencias entre tranches. `amp-01-estado-requerimientos.html` **sigue sin generarse**: no está en el árbol ni tiene fuente `.archify.json`. El otro artefacto real de `docs/uml/` para este change es `uc-04-alcance-institucional.puml` / `.svg`.
 
 Esta es la pieza que convierte la ampliación en algo ejecutable. La propuesta dice **qué**; esto dice **en qué orden, con qué unidad de trabajo y qué decisión desbloquea cada tranche**.
 
