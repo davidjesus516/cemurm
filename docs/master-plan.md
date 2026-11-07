@@ -103,23 +103,25 @@ native track has no entry in that order yet; it gets one once OD-1–OD-3 are se
 ## 0. State of play — verified, not read from prose
 
 Prose in this repo has drifted. These are the facts, checked against git and code on
-**2026-10-12 at `main` = `c14e977`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
-`e849738`, re-verified 2026-10-12 after the PR-drain batches):
+**2026-11-04 at `main` = `d324021`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
+`e849738`, re-verified 2026-10-12 at `c14e977`, re-verified 2026-11-01 at `86ab810`, and
+re-verified 2026-11-04 after #430 merged `0046`):
 
 | Fact | Value |
 |---|---|
-| `main` | `d3f1269`, in sync with `origin/main` (was `a610dd0` at the 2026-10-13 re-verification, and `c14e977` at the one before it) |
-| **Test files on `main`** | **23** — 18 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 17 at `c14e977`, and 9 at `e849738`) |
+| `main` | `d324021`, in sync with `origin/main` (was `2e5f497` when the feedback-triage chain merged, `86ab810` at the 2026-11-01 pass, `d3f1269` at the 2026-10-13 re-verification, `a610dd0` before that, and `c14e977` before that) |
+| **Test files on `main`** | **32** — 27 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 23 at the 2026-10-12 pass, 17 at `c14e977`, and 9 at `e849738`) |
 | **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck`, plus the `test:e2e*` family (`test:e2e`, `:ci`, `:chromium`, `:firefox`, `:webkit`, `:debug`, `:headed`) |
 | **CI on `main`** | `install --frozen-lockfile → lint → deno check 'supabase/functions/**/*.ts' → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-migrations-unique.sh → check-visual-contract.sh` (both gates run last on purpose: a gate that precedes `test`/`build` exits 1 under `set -euo pipefail` and marks them SKIPPED) |
 | **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, 3 chained jobs (`e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each gating the next through `needs`) |
 | `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
-| Feature files | **46**, 734 scenarios — was 42 / 656 at `8b66394` |
-| Migrations on `main` | **38 files, numbered `0001`–`0040`, with `0021`/`0022` a deliberate free gap** — was 27 with a gap at `0021` |
-| Next free migration number | **`0041`** — `0021`/`0022` remain deliberately free, and everything from `0036` to `0040` is taken (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`) |
+| Feature files | **48**, 776 scenarios — was 47 / 747 before the internal operations console landed, 46 / 734 before the feedback-triage feature, 42 / 656 at `8b66394` |
+| Migrations on `main` | **44 files, numbered `0001`–`0046`, with `0021`/`0022` a deliberate free gap** — was 43 through `0045` at the 2026-11-01 pass, 38 through `0040` at the 2026-10-12 pass, and 27 with a gap at `0021` before that |
+| Next free migration number | **`0047`.** `0021`/`0022` remain deliberately free, and everything from `0036` to `0046` is taken (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`, `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`, `0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`) |
+| Smoke scripts on `main` | **22**, `scripts/smoke/` from `0021-plan-freeze.sql` to `0046-feedback-triage.sql`. Not in CI and not wired to any pnpm script — manual, and a smoke filename is not a migration number |
 | Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`); #360 added `0036_guardian_approve_public_sharing.sql` |
-| Hito 6 | **not started** — no implementation for any of its six features |
-| `// @ts-check` opt-ins | **47** files; `tsc --listFiles` reaches **62** `src/` files |
+| Hito 6 | **privacy slice shipped, four features unstarted** — `offboarding-cascade` (`0038`/`0039`, recorded in `odd/tasks/offboarding-cascade.md`) and `account-data-export-and-erasure` (`0042`–`0044`, all slices closed in `odd/tasks/account-data-export-and-erasure.md`) are on `main`; `export-and-sharing`, `user-onboarding`, `analytics-and-insights` and `cross-organization-event-collaboration` have no implementation |
+| `// @ts-check` opt-ins | **48** files (`git grep -l '@ts-check' origin/main -- 'src/**/*.js'`); `tsc --listFiles` reached **62** `src/` files at `c14e977` and has not been re-measured since |
 | `docs/design-system.md` | superseded in part by `skills/cemurm-visual-system/` (PR #235, commit `5547150`); banner added in #238 |
 
 **`docs/mvp-scope.md` was wrong on Hito 5, twice.** It first stated "Nothing from Hito 5 is merged
@@ -215,8 +217,11 @@ All four branches exist, are pushed, and are unmerged. Verified after `git fetch
 ### ⚠️ Migration numbering: one real collision, and the rest is fine
 
 > **RESOLVED — and the outcome is the opposite of what this section predicted.** Read this as the
-> post-mortem it now is. `main` is **38 files numbered `0001`–`0040`, with `0021`/`0022` left as a
-> deliberate free gap**; the next free slot is **`0041`**. The tie-break migration took **`0037`** in
+> post-mortem it now is. `main` is **44 files numbered `0001`–`0046`, with `0021`/`0022` left as a
+> deliberate free gap**; the lowest free slot is **`0047`**. (The block said 38 /
+> `0040` / next `0041` until 2026-11-01, then 43 / `0045` / next `0046` until `0046` merged in #430;
+> those were true at the `main` of their day and are kept only as
+> the measurement this post-mortem was written against.) The tie-break migration took **`0037`** in
 > #365 — the very slot this section was written to claim, so the collision it predicted did happen
 > and the number was allocated rather than left open.
 >

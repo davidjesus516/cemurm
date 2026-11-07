@@ -47,7 +47,7 @@ VITE_SUPABASE_URL=http://127.0.0.1:54321
 VITE_SUPABASE_ANON_KEY=<anon key from supabase status>
 ```
 
-`src/lib/supabase.js` throws if either variable is missing.
+`src/data/supabase.js` throws if either variable is missing.
 
 ## Spotify enrichment provider (mock vs real API)
 
@@ -198,6 +198,32 @@ select 'http://localhost:5173/guardian/confirm?user=' || user_id
 ```
 
 The revoke link needs the witness as well — 0017's `revoke_guardian_consent` requires the guardian's email next to the token, so the emailed link carries `&email=<guardian_email>`. Both pages strip the whole query string out of browser history the moment they read it (`src/lib/guardianLink.js`), and neither auto-confirms on load: a mail-client link scanner would otherwise spend the one-shot capability.
+
+## Feedback → GitHub issue (`feedback-to-issue`)
+
+The triage inbox promotes a feedback report into a GitHub issue. The function reads three values from `supabase/functions/.env` — the same gitignored file the guardian function uses, read once at `supabase start`:
+
+```env
+GITHUB_TOKEN=<fine-grained PAT, issues: write on the target repo>
+GITHUB_REPO_OWNER=davidjesus516
+GITHUB_REPO_NAME=cemurm
+```
+
+The owner and repo default to the values above when unset; the token has **no** default, and without it the function answers `500 {"error":"GITHUB_TOKEN not configured"}` and creates nothing. The token is read through `Deno.env` and never returned, never logged and never placed in a response body — an upstream GitHub failure body is written to the server log and the browser gets a fixed string, because that body can echo the request.
+
+Authorization is enforced in two steps, both server-side: the caller's JWT must resolve to a user, and that user must hold a `system_admin` row in `user_roles`. `verify_jwt` defaults to `true`, so the gateway rejects an unsigned request before the handler runs.
+
+Promotion is claimed before it is attempted. The row's `promoted_at` is set with a conditional update while `github_issue_number is null`; a second click, or a retry after a timeout, gets `409 {"error":"Promotion already in progress"}` instead of opening a duplicate issue. If GitHub rejects the request, the claim is released so the report can be retried.
+
+The issue body drops `diagnostics.screenshot` on purpose. It is a data URL capped at 1.5M characters on the client, and GitHub rejects any body over 65,536 characters with a `422`. The remaining diagnostics are bounded at 4 KB.
+
+Exercise it with a real `system_admin` session:
+
+```bash
+curl -X POST http://127.0.0.1:54321/functions/v1/feedback-to-issue \
+  -H "apikey: $ANON" -H "Authorization: Bearer $ADMIN_ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"feedback_id":"<uuid>"}'
+```
 
 ## Run / stop
 

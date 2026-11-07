@@ -52,9 +52,13 @@ pnpm install --frozen-lockfile
 → deno check 'supabase/functions/**/*.ts'
 → pnpm typecheck
 → bash scripts/check-test-integrity.sh
+→ node scripts/hooks/pre-tool-guard.selftest.mjs
 → pnpm test
 → pnpm test:gherkin
 → pnpm build
+→ bash scripts/check-migrations-unique.sh
+→ node scripts/check-migrations-destructive.mjs
+→ bash scripts/check-doc-counts.sh
 → bash scripts/check-visual-contract.sh
 ```
 
@@ -72,11 +76,28 @@ by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm t
 not a failing run, they are a green run that tested less, so nothing inside the suite could see
 them. Bash + grep only, same as the visual gate.
 
+**Two gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
+(destructive SQL blocked, `supabase db reset` still allowed, exit 2 on a block, `size:exception`
+clearing only the size verdict), and `check-migrations-destructive.mjs` applies the destructive-SQL
+rule to the migration files rather than to the tool call that wrote them — the same rule from the
+same module (`scripts/hooks/rules.mjs`), which is what keeps the Claude Code hook, the OpenCode
+plugin and CI from drifting into three policies. The escape hatch is a comment in the migration
+itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is reviewable where
+the data loss would be. Comments are stripped before the scan, because `0046` explains that a
+revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate statement.
+
+**The counts are now a gate too.** `check-doc-counts.sh` reads the migration count, the smoke
+count, the feature and scenario counts and the next free migration number from `AGENTS.md` and
+`docs/master-plan.md`, and compares each against the tree. It exists because the numbers in this
+file have been wrong every time anybody re-counted them — five times, most recently on 2026-11-01 —
+and each drift was found by hand. Fixing a number is a PR's work; this stops the next drift. If it
+fails, fix the document: the tree is the fact and the prose is a copy.
+
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
-no `tsc` (its `include` has no `supabase` path) and no ESLint (`--ext js,jsx` never enumerates
-`.ts`) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`. The glob is **quoted on
-purpose** — unquoted, bash expands `**` as `*` (globstar is off in Actions) and silently omits
-nested files. Still nothing in the JS gates reaches that path.
+no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,
+whose functions target Deno rather than Node) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`.
+The glob is **quoted** on purpose — unquoted, bash expands `**` as `*` (globstar is off in Actions)
+and silently omits nested files. Still nothing in the JS gates reaches that path.
 
 ## E2E is a separate workflow
 
@@ -130,16 +151,21 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **16 files**, `0021-plan-freeze.sql` through `0039-leave-handoff-guard.sql`
-(an earlier version of this line said "6 files, `0023`–`0028`"; re-count rather than trusting it).
+`scripts/smoke/*.sql` — **22 files**, `0021-plan-freeze.sql` through `0046-feedback-triage.sql`
+(earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
+re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
 `0034_plan_freeze.sql` and `0022-projection.sql` covers `0035_projection.sql` — both were
 renumbered after their smokes were written, and the smokes were not renamed with them. So a smoke
 name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
-that those migration slots are taken.
+that those migration slots are taken. The newest file is a third instance: it is
+`0046-feedback-triage.sql`, and the migration it covers is
+`0046_feedback_triage_and_github_link.sql`.
 
-`0036_guardian_approve_public_sharing.sql` has no smoke yet, and neither does the newest
-migration, `0040_fix_migration_chain_rls.sql`. They are **not** in CI and **not** wired to any pnpm script. The invocation
+What has a smoke: `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
+`0037`–`0039` and `0041`–`0046`. What does not: `0001`–`0020`,
+`0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql`. They are **not**
+in CI and **not** wired to any pnpm script. The invocation
 exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
 
 ```bash
@@ -157,16 +183,19 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **38 files on `main`**, numbered `0001`–`0040`, with **`0021` and `0022` a deliberate
+Migrations: **44 files on `main`**, numbered `0001`–`0046`, with **`0021` and `0022` a deliberate
 free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
-`0039_leave_handoff_guard.sql` and `0040_fix_migration_chain_rls.sql`. **The next free number is
-`0041`.**
+`0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`,
+`0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`,
+`0045_respond_member_guard.sql` and `0046_feedback_triage_and_github_link.sql`.
+**The next free number is `0047`.**
 
-Re-count rather than trusting this paragraph: it has been wrong four times, because every merge
-that renumbers invalidates the sentence above it. `git ls-tree --name-only origin/main
-supabase/migrations/ | wc -l` is the fact; the prose is a copy of it.
+Re-count rather than trusting this paragraph: it has been wrong five times, most recently on
+2026-11-01, when it still said 38 files through `0040` with `0041` next, while `main` carried 43
+through `0045`. Every merge that renumbers invalidates the sentence above it. `git ls-tree
+--name-only origin/main supabase/migrations/ | wc -l` is the fact; the prose is a copy of it.
 
 Before adding a migration, check every branch for a collision:
 `git branch -r | xargs -I{} git ls-tree --name-only {} -- supabase/migrations/`. Two cautions on
@@ -187,9 +216,10 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the next free number, `0041` today. `0033_feedback.sql` is the precedent for
-  renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0041`. Land it in a genuinely
+  matter, so take the first free number nobody has claimed — `0047` today, because the lowest free
+  slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
+  natural slot is gone; it is self-contained, so `0033` cost nothing.
+- **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
   free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
   `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
   Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
@@ -234,7 +264,7 @@ Four layers run in this repo. They are not interchangeable — putting an artifa
 
 | Layer | Owns | Home |
 |---|---|---|
-| **BDD** | Product truth. 46 `.feature` files, 734 scenarios. The source of what to build | `features/*.feature` |
+| **BDD** | Product truth. 48 `.feature` files, 776 scenarios. The source of what to build | `features/*.feature` |
 | **Milestones** | Temporal sequencing. Hitos 1–6, and the verified slice plan | `docs/master-plan.md`, `docs/mvp-scope.md` |
 | **SDD (OpenSpec)** | **Capabilities and delta specs.** One spec per capability, archived when the change closes | `openspec/specs/`, `openspec/changes/` |
 | **ODD** | **Execution records.** One file per work unit, with commit SHAs and verification evidence | `odd/tasks/*.md` |
