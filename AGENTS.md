@@ -264,7 +264,7 @@ Four layers run in this repo. They are not interchangeable — putting an artifa
 
 | Layer | Owns | Home |
 |---|---|---|
-| **BDD** | Product truth. 47 `.feature` files, 747 scenarios. The source of what to build | `features/*.feature` |
+| **BDD** | Product truth. 48 `.feature` files, 776 scenarios. The source of what to build | `features/*.feature` |
 | **Milestones** | Temporal sequencing. Hitos 1–6, and the verified slice plan | `docs/master-plan.md`, `docs/mvp-scope.md` |
 | **SDD (OpenSpec)** | **Capabilities and delta specs.** One spec per capability, archived when the change closes | `openspec/specs/`, `openspec/changes/` |
 | **ODD** | **Execution records.** One file per work unit, with commit SHAs and verification evidence | `odd/tasks/*.md` |
