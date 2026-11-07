@@ -67,13 +67,22 @@ toolchain emits.
 
 ## Scope
 
-Split out of PR #425 on review request. The other two units from that PR — the `amp-02`
-context diagram and the internal operations console specification — are not here.
-`/dashboard` is already gated by `RequireOrgOwner` (`src/app/router.jsx:86-110`), which
-denies every role the console is meant to serve, so that slice needs a route decision
-before it can be implemented.
+This unit was split out of PR #425 on review request: a 17-line fix trapped behind 30,995
+diff lines is not reviewable as a slice.
+
+**The split did not happen.** #425 merged whole on 2026-11-07 (`25c975f`) with a recorded
+`size:exception` (`odd/tasks/internal-operations-console.md`), and the branch
+`docs/uml-uc04-build-fix` / PR #439 was closed as absorbed — its content had already landed
+there byte-identically. This record is recovered from that branch so the work is not left
+undocumented.
+
+The `/dashboard` route question raised here is still open, and now lives in PR #442: that path
+is mounted behind `RequireOrgOwner` (`src/app/router.jsx:86-110`), which denies every role the
+console is meant to serve.
 
 ## Log
 
 - L1: reviewer asked to split PR #425 because a 17-line fix was trapped behind 30,995
   diff lines, and noted `build-all.sh` is broken on `main` right now.
+- L2: 2026-11-07 — the split was abandoned; #425 merged whole with `size:exception`. Record
+  rescued to `main` so the unit keeps its execution history.

@@ -47,12 +47,19 @@ targets that table anywhere in `supabase/migrations/`. The card is accurate.
 
 ## Scope
 
-Split out of PR #425 on review request. Not here:
+Split out of PR #425 on review request, alongside two sibling slices: the `uc-04` cards file
+that repairs `build-all.sh`, and the internal operations console specification.
 
-- Slice 1 — the `uc-04` cards file that repairs `build-all.sh` — shipped separately in #439.
-- Slice 3 — the internal operations console specification. Blocked on the `/dashboard`
-  route question: `src/app/router.jsx:86-110` mounts that path behind `RequireOrgOwner`,
-  which denies every role the console is meant to serve.
+**The split did not happen.** #425 merged whole on 2026-11-07 (`25c975f`) with a recorded
+`size:exception` (`odd/tasks/internal-operations-console.md`). The sibling branch
+`docs/uml-uc04-build-fix` / #439 was closed as absorbed, and `docs/ops-console-proposal` /
+#442 was reduced to its route revision. This record is recovered from the branch that was
+closed; the diagram, the viewer and the roadmap correction had already landed byte-identically
+in #425.
+
+The console slice's `/dashboard` question is still open in #442: `src/app/router.jsx:86-110`
+mounts that path behind `RequireOrgOwner`, which denies every role the console is meant to
+serve.
 
 `amp-01-estado-requerimientos.html` is not part of this slice and has no source file in the
 tree. The roadmap now says so instead of lumping both diagrams together.
@@ -73,3 +80,5 @@ tree. The roadmap now says so instead of lumping both diagrams together.
 - L1: reviewer asked to split PR #425 into three slices and noted that slice 2 only needs
   to also update `docs/roadmap-ampliacion.md:6`, which states amp-02 "nunca se generó y no
   existe en el árbol" — false the moment the diagram lands.
+- L2: 2026-11-07 — the split was abandoned; #425 merged whole with `size:exception`. Record
+  rescued to `main` so the unit keeps its execution history.
