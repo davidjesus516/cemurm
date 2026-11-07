@@ -3,7 +3,9 @@
 > Change: `add-internal-operations-console`
 > Feature: `features/internal-operations-console.feature` (new, 29 scenarios)
 > Status: proposed. Scope confirmed by the maintainer: **internal operations
-> console**, gated to `system_admin` + `community_moderator`.
+> console**, gated to `system_admin` + `community_moderator`. The route is
+> **not settled** — `/dashboard` is the proposed path, and the decision is
+> open (see Open questions).
 
 ## Intent
 
@@ -53,8 +55,8 @@ with two primary navigations at once.
   read through the same `isSystemAdmin` / `isModerator` pair `useModeration`
   already uses, with the system-administrator sections **absent** (not
   disabled) for a moderator — the tiering `0020` already establishes.
-- **Its own shell and sidebar** at `/dashboard`, outside `AppLayout`, so
-  `CardNav` is untouched.
+- **Its own shell and sidebar** at the console route (proposed: `/dashboard`),
+  outside `AppLayout`, so `CardNav` is untouched.
 - **The sidebar's behaviour**: collapse to an icon rail, persisted across
   reload, keyboard toggle, mobile drawer, single active marker, focus return,
   reduced-motion path.
@@ -156,13 +158,14 @@ correction the dead `button.jsx` already acknowledged in its own header
 (*"rounded-xl becomes rounded-lg: visual-system rule 03"*) without applying it
 consistently.
 
-**Route placement is a decision, and it is this one.** `/dashboard` is
-registered **inside `RequireAuth` and inside `RequireGuardianConsent`**, as a
-sibling of the member routes and **outside `AppLayout`** — no `CardNav`, no
-member footer. Inside the guardian guard because a signed-in account without
-active consent must not reach a new surface by a fresh URL; the lock is
-route-independent by design. This is the one structural choice a reviewer is
-most likely to want changed, so it is stated as a choice.
+**Route placement is proposed, not settled.** This proposal puts the console
+at `/dashboard`, registered **inside `RequireAuth` and inside
+`RequireGuardianConsent`**, as a sibling of the member routes and **outside
+`AppLayout`** — no `CardNav`, no member footer. Inside the guardian guard
+because a signed-in account without active consent must not reach a new
+surface by a fresh URL; the lock is route-independent by design. But the
+path has an owner today, and that conflict is exactly why the route decision
+is recorded as open below.
 
 **Slicing, because this is far past 400 lines.** `AGENTS.md` caps a PR at ~400
 changed lines and the precedent is chained `-prN-` slices.
@@ -188,6 +191,30 @@ here**: it says 33 files and "the next free number is 0034".
 sidebar is what was asked for first, and it needs no migration, no policy and no
 new data path — so it can land and be reviewed on its own.
 
+## Open questions
+
+**1. Where does the console live — `/dashboard`, the `/admin` template, or both?**
+
+The path this proposal names is **not free**. `/dashboard` is already mounted
+(`src/app/router.jsx:86-110`) as the shadcn template subtree behind
+`RequireAuth` + `RequireGuardianConsent` + **`RequireOrgOwner`** — and that
+guard is owner-only by contract (`src/app/providers/RequireOrgOwner.jsx`:
+*"Owner-only, not manager-wide: org_admin, branch_admin, instructor and the
+platform system_admin role do not pass."*). Today that path **denies every
+role this console exists to serve**, so reusing `/dashboard` is not a no-op:
+it means either widening `RequireOrgOwner` (which touches an existing gate's
+contract and the vendored template) or mounting the console at a new path
+with its own guard — the way `RequireSystemAdmin` gates the feedback-triage
+route.
+
+Context for the decision: on 2026-10-20 the maintainer chose the full
+`/admin` template for the gerencial branch and explicitly left this WIP
+untouched (`odd/tasks/gerencial-dashboard-fase3.md`, L2). The choice —
+`/dashboard`, `/admin`, or both — belongs to the maintainer and is recorded
+here as **open**, not claimed as settled. `spec.md` and the `.feature` use
+`/dashboard` as the proposed path name; a route decision renames them
+mechanically.
+
 ## Affected areas
 
 | Area | Impact | Description |
@@ -197,7 +224,7 @@ new data path — so it can land and be reviewed on its own.
 | `src/features/dashboard/pages/Dashboard.jsx` | New | the console shell: sidebar + content outlet |
 | `src/features/dashboard/components/Sidebar*.jsx` | New | the sidebar ported to `cva` + `cn()` + `cem-*` tokens |
 | `src/features/dashboard/useConsoleRole.js` | New | resolves the staff tier via `isModerator` / `isSystemAdmin` |
-| `src/app/router.jsx` | Modified | `/dashboard` registered inside `RequireAuth` + `RequireGuardianConsent`, outside `AppLayout` |
+| `src/app/router.jsx` | Modified | the console route registered inside `RequireAuth` + `RequireGuardianConsent`, outside `AppLayout` — and the existing `/dashboard` mount behind `RequireOrgOwner` is the open question: widening that guard, a new path, or the `/admin` template is undecided |
 | `src/features/dashboard/**` | New | one directory per section, added by later slices |
 | `supabase/migrations/0038_*.sql` | New | feedback triage policy + status writer (PR4) |
 | `supabase/migrations/0039_*.sql` | New | member directory read path (PR5) |
