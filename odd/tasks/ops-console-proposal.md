@@ -8,7 +8,8 @@ artificial; there is no functional half of a proposal.
 ## Objective
 
 Publish the console proposal — and only the proposal — with the `/dashboard`
-route question recorded as open instead of claimed as settled.
+route question recorded as open instead of claimed as settled. *(L4 closed that
+question at `/ops`; the Objective is the L3 state.)*
 
 ## Problem / Why
 
@@ -39,15 +40,15 @@ the console is built.
   guard / the `/admin` template); the affected-areas `router.jsx` row now
   names `RequireOrgOwner` and the open decision. **L4 renamed that section to
   `## Resolved questions` and replaced the three options with the decision.**
-- `specs/internal-operations-console/spec.md` — Purpose states the path is
-  proposed and points at the proposal's Open questions (now `## Resolved
-  questions`).
-- `features/internal-operations-console.feature` — unchanged. It uses
-  `/dashboard` as the proposed path name; a route decision renames it
-  mechanically. It is inert by design (`test:gherkin` does not execute
-  `features/`), and the reviewer confirmed the 29 scenarios are
+- `specs/internal-operations-console/spec.md` — at L3 the Purpose stated the path as proposed and
+  pointed at the proposal's `## Open questions`. **L4 changed both: the Purpose now states the
+  path is settled and points at `## Resolved questions`.**
+- `features/internal-operations-console.feature` — unchanged at L3. It used `/dashboard` as the
+  proposed path name; a route decision renames it mechanically. It is inert by design
+  (`test:gherkin` does not execute `features/`), and the reviewer confirmed the 29 scenarios are
   well-structured with the two-tier access model traced to `0020` and
-  `community-moderation.feature`. **L4 paid that rename: `/ops`.**
+  `community-moderation.feature`. **L4 paid that rename: `/ops`, six literals, 29 scenarios
+  still.**
 
 ## Verification
 
@@ -92,3 +93,5 @@ cards fix), slice 2 as #440 (amp-02 + roadmap). With this PR, nothing from
   admitting `isSystemAdmin || isModerator`. Renamed in the three artifacts —
   `.feature` (6), `proposal.md` (14), `spec.md` (8) — and the proposed feature
   directory moves to `src/features/ops/`. No application code in this unit.
+  Delivered on its own branch, `docs/ops-console-route` (PR #449), not on
+  `docs/ops-console-proposal`.

@@ -67,10 +67,11 @@ diagram only.
 
 - **The route was proposed as `/dashboard` and is now settled at `/ops`.** This unit published the
   proposal with the placement as an open question, registered inside `RequireAuth` and
-  `RequireGuardianConsent` and outside `AppLayout`, so a reviewer could move it without
-  rewriting the spec. The maintainer decided on 2026-11-08: `/dashboard` belongs to the
-  org-owner template and `/admin` to the gerencial branch, so the console takes a new path
-  served by a new `RequireStaff` guard. Reasoning in
+  `RequireGuardianConsent` and outside `AppLayout`. The maintainer decided on 2026-11-08:
+  `/dashboard` belongs to the org-owner template and `/admin` to the gerencial branch, so the
+  console takes a new path served by a new `RequireStaff` guard. Leaving it open unblocked the
+  decision; it did **not** make a route move free — the decision cost a mechanical rename of 28
+  route literals across the feature, the proposal and the spec. Reasoning in
   `openspec/changes/add-internal-operations-console/proposal.md` § Resolved questions.
 - **Two tiers, one surface.** The console serves `community_moderator` and `system_admin`; the
   administrator sections are absent — not disabled — for a moderator, matching the tiering
