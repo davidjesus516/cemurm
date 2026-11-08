@@ -2,11 +2,13 @@
 
 ## Purpose
 
-A staff-only console at `/dashboard` for `system_admin` and
+A staff-only console at `/ops` for `system_admin` and
 `community_moderator` accounts, from `features/internal-operations-console.feature`
-(29 scenarios). `/dashboard` is the **proposed** path; the route decision is
-open (see the proposal's Open questions — the path is currently mounted
-behind `RequireOrgOwner`, which denies these roles).
+(29 scenarios). `/ops` is a **new path with its own guard** — settled
+2026-11-08. It is deliberately neither `/dashboard`, which is mounted behind
+`RequireOrgOwner` and denies both staff roles, nor `/admin`, reserved for the
+gerencial template. The reasoning and the rejected alternatives are in the
+proposal's `## Resolved questions`.
 It gives staff work a shell of its own — its own sidebar, no member navigation —
 and collects the five surfaces that are currently either scattered through the
 member app or unreachable: moderation, repertoire promotion, feedback triage,
@@ -64,7 +66,7 @@ MUST deny it to every other account and to signed-out visitors.
 #### Scenario: A system administrator reaches the console
 
 - GIVEN I am signed in and `user_roles` has my id with role `system_admin`
-- WHEN I navigate to `/dashboard`
+- WHEN I navigate to `/ops`
 - THEN the console renders with its own sidebar
 - AND the member navigation bar is not rendered
 - AND I can reach the member app destinations from the console's sidebar
@@ -72,7 +74,7 @@ MUST deny it to every other account and to signed-out visitors.
 #### Scenario: A community moderator reaches a narrower console
 
 - GIVEN I am signed in and `user_roles` has my id with role `community_moderator`
-- WHEN I navigate to `/dashboard`
+- WHEN I navigate to `/ops`
 - THEN the console renders with the sections my tier may use
 - AND the `system_admin` sections are absent from my navigation
 - AND requesting a `system_admin` section URL directly does not render it
@@ -80,21 +82,21 @@ MUST deny it to every other account and to signed-out visitors.
 #### Scenario: An ordinary member cannot reach the console
 
 - GIVEN I am signed in with no row in `user_roles`
-- WHEN I navigate to `/dashboard`
+- WHEN I navigate to `/ops`
 - THEN the console does not render
 - AND I am returned to the member app
 
 #### Scenario: A signed-out visitor cannot reach the console
 
 - GIVEN I am not signed in
-- WHEN I navigate to `/dashboard`
+- WHEN I navigate to `/ops`
 - THEN I am redirected to sign in
 
 #### Scenario: A guardian-locked account stays locked
 
 - GIVEN I am signed in with no staff role
 - AND my guardian consent is not active
-- WHEN I navigate to `/dashboard`
+- WHEN I navigate to `/ops`
 - THEN I am held at the guardian consent lock, as on any other member route
 
 ### Requirement: A console shell separate from the member app
@@ -180,7 +182,7 @@ MUST NOT mark an entry while a deeper unrelated route is open.
 - GIVEN the console has a parent route and a child route
 - WHEN the child route is open
 - THEN the parent entry is not marked in place of the child
-- AND `/dashboard` itself is not marked on every console path
+- AND `/ops` itself is not marked on every console path
 
 ### Requirement: The console respects reduced motion
 
