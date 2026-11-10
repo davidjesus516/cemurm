@@ -294,9 +294,10 @@ y el rango `0019→0028` de esta línea eran el estado el 2026-09-28; hoy `main`
 > `Antony-Figueroa` write— deja una regla que la cláusula 6 no dice: **la aprobación solo puede venir
 > del que no pusheó.** #451–#453 (autor `Antony-Figueroa`) las aprueba el mantenedor; #449/#450
 > (autor `davidjesus516`) las aprueba `Antony-Figueroa`. Los dos llevaban **10/10 checks en verde**
-> y cero notificaciones, que es exactamente el estado que la cláusula 6 dice evitar. La corrección
-> pendiente es de texto, no de plataforma: la cláusula tiene que nombrar al aprobador posible en vez
-> de decir "pedí review siempre".
+> y cero notificaciones, que es exactamente el estado que la cláusula 6 dice evitar. **Corregido el
+> 2026-11-10 (PR #454)**: es texto, no plataforma. La cláusula ya no nombra un handle fijo sino al
+> **colaborador que no pusheó**, y exige verificar que el pedido aterrizó (`reviewRequests` no vacío)
+> porque `gh` sale `0` igual.
 
 - **Evaluación**: `gh pr edit <n> --add-reviewer davidjesus516` sobre un PR **autorizado por** davidjesus516 sale `0`, imprime la URL, y **no crea nada**. Medido: #273 (propio) → `reviewRequests: []`; #194 (autor `Antony-F Figueroa`) → `reviewRequests: ["davidjesus516"]`, y ese sí notifica.
 - **Por qué importa**: combinado con `require_last_push_approval: true` del ruleset activo, un PR propio **no tiene ninguna vía de aprobación dentro de la plataforma** — solo `--admin`. La cláusula 6 dice "notifica, no esperes en silencio", y su mecanismo **reporta éxito sin accomplishir nada**. Es peor que no tenerla: genera la sensación de que se ha notificado.
