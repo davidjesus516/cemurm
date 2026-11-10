@@ -117,3 +117,14 @@ in this unit — it depends on four surfaces being stable and ships separately.
   the 400 budget, so T1 ships as two stacked slices: the serializers, then the dispatcher and
   the page menu. Each slice re-runs lint/typecheck and the exporter tests; the full gate set
   was verified again on the second slice before opening its PR.
+- **L10** (2026-11-10, orchestrator): review of T1a (#450) left one blocker and three fixes,
+  applied in `217f1ed` and `71cf7f9`: `chordpro.test.js` pins the separator (single song → no
+  `{new_song}`), the orphaned JSDoc above `onsongFileName` is gone, titles and notes escape
+  `\` then `|` (CodeQL `js/incomplete-sanitization`), and `slugify` stays exported because
+  `setlistFile.js` in T1b consumes it — the review corrected its own point 3 on that.
+  **Size exception:** the slice now measures 470 authored lines against `main`'s merge base
+  (386 before the review fixes), so it carries the `size:exception` label. The overage is the
+  coverage the review demanded, not content that could be dropped.
+  `pr-size.yml` reported 639 because it diffs the merge base against the merge-ref `HEAD`,
+  which pulls in `main` commits that landed after the branch point; the workflow's own base
+  choice is the defect, and the PR body says so.
