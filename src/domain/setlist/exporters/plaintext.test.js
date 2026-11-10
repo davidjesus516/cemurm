@@ -79,4 +79,13 @@ describe('serializePlainText', () => {
 
     expect(text).toContain('| Intro \\| Outro |')
   })
+
+  it('escapes the backslash before the pipe so the pipe cannot leak back out', () => {
+    const text = serializePlainText(
+      { name: 'Backslash', itemIds: ['s1'], itemNotes: { s1: String.raw`capo 2 \| drop D` } },
+      SONGS,
+    )
+
+    expect(text).toContain(String.raw`| capo 2 \\\| drop D |`)
+  })
 })

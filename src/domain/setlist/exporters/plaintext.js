@@ -10,12 +10,16 @@ import { orderedSongs, resolveKey } from './shared.js'
 
 /**
  * Escape a value for a markdown table cell: a bare `|` would close the cell
- * early and break every following column.
+ * early and break every following column, and a backslash has to be escaped
+ * first or `\|` in the input turns into `\\|` and leaks the pipe back out
+ * (CodeQL js/incomplete-sanitization).
  * @param {unknown} value
  * @returns {string}
  */
 function cell(value) {
-  return String(value).replace(/\|/g, '\\|')
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
 }
 
 /**
