@@ -116,8 +116,8 @@ re-verified 2026-11-04 after #430 merged `0046`):
 | **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, 3 chained jobs (`e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each gating the next through `needs`) |
 | `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
 | Feature files | **48**, 776 scenarios — was 47 / 747 before the internal operations console landed, 46 / 734 before the feedback-triage feature, 42 / 656 at `8b66394` |
-| Migrations on `main` | **44 files, numbered `0001`–`0046`, with `0021`/`0022` a deliberate free gap** — was 43 through `0045` at the 2026-11-01 pass, 38 through `0040` at the 2026-10-12 pass, and 27 with a gap at `0021` before that |
-| Next free migration number | **`0047`.** `0021`/`0022` remain deliberately free, and everything from `0036` to `0046` is taken (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`, `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`, `0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`) |
+| Migrations on `main` | **45 files, numbered `0001`–`0047`, with `0021`/`0022` a deliberate free gap** — was 44 through `0046` before `0047_public_table_privileges.sql` landed, 43 through `0045` at the 2026-11-01 pass, 38 through `0040` at the 2026-10-12 pass, and 27 with a gap at `0021` before that |
+| Next free migration number | **`0048`.** `0021`/`0022` remain deliberately free, and everything from `0036` to `0047` is taken (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`, `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`, `0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`, `0047_public_table_privileges.sql`) |
 | Smoke scripts on `main` | **22**, `scripts/smoke/` from `0021-plan-freeze.sql` to `0046-feedback-triage.sql`. Not in CI and not wired to any pnpm script — manual, and a smoke filename is not a migration number |
 | Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`); #360 added `0036_guardian_approve_public_sharing.sql` |
 | Hito 6 | **privacy slice shipped, four features unstarted** — `offboarding-cascade` (`0038`/`0039`, recorded in `odd/tasks/offboarding-cascade.md`) and `account-data-export-and-erasure` (`0042`–`0044`, all slices closed in `odd/tasks/account-data-export-and-erasure.md`) are on `main`; `export-and-sharing`, `user-onboarding`, `analytics-and-insights` and `cross-organization-event-collaboration` have no implementation |
@@ -217,8 +217,8 @@ All four branches exist, are pushed, and are unmerged. Verified after `git fetch
 ### ⚠️ Migration numbering: one real collision, and the rest is fine
 
 > **RESOLVED — and the outcome is the opposite of what this section predicted.** Read this as the
-> post-mortem it now is. `main` is **44 files numbered `0001`–`0046`, with `0021`/`0022` left as a
-> deliberate free gap**; the lowest free slot is **`0047`**. (The block said 38 /
+> post-mortem it now is. `main` is **45 files numbered `0001`–`0047`, with `0021`/`0022` left as a
+> deliberate free gap**; the lowest free slot is **`0048`**. (The block said 38 /
 > `0040` / next `0041` until 2026-11-01, then 43 / `0045` / next `0046` until `0046` merged in #430;
 > those were true at the `main` of their day and are kept only as
 > the measurement this post-mortem was written against.) The tie-break migration took **`0037`** in

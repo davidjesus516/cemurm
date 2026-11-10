@@ -131,11 +131,11 @@ It enforces three rules and warns about a fourth, all against `public`:
 | 03 | the count of tables where `authenticated` holds DELETE may not **grow** (ratchet) | 22 |
 | 04 | warn only: tables where `authenticated` holds UPDATE at table level, not columnar | 27 |
 
-Rules 01 and 02 are zero-exception on purpose: no policy can refuse TRUNCATE (it evaluates no
-row predicate), REFERENCES or TRIGGER, so the ACL is the only control that exists. Rule 03 is a
-ratchet because 22 tables legitimately DELETE their own rows and RLS narrows each one — an
-allowlist of 22 entries would rot, a number that may only fall does not. **Change `DELETE_RATCHET`
-downward only, in the commit that narrows the grant**, so the evidence travels with the number.
+Rules 01 and 02 are zero-exception on purpose: no policy can refuse TRUNCATE (it evaluates no row
+predicate), REFERENCES or TRIGGER, so the ACL is the only control that exists. Rule 03 is a ratchet
+because 22 tables legitimately DELETE their own rows and RLS narrows each one — an allowlist of 22
+entries would rot, a number that may only fall does not. **Change `DELETE_RATCHET` downward only,
+in the commit that narrows the grant**, so the evidence travels with the number.
 
 Why the gate exists at all: Supabase's default privileges grant `arwdDxtm` to `anon`,
 `authenticated` and `service_role` on every **new** table in `public`. A migration writing
@@ -245,10 +245,10 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the first free number nobody has claimed — `0047` today, because the lowest free
-  slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
-  natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
+  matter, so take the first free number nobody has claimed — `0048` today: `0047` went to the ACL
+  fix, and the lowest free slot `0046` landed with #430. `0033_feedback.sql` is the precedent for
+  renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
+- **Must sort before an existing migration** → you cannot simply take `0048`. Land it in a genuinely
   free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
   `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
   Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
