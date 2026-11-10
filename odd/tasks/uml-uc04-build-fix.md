@@ -76,9 +76,11 @@ diff lines is not reviewable as a slice.
 there byte-identically. This record is recovered from that branch so the work is not left
 undocumented.
 
-The `/dashboard` route question raised here is still open, and now lives in PR #442: that path
-is mounted behind `RequireOrgOwner` (`src/app/router.jsx:86-110`), which denies every role the
-console is meant to serve.
+The `/dashboard` route question raised here is **closed**: the maintainer settled it on
+2026-11-08 at `/ops`, a new path behind a new `RequireStaff` guard. `/dashboard` is mounted
+behind `RequireOrgOwner` (`src/app/router.jsx:95-114`), which denies every role the console is
+meant to serve; that guard is left untouched. Reasoning in
+`openspec/changes/add-internal-operations-console/proposal.md` § Resolved questions.
 
 ## Log
 
