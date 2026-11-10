@@ -13,6 +13,8 @@
 // Node-safe: downloadOnSongFile guards the DOM, so the demo can assert the
 // exact payload without a browser.
 
+import { orderedSongs, resolveKey } from './shared.js'
+
 /**
  * The setlist surface the serializer reads: order (itemIds), the per-item
  * pinned version (versionIds) and the name (slug source) — all real Setlist
@@ -79,28 +81,16 @@
  * @returns {string}
  */
 export function serializeOnSong(setlist, songs) {
-  const itemIds = Array.isArray(setlist?.itemIds) ? setlist.itemIds : []
-  const byId = new Map((songs || []).map((s) => [s.id, s]))
+  // Agreed key: the band's settled key for this item wins, because
+  // external-integrations.feature requires the export to carry "agreed keys"
+  // and the agreed key is the one that differs from the chart's own. Falling
+  // back to the pinned version and then the song key keeps a setlist where
+  // nobody agreed anything still exporting correctly. The precedence lives in
+  // shared.js so every exporter resolves it the same way.
   const blocks = []
 
-  for (const songId of itemIds) {
-    const song = byId.get(songId)
-    if (!song) continue // missing song — nothing to serialize
-
-    // Agreed key: the band's settled key for this item wins, because
-    // external-integrations.feature requires the export to carry "agreed keys"
-    // and the agreed key is the one that differs from the chart's own. Falling
-    // back to the pinned version and then the song key keeps a setlist where
-    // nobody agreed anything still exporting correctly.
-    const agreed = setlist?.agreedKeys?.[songId]
-    let key = agreed || song.key || ''
-    if (!agreed) {
-      const versionId = setlist?.versionIds?.[songId]
-      if (versionId && Array.isArray(song.versions)) {
-        const selected = song.versions.find((v) => v.id === versionId)
-        if (selected?.key) key = selected.key
-      }
-    }
+  for (const { song } of orderedSongs(setlist, songs)) {
+    const key = resolveKey(setlist, song)
 
     /** @type {string[]} */
     const lines = []
@@ -116,6 +106,21 @@ export function serializeOnSong(setlist, songs) {
 }
 
 /**
+ * File name for the OnSong export (`<setlist-name>.cho`, lower-cased). Kept
+ * separate from `downloadOnSongFile` so the format dispatcher can name the
+ * file without touching the DOM.
+ * @param {ExportSetlist | null | undefined} setlist
+ * @returns {string}
+ */
+export function onsongFileName(setlist) {
+  const base = String(setlist?.name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return `${base || 'setlist'}.cho`
+}
+
+/**
  * Download the serialized setlist as `<setlist-name>.cho` (Blob + object URL
  * + anchor click). Node guard: returns { ok, filename, text } instead of
  * touching the DOM so the demo can assert the exact payload.
@@ -125,11 +130,7 @@ export function serializeOnSong(setlist, songs) {
  */
 export function downloadOnSongFile(setlist, songs) {
   const text = serializeOnSong(setlist, songs)
-  const base = String(setlist?.name || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  const filename = `${base || 'setlist'}.cho`
+  const filename = onsongFileName(setlist)
 
   if (typeof document === 'undefined') return { ok: true, filename, text }
 
