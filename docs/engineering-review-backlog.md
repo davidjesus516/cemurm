@@ -287,6 +287,17 @@ y el rango `0019→0028` de esta línea eran el estado el 2026-09-28; hoy `main`
 > de `--add-reviewer` sobre el propio PR: la cláusula 6 de `AGENTS.md` todavía describe ese
 > mecanismo, y la notificación fuera de banda (mención en el PR) sigue siendo el disparador real.
 
+> **Re-medido 2026-11-10, del lado simétrico (#449, #450).** `gh pr edit 449 --add-reviewer
+> davidjesus516` y lo mismo sobre #450: `exit 0`, imprime la URL del PR, y **`reviewRequests: []`**.
+> Esta vez no es el PR propio del mantenedor sino el mío sobre PRs **suyos**: es el mismo no-op
+> porque el pedido apunta al autor. Y el par de colaboradores que existe —`davidjesus516` admin,
+> `Antony-Figueroa` write— deja una regla que la cláusula 6 no dice: **la aprobación solo puede venir
+> del que no pusheó.** #451–#453 (autor `Antony-Figueroa`) las aprueba el mantenedor; #449/#450
+> (autor `davidjesus516`) las aprueba `Antony-Figueroa`. Los dos llevaban **10/10 checks en verde**
+> y cero notificaciones, que es exactamente el estado que la cláusula 6 dice evitar. La corrección
+> pendiente es de texto, no de plataforma: la cláusula tiene que nombrar al aprobador posible en vez
+> de decir "pedí review siempre".
+
 - **Evaluación**: `gh pr edit <n> --add-reviewer davidjesus516` sobre un PR **autorizado por** davidjesus516 sale `0`, imprime la URL, y **no crea nada**. Medido: #273 (propio) → `reviewRequests: []`; #194 (autor `Antony-F Figueroa`) → `reviewRequests: ["davidjesus516"]`, y ese sí notifica.
 - **Por qué importa**: combinado con `require_last_push_approval: true` del ruleset activo, un PR propio **no tiene ninguna vía de aprobación dentro de la plataforma** — solo `--admin`. La cláusula 6 dice "notifica, no esperes en silencio", y su mecanismo **reporta éxito sin accomplishir nada**. Es peor que no tenerla: genera la sensación de que se ha notificado.
 - **Decisión — requiere al mantenedor**: (a) **corregir la cláusula** para que describa el mecanismo real (un PR propio no se auto-revisa; hay que pedir revisión fuera de banda o aceptar `--admin` con la aprobación verbal como registro), o (b) **establecer otro canal de notificación** (comment en el PR mencionando a quien debe mirar, que sí es un disparador real). Lo que no es admisible es dejarla como está: es una directiva que no se puede cumplir.
@@ -376,6 +387,38 @@ medido en este repo fue +24.5 kB) · `@tanstack/react-table` 31.6 kB · `motion`
 
 Los dos últimos pesan prácticamente nada: **las objeciones contra ellos son arquitectónicas, no de
 tamaño.** No confundir una con la otra al releer este registro.
+
+## 16. Dependencias: 6 majors, 20 minors, 7 patches — y los majors no son "actualizar"
+
+> Añadido 2026-11-10. Medido con `pnpm outdated` sobre `main` = `01e0235`. **No es deuda de un PR:
+> es un inventario, y su respuesta por defecto es "no tocar".**
+
+- **Evaluación**: 33 paquetes con versión más nueva. **7 patch** (`vite` 8.3.5→8.3.7,
+  `tailwindcss` y `@tailwindcss/vite` 4.3.3→4.3.5, `@iconify/react` 6.0.2→6.0.4, `dotenv`
+  18.0.7→18.0.10, `gsap` 3.15.0→3.15.1, `react-router-dom` 7.18.3→7.18.5). **20 minor**, con
+  `vitest` 5.0.5→5.1.0 junto a `vite` (la regla de `AGENTS.md` mueve los dos en el mismo cambio),
+  `@playwright/test` y `playwright` 1.64.0→1.65.0, `@supabase/supabase-js` 2.116.0→2.119.0, los
+  **nueve** `@tiptap/*` 3.32.0→3.33.0, `motion` 14.1.0→14.11.1, `lucide-react` 1.59.0→1.70.0,
+  `react-resizable-panels` 4.14.6→4.21.0, `react-dropzone` 20.1.4→20.2.0, `@hugeicons/core-free-icons`
+  4.3.5→4.4.0 y `@typescript-eslint/{eslint-plugin,parser}` 8.71.2→8.72.1. **6 major**:
+  `typescript` 6.0.3→7.0.2, `eslint` 8.57.1→10.14.0, `eslint-plugin-react-hooks` 4.6.2→7.1.1,
+  `@tanstack/react-table` 8.21.3→9.3.1, `@vitejs/plugin-react` 5.2.0→6.3.0 y `supabase` CLI
+  2.120.0→3.1.0.
+- **Los dos majors que parecen rutina y no lo son.** `typescript` 7.0.2 es una **trampa
+  documentada**: `AGENTS.md` §Type checking registra que se bajó a 6.0.3 *desde* 7.0.2 porque
+  typescript-eslint no lo soporta, así que subirlo rompe `lint`, no `tsc`. Y `eslint` 8→10 más
+  `eslint-plugin-react-hooks` 4→7 es una migración a flat config sobre un `include` que ya alcanza
+  172 archivos del template — un proyecto, no un bump.
+- **Por qué importa**: la regla de entrada de este archivo (*un ítem se implementa solo cuando su
+  hito/feature BDD lo requiere, YAGNI activo*) aplica acá sin excepción. **Ninguna feature BDD ni
+  hito pide ninguna de estas versiones.** Un PR de 27-33 paquetes sin requisito detrás es diff
+  grande, riesgo de bundle y cero valor demostrable — el tipo exacto de trabajo que la regla existe
+  para evitar. Los patches son otra cosa: son higiene y se defienden solos.
+- **Si se hace un patch-only** (7 paquetes, la única versión defendible sin disparador): verificar
+  como manda `AGENTS.md` — instalar el lockfile en un worktree con su **propio** `node_modules`
+  (un worktree symlinkeado corre las versiones viejas y todas las puertas pasan mintiendo) y
+  comparar el bundle construido antes/después. Los minor necesitan un disparador nombrado; los
+  majors, un proyecto cada uno.
 
 ## Estado de entrada
 
