@@ -119,6 +119,15 @@ jobs:
           path: test-results/**/trace.zip
           retention-days: 7
 
+      # Last step of the job on purpose. `global-setup.js` has already run
+      # `supabase start` + `supabase db reset`, so the catalog this measures is the
+      # schema the PR ships and the check costs seconds. Under `set -euo pipefail` a
+      # step that fails early marks every later step SKIPPED, and a reviewer cannot
+      # tell a browser failure from a check that never ran (#337). Being last keeps a
+      # gate failure from skipping the `if: always()` uploads above.
+      - name: Table privilege gate (public schema ACL)
+        run: bash scripts/check-table-privileges.sh
+
   e2e-firefox:
     name: E2E Firefox
     needs: [setup, e2e-chromium]
