@@ -106,6 +106,9 @@ const indentOf = (line) => line.length - line.trimStart().length;
 
 const EXTERNAL_HREF = /^(https?:|mailto:|data:)/i;
 
+// Keep the internal NUL-delimited code-span marker out of a regex literal.
+const RE_CODE_SPAN = new RegExp(String.raw`\u0000(\d+)\u0000`, 'g');
+
 /**
  * Rewrite an in-document href to a handbook route. External URLs and real relative files are
  * left alone; `*.md` links become handbook pages; bare `#anchor` links stay inside the page
@@ -152,10 +155,10 @@ function renderInline(raw, ctx) {
 
   text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-  text = text.replace(/(^|[^\*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  text = text.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
   text = text.replace(/(^|[^\w&])_([^_\n]+)_(?!\w)/g, '$1<em>$2</em>');
 
-  return text.replace(/\u0000(\d+)\u0000/g, (match, index) => `<code>${esc(codeSpans[Number(index)])}</code>`);
+  return text.replace(RE_CODE_SPAN, (match, index) => `<code>${esc(codeSpans[Number(index)])}</code>`);
 }
 
 /* ------------------------------------------------------------------ block markdown */

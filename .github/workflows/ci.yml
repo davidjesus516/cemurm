@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only by declaration, not by inheritance. The repository default happens to be
+# read-only today, but that is a setting somebody can flip without a diff, a review
+# or a test noticing. Every job below only checks out code and installs public
+# packages, so `contents: read` is the whole of what this workflow needs.
+permissions:
+  contents: read
+
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
@@ -25,10 +32,10 @@ jobs:
       - run: pnpm lint
 
       # Edge function type-check. `supabase/functions/` is outside every other
-      # gate: `eslint` only enumerates js/jsx, and `tsconfig.json` has no
-      # supabase path. The glob is QUOTED on purpose — unquoted, bash expands
-      # `**` as `*` (globstar is off in Actions) and silently omits nested
-      # files; quoted, Deno expands it recursively.
+      # gate: `.eslintrc.cjs` ignores `supabase/` (these functions target Deno),
+      # and `tsconfig.json` has no supabase path. The glob is QUOTED on purpose —
+      # unquoted, bash expands `**` as `*` (globstar is off in Actions) and
+      # silently omits nested files; quoted, Deno expands it recursively.
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
@@ -45,6 +52,12 @@ jobs:
       # failing run, they are a green run that tested less, so nothing in the
       # suite could see them. Bash + grep only, same as the visual gate.
       - run: bash scripts/check-test-integrity.sh
+
+      # The agent guard is a policy, and a policy nobody verifies decays the same
+      # way `.only` did. This asserts the rules themselves: DROP/TRUNCATE blocked,
+      # `supabase db reset` still allowed, generated artifacts excluded from the
+      # PR budget, exit 2 on a block and 0 otherwise.
+      - run: node scripts/hooks/pre-tool-guard.selftest.mjs
 
       - run: pnpm test
 
@@ -63,6 +76,26 @@ jobs:
       # reviewer cannot tell a real downstream failure from a check that never
       # ran.
       - run: bash scripts/check-migrations-unique.sh
+
+      # Destructive SQL in migrations. The Claude Code PreToolUse hook blocks
+      # the Write/Edit that introduces a DROP or TRUNCATE; this scans the files
+      # themselves, so the same rule holds for runtimes whose permission hook
+      # only sees the path (OpenCode), for a human writing SQL directly, and
+      # for anything else that never met a hook. No database, no network --
+      # same rule (judgeMigrationContent from scripts/hooks/rules.mjs) and same
+      # escape hatch (-- destructive-ok) as the hook. Here rather than before
+      # test and build for the same reason as the two gates above: it can exit
+      # 1, and a failing step under set -euo pipefail marks everything after
+      # it SKIPPED.
+      - run: node scripts/check-migrations-destructive.mjs
+
+      # Counts stated in AGENTS.md and docs/master-plan.md, checked against the
+      # tree. Those files tell the next agent how many migrations exist and
+      # which number is free; the numbers have been wrong every time anyone
+      # re-counted them, five times in AGENTS.md alone. Correcting a number is a
+      # PR's work; this is what stops the next drift. Bash + grep only, and here
+      # for the same set -euo pipefail reason as the gates around it.
+      - run: bash scripts/check-doc-counts.sh
 
       # Visual contract gate. Bash + grep only, so it needs no install step, and
       # it deliberately runs LAST rather than before test and build: a gate that

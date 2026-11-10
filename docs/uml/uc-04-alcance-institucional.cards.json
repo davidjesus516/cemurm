@@ -1,0 +1,17 @@
+[
+  {"dot": "blue", "title": "Lo que exige el requerimiento #1", "items": [
+    "Crear, editar y desactivar cuentas de usuario",
+    "Asignar roles dentro de la organización",
+    "La baja conserva el historial, no borra la fila"
+  ]},
+  {"dot": "amber", "title": "Por qué va primero", "items": [
+    "org_memberships: grant select unicamente y tres politicas SELECT",
+    "De 164 politicas vivas, ninguna escribe en esa tabla",
+    "La unica excepcion es salir: org_leave (0016:437) deja irse a uno mismo, y nada mas"
+  ]},
+  {"dot": "rose", "title": "Lo que decide el modelo", "items": [
+    "La autorización va en un RPC SECURITY DEFINER, no en la UI",
+    "role es text libre hoy: el CHECK es lo que lo ata",
+    "Ninguna de las 31 tablas con RLS tiene FORCE ROW LEVEL SECURITY"
+  ]}
+]

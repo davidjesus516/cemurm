@@ -1,0 +1,35 @@
+name: PR size
+
+# The agent guards catch `gh pr create` inside a session. This catches the PR,
+# whatever opened it: the web UI, a human, or an agent whose runtime has no
+# plugin loaded. Same metric (authored lines, generated artifacts excluded),
+# same rules module (scripts/hooks/rules.mjs).
+#
+# Marking this job a required status check is a repository-setting decision; the
+# workflow alone reports, it does not block a merge.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  authored-lines:
+    name: authored-lines
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No `pnpm install`: the check only reads git and the rules module, so it
+      # stays the cheapest job in the suite.
+      - run: node scripts/check-pr-size.mjs --base "${{ github.event.pull_request.base.sha }}" --head HEAD
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}

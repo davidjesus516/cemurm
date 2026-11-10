@@ -52,10 +52,13 @@ pnpm install --frozen-lockfile
 → deno check 'supabase/functions/**/*.ts'
 → pnpm typecheck
 → bash scripts/check-test-integrity.sh
+→ node scripts/hooks/pre-tool-guard.selftest.mjs
 → pnpm test
 → pnpm test:gherkin
 → pnpm build
 → bash scripts/check-migrations-unique.sh
+→ node scripts/check-migrations-destructive.mjs
+→ bash scripts/check-doc-counts.sh
 → bash scripts/check-visual-contract.sh
 ```
 
@@ -73,11 +76,28 @@ by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm t
 not a failing run, they are a green run that tested less, so nothing inside the suite could see
 them. Bash + grep only, same as the visual gate.
 
+**Two gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
+(destructive SQL blocked, `supabase db reset` still allowed, exit 2 on a block, `size:exception`
+clearing only the size verdict), and `check-migrations-destructive.mjs` applies the destructive-SQL
+rule to the migration files rather than to the tool call that wrote them — the same rule from the
+same module (`scripts/hooks/rules.mjs`), which is what keeps the Claude Code hook, the OpenCode
+plugin and CI from drifting into three policies. The escape hatch is a comment in the migration
+itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is reviewable where
+the data loss would be. Comments are stripped before the scan, because `0046` explains that a
+revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate statement.
+
+**The counts are now a gate too.** `check-doc-counts.sh` reads the migration count, the smoke
+count, the feature and scenario counts and the next free migration number from `AGENTS.md` and
+`docs/master-plan.md`, and compares each against the tree. It exists because the numbers in this
+file have been wrong every time anybody re-counted them — five times, most recently on 2026-11-01 —
+and each drift was found by hand. Fixing a number is a PR's work; this stops the next drift. If it
+fails, fix the document: the tree is the fact and the prose is a copy.
+
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
-no `tsc` (its `include` has no `supabase` path) and no ESLint (`--ext js,jsx` never enumerates
-`.ts`) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`. The glob is **quoted on
-purpose** — unquoted, bash expands `**` as `*` (globstar is off in Actions) and silently omits
-nested files. Still nothing in the JS gates reaches that path.
+no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,
+whose functions target Deno rather than Node) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`.
+The glob is **quoted** on purpose — unquoted, bash expands `**` as `*` (globstar is off in Actions)
+and silently omits nested files. Still nothing in the JS gates reaches that path.
 
 ## E2E is a separate workflow
 
@@ -226,9 +246,8 @@ creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
   matter, so take the first free number nobody has claimed — `0047` today, because the lowest free
-  slot `0046` is already claimed by the open feedback-triage chain (#430). `0033_feedback.sql` is
-  the precedent for renumbering when the natural slot is gone; it is self-contained, so `0033` cost
-  nothing.
+  slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
+  natural slot is gone; it is self-contained, so `0033` cost nothing.
 - **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
   free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
   `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
@@ -274,7 +293,7 @@ Four layers run in this repo. They are not interchangeable — putting an artifa
 
 | Layer | Owns | Home |
 |---|---|---|
-| **BDD** | Product truth. 47 `.feature` files, 747 scenarios. The source of what to build | `features/*.feature` |
+| **BDD** | Product truth. 48 `.feature` files, 776 scenarios. The source of what to build | `features/*.feature` |
 | **Milestones** | Temporal sequencing. Hitos 1–6, and the verified slice plan | `docs/master-plan.md`, `docs/mvp-scope.md` |
 | **SDD (OpenSpec)** | **Capabilities and delta specs.** One spec per capability, archived when the change closes | `openspec/specs/`, `openspec/changes/` |
 | **ODD** | **Execution records.** One file per work unit, with commit SHAs and verification evidence | `odd/tasks/*.md` |
