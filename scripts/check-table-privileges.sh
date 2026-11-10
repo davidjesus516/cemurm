@@ -25,39 +25,26 @@
 #       and an allowlist of zero cannot rot.
 #   02  `anon` holds no table privilege on any `public` table. Measured at 0 today; anon
 #       reaches data through `security definer` RPCs, which run as their owner.
-#   03  RATCHET: the number of `public` tables where `authenticated` holds DELETE may not grow.
-#       Seeded at the measured value. 23 tables legitimately DELETE their own rows and RLS
-#       narrows each one; converting them all to columnar or predicate-level grants is not one
-#       change. A ratchet lets the number fall and never rise, without 23 allowlist entries
-#       nobody will maintain.
+#   03  RATCHET: the count of `public` tables where `authenticated` holds DELETE may not grow.
+#       Seeded at the measured value. Dozens legitimately DELETE their own rows and RLS narrows
+#       each one, so the count may fall and never rise -- without an allowlist nobody maintains.
 #   04  WARN ONLY: tables where `authenticated` holds UPDATE at table level rather than
-#       columnarly. `feedback` (0046) is the pattern worth copying -- `authenticated=ar` plus a
-#       columnar UPDATE over the seven triage columns -- but turning this into a failure today
-#       would mean auditing 28 tables in one PR. Printed so the number is visible and can be
-#       driven down deliberately.
+#       columnarly. `feedback` (0046) is the pattern to copy; failing on it today would mean
+#       auditing 28 tables at once.
 #
-# WHAT IT DOES NOT ENFORCE
-#   * `service_role`. It is the trusted role; it holds everything by design.
-#   * Functions, sequences and schemas. Table ACLs are the measured surface (#428, #429).
-#   * Column-level grants. Rule 04 reports the table-level ones BY COUNT only, because the
-#     useful direction (which columns) needs a policy decision per table, not a gate.
+# NOT ENFORCED: `service_role` (trusted, by design), functions, sequences, schemas, and
+# column-level grants -- rule 04 counts the table-level ones only, because which columns need
+# narrowing is a policy decision per table, not a gate.
 #
-# WHERE IT RUNS
-# It needs a live catalog, so it cannot live in `ci.yml`: that workflow never starts Supabase.
-# It runs in `e2e.yml`, in the Chromium job, AFTER the Playwright run -- `tests/e2e/global-setup.js`
-# has already done `supabase start` and `supabase db reset` by then, so the gate costs seconds.
+# WHERE IT RUNS: `e2e.yml`, last step of the Chromium job. It needs a live catalog, so `ci.yml`
+# (which never starts Supabase) cannot host it; there, `global-setup.js` has already run
+# `supabase start` + `supabase db reset`, so the gate costs seconds. Last, not earlier: under
+# `set -euo pipefail` a step that fails early marks the rest SKIPPED (#337).
 #
-# Position inside the job is load-bearing, not cosmetic: under `set -euo pipefail` a step that
-# fails early marks every later step SKIPPED, and a reviewer cannot tell a browser failure from
-# a check that never ran. That is the lesson #337 paid for on the visual gate.
+# PRECONDITION: a freshly reset stack (`supabase db reset`). Without one this measures whatever
+# the last developer left behind, not the schema the repository ships.
 #
-# PRECONDITION
-# A freshly reset local stack: `supabase db reset`. Without a reset this measures whatever the
-# last developer left in the database, which is not the schema this repository ships.
-#
-# DEPENDENCIES
-# bash, docker and the `psql` already inside the Supabase db container. No installs, no new
-# packages, same doctrine as check-test-integrity.sh and check-visual-contract.sh.
+# DEPENDENCIES: bash, docker, and the `psql` already inside the db container. No installs.
 #
 # USAGE
 #   bash scripts/check-table-privileges.sh

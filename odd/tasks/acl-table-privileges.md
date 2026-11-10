@@ -8,14 +8,9 @@ instruction, verbatim: *"si, recuerda no excederte del limite de lineas de codig
 ## 2. Problem
 
 Supabase's default privileges grant `arwdDxtm` (all seven verbs) to `anon`, `authenticated` and
-`service_role` on **every new table** in `public`. So
-
-```sql
-revoke all on table public.x from public, anon;
-```
-
-removes nothing from `authenticated` — the role was never named — and the `grant select` that
-follows only re-affirms what it already held. Measured on `main` at 44 migrations, after
+`service_role` on **every new table** in `public`, so `revoke all on table public.x from public,
+anon;` removes nothing from `authenticated` — the role was never named — and the `grant select`
+that follows only re-affirms what it already held. Measured on `main` at 44 migrations, after
 `supabase db reset`, schema `public`, 61 tables:
 
 | Role | select | insert | update | delete | TRUNCATE | REFERENCES | TRIGGER |
