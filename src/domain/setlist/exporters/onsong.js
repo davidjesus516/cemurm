@@ -106,14 +106,6 @@ export function serializeOnSong(setlist, songs) {
 }
 
 /**
- * Download the serialized setlist as `<setlist-name>.cho` (Blob + object URL
- * + anchor click). Node guard: returns { ok, filename, text } instead of
- * touching the DOM so the demo can assert the exact payload.
- * @param {ExportSetlist | null | undefined} setlist
- * @param {ExportSong[] | null | undefined} songs
- * @returns {OnSongDownload}
- */
-/**
  * File name for the OnSong export (`<setlist-name>.cho`, lower-cased). Kept
  * separate from `downloadOnSongFile` so the format dispatcher can name the
  * file without touching the DOM.
@@ -139,7 +131,6 @@ export function onsongFileName(setlist) {
 export function downloadOnSongFile(setlist, songs) {
   const text = serializeOnSong(setlist, songs)
   const filename = onsongFileName(setlist)
-
 
   if (typeof document === 'undefined') return { ok: true, filename, text }
 

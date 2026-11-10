@@ -60,4 +60,23 @@ describe('serializePlainText', () => {
     expect(text).toContain('# Empty')
     expect(text).toContain('_No songs in this setlist._')
   })
+
+  it('escapes a pipe in a note so the table keeps its columns', () => {
+    const text = serializePlainText(
+      { name: 'Capo', itemIds: ['s1'], itemNotes: { s1: 'capo 2 | drop D' } },
+      SONGS,
+    )
+
+    expect(text).toContain('| capo 2 \\| drop D |')
+    expect(text).not.toContain('| capo 2 | drop D |')
+  })
+
+  it('escapes a pipe in a title', () => {
+    const text = serializePlainText(
+      { name: 'Pipes', itemIds: ['s1'] },
+      [{ ...SONGS[0], title: 'Intro | Outro' }],
+    )
+
+    expect(text).toContain('| Intro \\| Outro |')
+  })
 })

@@ -9,6 +9,16 @@ import { formatDuration } from '../../library/duration.js'
 import { orderedSongs, resolveKey } from './shared.js'
 
 /**
+ * Escape a value for a markdown table cell: a bare `|` would close the cell
+ * early and break every following column.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function cell(value) {
+  return String(value).replace(/\|/g, '\\|')
+}
+
+/**
  * @param {import('./shared.js').ExportSetlist | null | undefined} setlist
  * @param {import('./shared.js').ExportSong[] | null | undefined} songs
  * @returns {string}
@@ -34,7 +44,7 @@ export function serializePlainText(setlist, songs) {
     const duration = song.durationSeconds ? formatDuration(song.durationSeconds) : ''
     const notes = String(setlist?.itemNotes?.[songId] || '')
     lines.push(
-      `| ${index + 1} | ${String(song.title || 'Untitled')} | ${key} | ${duration} | ${notes} |`,
+      `| ${index + 1} | ${cell(song.title || 'Untitled')} | ${key} | ${duration} | ${cell(notes)} |`,
     )
   })
 
