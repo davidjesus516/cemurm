@@ -199,6 +199,3 @@ select tmp_assert('11 authenticated can read only own request row; cannot insert
   and (select (select count(*) from public.account_erasure_requests) = (select count(*) from public.account_erasure_requests where user_id = '50000000-0000-0000-0000-000000000903')));
 
 reset role;
-EOF
-echo "---"
-wc -l /home/david_jesus516/Documentos/GitHub/cemurm/scripts/smoke/0043-account-erasure.sql
