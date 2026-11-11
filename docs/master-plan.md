@@ -586,7 +586,10 @@ PR 1b (`59c1c1f`) is **not** in the sequence above, because it carries problems 
 acceptance-gate deviation documented in PR #168. All three were found during review, not by
 the suite. **Re-verified 2026-09-30 — one is fixed, one was misdescribed, one is still live:**
 
-1. **The clock injection degrades silently.** 🔶 **Live, but not as described.** Refactors 5 and
+1. **The clock injection degrades silently.** ✅ **RESOLVED 2026-11-11** — `relativeTime` now takes
+   `now = Date.now()`, matching `isLockStale` and `applyLock`, so no domain computation reads the
+   wall clock on its own. See `odd/tasks/implicit-clock-injection.md`. The 2026-09-30 text follows.
+   🔶 **Was live, but not as described.** Refactors 5 and
    6 were supposed to remove the implicit default from `relativeTime(iso, now)` and
    `isLockStale(lock, now)`. The current code has it the other way round:
    `isLockStale(lock, now = Date.now())` (`collab.js:185`) **has** a default again, and
@@ -603,13 +606,20 @@ the suite. **Re-verified 2026-09-30 — one is fixed, one was misdescribed, one 
    the principle, not this item: an ADR that claims more than is true is the same failure as the
    orphaned `design-system.md`, and that is why the check is worth repeating.
 3. **The refactor list skipped `applyLock`** at `collab.js:91`, which reads `Date.now()`
-   internally. 🔴 **Still live at `collab.js:203`.** `applyLock(locks, payload)` takes no clock
-   and calls `const now = Date.now()` directly, inconsistent with `isLockStale`'s injectable
-   `now`. Left as-is it is a flake source in the one module whose determinism the product claims
-   — and note it is no longer the *only* one: `relativeTime` does the same thing. **If this is
+   internally. ✅ **RESOLVED 2026-11-11 — `applyLock(locks, payload, now = Date.now())`.** Both
+   modules were fixed together, as this item demanded, and both now have deterministic tests
+   (`collab.test.js` gains an `applyLock` block; `relativeTime.test.js` is new). See
+   `odd/tasks/implicit-clock-injection.md`. The 2026-09-30 text follows.
+   🔶 **Was live at `collab.js:203`.** `applyLock(locks, payload)` took no clock
+   and called `const now = Date.now()` directly, inconsistent with `isLockStale`'s injectable
+   `now`. Left as-is it was a flake source in the one module whose determinism the product claims
+   — and note it was no longer the *only* one: `relativeTime` did the same thing. **If this is
    picked up, fix both, or the inconsistency just moves.**
-    **Update 2026-10-12:** a third implicit read appeared — `collab.js:313` (`const t0 = Date.now()`).
-    The fix is now three call sites, still in the same two modules.
+    **Update 2026-10-12:** a third call site was counted — `collab.js:313` (`const t0 = Date.now()`).
+    **Corrected 2026-11-11: that line was inside `demo()` (now `collab.js:408`), the bare-node
+    self-check, not production code.** It was counted because the plan tracked a line number
+    instead of the enclosing function, and the number had already drifted twice. The defect list
+    was therefore two sites, not three; both are now closed.
 
 ## 6. Order, and why
 

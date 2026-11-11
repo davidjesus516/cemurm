@@ -223,12 +223,14 @@ export function isLockStale(lock, now = Date.now()) {
 /**
  * @param {Record<string, SongLock> | null | undefined} locks
  * @param {LockPayload} payload
+ * @param {number} [now] clock as an argument, like `isLockStale` — a lock
+ *   transition must be assertable against a fixed instant, not against
+ *   whatever the test run happened to read.
  * @returns {Record<string, SongLock>}
  */
-export function applyLock(locks, payload) {
+export function applyLock(locks, payload, now = Date.now()) {
   const next = /** @type {Record<string, SongLock>} */ ({ ...(locks || {}) })
   const songId = payload.songId
-  const now = Date.now()
   if (payload.locked === false) {
     const held = next[songId]
     if (held && (held.userId === payload.userId || isLockStale(held, now))) delete next[songId]

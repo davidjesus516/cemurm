@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { isLockStale, reconcileSetlistOp, LOCK_TTL_MS } from './collab.js'
+import { isLockStale, applyLock, reconcileSetlistOp, LOCK_TTL_MS } from './collab.js'
 
 // ── fixtures ────────────────────────────────────────────────────────────────
 // The three seed identities (supabase/seed.sql) and the two Demo Setlist items.
@@ -114,6 +114,60 @@ describe('isLockStale', () => {
     expect(isLockStale({ ts: Date.now() })).toBe(false)
     expect(isLockStale(null)).toBe(true)
     expect(isLockStale({ ts: Date.now() - LOCK_TTL_MS - 1000 })).toBe(true)
+  })
+})
+
+// ── applyLock ───────────────────────────────────────────────────────────────
+
+// The transitions below run against the fixed clock `T`, which is the point of
+// taking `now` as an argument: before this, applyLock read Date.now() itself
+// while isLockStale accepted a clock, so "is this lock stale" was assertable
+// and "does this acquisition steal it" was not.
+
+describe('applyLock', () => {
+  it('acquires a free lock and stamps it with the supplied clock', () => {
+    const next = applyLock({}, { userId: OWNER, actor: 'Juan', songId: ITEM_SONG, locked: true }, T)
+    expect(next[ITEM_SONG]).toEqual({ userId: OWNER, actor: 'Juan', ts: T })
+  })
+
+  it('keeps the payload ts over the clock when the payload carries one', () => {
+    const next = applyLock({}, { userId: OWNER, songId: ITEM_SONG, locked: true, ts: T - 500 }, T)
+    expect(next[ITEM_SONG].ts).toBe(T - 500)
+  })
+
+  it('does not steal an active foreign lock', () => {
+    const held = { [ITEM_SONG]: { userId: 'a', actor: null, ts: T } }
+    expect(applyLock(held, { userId: 'b', songId: ITEM_SONG, locked: true }, T)).toEqual(held)
+  })
+
+  it('overwrites a stale foreign lock', () => {
+    const stale = { [ITEM_SONG]: { userId: 'a', actor: null, ts: T - LOCK_TTL_MS - 1 } }
+    expect(applyLock(stale, { userId: 'b', songId: ITEM_SONG, locked: true }, T)[ITEM_SONG].userId).toBe('b')
+  })
+
+  it('ignores an unlock from a non-holder while the lock is live', () => {
+    const held = { [ITEM_SONG]: { userId: 'a', actor: null, ts: T } }
+    expect(applyLock(held, { userId: 'b', songId: ITEM_SONG, locked: false }, T)).toEqual(held)
+  })
+
+  it('clears an unlock from the holder, and from anyone on a stale lock', () => {
+    const held = { [ITEM_SONG]: { userId: 'a', actor: null, ts: T } }
+    expect(applyLock(held, { userId: 'a', songId: ITEM_SONG, locked: false }, T)).toEqual({})
+
+    const stale = { [ITEM_SONG]: { userId: 'a', actor: null, ts: T - LOCK_TTL_MS - 1 } }
+    expect(applyLock(stale, { userId: 'b', songId: ITEM_SONG, locked: false }, T)).toEqual({})
+  })
+
+  it('does not mutate the locks it is given', () => {
+    const held = { [ITEM_SONG]: { userId: 'a', actor: null, ts: T } }
+    const before = { ...held }
+    applyLock(held, { userId: 'b', songId: ITEM_SONG, locked: true }, T)
+    expect(held).toEqual(before)
+  })
+
+  it('defaults `now` to Date.now()', () => {
+    const next = applyLock({}, { userId: OWNER, songId: ITEM_SONG, locked: true })
+    expect(next[ITEM_SONG].ts).toBeGreaterThan(0)
   })
 })
 
