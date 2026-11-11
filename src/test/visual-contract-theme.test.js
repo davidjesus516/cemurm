@@ -1,5 +1,5 @@
 /* eslint-env node */
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,8 +20,22 @@ const declared = [...read(CSS).matchAll(/^\s*--color-([a-z0-9-]+)\s*:/gm)].map((
 const toKey = (s) => (s.startsWith('cem-') ? `cem.${s.slice(4)}` : s);
 
 describe('visual contract port', () => {
+  // The gate is a bash script that walks the whole tree. Vitest's 5 s default
+  // is not enough for it on a loaded machine — measured at 5.7 s and 8.3 s
+  // under `pnpm test` with a build running alongside, which made this file
+  // flake — and both tests below shelled out separately, paying for it twice.
+  // Run it once, with a budget that survives a cold cache.
+  let gateOutput;
+  beforeAll(() => {
+    gateOutput = execFileSync('bash', [SCRIPT], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+    });
+  }, 120_000);
+
   it('gate is green with rule 02 pinned at its ceiling', () => {
-    const out = execFileSync('bash', [SCRIPT], { cwd: ROOT, encoding: 'utf8' });
+    const out = gateOutput;
     expect(out).toContain('visual contract: OK');
     const m = out.match(/WARN\s+02\s+.*?(\d+) occurrences \(ceiling (\d+)\)/);
     expect(m, 'rule 02 line missing').toBeTruthy();
@@ -29,7 +43,7 @@ describe('visual contract port', () => {
   });
 
   it('rule 04 keeps chart keys literal and matches the declared set', () => {
-    const out = execFileSync('bash', [SCRIPT], { cwd: ROOT, encoding: 'utf8' });
+    const out = gateOutput;
     const inventory = out.match(/token inventory: (.+)/)?.[1] ?? '';
     expect(inventory).toContain('chart-1');
     expect(inventory).not.toContain('chart.1');
