@@ -212,3 +212,71 @@ Migration 0009 MUST set `replica identity full` on `notifications` — required 
 - WHEN a `notifications` row changes for a recipient
 - THEN the recipient's `postgres_changes` subscription receives it and a non-recipient's does not
 
+### Requirement: Setlist collaborator reads the songs in the setlist
+
+A song referenced by a setlist MUST be readable by an **accepted collaborator** of that setlist when
+the setlist's **owner** could already read the song. The owner's read scope MUST be evaluated
+against the same five scopes the owner's own session has — `songs_select_owner`, the LIVE
+`songs_select_system` (`org_id IS NULL AND source_org_id IS NOT NULL`), `songs_select_org`,
+`songs_select_branch` and `songs_select_public_library` — and MUST NOT be widened: a personal song
+of another user (`org_id IS NULL AND source_org_id IS NULL`) MUST NOT count as system content, which
+is the leak the C1 fix closed in migration 0020. The read MUST extend to `song_versions` and
+`chart_files`, so the collaborator sees the inline ChordPro content (`chart_files.content`) and not
+only the metadata. PDF and MusicXML charts are **out of scope**: the `charts` storage bucket is
+private with owner-folder RLS and 1-hour signed URLs, so a cross-organization collaborator sees the
+`chart_files` row and still cannot download the object. Only SELECT is added. The existing write
+policies are unchanged: `songs` is keyed on `created_by`, plus the pre-existing
+`songs_update_source_org` scope for the source org's admins; `song_versions` is keyed on its own
+`owner_id` and the song's creator; `chart_files` is keyed on the song's creator; `setlists` INSERT
+and DELETE are owner-only, and `can_edit` governs `setlists` UPDATE and the `setlist_items` writes.
+
+The owner's scope governs the **song**. The pre-existing `chart_files` owner policies key on the
+song's **creator**, not on the setlist's owner, so a collaborator can reach a chart row of a song
+created by another org member that the setlist's owner cannot read through their own scopes. That
+asymmetry is **created by the setlist path**: at baseline neither the owner nor a collaborator could
+reach that chart row, because `chart_files_select_owner` keys on the song's creator. 0048 lets the
+collaborator reach it through the setlist while the owner's own scope still does not. The narrowness
+comes from the creator-keyed policy; the asymmetry itself is created here, and it is the feature's
+purpose. `song_versions` has no such asymmetry: its `SELECT` keys on the version's own `owner_id` or
+the song's creator, and its other writes require both.
+
+Two conditions MUST NOT be satisfiable by the caller alone. `setlists_insert_owner` does not
+constrain `org_id` or `branch_id`, and `setlist_collaborators_insert_owner` admits an owner
+inserting a collaborator row for themselves with `accepted_at` set, so neither "the song's org
+matches the setlist's org" nor "the caller is an accepted collaborator" MAY stand in for the owner's
+vouch: a caller MUST NOT gain a song the setlist's owner could not read. Implemented in
+`supabase/migrations/0048_setlist_collaborator_read.sql`; verified by
+`scripts/smoke/0048-setlist-collaborator-read.sql` (15 PASS / 0 FAIL on a fresh reset); record:
+`odd/tasks/acl-setlist-collaborator-read.md`.
+
+#### Scenario: Accepted collaborator reads the songs in a shared setlist
+
+- GIVEN Lucia is an accepted collaborator on a setlist owned by Julian, from another organization
+- WHEN Lucia reads the songs referenced by that setlist
+- THEN she sees each song's title, its `song_versions` row and its `chart_files` row
+- AND the inline ChordPro content of that chart row
+- AND a song Julian could not read himself is not among them
+
+#### Scenario: A PDF chart object stays out of reach
+
+- GIVEN a shared setlist whose chart is a PDF stored in the private `charts` bucket
+- WHEN Lucia reads the setlist's songs
+- THEN she sees the `chart_files` row
+- AND she cannot read the storage object, because the bucket's owner-folder RLS is keyed on the
+  object creator, not on setlist membership
+
+#### Scenario: A pending collaborator gains nothing
+
+- GIVEN Marco has a pending invitation to Julian's setlist
+- WHEN Marco reads the songs referenced by that setlist
+- THEN zero rows are returned
+
+#### Scenario: The owner vouches, not the caller
+
+- GIVEN Julian owns a setlist and Lucia is an accepted collaborator with edit rights
+- WHEN Lucia inserts the UUID of a personal song belonging to a third party into that setlist
+- THEN Lucia reads zero rows of that song
+- AND Julian reads zero rows of it as well, so his vouch is unsatisfiable
+- AND the self-invitation attack fails too: a collaborator who invites themselves on a setlist they
+  created reads zero rows of a song they planted
+
