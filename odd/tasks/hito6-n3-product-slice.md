@@ -44,6 +44,7 @@ requirement that is not in them.
 | ID | Linked S# | Feature | Route | Commit |
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
+| **T2a** | S1 | `export-and-sharing` — share targets: copy link, device share sheet, WhatsApp, Telegram, email | inline | `37b68c3` |
 | **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | — | reopened — draft discarded, see L6 |
 | **T3** | S1 | `export-and-sharing` — audience view + export management | — | — |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
@@ -128,3 +129,32 @@ in this unit — it depends on four surfaces being stable and ships separately.
   `pr-size.yml` reported 639 because it diffs the merge base against the merge-ref `HEAD`,
   which pulls in `main` commits that landed after the branch point; the workflow's own base
   choice is the defect, and the PR body says so.
+- **L11** (2026-11-10, orchestrator): **T2a** — the share targets, on branch
+  `feat/hito6-n3-t2-sharing` (from `feat/hito6-n3-t1b-export-menu`). `src/domain/setlist/shareTargets.js`
+  is pure and node-safe — the deep link, the summary and the URL each target needs — and
+  `shareSummary` reuses `orderedSongs` from the exporters, so the order and the missing-song
+  skip are the rules the export already follows. The page adds a Share control: Copy link, the
+  device share sheet where the browser has one, WhatsApp, Telegram and Email, with the email
+  subject the feature names ("Rehearsal Setlist — <name>"). 12 new tests; the link is the
+  setlist route and who may open it is decided by `setlist_collaborators`, not by the link.
+
+  **What this slice does not deliver, and why each is a later unit.** The 7-day token in the
+  link (scenario 1/2) needs a token table with a permission column; `audience_views` already
+  models "QR/embed token; expiry enforced on read" but `0002_rls_core.sql:122` revoked every
+  grant on it and no policy was ever created, so reusing it still costs a full RLS slice. QR
+  needs a QR library — there is none in `package.json`. The embed snippet needs a public route
+  that does not exist. The proximity code has a table (`invite_codes`, kind `proximity`, 24h
+  expiry, `0001_init.sql:48-57`) but own-row RLS and zero client code, so a bandmate cannot
+  resolve one. The chord-chart PNG needs a rasteriser that does not exist. Email's "PDF
+  attachment selected by default" is blocked by the same missing PDF writer as L8. The map also
+  recorded that **no table in this database has an anon SELECT grant** — every public surface
+  is a `SECURITY DEFINER` capability RPC granted to `anon`, which is the pattern
+  `0032_overlay_access_token.sql` shows and the one the audience view has to follow.
+
+  **Verification** on this slice: `pnpm lint` clean, `pnpm typecheck` clean, `pnpm test` 529
+  passed (32 files), `pnpm test:gherkin` 44 passed, `pnpm build` OK, `bash
+  scripts/check-visual-contract.sh` OK (12 rules, 0 failing), `bash scripts/check-doc-counts.sh`
+  OK. The share surface is an inline panel in the page's tier-2 language (`rounded-lg border
+  border-cem-elevated bg-cem-surface p-4 shadow-xs`, `cem.*` tokens only) rather than a modal:
+  `SetlistDetail` is a tier-2 surface and the visual system does not mix tiers inside one
+  component tree.
