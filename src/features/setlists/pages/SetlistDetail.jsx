@@ -358,6 +358,8 @@ export default function SetlistDetail() {
         setNotice('Opened your email client with the setlist summary.')
       }
     } catch (err) {
+      // A cancelled share sheet is not a failure: dismiss silently.
+      if (err?.name === 'AbortError') return
       setError(err.message)
     } finally {
       setBusy(false)
@@ -566,6 +568,12 @@ export default function SetlistDetail() {
               The link opens the setlist for the people you share it with — bandmates can read or
               edit according to the access you already gave them.
             </p>
+            {acceptedCollabs.length === 0 && (
+              <p className="mt-2 text-xs text-cem-amber">
+                Nobody else can open this link yet: add your bandmates as collaborators before you
+                share it, or they will land on &quot;Setlist not found&quot;.
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
