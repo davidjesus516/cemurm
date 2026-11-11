@@ -71,8 +71,20 @@ export async function createAudienceView(setlistId, days = 7) {
  * @returns {Promise<void>}
  */
 export async function revokeAudienceView(token) {
-  const { error } = await supabase.from('audience_views').delete().eq('token', token)
+  // `.select()` makes PostgREST return the deleted rows. Without it a DELETE
+  // that RLS filtered to zero rows still answers 204, and the page would report
+  // "revoked" for a link that is still live — the exact failure this control
+  // exists to prevent.
+  const { data, error } = await supabase
+    .from('audience_views')
+    .delete()
+    .eq('token', token)
+    .select('id')
+
   if (error) throw new Error(REVOKE_ERROR)
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('That audience link is already gone, or you cannot revoke it.')
+  }
 
   // A revoked link must stop working offline too, or the cache would outlive
   // the revocation it was meant to obey.

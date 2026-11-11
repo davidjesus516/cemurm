@@ -56,10 +56,21 @@ grant select, insert, delete on table public.audience_views to authenticated;
 -- RLS is already enabled on every public table by 0002's DO-loop; the policies below are the
 -- only rows an authenticated caller may touch. `(select auth.uid())` is the 0002 initPlan
 -- guard (design line 76): evaluated once per statement, not once per row.
+-- The owner sees EVERY link issued for their setlist, not only their own: they
+-- are the party accountable for it, and PostgreSQL applies the SELECT policy to
+-- DELETE as well (a row that cannot be read cannot be deleted), so scoping this
+-- to `created_by` would silently make the revocation below impossible for a
+-- token an editor issued.
 drop policy if exists audience_views_select_owner on public.audience_views;
 create policy audience_views_select_owner on public.audience_views
   for select to authenticated
-  using (created_by = (select auth.uid()));
+  using (
+    created_by = (select auth.uid())
+    or exists (
+      select 1 from public.setlists s
+      where s.id = setlist_id and s.owner_id = (select auth.uid())
+    )
+  );
 
 -- Issuing a token is NOT the same act as reading a shared setlist: it exposes the setlist to
 -- anonymous strangers who hold no account. The rule is therefore narrower than 0025's
@@ -94,12 +105,31 @@ create policy audience_views_insert_owner on public.audience_views
     )
   );
 
--- No UPDATE policy on purpose: a token is either live or deleted (0001:543 — "owner revokes by
--- deleting the row"). Re-issuing is a delete + insert, which keeps the expiry honest.
+-- Revocation is broader than issuance ON PURPOSE. An editor who has since been
+-- removed from the setlist must not leave a live public link behind, and the
+-- owner is the party accountable for the setlist — so the OWNER can revoke any
+-- token issued for their setlist, whoever minted it. Scoping this to
+-- `created_by` alone would strand exactly that case: the editor is gone, the
+-- link keeps serving for up to 90 days, and nobody can turn it off.
 drop policy if exists audience_views_delete_owner on public.audience_views;
 create policy audience_views_delete_owner on public.audience_views
   for delete to authenticated
-  using (created_by = (select auth.uid()));
+  using (
+    created_by = (select auth.uid())
+    or exists (
+      select 1 from public.setlists s
+      where s.id = setlist_id and s.owner_id = (select auth.uid())
+    )
+  );
+
+-- A token inserted DIRECTLY through PostgREST never passes through the RPC, so
+-- the 32-hex-char shape the RPC guarantees needs to hold at the table too: a
+-- publisher who inserted a short, guessable token would be handing out a link
+-- anyone could brute force. The expiry window cannot be a constraint (`now()`
+-- is not immutable), so 1..90 days stays an RPC invariant and the owner's
+-- revocation above is the control that makes it safe.
+alter table public.audience_views
+  add constraint audience_views_token_format check (token ~ '^[0-9a-f]{32}$');
 
 -- ══════════════ 2. ISSUE A TOKEN (owner side) ══════════════
 -- SECURITY INVOKER on purpose: the caller's own RLS does the authorization (the SELECT sees

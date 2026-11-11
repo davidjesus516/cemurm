@@ -21,7 +21,7 @@
 -- Run: supabase db reset, then
 --   docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X \
 --     -v ON_ERROR_STOP=1 -f - < scripts/smoke/0047-audience-view.sql
--- Expects 29 PASS / 0 FAIL.
+-- Expects 38 PASS / 0 FAIL.
 set client_min_messages to notice;
 
 create or replace function tmp_assert(p_name text, p_ok boolean) returns void language plpgsql as $$
@@ -236,3 +236,96 @@ select tmp_assert('28. the owner''s token survived the collaborator''s delete at
 select tmp_assert('29. no audience_views row outlived the run with a NULL owner', (
   select count(*) from public.audience_views where created_by is null
 ) = 0);
+
+-- ══════════════ VERIFIER ADDENDUM (independent review, 2026-11-11) ══════════════
+-- Assertions 30-37 came out of the independent verification of this slice. 37 is
+-- the one that found a real defect: the delete policy was scoped to `created_by`,
+-- so an owner could not revoke a link an editor collaborator had issued — and a
+-- removed editor's public link would keep serving for up to 90 days with nobody
+-- able to turn it off.
+set client_min_messages to notice;
+
+select set_config('role','authenticated',false);
+select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001"}',false);
+select public.create_audience_view('30000000-0000-0000-0000-000000000001', 7) as tok_v \gset
+select set_config('role','anon',false);
+select set_config('request.jwt.claims','{}',false);
+
+select tmp_assert('30. no key outside the disclosed set, at any depth', (
+  select array_agg(distinct k order by k)
+  from public.get_audience_setlist(:'tok_v') p,
+       lateral jsonb_path_query(p,'$.**') v,
+       lateral jsonb_object_keys(case when jsonb_typeof(v)='object' then v else '{}'::jsonb end) k
+) = array['artist','durationSeconds','id','name','position','songs','title']);
+
+select tmp_assert('31. exactly one envelope object plus one per song', (
+  select count(*) from public.get_audience_setlist(:'tok_v') p, lateral jsonb_path_query(p,'$.**') v
+  where jsonb_typeof(v)='object'
+) = 1 + jsonb_array_length(public.get_audience_setlist(:'tok_v')->'songs'));
+
+select tmp_assert('32. null/short/16/31/33/uppercase/trailing-space tokens all return NULL', (
+  public.get_audience_setlist(null) is null
+  and public.get_audience_setlist(repeat('0',15)) is null
+  and public.get_audience_setlist(repeat('0',16)) is null
+  and public.get_audience_setlist(repeat('0',31)) is null
+  and public.get_audience_setlist(repeat('0',33)) is null
+  and public.get_audience_setlist(upper(:'tok_v')) is null
+  and public.get_audience_setlist(:'tok_v'||' ') is null));
+
+select set_config('role','postgres',false);
+insert into public.audience_views (setlist_id, token, expires_at, created_by)
+values ('30000000-0000-0000-0000-000000000001', repeat('9',32), now(), '10000000-0000-0000-0000-000000000001')
+on conflict do nothing;
+select set_config('role','anon',false);
+
+select tmp_assert('33. a token expiring exactly at now() is dead',
+  public.get_audience_setlist(repeat('9',32)) is null);
+
+select set_config('role','postgres',false);
+update public.setlist_collaborators set can_edit = true, accepted_at = null
+ where setlist_id='30000000-0000-0000-0000-000000000001' and user_id='10000000-0000-0000-0000-000000000003';
+select set_config('role','authenticated',false);
+select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000003"}',false);
+
+select tmp_expect_error('34. a pending invitee with can_edit=true cannot publish',
+  $$select public.create_audience_view('30000000-0000-0000-0000-000000000001')$$,
+  'Only the owner or an editing collaborator%');
+
+select set_config('role','postgres',false);
+insert into public.setlists (id, org_id, branch_id, owner_id, name, visibility)
+values ('30000900-0000-4000-8000-0000000000c1','10000000-0000-0000-0000-0000000000a1','10000000-0000-0000-0000-0000000000b1','10000000-0000-0000-0000-000000000001','Empty Setlist','private')
+on conflict do nothing;
+select set_config('role','authenticated',false);
+select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001"}',false);
+select public.create_audience_view('30000900-0000-4000-8000-0000000000c1', 7) as tok_e \gset
+select set_config('role','anon',false);
+
+select tmp_assert('35. an empty setlist returns songs: []',
+  public.get_audience_setlist(:'tok_e')->'songs' = '[]'::jsonb);
+
+select set_config('role','postgres',false);
+delete from public.setlists where id='30000900-0000-4000-8000-0000000000c1';
+select set_config('role','anon',false);
+
+select tmp_assert('36. deleting the setlist kills its token',
+  public.get_audience_setlist(:'tok_e') is null);
+
+-- The defect the independent verification found: an EDITOR issues the token,
+-- the OWNER must still be able to revoke it.
+select set_config('role','postgres',false);
+update public.setlist_collaborators set can_edit = true, accepted_at = now()
+ where setlist_id='30000000-0000-0000-0000-000000000001' and user_id='10000000-0000-0000-0000-000000000002';
+select set_config('role','authenticated',false);
+select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000002"}',false);
+select public.create_audience_view('30000000-0000-0000-0000-000000000001', 30) as tok_ed \gset
+select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001"}',false);
+with gone as (delete from public.audience_views where token = :'tok_ed' returning 1)
+select tmp_assert('37. the setlist owner can revoke an editor-issued token',
+  (select count(*) from gone) = 1);
+
+-- A token inserted directly through PostgREST must still be 32 hex chars.
+select tmp_expect_error('38. a guessable short token is rejected by the table',
+  $$insert into public.audience_views (setlist_id, token, expires_at, created_by)
+    values ('30000000-0000-0000-0000-000000000001', repeat('a',16), now() + interval '1 day',
+            '10000000-0000-0000-0000-000000000001')$$,
+  '%audience_views_token_format%');
