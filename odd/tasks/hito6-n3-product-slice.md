@@ -45,7 +45,7 @@ requirement that is not in them.
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
 | **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | — | reopened — draft discarded, see L6 |
-| **T3** | S1 | `export-and-sharing` — audience view + export management | — | — |
+| **T3** | S1 | `export-and-sharing` — audience view + export management | inline | split: T3a `65395b6` (token RPC + smoke), T3b `4acf5f6` (page + timeline). Export management still open |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
 | **T5** | S2 | `user-onboarding` — tutorial hints + completion | — | — |
 | **T6** | S3 | `analytics-and-insights` — personal + performance history | — | — |
@@ -128,3 +128,40 @@ in this unit — it depends on four surfaces being stable and ships separately.
   `pr-size.yml` reported 639 because it diffs the merge base against the merge-ref `HEAD`,
   which pulls in `main` commits that landed after the branch point; the workflow's own base
   choice is the defect, and the PR body says so.
+
+- **L11** (2026-11-11, orchestrator): T3 audience view rebuilt from the real model. The untracked
+  `0049_get_audience_setlist.sql` inherited from an earlier pass was **wrong on three verifiable
+  counts** and was moved to `/tmp/opencode/cemurm-debris-20261111/`, not fixed in place: it read
+  `setlists.description` (no such column, `0001:155-166`), read `setlist_items.duration` (duration
+  lives on `song_versions`, `0001:108`), and gated on `owner_id = auth.uid()` — which is the one
+  guard that makes an *audience* view useless, since the audience member is by definition not the
+  owner. That is the same class of defect L6 recorded.
+  **The correct model already shipped in 0001 and was never reachable**: `public.audience_views`
+  (`0001:539`) has token + `expires_at` + opt-in push binding + `created_by`, and `0002:122`
+  revoked every privilege, so 44 migrations have read and written nothing. Precedent for the read
+  path is `0025_overlay_sessions.sql` (capability row, unauthenticated RPC, uuid is the
+  authorization). Migration took **`0048`**, not `0047`: `0047_public_table_privileges.sql` is
+  claimed by open PR #453 on three branches, which is the "free on `main` is not free for you" rule
+  happening live.
+  **Two decisions made here, both documented in the migration header**: issuing a public token is
+  narrower than reading a shared setlist, so it requires owner or accepted `can_edit` collaborator —
+  a view-only collaborator cannot publish to anonymous strangers; and `get_audience_setlist` is
+  granted to `anon` **and** `authenticated`, deviating from 0025's anon-only grant, because a
+  congregation member with the app installed is logged in and 0025's grant would serve strangers but
+  not them. The token remains the whole authorization either way.
+  **Verification**: `supabase db reset` then `scripts/smoke/0047-audience-view.sql` → 29 PASS /
+  0 FAIL. Full gate set green (lint, typecheck, test 525 with 8 new, gherkin 44, build, visual
+  contract 0 failing, doc counts, test integrity, migration uniqueness, destructive scan,
+  pre-tool-guard 79).
+  **Deliberate gaps, same discipline as L8**: QR encoding (no QR dependency exists; the link is what
+  a QR encodes), the push-on-update scenario (needs web-push + VAPID + a service-worker
+  subscription), and export management (the other half of T3).
+  **Size exception**: 974 authored lines across two commits, both slices over the ~400 budget. The
+  overage is comment and coverage density — the migration header is a security document because the
+  function it introduces has no RLS behind it, and the smoke is 29 assertions of which the anti-leak
+  and token-scoping ones are load-bearing. Nothing here is droppable to reach a number.
+  **Environment defect, not a change**: `/usr/bin/node` on this machine is broken
+  (`libsimdjson.so.34` missing, only `.36` present), which takes out `pnpm`, `vitest` and the
+  Supabase CLI. A `libsimdjson.so.34 → .36` symlink makes `node -v` work and then dies with
+  `std::bad_alloc` under real load — a false fix. All gates were run with an official Node 22.23.5
+  unpacked in `/tmp/opencode`. The system binary is still broken.
