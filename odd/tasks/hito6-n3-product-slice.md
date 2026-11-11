@@ -165,3 +165,24 @@ in this unit — it depends on four surfaces being stable and ships separately.
   Supabase CLI. A `libsimdjson.so.34 → .36` symlink makes `node -v` work and then dies with
   `std::bad_alloc` under real load — a false fix. All gates were run with an official Node 22.23.5
   unpacked in `/tmp/opencode`. The system binary is still broken.
+
+- **L12** (2026-11-11, orchestrator): independent verification of the T3 slice (required: the
+  change is `Risk: item 2`, a `security definer` RPC reachable by `anon`) found one real blocker and
+  two advisories. All three are fixed in `07e7203`.
+  **Blocker B1**: the delete policy was scoped to `created_by`, so a link minted by an accepted
+  editor collaborator could not be revoked by the setlist owner — and a removed editor's public
+  link would keep serving for up to 90 days with nobody able to turn it off. **The first fix was
+  wrong and the smoke caught it**: PostgreSQL applies the SELECT policy to DELETE as well (a row
+  that cannot be read cannot be deleted), so widening only the delete policy left the owner
+  deleting 0 rows. Both policies now admit the setlist owner, which is also the correct management
+  surface.
+  **A1**: a token inserted directly through PostgREST bypassed the RPC's 32-hex-char shape, so a
+  publisher could mint a guessable link. The table now carries
+  `check (token ~ '^[0-9a-f]{32}$')`. The 1..90-day expiry stays an RPC invariant — `now()` is not
+  immutable, so it cannot be a constraint — and owner revocation is the control that makes it safe.
+  **A3**: the client reported "Audience link revoked." for a DELETE that RLS filtered to zero rows,
+  because PostgREST answers 204 either way. `revokeAudienceView` now chains `.select('id')` and
+  refuses to claim success on an empty result.
+  **A2** (push binding) is left open on purpose: it is only reachable once the push scenario is
+  implemented, which is a declared gap.
+  Smoke grew 29 → 38 assertions. Re-verified after `supabase db reset`: 38 PASS / 0 FAIL.
