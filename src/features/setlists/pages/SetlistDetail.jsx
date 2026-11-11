@@ -11,6 +11,7 @@ import { describeActivity } from '../../../domain/setlist/collab.js'
 import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
 import { downloadSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
+import { orderedSongs } from '../../../domain/setlist/exporters/shared.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
 
 export default function SetlistDetail() {
@@ -289,8 +290,20 @@ export default function SetlistDetail() {
     setError('')
     setNotice('')
     try {
+      // Count what the file will actually contain, not how many items the
+      // setlist has. A collaborator from another org can read `setlist_items`
+      // but not the org's `songs` (0016_org_repertoire_model.sql), so
+      // `orderedSongs` skips every one of them and the file is empty. Saying
+      // "Downloaded … with 2 songs" over a 0-byte file was a lie the page told
+      // with a straight face.
+      const written = orderedSongs(setlist, setlist.songs).length
+      if (written === 0) {
+        throw new Error(
+          'None of this setlist’s songs are in your library, so there is nothing to export.',
+        )
+      }
       const res = downloadSetlistFile(setlist, setlist.songs, exportFormat)
-      setNotice(`Downloaded ${res.filename} with ${itemIds.length} song${itemIds.length === 1 ? '' : 's'}`)
+      setNotice(`Downloaded ${res.filename} with ${written} song${written === 1 ? '' : 's'}`)
     } catch (err) {
       setError(err.message)
     } finally {
