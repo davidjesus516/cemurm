@@ -10,7 +10,7 @@ import { syncNotices, clearSyncNotices } from '../../../offline/drainer.js'
 import { describeActivity } from '../../../domain/setlist/collab.js'
 import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
-import { downloadOnSongFile } from '../../../domain/setlist/exporters/onsong.js'
+import { downloadSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
 
 export default function SetlistDetail() {
@@ -25,6 +25,7 @@ export default function SetlistDetail() {
   const [name, setName] = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [exportFormat, setExportFormat] = useState('onsong')
   // 2.2 collaboration surface (owner-only roster; RLS select_self caps
   // non-owners to their own row, which the UI never renders).
   const [collabs, setCollabs] = useState([])
@@ -279,15 +280,16 @@ export default function SetlistDetail() {
     }
   }
 
-  // T8: OnSong export — always available once the setlist has ≥1 song. The
-  // lib guards the DOM (node path returns { ok, filename, text }), so the
-  // browser path just triggers the anchor download.
-  async function handleExportOnSong() {
+  // Export: OnSong, ChordPro, ABC and the plain-text outline. The dispatcher
+  // guards the DOM (node path returns { ok, filename, text }), so the browser
+  // path just triggers the anchor download. PDF and MusicXML are absent on
+  // purpose — no writer, and their charts are storage objects.
+  async function handleExport() {
     setBusy(true)
     setError('')
     setNotice('')
     try {
-      const res = downloadOnSongFile(setlist, setlist.songs)
+      const res = downloadSetlistFile(setlist, setlist.songs, exportFormat)
       setNotice(`Downloaded ${res.filename} with ${itemIds.length} song${itemIds.length === 1 ? '' : 's'}`)
     } catch (err) {
       setError(err.message)
@@ -451,18 +453,35 @@ export default function SetlistDetail() {
         >
           ▶ Stage Mode
         </Link>
-        {/* T8 exports: OnSong always available with ≥1 song; Planning Center
-            only when the integration is connected (S17 — the push serializes
-            order + agreed keys, never projections/annotations). */}
+        {/* T8 exports: the format menu covers OnSong, ChordPro, ABC and the
+            plain-text outline with ≥1 song; Planning Center only when the
+            integration is connected (S17 — the push serializes order + agreed
+            keys, never projections/annotations). */}
         {itemIds.length > 0 && (
-          <button
-            type="button"
-            onClick={handleExportOnSong}
-            disabled={busy}
-            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
-          >
-            Export for OnSong
-          </button>
+          <span className="flex items-center gap-2">
+            <label htmlFor="setlist-export-format" className="text-sm text-cem-secondary">
+              Export
+            </label>
+            <select
+              id="setlist-export-format"
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value)}
+              disabled={busy}
+              className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden disabled:opacity-60"
+            >
+              {EXPORT_FORMATS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={busy}
+              className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+            >
+              Download
+            </button>
+          </span>
         )}
         {pcoConnected && itemIds.length > 0 && (
           <button
