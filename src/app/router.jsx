@@ -45,6 +45,7 @@ const SongDetail = lazy(() => import('../features/repertoire/pages/SongDetail.js
 const Setlists = lazy(() => import('../features/setlists/pages/Setlists.jsx'))
 const SetlistDetail = lazy(() => import('../features/setlists/pages/SetlistDetail.jsx'))
 const AudienceView = lazy(() => import('../features/setlists/pages/AudienceView.jsx'))
+const ExportHistory = lazy(() => import('../features/setlists/pages/ExportHistory.jsx'))
 const Gigs = lazy(() => import('../features/gigs/pages/Gigs.jsx'))
 const GigDetail = lazy(() => import('../features/gigs/pages/GigDetail.jsx'))
 const Bandmates = lazy(() => import('../features/bandmates/pages/Bandmates.jsx'))
@@ -134,6 +135,7 @@ const router = createBrowserRouter([
               { path: '/setlists', element: defer(<Setlists />) },
               { path: '/setlists/:id', element: defer(<SetlistDetail />) },
               { path: '/setlists/:id/stage', element: defer(<StageMode />) },
+              { path: '/exports', element: defer(<ExportHistory />) },
               { path: '/gigs', element: defer(<Gigs />) },
               { path: '/gigs/:id', element: defer(<GigDetail />) },
               { path: '/bandmates', element: defer(<Bandmates />) },
