@@ -45,7 +45,7 @@ requirement that is not in them.
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
 | **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | — | reopened — draft discarded, see L6 |
-| **T3** | S1 | `export-and-sharing` — audience view + export management | inline | split: T3a `65395b6` (token RPC + smoke), T3b `4acf5f6` (page + timeline). Export management still open |
+| **T3** | S1 | `export-and-sharing` — audience view + export management | inline | split: T3a `65395b6` (token RPC + smoke), T3b `4acf5f6` (page + timeline), T3c export history PR #462, T3d batch ZIP (this slice) |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
 | **T5** | S2 | `user-onboarding` — tutorial hints + completion | — | — |
 | **T6** | S3 | `analytics-and-insights` — personal + performance history | — | — |
@@ -213,3 +213,34 @@ in this unit — it depends on four surfaces being stable and ships separately.
   **Verification**: `pnpm test` 557 passed (32 new), `pnpm test:gherkin` 44, lint, typecheck, build
   and the visual gate (0 failing) green; doc counts, test integrity, migration uniqueness and the
   destructive scan unchanged and green.
+
+- **L14** (2026-11-12, orchestrator): T3 export management, second half — the event batch ZIP
+  (`features/export-and-sharing.feature:181-186`).
+  **`domain/setlist/exporters/eventZip.js`** takes the already-serialized files, not the setlists:
+  `buildEventSetlistsZip(eventName, files)` → `{ name, bytes }`. That keeps the archive carrying
+  the exact bytes the single-setlist export would have written — the seam test asserts the ZIP
+  entry text equals `buildSetlistFile(...).text` — instead of a second serializer that could drift.
+  **The archive name comes from `slugify`**, the same helper the single-file exporters use, so
+  `"Weekend Festival 2025"` → `Weekend-Festival-2025-setlists.zip` exactly as the scenario spells
+  it. An unnamed event falls back to `untitled-setlists.zip` rather than a bare `-setlists.zip`.
+  **Duplicate filenames are disambiguated** (`-2`, `-3` before the extension) because two setlists
+  called "Friday Gig" serialize to the same name and a ZIP silently overwrites the earlier entry.
+  **An empty selection throws** `'Select at least one setlist to export.'` — a valid ZIP holding
+  nothing downloads as a success and is not one.
+  **Documented deviation**: the scenario says "each setlist is in PDF format". No PDF writer exists
+  in this build and a setlist's PDF chart is a storage object, so the archive carries whatever
+  format the user picks (default ChordPro). Producing a `.pdf` that is not a PDF would be worse
+  than an honest ChordPro archive — same gap as L11/L13.
+  **Batch exports are deliberately not written to the export history.** A history row is keyed to
+  one setlist and `Regenerate` re-serializes that setlist; an event archive has no single setlist to
+  regenerate from, and five rows for one download would misreport what the user did. The batch
+  scenario does not ask for it.
+  **UI** (`features/setlists/pages/Setlists.jsx`): an "Export for event" toggle opens a panel with
+  an event-name input, a format select, one checkbox per setlist (all pre-checked — unchecking two
+  is cheaper than checking five) and "Export All for Event". Tier 2 surface: no material, no
+  decorative shadow.
+  **Verification**: `pnpm test` 557 passed (6 new in `eventZip.test.js`, incl. the real-serializer
+  seam), `pnpm test:gherkin` 44, `pnpm lint` clean, `pnpm typecheck` clean, `pnpm build` OK,
+  `check-visual-contract.sh` 0 failing with rule 02 still at exactly 240, `check-doc-counts.sh` OK,
+  `check-test-integrity.sh` OK, `check-migrations-unique.sh` OK, `check-migrations-destructive.mjs`
+  OK, `pre-tool-guard.selftest.mjs` 79 checks.
