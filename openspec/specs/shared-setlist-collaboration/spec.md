@@ -151,9 +151,10 @@ For `chart_files` rows the owner-keyed policies key on the song's **creator**, s
 reach a chart row of a song created by another org member that the setlist's owner cannot read
 through their own scopes. That asymmetry is **created by setlist sharing**: at baseline neither the
 owner nor a collaborator could reach that chart row. The narrowness comes from the creator-keyed
-policy; the asymmetry itself is created here, and it is the feature's purpose. `song_versions` has
-no such asymmetry: its `SELECT` keys on the version's own `owner_id` or the song's creator, and its
-other writes require both.
+policy; the asymmetry itself is created here, and it is the feature's purpose. `song_versions` carries
+the same asymmetry for a different reason: its `SELECT` admits the version's own `owner_id` or the
+song's creator, so the collaborator also reaches version rows of a song the owner reads only through
+org or branch scope.
 
 PDF and MusicXML charts are **out of scope** of this requirement: the `charts` storage bucket is
 private with owner-folder RLS and 1-hour signed URLs, so a cross-organization collaborator sees the

@@ -237,8 +237,9 @@ asymmetry is **created by the setlist path**: at baseline neither the owner nor 
 reach that chart row, because `chart_files_select_owner` keys on the song's creator. 0048 lets the
 collaborator reach it through the setlist while the owner's own scope still does not. The narrowness
 comes from the creator-keyed policy; the asymmetry itself is created here, and it is the feature's
-purpose. `song_versions` has no such asymmetry: its `SELECT` keys on the version's own `owner_id` or
-the song's creator, and its other writes require both.
+purpose. `song_versions` carries the same asymmetry for a different reason: its `SELECT` admits the
+version's own `owner_id` **or** the song's creator, so the collaborator also reaches version rows of
+a song the owner reads only through org or branch scope.
 
 Two conditions MUST NOT be satisfiable by the caller alone. `setlists_insert_owner` does not
 constrain `org_id` or `branch_id`, and `setlist_collaborators_insert_owner` admits an owner

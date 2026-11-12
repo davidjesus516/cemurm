@@ -714,3 +714,45 @@ to `song_versions`, whose `SELECT` also admits the version's own `owner_id`. The
 conclusion is untouched; the sentence now says what `pg_policies` says. That is a wording
 correction to a paragraph already under review, not a new finding, so it does not reopen the
 correction bound `L14` set.
+
+**L16 — native review: approved, acknowledged, and one advisory it caught.** T12 cleared and the
+candidate was submitted to the native review (lineage `review-4a6659f7afdfbc88`, three lenses
+chosen for what was touched: `risk` because a mistake here exposes other users' songs,
+`readability` because public capability specs and the migration's scope comments change what others
+read, `reliability` because the rule's observable behaviour across songs, versions and charts is
+what the smoke pins). The review closed **approved**; the acknowledgement token was consumed and
+the authority burned (`review-acknowledged/v1`, `authority: burned`).
+
+Fourteen findings came back, all `informational`, none opening a correction:
+
+| id | lens | severity | what it says |
+|---|---|---|---|
+| `R1-absorbed-policies` | risk | WARNING | the shared read rests on the owner-vouch alone, with no policy-level backstop, because the self-invite and the `can_edit` ownership reassignment stay live |
+| `R1-manual-only-verification` | risk | WARNING | the only proof is a manual smoke; no CI gate runs the 15 assertions |
+| `R1-chart-asymmetry` | risk | SUGGESTION | chart visibility is no longer a strict subset of the owner's own visibility — stated in both specs, so informational |
+| `R2-DUP-SCOPES` | readability | WARNING | the vouch hand-transcribes five live `songs` scopes; nothing fails when they drift |
+| `R2-DUP-SPEC` | readability | WARNING | the asymmetry and PDF clauses exist near-verbatim in two specs, with no derivation between them |
+| `R2-SMOKE-ATTRIB` | readability | WARNING | the smoke header and the migration comment read as if a different condition closes the self-invite |
+| `R2-PARAM-GUARD` | readability | SUGGESTION | `$1` must already equal the caller, so a foreign id answers a plausible `false` instead of raising |
+| `R2-SMOKE-DEAD` | readability | SUGGESTION | `tmp_expect_error` is never called in this file |
+| `R2-SMOKE-FIXTURE-IDS` | readability | SUGGESTION | the fixture ids are written twice, in the cleanup and in the tidy check |
+| `R2-RECORD-ERRATA` | readability | SUGGESTION | the record keeps three matrices and applies its corrections as four rounds of errata |
+| `R3-manual-smoke-is-the-only-gate` | reliability | WARNING | same gate gap as `R1`, from the reliability side |
+| `R3-vouch-branches-unpinned` | reliability | WARNING | three of the vouch's five branches are never the deciding condition for any assertion |
+| `R3-song-versions-asymmetry-unproved` | reliability | WARNING | the spec's "`song_versions` has no such asymmetry" is unproved and probably false |
+| `R3-pass-count-unverified-prose` | reliability | SUGGESTION | the 15/0 figure is hand-synced across four files and no gate reads it |
+
+**One of them was true, and it was my own sentence.** `L15` recorded a wording fix that generalised
+creator-keying to `chart_files` only and then asserted `song_versions` had no such asymmetry. The
+review measured the live policy and was right: `song_versions_select_owner` admits the version's own
+`owner_id` **OR** the song's creator, so for a song the owner reads through org or branch scope but
+neither owns nor created, the collaborator reaches version rows the owner cannot — the same shape as
+`chart_files`, from a different predicate. Re-verified directly against `pg_policies` before editing.
+Both specs now say that, and `openspec/specs/row-level-security/spec.md` no longer carries the false
+claim.
+
+That edit lands **after** the acknowledgement, so it is not covered by the burned receipt. It is
+disclosed as such on the PR: a two-sentence correction to a spec claim the review itself falsified,
+in passive documentation, with the code, the smoke and the matrix untouched. The other thirteen
+findings are follow-up work — they are recorded here and opened as one issue rather than folded into
+this candidate, because a finding is information, not a licence to keep rewriting a reviewed tree.
