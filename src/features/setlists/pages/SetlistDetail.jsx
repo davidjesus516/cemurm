@@ -10,7 +10,9 @@ import { syncNotices, clearSyncNotices } from '../../../offline/drainer.js'
 import { describeActivity } from '../../../domain/setlist/collab.js'
 import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
-import { downloadSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
+import { buildSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
+import { saveFile } from '../../../domain/setlist/exporters/saveFile.js'
+import { recordExport } from '../../../data/repositories/exportHistory.js'
 import { createAudienceView, revokeAudienceView } from '../../../data/repositories/audienceView.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
 
@@ -288,13 +290,26 @@ export default function SetlistDetail() {
   // guards the DOM (node path returns { ok, filename, text }), so the browser
   // path just triggers the anchor download. PDF and MusicXML are absent on
   // purpose — no writer, and their charts are storage objects.
+  //
+  // T3: every export is recorded in the local history first, together with the
+  // bytes the browser wrote. That is what makes "Download" work offline later
+  // and what "Delete export" removes while keeping the row.
   async function handleExport() {
     setBusy(true)
     setError('')
     setNotice('')
     try {
-      const res = downloadSetlistFile(setlist, setlist.songs, exportFormat)
-      setNotice(`Downloaded ${res.filename} with ${itemIds.length} song${itemIds.length === 1 ? '' : 's'}`)
+      const file = buildSetlistFile(setlist, setlist.songs, exportFormat)
+      saveFile({ filename: file.filename, mimeType: file.mimeType, body: file.text })
+      if (user) {
+        await recordExport(user.id, {
+          setlistId: setlist.id,
+          setlistName: setlist.name,
+          format: exportFormat,
+          file,
+        })
+      }
+      setNotice(`Downloaded ${file.filename} with ${itemIds.length} song${itemIds.length === 1 ? '' : 's'} — saved to Export history`)
     } catch (err) {
       setError(err.message)
     } finally {

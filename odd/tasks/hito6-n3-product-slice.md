@@ -186,3 +186,30 @@ in this unit — it depends on four surfaces being stable and ships separately.
   **A2** (push binding) is left open on purpose: it is only reachable once the push scenario is
   implemented, which is a declared gap.
   Smoke grew 29 → 38 assertions. Re-verified after `supabase db reset`: 38 PASS / 0 FAIL.
+
+- **L13** (2026-11-12, orchestrator): T3 export management, first half — history, regenerate and
+  delete-from-local-storage (`features/export-and-sharing.feature:158-178`).
+  **The model is two kv keys, not one row.** `export-history:v1:<user>` holds the metadata index and
+  `export-file:v1:<user>:<id>` holds the bytes the browser wrote. One row cannot express "the file is
+  gone but the export happened", which is exactly what the delete scenario asserts ("the export
+  history entry is marked as no longer available offline"). Deleting the row would erase history;
+  keeping the bytes would make "removed from local storage" a lie.
+  **Regenerate re-serializes the CURRENT setlist**, not a stored copy, which is the scenario's
+  "reflects any setlist changes made since the last export". It keeps the same entry id, so the row
+  is the same export with today's date and today's bytes.
+  **PDF is still refused by name**, same deviation L11 recorded: no PDF writer exists in this build
+  and a setlist's PDF chart is a storage object. A history row can never be a PDF, and `Regenerate`
+  re-runs the real serializer for the format that was actually exported.
+  **`saveFile` extracted** (`exporters/saveFile.js`) so the single-setlist download, the regenerate
+  action and the batch archive share one DOM touch instead of three spellings of
+  `URL.createObjectURL`.
+  **`formatBytes` extracted** (`domain/library/formatBytes.js`): the storage screen already had a
+  copy and the export history needed the same rounding rule, so the settings screen now imports the
+  one implementation. `PdfChartViewer` deliberately keeps its own variant — it returns `''` for
+  zero because it renders inside a sentence, which is a different contract, not a duplicate.
+  **Honest gap**: the repository's happy path (a row that survives a reload) is only observable in a
+  browser; the node test pins the failure mode instead — with no IndexedDB the export must still
+  succeed and the history degrade to empty, never fail the download.
+  **Verification**: `pnpm test` 557 passed (32 new), `pnpm test:gherkin` 44, lint, typecheck, build
+  and the visual gate (0 failing) green; doc counts, test integrity, migration uniqueness and the
+  destructive scan unchanged and green.

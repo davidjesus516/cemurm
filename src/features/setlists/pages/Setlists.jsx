@@ -83,6 +83,9 @@ export default function Setlists() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-cem-text">Setlists</h1>
         <div className="flex items-center gap-2">
+          <Link to="/exports" className="text-sm font-medium text-cem-amber hover:underline">
+            Export history
+          </Link>
           {pcoConnected && !showForm && (
             <button
               type="button"
