@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { buildAudienceTimeline, formatOffset } from './audienceTimeline.js'
 
 // features/export-and-sharing.feature:137 — "I see song titles and performance
-// times in order". The payload from 0048 carries a duration per song, so the
+// times in order". The payload from 0049 carries a duration per song, so the
 // performance time of each row is the running sum of the durations before it.
 describe('buildAudienceTimeline', () => {
   it('accumulates start times in setlist order', () => {

@@ -140,17 +140,18 @@ in this unit — it depends on four surfaces being stable and ships separately.
   (`0001:539`) has token + `expires_at` + opt-in push binding + `created_by`, and `0002:122`
   revoked every privilege, so 44 migrations have read and written nothing. Precedent for the read
   path is `0025_overlay_sessions.sql` (capability row, unauthenticated RPC, uuid is the
-  authorization). Migration took **`0048`**, not `0047`: `0047_public_table_privileges.sql` is
-  claimed by open PR #453 on three branches, which is the "free on `main` is not free for you" rule
-  happening live.
+  authorization). Migration took **`0049`**, not `0047` or `0048`: `0047_public_table_privileges.sql`
+  is claimed by open PR #451 (and by #452/#453 only because they are stacked on #451), and `0048`
+  is claimed by open PR #460 — which is the "free on `main` is not free for you" rule happening
+  live. (L11 originally said `0048`/#453; corrected in L13.)
   **Two decisions made here, both documented in the migration header**: issuing a public token is
   narrower than reading a shared setlist, so it requires owner or accepted `can_edit` collaborator —
   a view-only collaborator cannot publish to anonymous strangers; and `get_audience_setlist` is
   granted to `anon` **and** `authenticated`, deviating from 0025's anon-only grant, because a
   congregation member with the app installed is logged in and 0025's grant would serve strangers but
   not them. The token remains the whole authorization either way.
-  **Verification**: `supabase db reset` then `scripts/smoke/0047-audience-view.sql` → 29 PASS /
-  0 FAIL. Full gate set green (lint, typecheck, test 525 with 8 new, gherkin 44, build, visual
+  **Verification**: `supabase db reset` then `scripts/smoke/0049-audience-view.sql` → 29 PASS /
+  0 FAIL (40 after L13). Full gate set green (lint, typecheck, test 525 with 8 new, gherkin 44, build, visual
   contract 0 failing, doc counts, test integrity, migration uniqueness, destructive scan,
   pre-tool-guard 79).
   **Deliberate gaps, same discipline as L8**: QR encoding (no QR dependency exists; the link is what
@@ -186,3 +187,38 @@ in this unit — it depends on four surfaces being stable and ships separately.
   **A2** (push binding) is left open on purpose: it is only reachable once the push scenario is
   implemented, which is a declared gap.
   Smoke grew 29 → 38 assertions. Re-verified after `supabase db reset`: 38 PASS / 0 FAIL.
+
+- **L13** (2026-11-12, orchestrator): review round on #459 — Antony-Figueroa,
+  **CHANGES_REQUESTED**, three blockers plus advisories, all verified on a stack rebuilt from the
+  branch. Fixes below are one commit.
+  **B1 — the migration number collided.** `0048_audience_view.sql` shared a version prefix with
+  #460's `0048_setlist_collaborator_read.sql`, and `supabase_migrations.schema_migrations` is keyed
+  by that prefix: whichever landed second would abort `supabase db reset` and take the E2E suite and
+  every smoke with it. Renumbered to **`0049`** (0047 is #451's, 0048 is #460's — both open, both
+  claimed), and the smoke was renamed with it, `scripts/smoke/0047-audience-view.sql` →
+  `0049-audience-view.sql`, so the filename finally matches what it covers. The doc correction in
+  the same commit: `0047_public_table_privileges.sql` lives in **#451**, not #453 (#452/#453 only
+  carry it because they are stacked on #451) — L11 said #453 and is corrected above.
+  **B2 — the 1..90-day window was not enforced against a client.** `create_audience_view` is
+  SECURITY INVOKER and the table also granted `insert` to `authenticated`, so a direct PostgREST
+  POST could mint a link expiring in 2099 and serve the setlist to `anon` indefinitely. The table now
+  carries `audience_views_expiry_ceiling check (expires_at <= now() + interval '90 days')`.
+  **The reviewer's exact SQL was not used, on evidence**: their form also required
+  `expires_at > now()`, and a CHECK is evaluated by COPY — reproduced on the local stack, an expired
+  row dumps fine and then fails to restore with "new row ... violates check constraint". A backup of
+  this table would have become unrestorable the day the first link expired. The upper bound alone
+  blocks the 2099 insert (reproduced: rejected) and leaves expired rows restorable (reproduced:
+  accepted). The 1-day floor stays an RPC invariant; a shorter link is strictly safer.
+  **B3 — the revocation control had no product path.** Nothing in `src/` ever SELECTed
+  `audience_views`, so after a reload the owner could not list, re-copy or revoke anything, and an
+  editor-issued link was invisible to the owner accountable for it. Added `listAudienceViews`
+  (RLS-scoped, soonest-expiring first, issuer name resolved the same two-step way
+  `listCollaborators` does) and a panel in `SetlistDetail` that lists every visible link with its
+  expiry and issuer, each copyable and revocable. The create control no longer depends on in-memory
+  token state, which is what made a second link accumulate with nothing able to show it.
+  **A1** fixed: the security header now names the setlist `id` and `name` as disclosed, not only the
+  four song fields. **A5** fixed: the docs no longer claim the migration is on `main`.
+  **A2** (cached envelope has no age bound) and **A4** (no E2E spec for the audience route) are left
+  open and stated as such — A2 is online-only revocation, which is what the feature file asks for,
+  and A4 is answered by retargeting the PR to `main`, which runs the E2E workflow.
+  Smoke grew 38 → 40 assertions (the ceiling and the owner's list view).

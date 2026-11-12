@@ -1,7 +1,7 @@
 // Public audience view (Hito 6 N3, T3): /audience/:token
 //
 // features/export-and-sharing.feature:133-152. NO auth guard: the link is a
-// capability and the token IS the authorization (0048). `get_audience_setlist`
+// capability and the token IS the authorization (0049). `get_audience_setlist`
 // is SECURITY DEFINER and returns exactly position/title/artist/durationSeconds
 // — the chord body, the agreed key, the item notes and the collaborators are
 // not in the payload at all, so "no chord charts, rehearsal notes or editor

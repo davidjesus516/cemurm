@@ -151,19 +151,17 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **23 files**, `0021-plan-freeze.sql` through `0047-audience-view.sql`
+`scripts/smoke/*.sql` — **23 files**, `0021-plan-freeze.sql` through `0049-audience-view.sql`
 (earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
 re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
 `0034_plan_freeze.sql` and `0022-projection.sql` covers `0035_projection.sql` — both were
 renumbered after their smokes were written, and the smokes were not renamed with them. So a smoke
 name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
-that those migration slots are taken. The newest file is a third instance: it is
-`0047-audience-view.sql`, and the migration it covers is
-`0048_audience_view.sql`.
+that those migration slots are taken.
 
 What has a smoke: `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
-`0037`–`0039`, `0041`–`0046` and `0048`. What does not: `0001`–`0020`,
+`0037`–`0039`, `0041`–`0046` and `0049`. What does not: `0001`–`0020`,
 `0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql`. They are **not**
 in CI and **not** wired to any pnpm script. The invocation
 exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
@@ -183,18 +181,21 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **45 files on `main`**, numbered `0001`–`0048`, with **`0021` and `0022` a deliberate
-free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
+Migrations: **45 files on this branch**, numbered `0001`–`0049`, with **`0021` and `0022` a
+deliberate free gap** and **`0047`/`0048` absent because open PRs claim them**. `main` today is 44
+files through `0046`; this tree adds `0049_audience_view.sql`. The `0020`–`0022` window closed when
+`0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
 `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`,
 `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`,
 `0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql` and
-`0048_audience_view.sql`.
-**The next free number is `0047`** — but it is *claimed*, not available: the open PR #453
-(`fix/acl-table-privileges`) carries `0047_public_table_privileges.sql`, which is why the audience
-view took `0048`. That is the "free on `main` is not free for you" rule in the paragraph below
-happening live: a slot is consumed when the PR carrying it lands.
+`0049_audience_view.sql`.
+**The next free number is `0047`** — in this tree, but *claimed*, not available: open PR #451
+(`fix/acl-table-privileges`) carries `0047_public_table_privileges.sql` (#452 and #453 only carry it
+because they are stacked on #451), and open PR #460 carries `0048_setlist_collaborator_read.sql`.
+That is why the audience view took `0049`. It is the "free on `main` is not free for you" rule in the
+paragraph below happening live: a slot is consumed when the PR carrying it lands.
 
 Re-count rather than trusting this paragraph: it has been wrong five times, most recently on
 2026-11-01, when it still said 38 files through `0040` with `0041` next, while `main` carried 43

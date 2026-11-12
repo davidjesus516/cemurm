@@ -11,7 +11,7 @@ import { describeActivity } from '../../../domain/setlist/collab.js'
 import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
 import { downloadSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
-import { createAudienceView, revokeAudienceView } from '../../../data/repositories/audienceView.js'
+import { createAudienceView, listAudienceViews, revokeAudienceView } from '../../../data/repositories/audienceView.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
 
 export default function SetlistDetail() {
@@ -27,9 +27,11 @@ export default function SetlistDetail() {
   const [showPicker, setShowPicker] = useState(false)
   const [busy, setBusy] = useState(false)
   const [exportFormat, setExportFormat] = useState('onsong')
-  // T3 audience link: the token is a capability, so it is shown once issued and
-  // can be revoked. Only the owner or an editor may issue one (0048 policy).
-  const [audienceToken, setAudienceToken] = useState('')
+  // T3 audience link: a token is a capability, so the page renders the links
+  // that exist for this setlist — expiry, issuer, copy, revoke. State alone lost
+  // the link on reload and left an editor-issued link invisible to the owner who
+  // is accountable for it; the list is what makes revocation reachable.
+  const [audienceLinks, setAudienceLinks] = useState([])
   // 2.2 collaboration surface (owner-only roster; RLS select_self caps
   // non-owners to their own row, which the UI never renders).
   const [collabs, setCollabs] = useState([])
@@ -88,6 +90,23 @@ export default function SetlistDetail() {
   useEffect(() => {
     loadCollabs()
   }, [loadCollabs])
+
+  // T3: the audience links the caller may see. RLS decides the scope (the owner
+  // sees every link issued for the setlist, an editor sees the ones they minted),
+  // so a failure here stays silent — it must not hide the setlist itself.
+  const loadAudienceLinks = useCallback(async () => {
+    if (!user || !id) return
+    try {
+      setAudienceLinks(await listAudienceViews(id))
+    } catch {
+      // The create and revoke controls report their own errors; a list failure
+      // leaves the previous list on screen rather than blanking the page.
+    }
+  }, [user, id])
+
+  useEffect(() => {
+    loadAudienceLinks()
+  }, [loadAudienceLinks])
 
   // 2.4 realtime (R2): live member edits land via postgres_changes → silent
   // refetch (<2s). The hook borrows THIS page's setlists refresh so remote
@@ -309,8 +328,8 @@ export default function SetlistDetail() {
     setError('')
     setNotice('')
     try {
-      const token = await createAudienceView(setlist.id)
-      setAudienceToken(token)
+      await createAudienceView(setlist.id)
+      await loadAudienceLinks()
       setNotice('Audience link created — anyone with it can read the setlist for 7 days.')
     } catch (err) {
       setError(err.message)
@@ -319,13 +338,16 @@ export default function SetlistDetail() {
     }
   }
 
-  async function handleRevokeAudienceLink() {
+  async function handleRevokeAudienceLink(token) {
     setBusy(true)
     setError('')
     setNotice('')
     try {
-      await revokeAudienceView(audienceToken)
-      setAudienceToken('')
+      await revokeAudienceView(token)
+      // Re-read instead of splicing the row out locally: the DELETE policy is the
+      // authority on what was actually removed, and a second device may have
+      // issued or revoked another link in the meantime.
+      await loadAudienceLinks()
       setNotice('Audience link revoked.')
     } catch (err) {
       setError(err.message)
@@ -334,10 +356,9 @@ export default function SetlistDetail() {
     }
   }
 
-  async function handleCopyAudienceLink() {
-    const url = `${window.location.origin}/audience/${audienceToken}`
+  async function handleCopyAudienceLink(token) {
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(`${window.location.origin}/audience/${token}`)
       setNotice('Audience link copied.')
     } catch {
       setError('Could not copy the link — select it and copy manually.')
@@ -395,33 +416,57 @@ export default function SetlistDetail() {
         <p className="mt-3 rounded-md bg-cem-amber/10 px-3 py-2 text-sm text-cem-amber">{notice}</p>
       )}
 
-      {/* T3 audience link: the token is the whole permission, so the surface
-          shows it once, lets it be copied, and offers revocation. Revoking is a
-          row delete (0048) — there is no "disabled" state to drift out of sync. */}
-      {audienceToken && (
+      {/* T3 audience links: a token is the whole permission, so every live link
+          is listed with its expiry and issuer, and each can be copied or
+          revoked. Revoking is a row delete (0049) — there is no "disabled" state
+          to drift out of sync. An editor-issued link is visible to the owner
+          here because the select policy is scoped to the setlist. */}
+      {(setlist.canEdit || audienceLinks.length > 0) && (
         <div className="mt-3 rounded-md border border-cem-elevated bg-cem-surface px-3 py-2">
-          <p className="text-sm font-medium text-cem-text">Audience link</p>
-          <p className="mt-1 break-all font-mono text-xs text-cem-secondary">
-            {`${window.location.origin}/audience/${audienceToken}`}
+          <p className="text-sm font-medium text-cem-text">Audience links</p>
+          <p className="mt-1 text-xs text-cem-secondary">
+            Anyone with a link reads the song titles and performance times. No chords, no notes,
+            no editing controls.
           </p>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={handleCopyAudienceLink}
-              disabled={busy}
-              className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
-            >
-              Copy link
-            </button>
-            <button
-              type="button"
-              onClick={handleRevokeAudienceLink}
-              disabled={busy}
-              className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-secondary-elevated hover:bg-cem-elevated disabled:opacity-60"
-            >
-              Revoke
-            </button>
-          </div>
+          {audienceLinks.length === 0 ? (
+            <p className="mt-2 text-xs text-cem-secondary">No audience links yet.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-cem-elevated">
+              {audienceLinks.map((link) => (
+                <li key={link.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <div className="min-w-0">
+                    <p className="break-all font-mono text-xs text-cem-secondary">
+                      {`${window.location.origin}/audience/${link.token}`}
+                    </p>
+                    <p className="mt-1 text-xs text-cem-secondary">
+                      {link.expired
+                        ? 'Expired'
+                        : `Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
+                      {link.issuedBy ? ` · issued by ${link.issuedBy}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyAudienceLink(link.token)}
+                      disabled={busy}
+                      className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+                    >
+                      Copy link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeAudienceLink(link.token)}
+                      disabled={busy}
+                      className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-secondary-elevated hover:bg-cem-elevated disabled:opacity-60"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -563,10 +608,10 @@ export default function SetlistDetail() {
           <button
             type="button"
             onClick={handleCreateAudienceLink}
-            disabled={busy || Boolean(audienceToken)}
+            disabled={busy}
             className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
           >
-            {audienceToken ? 'Audience link ready' : 'Audience link'}
+            New audience link
           </button>
         )}
         {pcoConnected && itemIds.length > 0 && (

@@ -1,8 +1,7 @@
--- 0047 audience-view capability-token smoke (local dev only; fresh reset DB,
+-- 0049 audience-view capability-token smoke (local dev only; fresh reset DB,
 -- single run, not idempotent).
 --
--- Reverse migration ordering note: the smoke names do NOT track migration
--- numbers; this smoke covers `0048_audience_view.sql`.
+-- This smoke covers `0049_audience_view.sql`.
 --
 -- Scope under test (features/export-and-sharing.feature:133-152):
 --   · Issuing a token is restricted to the owner or an ACCEPTED EDITOR
@@ -17,11 +16,16 @@
 --   · Unknown, malformed, expired and revoked tokens are indistinguishable:
 --     all four return NULL, never a partial envelope.
 --   · `anon` holds no table grant on audience_views; its only path is the RPC.
+--   · The 90-day ceiling holds at the TABLE, not only in the RPC: a direct
+--     PostgREST insert that skips `create_audience_view` cannot mint a link
+--     that outlives it.
+--   · The owner can LIST every link issued for their setlist, including one an
+--     editor minted — the query behind the revocation control.
 --
 -- Run: supabase db reset, then
 --   docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X \
---     -v ON_ERROR_STOP=1 -f - < scripts/smoke/0047-audience-view.sql
--- Expects 38 PASS / 0 FAIL.
+--     -v ON_ERROR_STOP=1 -f - < scripts/smoke/0049-audience-view.sql
+-- Expects 40 PASS / 0 FAIL.
 set client_min_messages to notice;
 
 create or replace function tmp_assert(p_name text, p_ok boolean) returns void language plpgsql as $$
@@ -329,3 +333,26 @@ select tmp_expect_error('38. a guessable short token is rejected by the table',
     values ('30000000-0000-0000-0000-000000000001', repeat('a',16), now() + interval '1 day',
             '10000000-0000-0000-0000-000000000001')$$,
   '%audience_views_token_format%');
+
+-- B2 (independent review): the RPC's 1..90 window is not the only enforcement
+-- point. A client that skips the RPC inserts straight through the policy, so the
+-- CEILING has to exist on the table. Without it this insert succeeds and the
+-- token serves the setlist to `anon` until 2099 — a link that never expires on a
+-- table whose whole model is "expiry enforced on read".
+select tmp_expect_error('39. a direct insert cannot outlive the 90-day ceiling',
+  $$insert into public.audience_views (setlist_id, token, expires_at, created_by)
+    values ('30000000-0000-0000-0000-000000000001', repeat('b',32),
+            now() + interval '10 years', '10000000-0000-0000-0000-000000000001')$$,
+  '%audience_views_expiry_ceiling%');
+
+-- B3 (independent review): the owner must be able to SEE the links, or the
+-- revocation control has no product path. An editor mints one; the owner's own
+-- SELECT has to return it — 0049's select policy is scoped to the SETLIST, not
+-- to `created_by`, precisely so this row is visible and revocable.
+select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000002"}',false);
+select public.create_audience_view('30000000-0000-0000-0000-000000000001', 30) as tok_list \gset
+select set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001"}',false);
+select tmp_assert('40. the owner lists the link an editor issued for their setlist',
+  (select count(*) from public.audience_views
+   where setlist_id = '30000000-0000-0000-0000-000000000001'
+     and token = :'tok_list') = 1);

@@ -2,12 +2,12 @@
 // "I see song titles and performance times in order".
 //
 // Pure and node-safe: the page owns rendering, this module owns the arithmetic.
-// The payload from `get_audience_setlist` (0048) carries one duration per song
+// The payload from `get_audience_setlist` (0049) carries one duration per song
 // and no start time, because a start time is a function of the rows before it
 // and storing it would let the two disagree after a setlist edit.
 
 /**
- * A song row exactly as 0048 returns it inside `songs`.
+ * A song row exactly as 0049 returns it inside `songs`.
  * @typedef {object} AudienceSong
  * @property {number} [position]
  * @property {string} [title]

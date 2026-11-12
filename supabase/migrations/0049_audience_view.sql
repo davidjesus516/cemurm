@@ -1,4 +1,4 @@
--- CEMURM 0048 — audience view: expiring capability token read path (N3 unit 3)
+-- CEMURM 0049 — audience view: expiring capability token read path (N3 unit 3)
 --
 -- Requirement source:
 --   features/export-and-sharing.feature:133-152 (audience view, 3 scenarios)
@@ -25,9 +25,16 @@
 -- `get_audience_setlist` is SECURITY DEFINER, so RLS does NOT filter what it returns. Every
 -- column it names is a deliberate disclosure decision:
 --
---   disclosed   position, title, artist, duration  (what an audience reads between songs)
+--   disclosed   the setlist's own `id` and `name`, and per song: `position`,
+--               `title`, `artist`, `durationSeconds` — what an audience reads
+--               between songs, and enough to know WHICH setlist it is looking at
 --   withheld    chart body, chord body, agreed_key, item notes, collaborators, owner,
 --               org/branch, visibility, version ids, any song the setlist does not hold
+--
+-- The envelope has exactly seven keys (`id`, `name`, `songs` at the top level and
+-- `position`, `title`, `artist`, `durationSeconds` per song); smoke assertions 14,
+-- 15 and 30 pin that set from both directions, so a new column added to this
+-- function fails the smoke instead of silently leaving the database.
 --
 -- The smoke's anti-leak assertion is the one that must never be weakened: a token for one
 -- setlist must return that setlist's titles and nothing that belongs to another.
@@ -125,11 +132,23 @@ create policy audience_views_delete_owner on public.audience_views
 -- A token inserted DIRECTLY through PostgREST never passes through the RPC, so
 -- the 32-hex-char shape the RPC guarantees needs to hold at the table too: a
 -- publisher who inserted a short, guessable token would be handing out a link
--- anyone could brute force. The expiry window cannot be a constraint (`now()`
--- is not immutable), so 1..90 days stays an RPC invariant and the owner's
--- revocation above is the control that makes it safe.
+-- anyone could brute force.
+--
+-- The EXPIRY CEILING has to hold at the table for the same reason. The insert
+-- policy authorizes WHO may publish, not HOW LONG the link lives, so a client
+-- that skips the RPC could otherwise POST a row expiring in 2099 and keep
+-- serving the setlist to `anon` indefinitely. PostgreSQL does accept `now()` in
+-- a CHECK and evaluates it at insert time, so the ceiling is enforceable here.
+--
+-- Only the CEILING, never `expires_at > now()`. A CHECK is evaluated by COPY,
+-- so a constraint that requires a LIVE row makes every backup unrestorable once
+-- the first link expires — verified on the local stack, the restore fails with
+-- "new row for relation ... violates check constraint". Expired rows must stay
+-- insertable; the read path is what refuses them. The 1-day FLOOR therefore
+-- stays an RPC invariant, and a shorter link is strictly safer anyway.
 alter table public.audience_views
-  add constraint audience_views_token_format check (token ~ '^[0-9a-f]{32}$');
+  add constraint audience_views_token_format check (token ~ '^[0-9a-f]{32}$'),
+  add constraint audience_views_expiry_ceiling check (expires_at <= now() + interval '90 days');
 
 -- ══════════════ 2. ISSUE A TOKEN (owner side) ══════════════
 -- SECURITY INVOKER on purpose: the caller's own RLS does the authorization (the SELECT sees
