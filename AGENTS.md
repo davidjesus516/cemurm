@@ -31,8 +31,11 @@ for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
 major fails hard against the Vite major it was not built for — Vitest 5 wants `vite ^6.4||^7||^8`
 and dies against Vite 5. That is why this was pinned at Vitest 3.2.7 / Vite 5.4.21 for so long:
 moving one without the other was guaranteed to break. #236 moved both together (Vite 6.4.3 /
-Vitest 5.0.2) and the suite passed unchanged. **The rule is the pairing, not the specific
-versions** — when one major moves, move the other in the same change and install for real.
+Vitest 5.0.2) and the suite passed unchanged; `72d2bba` later took both to **Vite 8.3.5 /
+Vitest 5.0.5**, with `@vitejs/plugin-react` 5.2.0 (the first major that supports Vite 8), and the
+suite passed unchanged again. **The rule is the pairing, not the specific versions** — when one
+major moves, move the other in the same change and install for real. Re-read `package.json`
+rather than this sentence: it has been stale once already.
 
 Verifying a dependency bump here takes one step that is easy to skip and that silently invalidates
 the result: a worktree symlinked to the repo's `node_modules` runs the *old* versions, so every gate

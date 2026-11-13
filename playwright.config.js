@@ -1,3 +1,5 @@
+/* global process */
+
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +40,18 @@ export default defineConfig({
     ...baseConfig,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+  },
+  // The specs drive the real app, so the suite has to serve it. Without this
+  // block every `page.goto` failed with net::ERR_CONNECTION_REFUSED, which is
+  // why no spec touched a page until now: `tests/e2e/global-setup.js` starts
+  // Supabase but nothing started Vite, and the only spec left passed because it
+  // never navigated. `reuseExistingServer` keeps a developer's already-running
+  // `pnpm dev` alive locally while CI always starts its own.
+  webServer: {
+    command: 'pnpm dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
   },
   projects: [
     {
