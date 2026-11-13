@@ -44,7 +44,7 @@ requirement that is not in them.
 | ID | Linked S# | Feature | Route | Commit |
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
-| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | — | reopened — draft discarded, see L6 |
+| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | inline | `sharing.js` + `ShareMenu.jsx` (this slice); QR/embed/proximity and the chord-chart PNG remain open, see L11 |
 | **T3** | S1 | `export-and-sharing` — audience view + export management | — | — |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
 | **T5** | S2 | `user-onboarding` — tutorial hints + completion | — | — |
@@ -128,3 +128,41 @@ in this unit — it depends on four surfaces being stable and ships separately.
   `pr-size.yml` reported 639 because it diffs the merge base against the merge-ref `HEAD`,
   which pulls in `main` commits that landed after the branch point; the workflow's own base
   choice is the defect, and the PR body says so.
+- **L11** (2026-11-13, orchestrator): **T2 rebuilt inline** — the first attempt (draft) was
+  discarded in L6, so this is a fresh unit on the real model. Three files, 387 authored lines:
+  `src/domain/setlist/sharing.js` (pure link + summary + channel-URL builders),
+  `sharing.test.js` (11 tests), `src/features/setlists/components/ShareMenu.jsx` (button +
+  panel, reused by the setlist and the song page). Wired into `SetlistDetail.jsx` beside the
+  T1 export menu and into `SongDetail.jsx` beside Practice/Edit.
+
+  **Design rule that shaped it:** a share link is the ordinary in-app deep link
+  (`/setlists/:id`, `/songs/:id`). Access is whatever RLS already grants; sharing therefore
+  grants nothing new, and the UI says exactly that. No token, no RPC, no migration — none was
+  needed, and inventing one would have claimed a capability the schema does not expose.
+
+  **What ships against S1's SHARING OPTIONS + INTEGRATED TARGETS (:53-131):** copy-link for a
+  setlist and for a song (`:53-71`), the summary text (name, count, total duration, running
+  order with each item's agreed key — the `:38-43` outline rule reused), the email subject
+  verbatim from `:124`, and WhatsApp/Telegram/email channels (`:106-125`). WhatsApp and
+  Telegram prefer `navigator.share` when the browser has it (the scenarios say "a share sheet
+  opens") and fall back to `wa.me` / `t.me`; email is always `mailto:`.
+
+  **Known gaps, deliberate.** · The 7-day expiring token (`:58`) and the view-only audience
+  link (`:62-66`): `public.audience_views` exists (0001) but `0002` revokes every grant on it
+  and no RPC or route reads it — a "read-only link" today would be a URL that grants nothing.
+  That is the audience view, T3. · QR, embed snippet and proximity code (`:73-101`): no QR
+  encoder in the build, and proximity needs a one-time token surface that does not exist.
+  · The chord-chart PNG (`:127-131`): no rasterizer. · The email's default PDF attachment
+  (`:123`): no PDF writer (L8), so `mailto:` carries the summary and the link only.
+
+  **Verification**, run in a worktree with its own `node_modules` (`pnpm install
+  --frozen-lockfile`; pnpm 10.34.9 installed under `$HOME/.local` because the image ships no
+  pnpm and the global prefix is not writable): `pnpm lint` clean, `pnpm typecheck` clean,
+  `pnpm test` 528 passed, `pnpm test:gherkin` 44 passed, `pnpm build` OK,
+  `bash scripts/check-visual-contract.sh` OK (12 rules, 0 failing).
+
+  **One gate interaction worth recording:** rule 02 is a ratchet pinned at 240 occurrences of
+  the four dead accents, and the first draft of `ShareMenu.jsx` spent one `cem-rose` on its
+  error line — 241, red. The error now reads on `text-cem-text`, and the comment above it
+  names no accent token (the gate greps comments too, which cost a second round: naming the
+  tokens in prose counted as two more occurrences). No ceiling was raised.

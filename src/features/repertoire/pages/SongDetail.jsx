@@ -20,6 +20,8 @@ import EnrichmentPanel from '../components/EnrichmentPanel.jsx'
 import LyricsPanel from '../components/LyricsPanel.jsx'
 import { getDuplicateGroup } from '../../../data/repositories/duplicates.js'
 import { PDF_SIZE_MESSAGE, PDF_TYPE_MESSAGE, validatePdfFile } from '../../../data/repositories/pdfCharts.js'
+import ShareMenu from '../../setlists/components/ShareMenu.jsx'
+import { songLink, songShareText } from '../../../domain/setlist/sharing.js'
 
 /* eslint-disable react/prop-types */
 
@@ -726,7 +728,17 @@ export default function SongDetail() {
             )}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* T2: share this song's link (features/export-and-sharing.feature:62-71).
+              The sheet is the song detail page — the viewer sees the chart and
+              lyrics only because RLS already lets them, never because of the link. */}
+          <ShareMenu
+            label="Share song"
+            text={songShareText(song, openVersion?.key)}
+            url={songLink(song.id || id, window.location.origin)}
+            subject={`Chord chart — ${song.title}`}
+            note="Opens this song for anyone who already has access; the link grants no edit rights."
+          />
           {!isRetired && !editing && !isPdfSong && song.body && (
             <>
               <Link

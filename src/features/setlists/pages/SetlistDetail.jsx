@@ -11,6 +11,8 @@ import { describeActivity } from '../../../domain/setlist/collab.js'
 import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
 import { downloadSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
+import ShareMenu from '../components/ShareMenu.jsx'
+import { setlistEmailSubject, setlistLink, setlistShareText } from '../../../domain/setlist/sharing.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
 
 export default function SetlistDetail() {
@@ -493,6 +495,15 @@ export default function SetlistDetail() {
             {showPcoPicker ? 'Hide plan picker' : 'Export to Planning Center'}
           </button>
         )}
+        {/* T2 sharing options: copy link, WhatsApp, Telegram, email. The link
+            is the ordinary /setlists/:id deep link — RLS still decides who can
+            open it, so no permission is granted by sharing it. */}
+        <ShareMenu
+          text={setlistShareText(setlist, setlist.songs)}
+          url={setlistLink(setlist.id, window.location.origin)}
+          subject={setlistEmailSubject(setlist)}
+          note="Anyone with collaborator access can open this link; it grants no new access."
+        />
         {setlist.canEdit && (
           <button
             type="button"
