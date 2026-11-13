@@ -18,9 +18,11 @@
 
 import { useState } from 'react'
 import { SHARE_CHANNELS, shareUrl } from '../../../domain/setlist/sharing.js'
+import QrCode from '../../../ui/patterns/QrCode.jsx'
 
 export default function ShareMenu({ label = 'Share', text, url, subject, note }) {
   const [open, setOpen] = useState(false)
+  const [showQr, setShowQr] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
 
@@ -85,8 +87,21 @@ export default function ShareMenu({ label = 'Share', text, url, subject, note })
                 {channel.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setShowQr((value) => !value)}
+              className="rounded-md border border-cem-elevated px-3 py-1.5 text-sm font-medium text-cem-text hover:bg-cem-elevated"
+            >
+              {showQr ? 'Hide QR code' : 'QR code'}
+            </button>
           </div>
           <p className="mt-2 break-all text-xs text-cem-secondary">{url}</p>
+          {showQr && (
+            <div className="mt-2 flex flex-col items-start gap-1">
+              <QrCode value={url} label={`QR code for ${url}`} />
+              <p className="text-xs text-cem-secondary">Scan to open the same link.</p>
+            </div>
+          )}
           {note && <p className="mt-1 text-xs text-cem-secondary">{note}</p>}
           {status && <p className="mt-2 text-xs font-medium text-cem-amber">{status}</p>}
           {/* Rule 02 is a ratchet at its ceiling (240 occurrences), so new

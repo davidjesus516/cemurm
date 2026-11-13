@@ -198,6 +198,10 @@ CSS_COLOUR_KEY_ALLOWLIST=(
   "cem.stage-lyric"
   "cem.stage-section"
   "cem.stage-dim"
+  # Machine-read polarity, deliberately not theme-mapped: a QR scanner needs
+  # dark modules on a light field, and cem.base/cem.text swap with html.light.
+  "cem.qr-ink"
+  "cem.qr-paper"
   "destructive"
   "chart-1"
   "chart-2"

@@ -44,7 +44,7 @@ requirement that is not in them.
 | ID | Linked S# | Feature | Route | Commit |
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
-| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | inline | `sharing.js` + `ShareMenu.jsx` (this slice); QR/embed/proximity and the chord-chart PNG remain open, see L11 |
+| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | inline | `sharing.js` + `ShareMenu.jsx`; QR added in L12. Embed, proximity code and the chord-chart PNG remain open, see L12 |
 | **T3** | S1 | `export-and-sharing` — audience view + export management | — | — |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
 | **T5** | S2 | `user-onboarding` — tutorial hints + completion | — | — |
@@ -166,3 +166,41 @@ in this unit — it depends on four surfaces being stable and ships separately.
   error line — 241, red. The error now reads on `text-cem-text`, and the comment above it
   names no accent token (the gate greps comments too, which cost a second round: naming the
   tokens in prose counted as two more occurrences). No ceiling was raised.
+- **L12** (2026-11-13, orchestrator): **QR codes for share links**, the gap L11 recorded as
+  "no QR encoder in the build". Requested with one constraint — no new dependencies — so the
+  encoder is ours: `src/domain/qr/encode.js` (byte mode, EC level L, versions 1–5, one
+  Reed–Solomon block per version, so no interleaving), `QrCode.jsx` in `src/ui/patterns/`
+  (inline SVG with the spec's four-module quiet zone), and a "QR code" toggle in `ShareMenu`,
+  which means a setlist link and a song link both get one.
+
+  **Scope, stated rather than discovered:** versions 1–5 hold 105 bytes, which covers a
+  production setlist link at 68 bytes and a `*.style.dev` preview origin at ~96. A longer
+  value throws with its length — no truncation, because a symbol missing characters is worse
+  than none. Levels M/Q/H and multi-block interleaving are the documented next step.
+
+  **The token decision.** A QR needs dark modules on a light field, and `cem.base`/`cem.text`
+  swap with `html.light`, so neither can carry it. Two fixed tokens were added to the `@theme`
+  block (`cem.qr-ink` #000000, `cem.qr-paper` #ffffff), deliberately not mapped in `html.light`,
+  and both were added to `CSS_COLOUR_KEY_ALLOWLIST` in `scripts/check-visual-contract.sh` — that
+  allowlist is rule 04's documented mechanism for a deliberate palette addition, not a loosened
+  check: no ceiling moved and no rule was disabled. Rule 02 stays at 240; the new code spends no
+  accent, and its error line reads on `text-cem-text`.
+
+  **Verification.** `pnpm test` 535 passed (7 new QR tests in `encode.test.js`), `pnpm lint`,
+  `pnpm typecheck`, `pnpm test:gherkin` and `pnpm build` clean,
+  `bash scripts/check-visual-contract.sh` OK (12 rules, 0 failing), `check-doc-counts.sh` OK.
+  The encoder is tested by reading its own output back with an independent reader in the test
+  (rebuilt function-module map, mask taken from the format information, data region unmasked
+  and parsed), by the published ISO Annex C level-L format strings for all eight masks — the
+  one anchor that does not depend on the encoder being self-consistent — and by an
+  independently computed Reed–Solomon parity. The build emits `fill-cem-qr-ink` and
+  `fill-cem-qr-paper`, checked in `dist/assets/*.css` because a missing Tailwind utility would
+  fail silently and render an invisible code.
+
+  **What is still unproven, and it matters here:** no camera read the symbol. Nothing in this
+  environment scans a QR, so "a phone opens the link" is the one claim this unit does not
+  make. The matrix is spec-conformant by construction and by the checks above; a real scan is
+  a manual step for the reviewer.
+
+  Still open from S1: the embed snippet and the proximity code (`:84-101`), the chord-chart
+  PNG (`:127-131`), and the expiring read-only audience link (`:58`), which stays T3.

@@ -112,6 +112,12 @@
   --color-cem-stage-lyric: #f8fafc;
   --color-cem-stage-section: #94a3b8;
   --color-cem-stage-dim: #1e293b;
+  /* QR symbols are machine-read, not theme-read: a scanner needs dark modules
+     on a light field, so these two are deliberately NOT mapped in html.light
+     below. Same rationale as the stage palette — a fixed polarity, not a
+     second theme. */
+  --color-cem-qr-ink: #000000;
+  --color-cem-qr-paper: #ffffff;
 
   /* -------------------------------------------------------------------------
    * Light admin values
