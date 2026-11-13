@@ -11,6 +11,14 @@ import { describeActivity } from '../../../domain/setlist/collab.js'
 import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
 import { downloadSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
+import {
+  emailUrl,
+  setlistDeepLink,
+  shareMessage,
+  shareSummary,
+  telegramUrl,
+  whatsappUrl,
+} from '../../../domain/setlist/shareTargets.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
 
 export default function SetlistDetail() {
@@ -26,6 +34,7 @@ export default function SetlistDetail() {
   const [showPicker, setShowPicker] = useState(false)
   const [busy, setBusy] = useState(false)
   const [exportFormat, setExportFormat] = useState('onsong')
+  const [showShareMenu, setShowShareMenu] = useState(false)
   // 2.2 collaboration surface (owner-only roster; RLS select_self caps
   // non-owners to their own row, which the UI never renders).
   const [collabs, setCollabs] = useState([])
@@ -298,6 +307,65 @@ export default function SetlistDetail() {
     }
   }
 
+  // Share targets — features/export-and-sharing.feature:55-131. The link is
+  // the setlist route: who may open it is decided by `setlist_collaborators`,
+  // not by the link. A self-granting link with an expiry is a later unit and
+  // needs its own table (see odd/tasks/hito6-n3-product-slice.md).
+  function shareOrigin() {
+    return typeof window === 'undefined' ? '' : window.location.origin
+  }
+
+  async function handleCopyLink() {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      if (!navigator.clipboard) throw new Error('This browser has no clipboard to write to.')
+      await navigator.clipboard.writeText(setlistDeepLink(setlist, shareOrigin()))
+      setNotice('Link copied to your clipboard.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleShareTarget(target) {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const origin = shareOrigin()
+      const link = setlistDeepLink(setlist, origin)
+      const summary = shareSummary(setlist, setlist.songs)
+      const message = shareMessage(setlist, setlist.songs, origin)
+
+      if (target === 'native') {
+        if (!navigator.share) throw new Error('This browser has no share sheet.')
+        await navigator.share({ title: String(setlist.name || 'Setlist'), text: summary, url: link })
+        setNotice('Shared.')
+      } else if (target === 'whatsapp') {
+        window.open(whatsappUrl(message), '_blank', 'noopener,noreferrer')
+        setNotice('Opened WhatsApp with the setlist summary.')
+      } else if (target === 'telegram') {
+        window.open(telegramUrl(summary, link), '_blank', 'noopener,noreferrer')
+        setNotice('Opened Telegram with the setlist summary.')
+      } else if (target === 'email') {
+        window.location.href = emailUrl({
+          subject: `Rehearsal Setlist — ${setlist.name}`,
+          body: message,
+        })
+        setNotice('Opened your email client with the setlist summary.')
+      }
+    } catch (err) {
+      // A cancelled share sheet is not a failure: dismiss silently.
+      if (err?.name === 'AbortError') return
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function togglePcoPicker() {
     const next = !showPcoPicker
     setShowPcoPicker(next)
@@ -482,6 +550,75 @@ export default function SetlistDetail() {
               Download
             </button>
           </span>
+        )}
+        {itemIds.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowShareMenu((v) => !v)}
+            disabled={busy}
+            className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+          >
+            {showShareMenu ? 'Hide share' : 'Share'}
+          </button>
+        )}
+        {showShareMenu && (
+          <div className="mt-3 w-full rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
+            <h2 className="text-sm font-semibold text-cem-text">Share this setlist</h2>
+            <p className="mt-2 text-xs text-cem-secondary">
+              The link opens the setlist for the people you share it with — bandmates can read or
+              edit according to the access you already gave them.
+            </p>
+            {acceptedCollabs.length === 0 && (
+              <p className="mt-2 text-xs text-cem-amber">
+                Nobody else can open this link yet: add your bandmates as collaborators before you
+                share it, or they will land on &quot;Setlist not found&quot;.
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                disabled={busy}
+                className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+              >
+                Copy link
+              </button>
+              {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                <button
+                  type="button"
+                  onClick={() => handleShareTarget('native')}
+                  disabled={busy}
+                  className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+                >
+                  Share via device
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleShareTarget('whatsapp')}
+                disabled={busy}
+                className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+              >
+                WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShareTarget('telegram')}
+                disabled={busy}
+                className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+              >
+                Telegram
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShareTarget('email')}
+                disabled={busy}
+                className="rounded-md border border-cem-elevated px-3 py-1 text-xs font-medium text-cem-text hover:bg-cem-elevated disabled:opacity-60"
+              >
+                Email
+              </button>
+            </div>
+          </div>
         )}
         {pcoConnected && itemIds.length > 0 && (
           <button
