@@ -70,6 +70,64 @@
   --cem-radius-lg: 16px;
   /* sheet, modal, popover, command surface — full-bleed on one edge */
   --cem-radius-xl: 22px;
+
+  /* -------------------------------------------------------------------------
+   * Motion — durations and easings
+   * -------------------------------------------------------------------------
+   * Apple publishes no numeric motion values, so every value here is a project
+   * decision and is tagged as one. They are not invented: they are the values
+   * the app already ships, lifted out of the declarations that hardcoded them,
+   * so the token and the shipped motion cannot drift apart.
+   *
+   *   150ms — exit and press feedback; the shortest value already in use.
+   *   200ms — default state change: colour, border, a small surface.
+   *   300ms — layout and position changes (menu offset, popover placement).
+   *   420ms — a material arriving: blur and transform together, APPLE §12.
+   *
+   * The easing is the single curve the app already uses for its material,
+   * cubic-bezier(0.23, 1, 0.32, 1): a fast departure with a long settle. The
+   * admin template brought a near-duplicate, 0.22 instead of 0.23 and 0.36
+   * instead of 0.32. That one is deliberately NOT declared here and is NOT
+   * aliased to this token: it belongs to the components still carrying it, it
+   * is collapsed in T2.3, and aliasing it now would hide the drift rather than
+   * record it.
+   * ------------------------------------------------------------------------- */
+  --cem-duration-fast: 150ms;
+  --cem-duration-base: 200ms;
+  --cem-duration-slow: 300ms;
+  --cem-duration-material: 420ms;
+  --cem-ease-standard: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* -------------------------------------------------------------------------
+   * Stacking order
+   * -------------------------------------------------------------------------
+   * Stacking is the one axis where the app had no scale at all: the measured
+   * usage is ten (35 call sites), fifty (33), forty (4), twenty (4), thirty (1)
+   * and a handful of arbitrary bracket values, one of them two hundred. That is
+   * an ad-hoc ordering, not a ladder, and two surfaces can silently swap paint
+   * order. The seven roles below are the ones those numbers are standing in for.
+   *
+   * Tailwind v4 declares no z-index theme namespace, so these generate no
+   * utilities and are consumed as var(--cem-z-modal) until T2.3 migrates the
+   * call sites. Declaring them first is the point: the intended order becomes
+   * reviewable before anything is rewritten.
+   *
+   * NOT declared in this task, each for a stated reason:
+   *   Elevation. The shadow namespace IS a Tailwind v4 namespace, so a cem
+   *   ladder would immediately emit utilities and start competing with roughly a
+   *   hundred existing shadow call sites in one unreviewable step. It lands with
+   *   T2.3, where those surfaces are reviewed anyway.
+   *   Spacing and type. Tailwind's own spacing base and text defaults ARE the
+   *   project scale. A parallel cem scale would be the second vocabulary this
+   *   contract exists to prevent, so the decision is to keep one, not to add one.
+   * ------------------------------------------------------------------------- */
+  --cem-z-base: 0;
+  --cem-z-raised: 10;
+  --cem-z-sticky: 20;
+  --cem-z-dropdown: 30;
+  --cem-z-overlay: 40;
+  --cem-z-modal: 50;
+  --cem-z-toast: 60;
 }
 
 @import "tailwindcss";
@@ -322,11 +380,11 @@ html.light {
    the sticky header had no transition at all. */
 .cem-material {
   transition:
-    background-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
-    border-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
-    backdrop-filter 420ms cubic-bezier(0.23, 1, 0.32, 1),
-    -webkit-backdrop-filter 420ms cubic-bezier(0.23, 1, 0.32, 1),
-    transform 420ms cubic-bezier(0.23, 1, 0.32, 1);
+    background-color var(--cem-duration-base) var(--cem-ease-standard),
+    border-color var(--cem-duration-base) var(--cem-ease-standard),
+    backdrop-filter var(--cem-duration-material) var(--cem-ease-standard),
+    -webkit-backdrop-filter var(--cem-duration-material) var(--cem-ease-standard),
+    transform var(--cem-duration-material) var(--cem-ease-standard);
 }
 
 @starting-style {
