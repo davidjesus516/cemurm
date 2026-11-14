@@ -31,8 +31,9 @@ for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
 major fails hard against the Vite major it was not built for — Vitest 5 wants `vite ^6.4||^7||^8`
 and dies against Vite 5. That is why this was pinned at Vitest 3.2.7 / Vite 5.4.21 for so long:
 moving one without the other was guaranteed to break. #236 moved both together (Vite 6.4.3 /
-Vitest 5.0.2) and the suite passed unchanged. **The rule is the pairing, not the specific
-versions** — when one major moves, move the other in the same change and install for real.
+Vitest 5.0.2) and the suite passed unchanged; they have since moved again, and the installed pair
+is **Vite 8.3.5 / Vitest 5.0.5**. **The rule is the pairing, not the specific versions** — when one
+major moves, move the other in the same change and install for real.
 
 Verifying a dependency bump here takes one step that is easy to skip and that silently invalidates
 the result: a worktree symlinked to the repo's `node_modules` runs the *old* versions, so every gate
@@ -119,10 +120,10 @@ the same regex selects zero tests while still exiting green — `chromium` there
 ## Type checking
 
 `tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. The vendored admin
-template's `.ts/.tsx` tree **is** covered: `include` admits all 172 files under `src/api`,
-`src/components`, `src/context`, `src/hooks`, `src/layouts`, `src/routes`, `src/types` and
-`src/views`, and `strict: true` applies to them. The `@/*` and `src/*` path aliases map onto
-`src/`, so the template's import style resolves.
+template's `.ts/.tsx` tree **is** covered: `include` admits thirteen directories, and its eight
+template ones (`src/api`, `src/components`, `src/context`, `src/hooks`, `src/layouts`, `src/routes`,
+`src/types`, `src/views`) alone hold 166 files, all under `strict: true`. The `@/*` and `src/*`
+path aliases map onto `src/`, so the template's import style resolves.
 
 The JS baseline stays per-file opt-in via the canonical pragma:
 
@@ -138,7 +139,7 @@ flag. Baseline history: `odd/tasks/ts-checkjs-baseline.md`.
 wrong `include` leaves `tsc` checking one untyped file and still exiting 0.
 
 ```bash
-npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 248 at F1 (172 TS/TSX + 76 JS)
+npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 269 on 2026-11-13
 ```
 
 The template's dead demo mocks (`chance` + MSW) were replaced by `src/demo/content.ts`, so neither
@@ -244,15 +245,21 @@ Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-
 
 ## Architecture notes that aren't obvious from filenames
 
-The tree is post-relocation. `src/main.jsx`, `src/App.jsx`, `src/pages/` and `src/components/`
-no longer exist — several `docs/` files and `odd/tasks/*.md` still cite them.
+The tree is post-relocation. `src/main.jsx`, `src/App.jsx` and `src/pages/` no longer exist —
+several `docs/` files and `odd/tasks/*.md` still cite them.
 
 - Entrypoint is `index.html` → **`src/app/main.jsx`**. Router: `src/app/router.jsx`. Shell
   chrome: `src/app/AppLayout.jsx`. Providers: `src/app/providers/`.
+- **Two component layers, and they are not alternatives.** `src/components/ui/` is the official
+  primitive library — 55 Base UI components carrying the `cem.*` tokens, imported 188 times by the
+  features. `src/features/<feature>/components/` holds that feature's own pieces. The rest of
+  `src/components/` (`apps`, `dashboards`, `animated-components`, `icons`, `tables`,
+  `user-profile`) is vendored template cargo, not a pattern to copy.
 - `src/domain/**` is pure logic with no I/O. `src/data/repositories/` holds the impure halves
   that talk to Supabase. `src/integrations/`, `src/offline/`, `src/ui/patterns/` are leaf
-  modules. `src/features/<feature>/` holds that feature's pages and components.
-  `src/lib/storage.js` is the one deliberate exception left in `src/lib/`.
+  modules. **`src/ui/patterns/` holds two files** (`ChordProRenderer`, `PdfChartViewer`) and is
+  not the component library. `src/lib/storage.js` is the one deliberate exception left in
+  `src/lib/`.
 - RLS is the client-side gate. The service worker (`public/sw.js`) + IndexedDB layer does read-cache, an offline write queue, and a drain on reconnect.
 - The `charts` storage bucket is **private** with owner-folder RLS (first path segment must be `auth.uid()`); reads are 1-hour signed URLs only. The 10 MB PDF cap is **app-side only** — the DB deliberately accepts oversized rows.
 - Import/enrichment provider clients **never throw**: they return `{ ok: true, … }` or `{ ok: false, error: 'offline' | 'unavailable' }`, gated by `isOnline()`.
@@ -277,9 +284,15 @@ The rule of thumb: if you are writing down *what a capability is*, it goes in Op
 
 **`skills/cemurm-visual-system/SKILL.md` is the single source of visual truth.** Read it before
 touching any interface. Two older sources conflict with it and are **superseded** for visual
-decisions: `docs/design-system.md` (464 lines, written 2026-09-06, never implemented) and
-`odd/tasks/cemurm-brand-landing.md` §5–§6 (unmerged branch). When they disagree with the skill, the
-skill wins.
+decisions: `docs/design-system.md` and `odd/tasks/cemurm-brand-landing.md` §5–§6 (unmerged branch).
+When they disagree with the skill, the skill wins.
+
+That supersession is **partial, and the distinction matters**. `docs/design-system.md` (514 lines,
+2026-09-06) is dead for colour, typography, spacing, radius and implementation priority — its
+visual rules were replaced by the skill in #235. Its brand voice, mascot, notification behaviour,
+onboarding, empty states and celebration triggers are still current, `docs/ux-spec.md` and
+`docs/wireframes.md` cite it by section number 14 times, and it is the only record of the mascot.
+**Do not delete it and do not treat a stale-looking banner as permission to.**
 
 ## UML diagrams
 
@@ -315,7 +328,10 @@ which carries the same visual language, is available everywhere.
 
 ## Conventions
 
-- **JSX, not TSX.** The spec mentions TypeScript; the codebase is plain JS. Follow what exists.
+- **`.jsx`/`.js` in the product, `.tsx`/`.ts` in the primitive and vendored layer.** `src/features/**`,
+  `src/domain/**` and `src/data/**` are plain JS/JSX (116 `.jsx`, 131 `.js`); `src/components/ui/`
+  and the template trees are TS/TSX under `strict` (166 files, 153 `.tsx`). Match the file you are
+  editing instead of converting it, and never flip `checkJs` globally to "fix" the split.
 - Tailwind only — no CSS modules, styled-components, or inline styles.
 - Components `PascalCase.jsx`; hooks `camelCase` with `use` prefix; utilities `camelCase`.
 - Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Merge is always a human decision.
