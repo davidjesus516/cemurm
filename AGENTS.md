@@ -116,6 +116,34 @@ the same regex selects zero tests while still exiting green — `chromium` there
 `vitest.config.js` exists solely to keep `tests/e2e/**` out of the unit tier. The orphaned
 `spike/**` exclusion is not on `main`; add it there only if a `spike/` directory actually exists.
 
+**The Chromium job also runs the ACL gate**, `bash scripts/check-table-privileges.sh`, as its
+**last** step. It needs a live catalog, so `ci.yml` cannot host it — that workflow never starts
+Supabase. Here the stack is already up and reset, so the gate costs seconds. Last, not after the
+tests and before the uploads, for the same `set -euo pipefail` reason as the visual gate: a step
+that fails early marks everything after it SKIPPED.
+
+It enforces three rules and warns about a fourth, all against `public`:
+
+| Rule | What it forbids | Today |
+|---|---|---|
+| 01 | `authenticated` holding TRUNCATE, REFERENCES or TRIGGER on any table | 0 of 61 |
+| 02 | `anon` holding any table privilege | 0 of 61 |
+| 03 | the count of tables where `authenticated` holds DELETE may not **grow** (ratchet) | 22 |
+| 04 | warn only: tables where `authenticated` holds UPDATE at table level, not columnar | 27 |
+
+Rules 01 and 02 are zero-exception on purpose: no policy can refuse TRUNCATE (it evaluates no row
+predicate), REFERENCES or TRIGGER, so the ACL is the only control that exists. Rule 03 is a ratchet
+because 22 tables legitimately DELETE their own rows and RLS narrows each one — an allowlist of 22
+entries would rot, a number that may only fall does not. **Change `DELETE_RATCHET` downward only,
+in the commit that narrows the grant**, so the evidence travels with the number.
+
+Why the gate exists at all: Supabase's default privileges grant `arwdDxtm` to `anon`,
+`authenticated` and `service_role` on every **new** table in `public`. A migration writing
+`revoke all ... from public, anon` removes nothing from `authenticated` — the role was never
+named — so migration 0048 is born identical to these unless its author remembers. That is a
+machine's job, not a reviewer's. `0047_public_table_privileges.sql` fixed the two tables that had
+shipped with it (`account_erasure_requests`, `overlay_sessions`).
+
 ## Type checking
 
 `tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. The vendored admin
@@ -183,14 +211,15 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **44 files on `main`**, numbered `0001`–`0046`, with **`0021` and `0022` a deliberate
+Migrations: **45 files on `main`**, numbered `0001`–`0047`, with **`0021` and `0022` a deliberate
 free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
 `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`,
 `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`,
-`0045_respond_member_guard.sql` and `0046_feedback_triage_and_github_link.sql`.
-**The next free number is `0047`.**
+`0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql` and
+`0047_public_table_privileges.sql`.
+**The next free number is `0048`.**
 
 Re-count rather than trusting this paragraph: it has been wrong five times, most recently on
 2026-11-01, when it still said 38 files through `0040` with `0041` next, while `main` carried 43
@@ -216,10 +245,10 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the first free number nobody has claimed — `0047` today, because the lowest free
-  slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
-  natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
+  matter, so take the first free number nobody has claimed — `0048` today: `0047` went to the ACL
+  fix, and the lowest free slot `0046` landed with #430. `0033_feedback.sql` is the precedent for
+  renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
+- **Must sort before an existing migration** → you cannot simply take `0048`. Land it in a genuinely
   free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
   `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
   Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
