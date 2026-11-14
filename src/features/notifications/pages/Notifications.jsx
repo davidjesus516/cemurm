@@ -193,7 +193,7 @@ export default function Notifications() {
                     <div>
                       <p className="text-sm text-cem-text">{row.title}</p>
                       {row.body && <p className="mt-1 text-xs text-cem-secondary">{row.body}</p>}
-                      <p className="mt-1 text-xs text-cem-secondary">{relativeTime(row.createdAt)}</p>
+                      <p className="mt-1 text-xs text-cem-secondary">{relativeTime(row.createdAt, Date.now())}</p>
                     </div>
                     {row.read ? (
                       <span

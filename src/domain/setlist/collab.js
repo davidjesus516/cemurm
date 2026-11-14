@@ -204,13 +204,19 @@ export function describeActivity(event) {
 
 export const LOCK_TTL_MS = 30000
 
-/** True when a lock is missing or stale enough to be overwritten/released. */
+/**
+ * True when a lock is missing or stale enough to be overwritten/released.
+ *
+ * `now` (epoch ms) is REQUIRED and never read from the clock here: staleness is
+ * the one rule every co-editor must agree on, so the caller supplies the
+ * instant and a test can pin the TTL boundary instead of racing real time.
+ */
 /**
  * @param {LockStamp | null | undefined} lock
- * @param {number} [now]
+ * @param {number} now
  * @returns {boolean}
  */
-export function isLockStale(lock, now = Date.now()) {
+export function isLockStale(lock, now) {
   return !lock || now - (lock.ts || 0) > LOCK_TTL_MS
 }
 
@@ -219,16 +225,20 @@ export function isLockStale(lock, now = Date.now()) {
  * payload. Releases only remove the holder's own lock (or a stale one) — a
  * late unlock from a previous holder must not clear the current holder's
  * lock. Acquisitions never steal an ACTIVE foreign lock.
+ *
+ * `now` (epoch ms) is injected for the same reason as isLockStale: the module
+ * has no clock of its own, so the caller decides what "now" means and the
+ * transition is reproducible.
  */
 /**
  * @param {Record<string, SongLock> | null | undefined} locks
  * @param {LockPayload} payload
+ * @param {number} now
  * @returns {Record<string, SongLock>}
  */
-export function applyLock(locks, payload) {
+export function applyLock(locks, payload, now) {
   const next = /** @type {Record<string, SongLock>} */ ({ ...(locks || {}) })
   const songId = payload.songId
-  const now = Date.now()
   if (payload.locked === false) {
     const held = next[songId]
     if (held && (held.userId === payload.userId || isLockStale(held, now))) delete next[songId]
@@ -403,31 +413,32 @@ export function demo() {
   assert(describeActivity({ actor: 'Julian', action: 'share', ts: 't' }), 'Julian shared with the band', 'share label')
   assert(describeActivity({ actor: 'X', action: 'mystery', ts: 't' }), 'X mystery', 'unknown action falls back to actor + action')
 
-  // 2.5 advisory lock transitions (R3)
+  // 2.5 advisory lock transitions (R3). The clock is injected at every call:
+  // one fixed instant, so no assertion here races real time.
   const noLocks = /** @type {Record<string, SongLock>} */ ({})
-  const t0 = Date.now()
-  const aLock = applyLock(noLocks, { userId: 'a', songId: 's1', locked: true, ts: t0 })
+  const t0 = Date.parse('2026-11-14T12:00:00Z')
+  const aLock = applyLock(noLocks, { userId: 'a', songId: 's1', locked: true, ts: t0 }, t0)
   assert(aLock.s1?.userId, 'a', 'acquire stores the holder')
-  assert(isLockStale(null), true, 'missing lock is stale')
-  assert(isLockStale({ ts: Date.now() }), false, 'fresh lock is not stale')
+  assert(isLockStale(null, t0), true, 'missing lock is stale')
+  assert(isLockStale({ ts: t0 }, t0), false, 'fresh lock is not stale')
   assert(
-    JSON.stringify(applyLock(aLock, { userId: 'b', songId: 's1', locked: true, ts: t0 + 1000 })),
+    JSON.stringify(applyLock(aLock, { userId: 'b', songId: 's1', locked: true, ts: t0 + 1000 }, t0 + 1000)),
     JSON.stringify(aLock),
     'active foreign lock is not stolen',
   )
   assert(
-    JSON.stringify(applyLock(aLock, { userId: 'b', songId: 's1', locked: false, ts: t0 + 1000 })),
+    JSON.stringify(applyLock(aLock, { userId: 'b', songId: 's1', locked: false, ts: t0 + 1000 }, t0 + 1000)),
     JSON.stringify(aLock),
     'non-holder unlock is ignored',
   )
   assert(
-    JSON.stringify(applyLock(aLock, { userId: 'a', songId: 's1', locked: false, ts: t0 + 1000 })),
+    JSON.stringify(applyLock(aLock, { userId: 'a', songId: 's1', locked: false, ts: t0 + 1000 }, t0 + 1000)),
     JSON.stringify(noLocks),
     'holder unlock clears the lock',
   )
   const staleLock = { s1: { userId: 'a', actor: null, ts: t0 - LOCK_TTL_MS - 5000 } }
   assert(
-    applyLock(staleLock, { userId: 'b', songId: 's1', locked: true, ts: Date.now() }).s1.userId,
+    applyLock(staleLock, { userId: 'b', songId: 's1', locked: true, ts: t0 }, t0).s1.userId,
     'b',
     'stale lock is overwritable by a new holder',
   )

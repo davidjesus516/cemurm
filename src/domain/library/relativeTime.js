@@ -11,12 +11,20 @@ const DAY_MS = 24 * HOUR_MS
 const WEEK_MS = 7 * DAY_MS
 
 /**
- * Format an ISO timestamp relative to now. Returns '' for unparseable input.
+ * Format an ISO timestamp relative to `now`. Returns '' for unparseable input.
+ *
+ * `now` (epoch ms) is REQUIRED and is never read from the clock inside this
+ * module: the caller owns the clock, so a bucket boundary is a value a test can
+ * pin instead of a race against real time. Omitting it is a caller bug.
+ *
+ * @param {string} iso
+ * @param {number} now
+ * @returns {string}
  */
-export function relativeTime(iso) {
+export function relativeTime(iso, now) {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ''
-  const diff = Math.max(0, Date.now() - then)
+  const diff = Math.max(0, now - then)
 
   if (diff < MINUTE_MS) return 'just now'
   if (diff < HOUR_MS) return `${Math.floor(diff / MINUTE_MS)}m ago`
@@ -32,20 +40,21 @@ export function demo() {
       throw new Error(`relativeTime demo FAILED: ${label} — got "${actual}", expected "${expected}"`)
     }
   }
-  const now = Date.now()
+  // The injected clock: one fixed instant, so no assertion races real time.
+  const now = Date.parse('2026-11-14T12:00:00Z')
   const ago = (ms) => new Date(now - ms).toISOString()
 
-  assert(relativeTime(ago(0)), 'just now', '0s bucket')
-  assert(relativeTime(ago(1 * MINUTE_MS)), '1m ago', '1m boundary')
-  assert(relativeTime(ago(59 * MINUTE_MS)), '59m ago', '59m boundary')
-  assert(relativeTime(ago(1 * HOUR_MS)), '1h ago', '1h boundary')
-  assert(relativeTime(ago(2 * HOUR_MS)), '2h ago', '2h bucket')
-  assert(relativeTime(ago(3 * DAY_MS)), '3d ago', '3d bucket')
-  assert(relativeTime(ago(8 * DAY_MS)), new Date(now - 8 * DAY_MS).toISOString().slice(0, 10), 'older → date')
+  assert(relativeTime(ago(0), now), 'just now', '0s bucket')
+  assert(relativeTime(ago(1 * MINUTE_MS), now), '1m ago', '1m boundary')
+  assert(relativeTime(ago(59 * MINUTE_MS), now), '59m ago', '59m boundary')
+  assert(relativeTime(ago(1 * HOUR_MS), now), '1h ago', '1h boundary')
+  assert(relativeTime(ago(2 * HOUR_MS), now), '2h ago', '2h bucket')
+  assert(relativeTime(ago(3 * DAY_MS), now), '3d ago', '3d bucket')
+  assert(relativeTime(ago(8 * DAY_MS), now), new Date(now - 8 * DAY_MS).toISOString().slice(0, 10), 'older → date')
 
   // Defensive edges: future timestamps clamp to "just now"; non-dates never throw.
-  assert(relativeTime(new Date(now + 5000).toISOString()), 'just now', 'future clamps')
-  assert(relativeTime('not-a-date'), '', 'unparseable → empty')
+  assert(relativeTime(new Date(now + 5000).toISOString(), now), 'just now', 'future clamps')
+  assert(relativeTime('not-a-date', now), '', 'unparseable → empty')
 
   console.log('relativeTime demo OK: 9 asserts (0s/1m/59m/1h/2h/3d/older buckets, edges)')
 }

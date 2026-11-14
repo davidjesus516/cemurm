@@ -61,7 +61,7 @@ export function useSharedSetlist(setlistId, { actorName, onRemoteChange } = {}) 
     })
 
     const channel = setlistStore.openLockChannel(setlistId, (payload) => {
-      setLocks((prev) => applyLock(prev, payload))
+      setLocks((prev) => applyLock(prev, payload, Date.now()))
     })
     lockChannelRef.current = channel
 
@@ -96,9 +96,9 @@ export function useSharedSetlist(setlistId, { actorName, onRemoteChange } = {}) 
   const acquireLock = useCallback((songId) => {
     if (!user || !setlistId) return null
     const held = locksRef.current[songId]
-    if (held && held.userId !== user.id && !isLockStale(held)) return held
+    if (held && held.userId !== user.id && !isLockStale(held, Date.now())) return held
     const payload = { userId: user.id, songId, actor: actorName || null, locked: true, ts: Date.now() }
-    setLocks((prev) => applyLock(prev, payload))
+    setLocks((prev) => applyLock(prev, payload, Date.now()))
     lockChannelRef.current?.send(payload)
     return null
   }, [user, setlistId, actorName])
@@ -107,7 +107,7 @@ export function useSharedSetlist(setlistId, { actorName, onRemoteChange } = {}) 
   const releaseLock = useCallback((songId) => {
     if (!user || !setlistId) return
     const payload = { userId: user.id, songId, locked: false, ts: Date.now() }
-    setLocks((prev) => applyLock(prev, payload))
+    setLocks((prev) => applyLock(prev, payload, Date.now()))
     lockChannelRef.current?.send(payload)
   }, [user, setlistId])
 

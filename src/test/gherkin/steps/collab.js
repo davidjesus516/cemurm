@@ -88,7 +88,7 @@ export function defineCollabSteps() {
           locked: true,
           ts: Date.now(),
           actor: userId.replace(/^"|"$/g, '')
-        })
+        }, Date.now())
       }
     },
     {
@@ -100,7 +100,7 @@ export function defineCollabSteps() {
           songId: songId.replace(/^"|"$/g, ''),
           locked: false,
           ts: Date.now()
-        })
+        }, Date.now())
       }
     },
     {

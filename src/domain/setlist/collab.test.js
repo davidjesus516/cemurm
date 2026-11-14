@@ -2,9 +2,9 @@
 // Specified by: features/offline-edit-conflict-policy.feature
 // PR 1b will split this module. These tests must pass with ZERO edits.
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
-import { isLockStale, reconcileSetlistOp, LOCK_TTL_MS } from './collab.js'
+import { applyLock, isLockStale, reconcileSetlistOp, LOCK_TTL_MS } from './collab.js'
 
 // ── fixtures ────────────────────────────────────────────────────────────────
 // The three seed identities (supabase/seed.sql) and the two Demo Setlist items.
@@ -108,12 +108,21 @@ describe('isLockStale', () => {
     expect(lock).toEqual(before)
   })
 
-  it('defaults `now` to Date.now(), and a just-created lock reads fresh', () => {
-    // Only a fresh lock is asserted here — the TTL boundary itself is covered
-    // above with an explicit clock, so this cannot drift into flakiness.
-    expect(isLockStale({ ts: Date.now() })).toBe(false)
-    expect(isLockStale(null)).toBe(true)
-    expect(isLockStale({ ts: Date.now() - LOCK_TTL_MS - 1000 })).toBe(true)
+  it('never reads the clock itself — the caller injects `now`', () => {
+    // The former shape defaulted `now` to Date.now(), which made the TTL a race
+    // against real time in the one module whose determinism the product claims.
+    // `now` is now a required parameter, so what is pinned here is the ABSENCE of
+    // an implicit read; the boundaries above already run against an explicit
+    // clock. A default reappearing would call Date.now() and fail this.
+    const spy = vi.spyOn(Date, 'now')
+    try {
+      expect(isLockStale({ ts: T }, T)).toBe(false)
+      expect(isLockStale({ ts: T - LOCK_TTL_MS - 1000 }, T)).toBe(true)
+      applyLock({}, { userId: OWNER, songId: ITEM_SONG, locked: true, ts: T }, T)
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
 

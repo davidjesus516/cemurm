@@ -595,6 +595,8 @@ the suite. **Re-verified 2026-09-30 — one is fixed, one was misdescribed, one 
    yields a plausible answer"; there is an **implicit read**, which is the determinism problem the
    refactor was meant to remove, arriving by a different route. The concern stands; the
    description did not survive.
+    **Resolved 2026-11-14** — `now` is a required parameter of `isLockStale`, `applyLock` and
+    `relativeTime`; none of the three reads a clock. See item 3.
 2. **ADR 0002 rule 2 is false.** ✅ **Fixed — the ADR is now true.** This claimed
    `src/features/stage/pages/Overlay.jsx:11` and `src/features/stage/hooks/useFootPedal.js:2`
    "import `supabase` from outside `data/`". Both now import from
@@ -603,7 +605,12 @@ the suite. **Re-verified 2026-09-30 — one is fixed, one was misdescribed, one 
    the principle, not this item: an ADR that claims more than is true is the same failure as the
    orphaned `design-system.md`, and that is why the check is worth repeating.
 3. **The refactor list skipped `applyLock`** at `collab.js:91`, which reads `Date.now()`
-   internally. 🔴 **Still live at `collab.js:203`.** `applyLock(locks, payload)` takes no clock
+   internally. ✅ **FIXED 2026-11-14 — all three reads are injected, not just moved.**
+   `applyLock(locks, payload, now)` and `isLockStale(lock, now)` take the clock as a required
+   parameter (`relativeTime(iso, now)` too), the callers own `Date.now()` at the boundary
+   (`useSharedSetlist`, `Notifications.jsx`, the gherkin lock steps), and both domain modules
+   carry a test that fails if an implicit read reappears. The rest of this item is the state
+   before the fix, kept as the record. 🔴 **Was live at `collab.js:203`.** `applyLock(locks, payload)` takes no clock
    and calls `const now = Date.now()` directly, inconsistent with `isLockStale`'s injectable
    `now`. Left as-is it is a flake source in the one module whose determinism the product claims
    — and note it is no longer the *only* one: `relativeTime` does the same thing. **If this is
