@@ -4,7 +4,7 @@ description: "Trigger: UI, styling, color, spacing, radius, motion, tokens, dark
 license: Apache-2.0
 metadata:
   author: "davidjesus516"
-  version: "1.0"
+  version: "1.1"
 ---
 
 # CEMURM Visual System
@@ -36,6 +36,9 @@ spacing, radius, elevation, motion or dark-mode decision — and before reviewin
    `checkJs` stays off globally.
 7. **Run `bash scripts/check-visual-contract.sh` and report its output.** A visual change is
    not done until the gate passes.
+8. **Every new or migrated interface meets
+   `references/responsive-accessibility-contract.md`.** The gate does not check it — it is a
+   contract by review, and it says so. Report which clauses you verified and with what command.
 
 ## Declared Token Source
 
@@ -62,10 +65,13 @@ If it is read at distance in a dark room, it is tier 3. If it is touched, it is 
 ## Execution Steps
 
 1. Name the tier. State it in the report.
-2. Read only the reference for that tier.
+2. Read only the reference for that tier, plus `references/responsive-accessibility-contract.md` —
+   it applies to every tier and is not optional.
 3. Consume tokens from the `@theme` block of `src/app/index.css`. Never inline a value the token layer
    already expresses.
 4. Run the gate. Fix violations in the source, never by loosening the check.
+5. Name the contract clauses the change satisfies, and the command that shows it. A clause you did
+   not check is a clause you cannot claim.
 
 ## Output Contract
 
@@ -76,6 +82,9 @@ suspect is wrong, with evidence. Never present a green gate as covering a rule i
 
 - `references/apple-macos-visual-language.md` — tiers 1 and 2, with HIG provenance
 - `references/tier-3-performance-surfaces.md` — tiers 3a and 3b
+- `references/responsive-accessibility-contract.md` — breakpoints, touch targets, keyboard, focus,
+  contrast, screen readers, reduced motion and safe areas. Applies to every tier; every figure in it
+  is reproducible with the commands in its §9
 - `references/toolchain-options.md` — libraries, motion, external skills
 - `assets/tokens.css` — **NON-AUTHORITATIVE.** Design rationale for the ramp:
   where the warm dark steps and the amber come from, and what was rejected. Not
