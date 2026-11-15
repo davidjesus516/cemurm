@@ -45,7 +45,7 @@ Gates: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:gher
 | T0.3 | Route/page inventory | S3 | read-only | DONE | — |
 | T0.4 | This control document | — | docs | DONE | — |
 | T1.1 | Docs reconciliation | S1, S4, S5 | SKILL.md + references + AGENTS.md stack drift | OPEN | #465 |
-| T1.2 | Token foundation: motion, z-index (+ elevation/spacing deferred) | S4, S5 | `src/app/index.css` `@theme` | OPEN | #464 |
+| T1.2 | Token foundation: motion, z-index (+ elevation/spacing deferred) | S4, S5 | `src/app/index.css` `@theme` | OPEN | #518 |
 | T1.3 | Responsive + a11y rules as usable examples | S3, S6, S8 | SKILL.md reference | DONE | `1a6e8c6` (no PR yet) |
 | T2.1 | Buttons, icon buttons, badges, toggles, interactive controls | S1, S2 | `src/components/ui` | PENDING | — |
 | T2.2 | Form system: labels, fields, descriptions, errors, disabled/loading | S6 | `src/components/ui`, `src/components/form` | PENDING | — |
@@ -310,3 +310,22 @@ may only *remove*, after use is disproven.
   - Gates run: `check-doc-counts.sh` OK, `check-test-integrity.sh` OK, `check-visual-contract.sh`
     12 rules 0 failing, `pre-tool-guard.selftest.mjs` exit 0. `lint`/`typecheck`/`test`/`build` not
     run — two Markdown files, and this worktree has no `node_modules`.
+
+- **L10** (2026-11-15) — **T1.2 re-proposed as #518; #464 closed unmerged.** A commit belonging to
+  the other agent's task (`7e840f0`, "docs: F0 documentation and decisions for education expansion",
+  1,857 lines across 7 files) was pushed onto `feat/visual-token-foundation`, whose parent is my own
+  token commit `f7d8bdc`. #464 went from one file (63+/5-) to a seven-file diff that also touched
+  `docs/decisions.md` and `docs/roadmap-ampliacion.md` — two files the working agreement lists as
+  protected. CI stayed green because every added file is Markdown and no JS gate reads Markdown;
+  the check suite cannot detect a scope violation.
+  - **Preservation first.** `git branch -a --contains 7e840f0` returned only that branch, so the
+    education work existed in exactly one place. `03f7cc3` was pushed to `docs/education-f0-docs`
+    before anything else was touched.
+  - **Rebuilt, not rewritten.** `feat/visual-token-foundation-clean` was created at `99f5004` (the
+    last clean head; diff against `main` = `src/app/index.css` only) and #518 opened from it. No
+    force-push, no `reset --hard`, no revert of another agent's commit, no branch deleted.
+  - **Counted honestly.** Open PRs from this initiative after the move: #465 and #518. Two, as agreed.
+  - **Risk recorded for the next session:** the shared checkout `../cemurm` is still on
+    `feat/visual-token-foundation` at `03f7cc3`. If the education agent continues there, the same
+    collision repeats. Their work belongs on `docs/education-f0-docs`; that checkout should move off
+    this branch before any further visual task uses it.
