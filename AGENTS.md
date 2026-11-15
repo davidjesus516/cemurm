@@ -332,8 +332,8 @@ The maintainer set this working agreement on 2026-09-27. It is standing, not per
 4. **Merge stays human.** You open the PR; the maintainer approves and merges. Never merge or push to `main` directly.
 5. Report honestly: if a check fails, a gate was weakened, or a spec conflict was found, say so in the PR body. Do not present a green run as covering something it does not.
 6. **Notify, do not wait silently.** A PR that sits at `REVIEW_REQUIRED` with nobody notified is indistinguishable from a PR nobody opened. So:
-   - **Always request a reviewer when you open the PR**: `gh pr edit <n> --add-reviewer davidjesus516`. The review request is itself the notification, and it fires without any extra step.
-   - **When you push new commits onto a PR that already has an approval**, leave a comment mentioning `@davidjesus516` explaining what changed and why. GitHub does not re-notify a reviewer for later pushes.
+   - **Request the reviewer who can actually approve**: `gh pr edit <n> --add-reviewer <the collaborator who did not push>`. `require_last_push_approval` makes the approver a function of authorship, not a fixed name: `davidjesus516` reviews PRs authored by `Antony-Figueroa`, and vice versa. The request is the notification — but **verify it landed**, because `gh` returns exit 0 while silently dropping a request aimed at the PR author (`reviewRequests` stays empty).
+   - **When you push new commits onto a PR that already has an approval**, leave a comment mentioning the approver (`@<approver>`) explaining what changed and why. GitHub does not re-notify a reviewer for later pushes.
    - **When a check goes red**, say so in the same thread. Do not let a failing gate sit in the checks tab.
 
    The repo's ruleset sets `require_last_push_approval`, so the last pusher cannot approve their own
