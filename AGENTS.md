@@ -1,6 +1,6 @@
 # CEMURM — Agent Guide
 
-PWA for musicians: repertoires, setlists, live performance, offline-first. React 18 + Vite + Tailwind against a **local** Supabase stack (PostgreSQL + GoTrue + RLS). Milestone status lives in `README.md` / `docs/mvp-scope.md` — don't duplicate it here.
+PWA for musicians: repertoires, setlists, live performance, offline-first. React 19 + Vite 8 + Tailwind 4 against a **local** Supabase stack (PostgreSQL + GoTrue + RLS). Milestone status lives in `README.md` / `docs/mvp-scope.md` — don't duplicate it here.
 
 ## Commands
 
@@ -19,13 +19,15 @@ pnpm typecheck   # tsc --noEmit  (see "Type checking" below)
 
 `pnpm-workspace.yaml` holds `allowBuilds: { esbuild: true }`; postinstall scripts are blocked by default.
 
-Vitest is the only test dependency (no jsdom, no testing-library), running in the `node`
-environment — which is Vitest's **default**: `vite.config.js` has no `test` block and configures
-nothing. Tests are colocated as `<module>.test.js` beside the module under test, and
-**characterization tests now guard the domain layer** (`src/domain/**`,
-`src/integrations/spotify.js`): they assert what the code does *today*, so a failure is a
-finding to report, never a reason to edit the source or weaken the assertion. "Verification"
-for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
+Tests run on Vitest in the `node` environment — no jsdom and no testing-library, so nothing
+mounts JSX. `vite.config.js` carries no `test` block; **`vitest.config.js` is the only test
+config** and pins `environment: 'node'`, `include: ['src/**/*.test.js']` and the `tests/e2e/**`
+exclusion. Playwright (`@playwright/test`) is a separate E2E tier over `tests/e2e/specs/`, driven
+by `playwright.config.js` and never by `pnpm test`. Unit tests are colocated as `<module>.test.js`
+beside the module under test, and **characterization tests now guard the domain layer**
+(`src/domain/**`, `src/integrations/spotify.js`): they assert what the code does *today*, so a
+failure is a finding to report, never a reason to edit the source or weaken the assertion.
+"Verification" for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
 
 **Vite and Vitest move as a pair, never one alone.** Vitest declares Vite as a peer, so a Vitest
 major fails hard against the Vite major it was not built for — Vitest 5 wants `vite ^6.4||^7||^8`
@@ -114,7 +116,8 @@ Playwright project selection is `matches(grep)` **AND NOT** `matches(grepInvert)
 the same regex selects zero tests while still exiting green — `chromium` therefore carries no
 `grep`, and `@chromium-only` is expressed by excluding it from the other two.
 
-`vitest.config.js` exists solely to keep `tests/e2e/**` out of the unit tier. The orphaned
+`vitest.config.js` keeps `tests/e2e/**` out of the unit tier and pins the `node` environment and
+the `src/**/*.test.js` include pattern that `vite.config.js` does not declare. The orphaned
 `spike/**` exclusion is not on `main`; add it there only if a `spike/` directory actually exists.
 
 ## Type checking
