@@ -46,7 +46,7 @@ Gates: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:gher
 | T0.4 | This control document | — | docs | DONE | — |
 | T1.1 | Docs reconciliation | S1, S4, S5 | SKILL.md + references + AGENTS.md stack drift | OPEN | #465 |
 | T1.2 | Token foundation: motion, z-index (+ elevation/spacing deferred) | S4, S5 | `src/app/index.css` `@theme` | OPEN | #464 |
-| T1.3 | Responsive + a11y rules as usable examples | S3, S6, S8 | SKILL.md reference | BLOCKED | — |
+| T1.3 | Responsive + a11y rules as usable examples | S3, S6, S8 | SKILL.md reference | DONE | `1a6e8c6` (no PR yet) |
 | T2.1 | Buttons, icon buttons, badges, toggles, interactive controls | S1, S2 | `src/components/ui` | PENDING | — |
 | T2.2 | Form system: labels, fields, descriptions, errors, disabled/loading | S6 | `src/components/ui`, `src/components/form` | PENDING | — |
 | T2.3 | Surfaces and overlays: card, dialog, dropdown, tooltip, sheet | S3 | `src/components/ui` | PENDING | — |
@@ -285,3 +285,28 @@ may only *remove*, after use is disproven.
   only on `#464`'s branch — writing the contract against `feat/visual-identity`, which does not
   carry them, would document tokens that are not in the tree and require a rewrite the moment #464
   lands. Starting T1.3 before #464 merges buys a false start, not progress.
+- **L9** (2026-11-14) — User replied `apruebo` with both PRs still open, so the grant is read as
+  authorization to **start T1.3**, not as a merge. T1.3 delivered as `1a6e8c6` on
+  `feat/visual-identity`: `skills/cemurm-visual-system/references/responsive-accessibility-contract.md`
+  (339 lines, 11 sections) plus SKILL.md hard rule 8, execution step 5, the reference entry and
+  version 1.1. **Delivery deliberately excludes a PR**: the two-slot ceiling holds until `#464` or
+  `#465` integrates.
+  - Every figure is tagged `[MEASURED]` / `[HIG]` / `[GATE]` / `[DECISION]`, and all of §9's
+    commands were run to produce the numbers in the document rather than copied from memory.
+    Corrections made by running them: `outline-none` is 119 in JSX/TSX (not 125, which counted CSS
+    too).
+  - **Two defects found by measuring, recorded not fixed.** (a) `index.html:11` has no
+    `viewport-fit=cover`; the attribute exists only inside the comment at line 16 that claims it does,
+    and the single `env(safe-area-inset-*)` consumer in the tree is `features/design/reference.css`.
+    Adding the attribute alone would be a regression, so both halves ship as one unit in T3.1.
+    (b) `.rbc-event:focus { outline: none }` removes the focus indicator from calendar events, and
+    `.rbc-toolbar button:focus` sets the same amber as the `:hover` rule below it. Both belong to the
+    surface that owns the gig/rehearsal calendar.
+  - **Deliberately not done:** no new verification script and no new gate rule. Contrast already
+    belongs to gate rule 05 (05b is `report` at 12/28, and the repo's own rule is that a gate red on
+    arrival gets deleted); a second script beside `check-visual-contract.sh` would split one gate in
+    two, and adding rules to it is a CI change — CI is a protected area. The contract binds by review
+    and says so in its own §9.
+  - Gates run: `check-doc-counts.sh` OK, `check-test-integrity.sh` OK, `check-visual-contract.sh`
+    12 rules 0 failing, `pre-tool-guard.selftest.mjs` exit 0. `lint`/`typecheck`/`test`/`build` not
+    run — two Markdown files, and this worktree has no `node_modules`.
