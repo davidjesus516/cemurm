@@ -1,6 +1,7 @@
 # Visual Identity Orchestration — CEMURM Native
 
-Branch: `docs/visual-identity-orchestration` (from `origin/main` @ `9bf9f6e`)
+Branch: `feat/visual-identity` (from `origin/main` @ `9bf9f6e`; this document was written on
+`docs/visual-identity-orchestration` and cherry-picked here as `309b6a6`)
 Delivery: one work unit per PR, max 2 open PRs from this initiative. Merge is human.
 Gates: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:gherkin && bash scripts/check-visual-contract.sh`
 
@@ -43,9 +44,9 @@ Gates: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:gher
 | T0.2 | Component inventory | S1 | read-only | DONE | — |
 | T0.3 | Route/page inventory | S3 | read-only | DONE | — |
 | T0.4 | This control document | — | docs | DONE | — |
-| T1.1 | Docs reconciliation | S1, S4, S5 | SKILL.md + references + AGENTS.md stack drift | PENDING | — |
-| T1.2 | Token foundation: motion, elevation, z-index, spacing | S4, S5 | `src/app/index.css` `@theme` | PENDING | — |
-| T1.3 | Responsive + a11y rules as usable examples | S3, S6, S8 | SKILL.md reference | PENDING | — |
+| T1.1 | Docs reconciliation | S1, S4, S5 | SKILL.md + references + AGENTS.md stack drift | OPEN | #465 |
+| T1.2 | Token foundation: motion, z-index (+ elevation/spacing deferred) | S4, S5 | `src/app/index.css` `@theme` | OPEN | #464 |
+| T1.3 | Responsive + a11y rules as usable examples | S3, S6, S8 | SKILL.md reference | BLOCKED | — |
 | T2.1 | Buttons, icon buttons, badges, toggles, interactive controls | S1, S2 | `src/components/ui` | PENDING | — |
 | T2.2 | Form system: labels, fields, descriptions, errors, disabled/loading | S6 | `src/components/ui`, `src/components/form` | PENDING | — |
 | T2.3 | Surfaces and overlays: card, dialog, dropdown, tooltip, sheet | S3 | `src/components/ui` | PENDING | — |
@@ -233,9 +234,11 @@ may only *remove*, after use is disproven.
   the token foundation from T1.2 has to exist first for (b) to be reviewable at all.
 - **D2 — `/` vs `/landing`.** `router.jsx:196-210` leaves the wiring open on purpose; option A
   changes signed-in navigation, which is an approval gate (S3, gate 6). Not needed before T4.1.
-- **D3 — PR sequencing against ten open PRs.** The repository currently carries ten open PRs
-  (`#451`–`#463`), four of them touching `src/features/setlists` or `src/features/stage`. Page
-  migration in those folders would collide. Order must follow whatever merges first.
+- **D3 — PR sequencing against eleven open PRs.** The repository currently carries eleven open PRs
+  (`#451`–`#465`), four of them touching `src/features/setlists` or `src/features/stage`. Page
+  migration in those folders would collide. Order must follow whatever merges first. Two of the
+  eleven are this initiative's own (`#464`, `#465`), which is why T1.3 cannot open a PR yet: the
+  agreed ceiling is two.
 
 ## Log
 
@@ -250,3 +253,35 @@ may only *remove*, after use is disproven.
   classification and is revisited per page in its own task.
 - **L4** (2026-11-13) — Next task: **T1.1**, documentation reconciliation, because `AGENTS.md`
   currently misstates the stack that every later task depends on.
+- **L5** (2026-11-14) — User review, verbatim: `Revisé las dos entregas (#464 y #465). La dirección
+  me parece correcta y quiero mantener la secuencia que propones.` Plus one correction, verbatim:
+  `En #465 todavía aparece React 18 en la descripción inicial del proyecto, pero package.json
+  declara React 19.3.1. Corrige esa información y revisa si queda alguna referencia equivalente
+  desactualizada. Mantén el alcance del PR y vuelve a ejecutar las comprobaciones.` And the T1.3
+  brief, verbatim: `T1.3 debe contemplar móvil, tablet y escritorio, navegación, áreas táctiles,
+  teclado, foco, contraste, lectores de pantalla, reduced motion y safe areas.` with the explicit
+  limit `No quiero que esta tarea se convierta todavía en una migración masiva de páginas. Primero
+  necesitamos establecer el contrato, demostrarlo con ejemplos y dejar criterios verificables para
+  las siguientes fases.`
+- **L6** (2026-11-14) — T1.1 corrected on `docs/agent-guide-stack-truth`: commit `4c5b2bc` fixed
+  the three claims the first commit left, and `origin/main` was merged (`dbdec1b`) to clear
+  `BEHIND`. **Correction of record:** the first commit claimed the Vite/Vitest paragraph was the
+  whole drift; it was not. The opening line still read `React 18 + Vite + Tailwind`, and the test
+  paragraph still said Vitest was the only test dependency with no config file. Both were fixed in
+  the same PR, not deferred. Checks re-run green in that worktree: `check-doc-counts.sh`,
+  `check-test-integrity.sh`, `check-visual-contract.sh` (12 rules, 0 failing),
+  `pre-tool-guard.selftest.mjs`, `check-migrations-destructive.mjs`. `lint`/`typecheck`/`test`/
+  `build` were not run there — the worktree carries no `node_modules` and the diff is one Markdown
+  file none of those four gates reads.
+- **L7** (2026-11-14) — **Finding outside every task in this table:** `vitest.config.js:6` is
+  `include: ['src/**/*.test.js']`, and `main` carries five `.test.jsx` files under
+  `src/features/design/` that the pattern cannot match, so they never execute — while
+  `check-test-integrity.sh` counts them (`test files scanned: 36` against the 31 that run). The
+  pattern is unchanged since `41320d6` created the file. Reported on #465; not fixed there, because
+  widening the include and deleting dead tests are different decisions. Needs its own PR.
+- **L8** (2026-11-14) — **T1.3 is BLOCKED on two gates, both external.** (1) The two open PRs
+  `#464`/`#465` must integrate first; a third PR would break the agreed ceiling. (2) T1.3's motion
+  section must cite the `--cem-duration-*` / `--cem-ease-*` / `--cem-z-*` tokens, and those exist
+  only on `#464`'s branch — writing the contract against `feat/visual-identity`, which does not
+  carry them, would document tokens that are not in the tree and require a rewrite the moment #464
+  lands. Starting T1.3 before #464 merges buys a false start, not progress.
