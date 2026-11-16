@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSetlists } from '../../../hooks/shared/useSetlists.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
+import { buildSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
+import { buildEventSetlistsZip } from '../../../domain/setlist/exporters/eventZip.js'
+import { saveFile } from '../../../domain/setlist/exporters/saveFile.js'
 
 export default function Setlists() {
   const { setlists, loading, createSetlist, deleteSetlist, duplicateSetlist } = useSetlists()
@@ -10,6 +13,17 @@ export default function Setlists() {
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // T3 batch export (features/export-and-sharing.feature:181-186): one ZIP for
+  // an event. The selection is explicit because "all my setlists" is not the
+  // same list as "the five for this event", and an archive nobody asked for is
+  // worse than one more checkbox.
+  const [showBatch, setShowBatch] = useState(false)
+  const [eventName, setEventName] = useState('')
+  const [batchFormat, setBatchFormat] = useState('chordpro')
+  const [batchSelected, setBatchSelected] = useState([])
+  const [batchError, setBatchError] = useState('')
+  const [batchNotice, setBatchNotice] = useState('')
 
   // Hito 5 #78: Planning Center plan import. onImported navigates straight to
   // the new `<name> (from Planning Center)` setlist; the detail page's fresh
@@ -45,6 +59,38 @@ export default function Setlists() {
       setPcoImportError(err.message)
     } finally {
       setImportingPlanId('')
+    }
+  }
+
+  function toggleBatch() {
+    const next = !showBatch
+    setShowBatch(next)
+    setBatchError('')
+    setBatchNotice('')
+    // Open with everything selected: the common case is "these are my event's
+    // setlists", and unchecking two is cheaper than checking five.
+    if (next) setBatchSelected(setlists.map((setlist) => setlist.id))
+  }
+
+  function toggleBatchSelection(id) {
+    setBatchSelected((prev) =>
+      prev.includes(id) ? prev.filter((candidate) => candidate !== id) : [...prev, id],
+    )
+  }
+
+  async function handleExportBatch() {
+    setBatchError('')
+    setBatchNotice('')
+    try {
+      const chosen = setlists.filter((setlist) => batchSelected.includes(setlist.id))
+      const files = chosen.map((setlist) => buildSetlistFile(setlist, setlist.songs, batchFormat))
+      const zip = buildEventSetlistsZip(eventName, files)
+      saveFile({ filename: zip.name, mimeType: 'application/zip', body: zip.bytes })
+      setBatchNotice(
+        `Downloaded ${zip.name} with ${files.length} setlist${files.length === 1 ? '' : 's'}`,
+      )
+    } catch (err) {
+      setBatchError(err.message)
     }
   }
 
@@ -86,6 +132,15 @@ export default function Setlists() {
           <Link to="/exports" className="text-sm font-medium text-cem-amber hover:underline">
             Export history
           </Link>
+          {setlists.length > 0 && !showForm && (
+            <button
+              type="button"
+              onClick={toggleBatch}
+              className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated"
+            >
+              {showBatch ? 'Hide batch export' : 'Export for event'}
+            </button>
+          )}
           {pcoConnected && !showForm && (
             <button
               type="button"
@@ -154,6 +209,65 @@ export default function Setlists() {
           >
             Close
           </button>
+        </div>
+      )}
+
+      {showBatch && (
+        <div className="mt-4 rounded-lg border border-cem-elevated bg-cem-surface p-4">
+          <h2 className="mb-2 text-sm font-semibold text-cem-text">Export for event</h2>
+          <p className="mb-3 text-xs text-cem-secondary">
+            One ZIP holding every selected setlist. The archive is named after the event.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-xs text-cem-secondary">
+              Event name
+              <input
+                type="text"
+                value={eventName}
+                onChange={(e) => setEventName(e.target.value)}
+                placeholder="Weekend Festival 2025"
+                className="w-56 rounded-md border border-cem-elevated bg-cem-surface px-3 py-1.5 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-cem-secondary">
+              Format
+              <select
+                value={batchFormat}
+                onChange={(e) => setBatchFormat(e.target.value)}
+                className="rounded-md border border-cem-elevated bg-cem-surface px-2 py-1.5 text-sm text-cem-text focus:border-cem-amber focus:outline-hidden"
+              >
+                {EXPORT_FORMATS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleExportBatch}
+              disabled={batchSelected.length === 0}
+              className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90 disabled:opacity-60"
+            >
+              Export All for Event
+            </button>
+          </div>
+          <ul className="mt-3 grid gap-1 sm:grid-cols-2">
+            {setlists.map((setlist) => (
+              <li key={setlist.id} className="flex items-center gap-2">
+                <input
+                  id={`batch-${setlist.id}`}
+                  type="checkbox"
+                  checked={batchSelected.includes(setlist.id)}
+                  onChange={() => toggleBatchSelection(setlist.id)}
+                  className="size-4 accent-cem-amber"
+                />
+                <label htmlFor={`batch-${setlist.id}`} className="truncate text-sm text-cem-text">
+                  {setlist.name}
+                </label>
+              </li>
+            ))}
+          </ul>
+          {batchError && <p className="mt-2 text-xs text-cem-text" role="alert">{batchError}</p>}
+          {batchNotice && <p className="mt-2 text-xs text-cem-amber">{batchNotice}</p>}
         </div>
       )}
 
