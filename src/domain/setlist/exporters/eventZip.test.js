@@ -51,6 +51,27 @@ describe('buildEventSetlistsZip', () => {
     ])
   })
 
+  it('never lets a generated suffix overwrite a setlist that is really named that', () => {
+    // "Friday-2" is a name a user can type. A per-filename counter would hand it
+    // to the second "Friday" and then write the real "Friday-2" over it, losing
+    // one setlist from the archive without any error.
+    const clashing = [
+      { filename: 'Friday.chordpro', text: 'first' },
+      { filename: 'Friday.chordpro', text: 'second' },
+      { filename: 'Friday-2.chordpro', text: 'third' },
+    ]
+
+    const { bytes } = buildEventSetlistsZip('Weekend', clashing)
+    const entries = entriesOf(bytes)
+
+    expect(entries).toHaveLength(3)
+    expect(entries).toEqual([
+      ['Friday-2-2.chordpro', 'third'],
+      ['Friday-2.chordpro', 'second'],
+      ['Friday.chordpro', 'first'],
+    ])
+  })
+
   it('falls back to a usable archive name for an unnamed event', () => {
     expect(buildEventSetlistsZip('', FILES).name).toBe('untitled-setlists.zip')
     expect(buildEventSetlistsZip(undefined, FILES).name).toBe('untitled-setlists.zip')

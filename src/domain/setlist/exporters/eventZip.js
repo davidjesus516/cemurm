@@ -14,6 +14,11 @@
 // Two setlists can serialize to the same filename ("Friday-Gig-setlist" twice).
 // A ZIP silently overwrites a duplicate entry name, so the second and later
 // collisions are suffixed `-2`, `-3` before the extension.
+//
+// The suffix is searched against the names actually written, not against a
+// per-filename counter: a suffix can collide with a filename a user really
+// chose. Three setlists named "Friday", "Friday" and "Friday-2" would otherwise
+// write `Friday-2` twice and lose one of them.
 
 import { strToU8, zipSync } from 'fflate'
 
@@ -22,17 +27,28 @@ import { slugify } from './shared.js'
 /**
  * Make an entry name unique within the archive.
  * @param {string} filename
- * @param {Map<string, number>} used
+ * @param {Set<string>} used names already taken by an earlier entry
  * @returns {string}
  */
 function uniqueName(filename, used) {
-  const count = (used.get(filename) ?? 0) + 1
-  used.set(filename, count)
-  if (count === 1) return filename
+  if (!used.has(filename)) {
+    used.add(filename)
+    return filename
+  }
 
   const dot = filename.lastIndexOf('.')
-  if (dot <= 0) return `${filename}-${count}`
-  return `${filename.slice(0, dot)}-${count}${filename.slice(dot)}`
+  const stem = dot > 0 ? filename.slice(0, dot) : filename
+  const extension = dot > 0 ? filename.slice(dot) : ''
+
+  let candidate = ''
+  let suffix = 2
+  do {
+    candidate = `${stem}-${suffix}${extension}`
+    suffix += 1
+  } while (used.has(candidate))
+
+  used.add(candidate)
+  return candidate
 }
 
 /**
@@ -50,7 +66,7 @@ export function buildEventSetlistsZip(eventName, files = []) {
   // success and is not. Refuse instead.
   if (list.length === 0) throw new Error('Select at least one setlist to export.')
 
-  const used = new Map()
+  const used = new Set()
   /** @type {Record<string, Uint8Array>} */
   const entries = {}
   for (const file of list) {
