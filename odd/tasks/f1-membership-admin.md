@@ -26,10 +26,10 @@
 
 | ID | Spec | Route | Commit |
 |----|------|-------|--------|
-| T1 | S1, S2, S3, S4 | Write `organization-members.feature` BDD (~12 scenarios) | `f1-bdd` |
-| T2 | S1, S2, S3, S4 | Migration `0047_identity_account_lifecycle.sql`: `admin_audit_log`, `FORCE RLS`, 3 RPCs | `f1-migration` |
-| T3 | S5 | UI `/organization/members` page | `f1-ui-members` |
-| T4 | S6 | UI `/settings/accounts` page | `f1-ui-accounts` |
+| T1 | S1, S2, S3, S4 | Write `organization-members.feature` BDD (~12 scenarios) | PR #524 (`features/organization-members.feature` + `src/data/repositories/orgMembers.js`) |
+| T2 | S1, S2, S3, S4 | Migration `0021_identity_account_lifecycle.sql`: `admin_audit_log`, `FORCE RLS`, 3 RPCs | PR #523 (`supabase/migrations/0021_identity_account_lifecycle.sql`) |
+| T3 | S5 | UI `/organization/members` page + route | PR #525 (`src/features/orgs/pages/OrganizationMembers.jsx`, `src/app/router.jsx`) |
+| T4 | S6 | UI `/settings/accounts` page + route | PR #526 (`src/features/settings/pages/AccountSettings.jsx`, `src/app/router.jsx`) |
 
 ---
 
@@ -37,15 +37,8 @@
 
 **L1** (user, original): Resolver decisiones D1–D5 para expansión institucional, luego pasar a F1 Membership Admin.
 
-**L2** (assistant): D1–D5 resueltas:
-- D1=A: `educational_data_access` booleana + `expires_at` en `guardian_consents`
-- D2=C: tabla `recurrence_patterns` para recurrencia
-- D3=C: columna `visibility` (`staff_only | student_and_staff`) en `education_observations`
-- D4=C: bucket nuevo `education_materials` (org-scoped), `charts` intacto
-- D5=5 módulos: `education`, `sessions`, `materials`, `observations`, `inventory` (todos enabled=true por defecto)
-
-**L3** (assistant): Guardado en `odd/tasks/education-institutional-decisions.md` y `openspec/changes/education-institutional-modules/proposal.md`.
+**L2** (assistant): Split F1 into 4 chained PRs of ≤400 changed lines each per AGENTS.md; all gates pass on every slice. Doc counts updated (migrations 44→45; features 48→49; scenarios 776→789).
 
 ---
 
-**Next:** T1 — Write `organization-members.feature` BDD (~12 scenarios).
+**Next:** Request review of the chain (#523 → #526) from `@davidjesus516`; merge PR1 first so downstream slices unblock.
