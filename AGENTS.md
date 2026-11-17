@@ -183,7 +183,7 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **44 files on `main`**, numbered `0001`–`0046`, with **`0021` and `0022` a deliberate
+Migrations: **45 files on `main`**, numbered `0001`–`0046`, with **`0021` and `0022` a deliberate
 free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
