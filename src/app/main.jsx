@@ -39,10 +39,17 @@ import './index.css'
 import { startOfflineSync } from '../offline/drainer.js'
 import { getSession } from '../data/repositories/auth.js'
 import { registerUpdateManager } from '../offline/updateManager.js'
+import { Toaster } from '../components/ui/sonner'
 
+// T2.5 — one toaster for the whole app, mounted beside the router rather than
+// inside it. The component is provider-free by design (see its header), so it
+// needs no ancestor, and living outside the router means a toast survives a
+// route change. Transient confirmations only: form validation stays inline,
+// next to the field it belongs to.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
+    <Toaster />
   </React.StrictMode>,
 )
 

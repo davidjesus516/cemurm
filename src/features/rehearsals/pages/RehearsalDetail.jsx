@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../../../app/providers/useAuth.jsx'
 import { useSongs } from '../../../hooks/shared/useSongs.js'
 import * as rehearsalStore from '../../../data/repositories/rehearsals.js'
@@ -29,7 +30,6 @@ export default function RehearsalDetail() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   const [keyEditingId, setKeyEditingId] = useState(null)
@@ -44,7 +44,6 @@ export default function RehearsalDetail() {
     let cancelled = false
     setLoading(true)
     setError('')
-    setNotice('')
     setDraftNotes({})
     // Clear data when route id changes to avoid showing stale data
     setData(null)
@@ -68,12 +67,11 @@ export default function RehearsalDetail() {
   async function runRpc(work, successText) {
     setBusy(true)
     setError('')
-    setNotice('')
     try {
       const result = await work()
       await reload()
       if (successText) {
-        setNotice(typeof successText === 'function' ? successText(result) : successText)
+        toast.success(typeof successText === 'function' ? successText(result) : successText)
       }
     } catch (err) {
       setError(err.message)
@@ -152,7 +150,6 @@ export default function RehearsalDetail() {
   async function handleChangeKey(item) {
     setBusy(true)
     setError('')
-    setNotice('')
     try {
       await rehearsalStore.changeSetlistItemKey({
         setlistId: rehearsal.setlistId,
@@ -213,7 +210,6 @@ export default function RehearsalDetail() {
       <Link to="/rehearsals" className="text-sm font-medium text-cem-amber hover:underline">← Back to rehearsals</Link>
 
       {error && <p className="mt-3 rounded-md bg-cem-rose/10 px-3 py-2 text-sm text-cem-rose">{error}</p>}
-      {notice && <p className="mt-3 rounded-md bg-cem-amber/10 px-3 py-2 text-sm text-cem-amber">{notice}</p>}
 
       {completed && (
         <p className="mt-3 rounded-md bg-cem-elevated px-3 py-2 text-sm text-cem-text">

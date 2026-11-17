@@ -75,4 +75,24 @@ describe('visual contract port', () => {
     }
     expect(bad).toEqual([]);
   });
+
+  // Sonner reads its six `--normal-*`/`--border-radius` custom properties off the
+  // toaster element. The file that shipped before this one mapped them to
+  // `--popover`, `--popover-foreground`, `--border` and `--radius`, and this
+  // project declares none of those, so a mounted toaster would have rendered with
+  // empty values. Nothing caught it: rule 01a scans for raw colour literals, and
+  // the test above only matches the `--color-` prefix. This is the guard for that
+  // exact failure — the mapping must resolve against the token file, and it must
+  // still map every variable rather than quietly shrinking to a subset.
+  it('the toaster maps its Sonner variables onto declared tokens', () => {
+    const css = read(CSS);
+    const declaredAny = new Set([
+      ...declared.map((k) => `--color-${k}`),
+      ...(css.match(/^\s*--[a-z0-9-]+\s*:/gm) ?? []).map((s) => s.trim().slice(0, -1)),
+    ]);
+    const refs = [...read('src/components/ui/sonner.tsx').matchAll(/var\((--[a-z0-9-]+)\)/g)]
+      .map((m) => m[1]);
+    expect(refs).toHaveLength(6);
+    expect(refs.filter((v) => !declaredAny.has(v))).toEqual([]);
+  });
 });
