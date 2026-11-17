@@ -46,7 +46,7 @@ Gates: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:gher
 | T0.4 | This control document | — | docs | DONE | — |
 | T1.1 | Docs reconciliation | S1, S4, S5 | SKILL.md + references + AGENTS.md stack drift | OPEN | #465 |
 | T1.2 | Token foundation: motion, z-index (+ elevation/spacing deferred) | S4, S5 | `src/app/index.css` `@theme` | OPEN | #518 |
-| T1.3 | Responsive + a11y rules as usable examples | S3, S6, S8 | SKILL.md reference | DONE | `1a6e8c6` (no PR yet) |
+| T1.3 | Responsive + a11y rules as usable examples | S3, S6, S8 | SKILL.md reference | DONE | `0694041` on `docs/responsive-a11y-contract` (no PR yet) |
 | T2.1 | Buttons, icon buttons, badges, toggles, interactive controls | S1, S2 | `src/components/ui` | PENDING | — |
 | T2.2 | Form system: labels, fields, descriptions, errors, disabled/loading | S6 | `src/components/ui`, `src/components/form` | PENDING | — |
 | T2.3 | Surfaces and overlays: card, dialog, dropdown, tooltip, sheet | S3 | `src/components/ui` | PENDING | — |
@@ -329,3 +329,25 @@ may only *remove*, after use is disproven.
     `feat/visual-token-foundation` at `03f7cc3`. If the education agent continues there, the same
     collision repeats. Their work belongs on `docs/education-f0-docs`; that checkout should move off
     this branch before any further visual task uses it.
+
+- **L11** (2026-11-16) — **The 400-line budget is enforced, and T1.3 broke it. Re-sliced.**
+  Measured with `node scripts/check-pr-size.mjs --base origin/main --head <ref>`, the same script
+  `.github/workflows/pr-size.yml` runs. `PR_LINE_BUDGET` is 400 (`scripts/hooks/rules.mjs:9`);
+  only `GENERATED_PATHS` are excluded, so Markdown counts in full.
+  - `#518` = **68**, `#465` = **67**. Both inside budget.
+  - `feat/visual-identity` as it stood = **683**. Cause: the ODD control document
+    (`odd/tasks/visual-identity-orchestration.md`, 331 lines) was riding in the same branch as the
+    deliverable. The deliverable alone is 339 + 13 = **352**. A feature record is not a deliverable;
+    a reviewer should not read 331 lines of process to reach one contract.
+  - **Fix:** `docs/responsive-a11y-contract` cut from `origin/main` with only `1a6e8c6` cherry-picked
+    → 350+/2- = **352**, `check-pr-size` exit 0. Pushed at `0694041`. No PR yet: the two-slot ceiling
+    holds, and the branch carries no runtime dependency on `#518` beyond the token names it cites.
+  - **Correction, published on `#464`:** an earlier comment here claimed CI could not catch the
+    pollution "because every file added is Markdown". That was false. `authored-lines` failed on
+    `#464` in four seconds at 1,857 lines. The claim was corrected on the PR
+    (comment `6934312975`). The lesson is narrower and more useful than the error: nine checks were
+    green and one was red, and the red one was the only check in the suite that measures scope.
+  - **Still blocked, and not ours to slice:** the rebased `docs/education-f0-docs` is **2,463** lines
+    against `main` and the same gate refuses it. Slicing a 1,609-line rewrite of an existing document
+    is not a real option; `size:exception` with a justification in `odd/tasks/` is the honest path,
+    and that decision belongs to whoever owns the education unit.
