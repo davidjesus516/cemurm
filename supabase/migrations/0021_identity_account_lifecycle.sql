@@ -171,15 +171,20 @@ begin
     raise exception 'not authorized';
   end if;
 
-  -- Only org_owner can change roles (org_admin can change instructor/branch_admin/member roles)
-  -- but cannot touch org_owner role
+  -- org_owner can change any role; org_admin can change instructor/branch_admin/member roles
+  -- but neither can touch org_owner's own role
   select exists(
     select 1 from public.org_memberships
     where user_id = v_caller and org_id = p_org_id and role = 'org_owner' and status = 'active'
   ) into v_is_owner;
 
-  if not v_is_owner then
-    raise exception 'only org_owner can change member roles';
+  select exists(
+    select 1 from public.org_memberships
+    where user_id = v_caller and org_id = p_org_id and role = 'org_admin' and status = 'active'
+  ) into v_is_admin;
+
+  if not v_is_owner and not v_is_admin then
+    raise exception 'not authorized';
   end if;
 
   -- Cannot change org_owner's role (only another org_owner can, via removal + re-add)
@@ -236,14 +241,20 @@ begin
     raise exception 'not authorized';
   end if;
 
-  -- Only org_owner can remove members
+  -- org_owner can remove any member; org_admin can remove instructor/branch_admin/member
+  -- but neither can remove org_owner
   select exists(
     select 1 from public.org_memberships
     where user_id = v_caller and org_id = p_org_id and role = 'org_owner' and status = 'active'
   ) into v_is_owner;
 
-  if not v_is_owner then
-    raise exception 'only org_owner can remove members';
+  select exists(
+    select 1 from public.org_memberships
+    where user_id = v_caller and org_id = p_org_id and role = 'org_admin' and status = 'active'
+  ) into v_is_admin;
+
+  if not v_is_owner and not v_is_admin then
+    raise exception 'not authorized';
   end if;
 
   -- Cannot remove org_owner
@@ -268,7 +279,7 @@ begin
 
   -- Soft delete: set status='removed', left_at=now()
   update public.org_memberships
-  set status = 'former', left_at = now()
+  set status = 'removed', left_at = now()
   where user_id = p_user_id and org_id = p_org_id and status = 'active'
     and (p_branch_id is null or branch_id = p_branch_id);
 
