@@ -51,7 +51,7 @@ Gates: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:gher
 | T2.2 | Form system: labels, fields, descriptions, errors, disabled/loading | S6 | `src/components/ui`, `src/components/form` | PENDING | — |
 | T2.3 | Surfaces and overlays: card, dialog, dropdown, tooltip, sheet | S3 | `src/components/ui` | PENDING | — |
 | T2.4 | Loading system: skeletons, spinners, page-level fallbacks | S6 | `src/components/ui` | PENDING | — |
-| T2.5 | Feedback: Sonner mounting, confirmations, success/error states | S6 | `src/app/providers`, `src/components/ui/sonner.tsx` | PENDING | — |
+| T2.5 | Feedback: Sonner mounting, confirmations, success/error states | S6 | `src/components/ui/sonner.tsx`, `src/app/main.jsx` | DONE | `d7eb1eb` — primitive mounted, proved on `RehearsalDetail` |
 | T3.1 | Responsive application shell | S3, S8 | `src/app/AppLayout.jsx`, `src/features/shell` | PENDING | — |
 | T3.2 | Shell motion normalization (press/hover/focus) | S5 | `src/features/shell` | PENDING | — |
 | T3.3 | Route-level loading instead of `Suspense fallback={null}` | S6 | `src/app/router.jsx` | PENDING | — |
@@ -351,3 +351,58 @@ may only *remove*, after use is disproven.
     against `main` and the same gate refuses it. Slicing a 1,609-line rewrite of an existing document
     is not a real option; `size:exception` with a justification in `odd/tasks/` is the honest path,
     and that decision belongs to whoever owns the education unit.
+
+- **L12** (2026-11-17) — User decision, verbatim: `Adoptar Sonner con tokens cem-*`, chosen over
+  deleting it. Executed as **T2.5**, commit `d7eb1eb` on `feat/visual-identity`. No PR: the visual
+  ceiling is still 2 of 2 (`#465`, `#518`).
+
+  **The finding, measured before touching anything:** `sonner ^2.0.8` was in `package.json:63` and
+  **nothing imported it** — one match in all of `src/`, the component file itself, and zero `toast()`
+  calls. `src/components/ui/sonner.tsx` was imported by nobody. Had anyone mounted it, it would have
+  rendered wrong: it mapped its variables onto `--popover`, `--popover-foreground`, `--border` and
+  `--radius`, none of which this project declares (48 `cem.*` tokens do exist), and it called
+  `useTheme()`, whose provider lives only inside `AdminThemeBoundary`, i.e. under `/dashboard`.
+
+  **What shipped:** the six variables Sonner 2.0.8 actually reads (`--normal-bg`, `--normal-bg-hover`,
+  `--normal-text`, `--normal-border`, `--normal-border-hover`, `--border-radius`) now resolve to
+  `cem.surface`, `cem.elevated`, `cem.text`, `cem.hover` and `--cem-radius-md`. `theme` and
+  `useTheme` are gone, because `html.light` redefines the same `--color-cem-*` properties and the
+  toaster can follow the palette without knowing a theme exists. One `<Toaster />` is mounted in
+  `src/app/main.jsx` beside the router, so a toast outlives a route change.
+
+  **The design decision that changed in review — mine, and I had it wrong.** The first version
+  tinted each icon (`cem-emerald`, `cem-sky`, `cem-amber`, `cem-rose`). The gate refused it: rule 02
+  went from 240 to **243 occurrences**, "over ceiling 240 by 3". That ratchet is the contract's
+  position, not an obstacle: Hard Rule 2 allows exactly one accent — amber, on the logo, the primary
+  CTA and the active state — and an icon tint is not on that list. `tier-3-performance-surfaces.md`
+  adds the measurement that makes the label honest: of the four accents rule 02 calls dead, only
+  coral has 0 uses; rose has 177 and emerald 68, pending migration. So the icons are monochrome and
+  the **glyph** carries the meaning — a check, a triangle, an octagon — which also survives colour
+  blindness (WCAG 1.4.1). Recorded here because the wrong version was defensible and a reviewer
+  deserves to see it was considered and rejected on evidence, not taste.
+
+  **A gate defect worth its own line, not fixed here:** rule 02 counts matches inside comments.
+  Rule 03 explicitly filters comment lines and its comment explains why — *"a gate that blocks CI on
+  its own documentation gets bypassed"* — and rule 02 has no such filter. My second version tripped
+  rule 02 again (`sonner.tsx:18`) purely by naming the three tokens it was explaining. Rewording the
+  prose made the gate green; changing the gate is out of this task's scope and would alter a
+  threshold, which is a decision for `scripts/check-visual-contract.sh`'s owner.
+
+  **Guard added, with RED observed first.** The existing test `every var(--color-*) reference names a
+  declared token` cannot catch the original bug: `--popover` does not match its `--color-` prefix.
+  `src/test/visual-contract-theme.test.js` gained `the toaster maps its Sonner variables onto declared
+  tokens`, which requires all six to resolve against `src/app/index.css`. Restoring the old component
+  makes it fail with `expected [ '--popover', …(3) ] to have a length of 6 but got 4`; with the new
+  one the suite is 518 passed.
+
+  **Proof page:** `src/features/rehearsals/pages/RehearsalDetail.jsx`, chosen because no open PR
+  touches it and its `runRpc` success path produced exactly two transient messages. The `notice`
+  state, its three clears and its hand-rolled amber paragraph are gone; `runRpc` calls
+  `toast.success` after `reload()`, so a failed reload still surfaces as the inline `error` instead of
+  a success toast. **The rule this establishes, and which later phases inherit:** transient
+  confirmations go to a toast; form validation stays inline, next to the field it belongs to.
+
+  **Not done, deliberately:** 28 of 36 pages still own their `error` state and there are still 30
+  `role="alert"` blocks and 93 `text-cem-rose` uses (`RehearsalDetail`'s own inline error is one of
+  them). Migrating them is T4 work, one page per task, and needs the user's authorization after T1.3
+  is reviewed — not a side effect of mounting a toaster.
