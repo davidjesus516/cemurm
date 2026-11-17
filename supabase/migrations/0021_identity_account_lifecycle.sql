@@ -164,6 +164,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   v_caller uuid := (select auth.uid());
   v_is_owner boolean;
+  v_is_admin boolean;
   v_membership_exists boolean;
   v_target_is_owner boolean;
 begin
@@ -234,6 +235,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   v_caller uuid := (select auth.uid());
   v_is_owner boolean;
+  v_is_admin boolean;
   v_target_is_owner boolean;
   v_membership_exists boolean;
 begin
@@ -277,9 +279,10 @@ begin
     raise exception 'membership not found';
   end if;
 
-  -- Soft delete: set status='removed', left_at=now()
+  -- Soft delete: the schema enum is member_status(active|former|pending);
+  -- 'former' is the schema's word for removed, and matches org_leave (0016:450).
   update public.org_memberships
-  set status = 'removed', left_at = now()
+  set status = 'former', left_at = now()
   where user_id = p_user_id and org_id = p_org_id and status = 'active'
     and (p_branch_id is null or branch_id = p_branch_id);
 
