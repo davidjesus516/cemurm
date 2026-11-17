@@ -40,3 +40,28 @@
 **L1** (user): «Resolvamos decisiones, que propones?» → D1–D5 resolved: D1=A, D2=C, D3=C, D4=C, D5=five module keys.
 
 **L2** (incident): `git checkout HEAD --` on four docs discarded the uncommitted F0 rewrites. Surviving: acta, OpenSpec proposal, F1 code (committed on `feat/f1-membership-admin`). This task reconstructs the docs from those survivors.
+
+## Size exception: `docs/database-schema-ampliacion.md` (1,609 lines)
+
+F0 ships as four slices. Three are inside the 400-authored-line budget
+(`check-pr-size.mjs`); the fourth is not, and cannot be.
+
+`docs/database-schema-ampliacion.md` is not an addition to the existing document; it restructures
+it. `main` carries nine sections numbered `C1`–`C4`; this branch carries ten numbered `F1`, `F3`,
+`F4`, `F7`. **Three headings survive out of nine.** Splitting the file would leave a document whose
+own cross-references point at section numbers that exist in the other half — for example §4 in one
+version refers to "§2 Los 4 RPC de C1" while §2 in the other is "Los RPC de F1". There is no partial
+state of this file that is internally consistent, so there is no honest slice.
+
+Budget arithmetic, measured with `node scripts/check-pr-size.mjs`:
+
+| Slice | Files | Lines |
+|---|---|---|
+| 1 | `openspec/changes/education-institutional-modules/proposal.md` | 251 |
+| 2 | `odd/tasks/education-institutional-decisions.md`, `odd/tasks/f0-docs.md`, `docs/decisions.md` | 258 |
+| 3 | `docs/mvp-scope.md`, `docs/roadmap-ampliacion.md` | 345 |
+| 4 | `docs/database-schema-ampliacion.md` | **1,609** |
+
+Combining any two of slices 1–3 exceeds the budget (509, 596, 603), so four is the minimum number of
+PRs, and slice 4 is irreducible. The four together reconstruct the original work exactly: the file
+count and the line total match.
