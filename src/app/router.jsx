@@ -48,6 +48,7 @@ const Gigs = lazy(() => import('../features/gigs/pages/Gigs.jsx'))
 const GigDetail = lazy(() => import('../features/gigs/pages/GigDetail.jsx'))
 const Bandmates = lazy(() => import('../features/bandmates/pages/Bandmates.jsx'))
 const Organizations = lazy(() => import('../features/orgs/pages/Organizations.jsx'))
+const OrganizationMembers = lazy(() => import('../features/orgs/pages/OrganizationMembers.jsx'))
 const Services = lazy(() => import('../features/services/pages/Services.jsx'))
 const ServiceDetail = lazy(() => import('../features/services/pages/ServiceDetail.jsx'))
 const SubstitutionAssignment = lazy(() => import('../features/services/pages/SubstitutionAssignment.jsx'))
@@ -137,6 +138,7 @@ const router = createBrowserRouter([
               { path: '/gigs/:id', element: defer(<GigDetail />) },
               { path: '/bandmates', element: defer(<Bandmates />) },
               { path: '/organizations', element: defer(<Organizations />) },
+              { path: '/organization/members', element: defer(<OrganizationMembers />) },
               { path: '/services', element: defer(<Services />) },
               { path: '/services/:id', element: defer(<ServiceDetail />) },
               { path: '/services/:id/projection', element: defer(<Projection />) },
