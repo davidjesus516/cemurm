@@ -44,7 +44,7 @@ requirement that is not in them.
 | ID | Linked S# | Feature | Route | Commit |
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
-| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | — | reopened — draft discarded, see L6 |
+| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | inline | `aa0df92` (deep link, summary, WhatsApp/Telegram/email) — token links, QR, embed, proximity, PNG still open, see L11 |
 | **T3** | S1 | `export-and-sharing` — audience view + export management | — | — |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
 | **T5** | S2 | `user-onboarding` — tutorial hints + completion | — | — |
@@ -128,3 +128,30 @@ in this unit — it depends on four surfaces being stable and ships separately.
   `pr-size.yml` reported 639 because it diffs the merge base against the merge-ref `HEAD`,
   which pulls in `main` commits that landed after the branch point; the workflow's own base
   choice is the defect, and the PR body says so.
+- **L11** (2026-11-18, orchestrator): **T2 rebuilt after the L6 discard**, same approach as T1 —
+  the deterministic half inline, no writer. `src/domain/setlist/share.js` is pure string
+  assembly: `setlistDeepLink` (origin trimmed, id encoded), `setlistShareSummary` (name, song
+  count and duration, ordered titles, link — deliberately **no** keys, chords or notes, so the
+  same text can go to a channel the audience reads), and `shareTarget`/`shareTargets` for
+  WhatsApp (`wa.me/?text=`), Telegram (`t.me/share/url?url=&text=`) and email (`mailto:` with
+  subject and body). `src/features/setlists/components/ShareSetlistMenu.jsx` is the tier-2 panel
+  on `SetlistDetail` — Copy link plus the three channels, borrowing the Collaboration card's
+  surface rather than adding a dialog. 9 new assertions in `share.test.js`.
+  **Known gaps, deliberate.** No share token, so no 7-day expiry and no view-only link: the
+  schema has no token table, and a link only opens what RLS already allows (owner or accepted
+  collaborator) — the panel says exactly that instead of promising access. QR, embed and
+  proximity codes need that same table (proximity also needs an offline-verifiable one-time
+  token), and the chord-chart PNG needs a canvas renderer this build does not have. The email
+  target sends the summary but **no PDF attachment** — there is no PDF writer (L8). So of the
+  ten T2 scenarios, the link-copy and the three chat/email payloads are implemented; the
+  view-only link, QR, embed, proximity code and PNG are not, and no test pins them.
+  **Verification**, all on this branch: `pnpm test` 527 passed, `pnpm test:gherkin` 44 passed,
+  `pnpm typecheck` clean, `pnpm lint` clean, `pnpm build` OK (same >500 kB chunk warning as
+  `main`), `bash scripts/check-visual-contract.sh` 12 rules / 0 failing,
+  `bash scripts/check-test-integrity.sh` OK, `bash scripts/check-doc-counts.sh` OK (44
+  migrations, 22 smokes, 48 features, 776 scenarios, `0047` free). Diff: 373 changed lines
+  across 4 files, inside the 400 budget — no size exception. No migration, so the `0047`
+  question is untouched. Not verified: the browser half (clipboard write, share-sheet opening)
+  needs a browser this run does not have; the panel was type-checked and linted, not clicked.
+  No OpenSpec capability spec was written — `openspec/specs/` still has no
+  `export-and-sharing` capability, a pre-existing gap T1 also left open.
