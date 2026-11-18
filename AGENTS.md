@@ -52,6 +52,7 @@ pnpm install --frozen-lockfile
 → deno check 'supabase/functions/**/*.ts'
 → pnpm typecheck
 → bash scripts/check-test-integrity.sh
+→ bash scripts/check-table-privileges.test.sh
 → node scripts/hooks/pre-tool-guard.selftest.mjs
 → pnpm test
 → pnpm test:gherkin
@@ -76,15 +77,21 @@ by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm t
 not a failing run, they are a green run that tested less, so nothing inside the suite could see
 them. Bash + grep only, same as the visual gate.
 
-**Two gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
+**Three gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
 (destructive SQL blocked, `supabase db reset` still allowed, exit 2 on a block, `size:exception`
-clearing only the size verdict), and `check-migrations-destructive.mjs` applies the destructive-SQL
+clearing only the size verdict), `check-migrations-destructive.mjs` applies the destructive-SQL
 rule to the migration files rather than to the tool call that wrote them — the same rule from the
 same module (`scripts/hooks/rules.mjs`), which is what keeps the Claude Code hook, the OpenCode
-plugin and CI from drifting into three policies. The escape hatch is a comment in the migration
-itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is reviewable where
-the data loss would be. Comments are stripped before the scan, because `0046` explains that a
-revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate statement.
+plugin and CI from drifting into three policies — and `check-table-privileges.test.sh` exercises
+the ACL gate's verdict logic with `docker` stubbed. That last one exists because the ACL gate needs
+a live catalog and lives in `e2e.yml`, so nothing in `ci.yml` could see it: a gate that silently
+always passed looked identical to a gate that worked, which is the same hole `.only` was. It is
+DB-free by construction (the stub answers from variables), so it runs in `ci.yml` in milliseconds
+and needs no Supabase stack. The escape hatch for the destructive-SQL rule is a comment in the
+migration itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is
+reviewable where the data loss would be. Comments are stripped before the scan, because `0046`
+explains that a revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate
+statement.
 
 **The counts are now a gate too.** `check-doc-counts.sh` reads the migration count, the smoke
 count, the feature and scenario counts and the next free migration number from `AGENTS.md` and
@@ -121,6 +128,13 @@ the same regex selects zero tests while still exiting green — `chromium` there
 Supabase. Here the stack is already up and reset, so the gate costs seconds. Last, not after the
 tests and before the uploads, for the same `set -euo pipefail` reason as the visual gate: a step
 that fails early marks everything after it SKIPPED.
+
+What runs in `ci.yml` is its regression test, `bash scripts/check-table-privileges.test.sh`: the
+same gate with `docker` stubbed, so every verdict path (each rule, the ratchet at 21/22/23, the
+findings cap, empty catalog, unreachable database, missing `docker`, missing `config.toml`) is
+asserted in milliseconds with no stack. The stub is strict on purpose — SQL it does not model comes
+back as a non-number and the gate fails setup, so a new query announces itself instead of falling
+through to a default that makes the gate look green.
 
 It enforces three rules and warns about a fourth, all against `public`:
 

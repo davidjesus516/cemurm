@@ -82,7 +82,10 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-psql_scalar() {
+# The transport, shared by both readers below. stderr is folded into the value on purpose so a
+# setup failure can print what actually failed; callers that need a number validate it separately
+# (see psql_scalar), callers that want text use this directly.
+psql_raw() {
   local sql="$1" out
   if ! out="$(docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" \
     -X -q -t -A -v ON_ERROR_STOP=1 -c "$sql" 2>&1)"; then
@@ -95,17 +98,41 @@ psql_scalar() {
   printf '%s\n' "$out"
 }
 
+# Counts only. Every caller feeds the value straight into `-eq` / `-le`, where a stray NOTICE or a
+# docker warning would abort bash with "integer expression expected" and exit 2 -- still non-zero,
+# but with none of the remediation text this gate is supposed to give. Refuse the value instead,
+# in the same shape as every other setup failure. Text queries must use psql_raw: passing a table
+# name through this validator would be a setup failure, not a finding.
+psql_scalar() {
+  local out
+  out="$(psql_raw "$1")"
+  case "$out" in
+    ''|*[!0-9]*)
+      printf 'FAIL  setup    %s did not return a number\n' "$CONTAINER" >&2
+      printf '        %s\n' "$(printf '%s\n' "$out" | awk 'NR<=3' | tr '\n' ' ')" >&2
+      exit 1
+      ;;
+  esac
+  printf '%s\n' "$out"
+}
+
 # One shape for every rule: the table set is always the same 61 rows, so the scope of the count
 # and the scope of the failure list cannot drift apart.
 TABLES="from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind in ('r', 'p')"
 
 has() { printf "has_table_privilege('%s', c.oid, '%s')" "$1" "$2"; }
+# Same predicate with the verb as a row from a set, so the list can live in exactly one place.
+has_set() { printf "has_table_privilege('%s', c.oid, v)" "$1"; }
 
 ANY_ANON="($(has anon SELECT) or $(has anon INSERT) or $(has anon UPDATE) or $(has anon DELETE)
            or $(has anon TRUNCATE) or $(has anon REFERENCES) or $(has anon TRIGGER))"
 
-UNSAFE="($(has authenticated TRUNCATE) or $(has authenticated REFERENCES) or $(has authenticated TRIGGER))"
+# The three verbs that no policy can refuse. This array is the single source: the counting
+# predicate and the failing detail are both generated from it, so a verb cannot be enforced
+# without being printed, or printed without being enforced.
+UNSAFE_VERBS="array['TRUNCATE','REFERENCES','TRIGGER']"
+UNSAFE="exists (select 1 from unnest($UNSAFE_VERBS) v where $(has_set authenticated))"
 
 TOTAL_TABLES="$(psql_scalar "select count(*) $TABLES")"
 
@@ -139,12 +166,12 @@ if [ "$UNSAFE_COUNT" -eq 0 ]; then
 else
   FAILED=$((FAILED + 1))
   fail 01 "authenticated: no TRUNCATE/REF/TRIGGER" "$UNSAFE_COUNT of $TOTAL_TABLES tables"
-  psql_scalar "select c.relname || '  ' ||
-      concat_ws(',',
-        case when $(has authenticated TRUNCATE)   then 'TRUNCATE' end,
-        case when $(has authenticated REFERENCES) then 'REFERENCES' end,
-        case when $(has authenticated TRIGGER)    then 'TRIGGER' end)
-    $TABLES and $UNSAFE order by c.relname" | while IFS= read -r line; do note "$line"; done
+  psql_raw "select c.relname || '  ' || coalesce(array_to_string(array(
+        select v from unnest($UNSAFE_VERBS) v where $(has_set authenticated)), ','), '')
+    $TABLES and $UNSAFE order by c.oid desc" \
+    | awk -v max="$FINDINGS_MAX" -v total="$UNSAFE_COUNT" \
+      'NR <= max { print } END { if (total > max) printf "... and %d more not shown\n", total - max }' \
+    | while IFS= read -r line; do note "$line"; done
   note "RLS cannot refuse any of these three: they are ACL-only, by construction."
   note "Fix: revoke all on table public.<t> from public, anon, authenticated; then grant the"
   note "     minimum. Naming public and anon alone leaves authenticated holding everything."
@@ -156,7 +183,9 @@ if [ "$ANON_COUNT" -eq 0 ]; then
 else
   FAILED=$((FAILED + 1))
   fail 02 "anon: no table privilege" "$ANON_COUNT of $TOTAL_TABLES tables"
-  psql_scalar "select c.relname $TABLES and $ANY_ANON order by c.relname" \
+  psql_raw "select c.relname $TABLES and $ANY_ANON order by c.oid desc" \
+    | awk -v max="$FINDINGS_MAX" -v total="$ANON_COUNT" \
+      'NR <= max { print } END { if (total > max) printf "... and %d more not shown\n", total - max }' \
     | while IFS= read -r line; do note "$line"; done
   note "anon reads through security-definer RPCs (overlay_state), not through table grants."
 fi
@@ -170,13 +199,17 @@ if [ "$DELETE_COUNT" -le "$DELETE_RATCHET" ]; then
 else
   FAILED=$((FAILED + 1))
   fail 03 "authenticated DELETE ratchet" "$DELETE_COUNT > $DELETE_RATCHET (+$((DELETE_COUNT - DELETE_RATCHET)))"
-  psql_scalar "select c.relname $TABLES and $(has authenticated DELETE) order by c.relname" \
+  # Newest first: the table a change just added is the one the reader is looking for, and an
+  # alphabetical cap of 10 would hide it behind nine names that legitimately hold DELETE.
+  psql_raw "select c.relname $TABLES and $(has authenticated DELETE) order by c.oid desc" \
     | awk -v max="$FINDINGS_MAX" -v total="$DELETE_COUNT" \
-      'NR <= max { print } END { if (total > max) printf "... and %d more (not shown)\n", total - max }' \
+      'NR <= max { print } END { if (total > max) printf "... and %d older tables not shown\n", total - max }' \
     | while IFS= read -r line; do note "$line"; done
-  note "The count is the finding, not the list: $DELETE_RATCHET of these tables legitimately"
-  note "hold DELETE and RLS narrows each one. The table that should not is the one this branch"
-  note "added. Narrow it, or raise DELETE_RATCHET in a commit that names it and says why."
+  note "Newest first, capped at $FINDINGS_MAX names. The count is the finding, not the list:"
+  note "$DELETE_RATCHET of these tables legitimately hold DELETE and RLS narrows each one."
+  note "If a table this change added appears above, narrow it. DELETE_RATCHET only falls --"
+  note "see the constant at the top of this file and the policy in AGENTS.md. Raising it is"
+  note "not a remedy this gate offers; it is a decision that needs its own review."
 fi
 
 # --- 04 ---------------------------------------------------------------------
