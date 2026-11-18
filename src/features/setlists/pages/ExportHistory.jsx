@@ -143,7 +143,7 @@ export default function ExportHistory() {
       </div>
 
       {error && (
-        <p className="mt-3 rounded-md bg-cem-elevated px-3 py-2 text-sm text-cem-rose" role="alert">{error}</p>
+        <p className="mt-3 rounded-md bg-cem-elevated px-3 py-2 text-sm text-destructive" role="alert">{error}</p>
       )}
 
       {notice && (
