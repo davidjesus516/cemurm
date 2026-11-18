@@ -284,11 +284,11 @@ select public.add_org_member('10000000-0000-0000-0000-0000000004a6',
   '60000000-0000-0000-0000-0000000006a6', 'member');
 
 select set_config('role', 'postgres', false);
-select tmp_assert('18 re-adding a former member leaves one row, not a duplicate',
+select tmp_assert('18 re-adding a former member leaves exactly one active row',
   (select count(*) = 1 from public.org_memberships
     where user_id = '60000000-0000-0000-0000-0000000006a6'
       and org_id = '10000000-0000-0000-0000-0000000004a6'
-      and branch_id is null));
+      and status = 'active' and branch_id is null));
 
 -- T7.4 the table is no longer writable by a signed-in client
 select set_config('role', 'authenticated', false);
