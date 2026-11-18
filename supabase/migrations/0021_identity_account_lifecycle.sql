@@ -19,7 +19,7 @@
 
 create table public.admin_audit_log (
   id            uuid primary key default gen_random_uuid(),
-  actor_id      uuid not null references auth.users(id) on delete set null,
+  actor_id      uuid references auth.users(id) on delete set null,      -- nullable: 0043 D3 anonymises attribution
   actor_org_ids uuid[],
   action        text not null,               -- 'add_org_member' | 'change_member_role' | 'remove_org_member' | 'enroll_student' | ...
   subject_table text not null,               -- 'org_memberships' | 'education_enrollments' | ...
@@ -30,6 +30,14 @@ create table public.admin_audit_log (
 create index idx_admin_audit_actor on public.admin_audit_log (actor_id, created_at desc);
 create index idx_admin_audit_action on public.admin_audit_log (action, created_at desc);
 create index idx_admin_audit_subject on public.admin_audit_log (subject_table, subject_id);
+
+-- The memberships unique key is (user_id, org_id, branch_id) (0001:37), and
+-- Postgres treats NULL branch_id values as distinct, so it never constrains an
+-- org-level membership. This partial index does, and it is what makes
+-- add_org_member_core's reactivate-or-insert deterministic.
+create unique index org_memberships_org_level_unique
+  on public.org_memberships (user_id, org_id)
+  where branch_id is null;
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 2. RLS — admin_audit_log (read-only, append-only via RPC)
@@ -58,6 +66,7 @@ create policy org_memberships_insert_admin on public.org_memberships
   with check (
     (select auth.uid()) is not null
     and private.session_role_in((select auth.uid()), org_id, array['org_owner','org_admin'])
+    and role <> 'org_owner'
   );
 
 drop policy if exists org_memberships_update_admin on public.org_memberships;
@@ -70,15 +79,19 @@ create policy org_memberships_update_admin on public.org_memberships
   with check (
     (select auth.uid()) is not null
     and private.session_role_in((select auth.uid()), org_id, array['org_owner','org_admin'])
+    and role <> 'org_owner'
   );
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 4. GRANTS — org_memberships (add INSERT/UPDATE for RPC paths)
 -- ══════════════════════════════════════════════════════════════════════════════
 
--- 0016:552 already grants SELECT. Add INSERT/UPDATE so the RPC cores can write.
--- DELETE remains revoked: soft-delete via status='removed', never hard delete.
-grant insert, update on table public.org_memberships to authenticated;
+-- 0016:552 already grants SELECT, and that is all `authenticated` keeps. The
+-- writer RPCs below are SECURITY DEFINER and write as the owner, so they do not
+-- need a table grant. Granting INSERT/UPDATE here would let any signed-in
+-- client write this table over PostgREST with only the caller predicate in the
+-- policies above — a role-escalation path around the cores and the audit log.
+revoke insert, update on table public.org_memberships from authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 5. RPCs — MEMBERSHIP CORES (private, SECURITY DEFINER)
@@ -130,15 +143,23 @@ begin
     end if;
   end if;
 
-  -- Upsert: reactivate removed membership or insert new
-  insert into public.org_memberships (user_id, org_id, role, branch_id, status, joined_at)
-  values (p_user_id, p_org_id, p_role, p_branch_id, 'active', now())
-  on conflict (user_id, org_id, branch_id) do update set
-    role = excluded.role,
-    branch_id = excluded.branch_id,
-    status = 'active',
-    joined_at = now(),
-    left_at = null;
+  -- Reactivate an existing membership, else insert one. An `on conflict` upsert
+  -- cannot do this: the unique key includes branch_id, and a NULL branch_id is
+  -- distinct from every other NULL, so an org-level membership never conflicts
+  -- and the upsert would insert a duplicate active row each time.
+  update public.org_memberships
+  set role = p_role,
+      status = 'active',
+      joined_at = case when status = 'active' then joined_at else now() end,
+      left_at = null
+  where user_id = p_user_id
+    and org_id = p_org_id
+    and branch_id is not distinct from p_branch_id;
+
+  if not found then
+    insert into public.org_memberships (user_id, org_id, role, branch_id, status, joined_at)
+    values (p_user_id, p_org_id, p_role, p_branch_id, 'active', now());
+  end if;
 
   -- Audit trail
   insert into public.admin_audit_log (actor_id, actor_org_ids, action, subject_table, subject_id, detail)
@@ -207,10 +228,21 @@ begin
     raise exception 'membership not found';
   end if;
 
+  -- Appointing an org_owner is the same SOD rule add_org_member_core enforces.
+  -- Without it an org_admin could promote anyone, themselves included, by
+  -- calling the role change instead of the add.
+  if p_role = 'org_owner' and not v_is_owner then
+    raise exception 'only org_owner can appoint org_owner';
+  end if;
+
+  -- coalesce keeps a member's branch when the caller does not pass one; the
+  -- repository and the members page both pass null, and the previous form
+  -- silently cleared the branch of every row it touched.
   update public.org_memberships
   set role = p_role,
-      branch_id = p_branch_id
-  where user_id = p_user_id and org_id = p_org_id and status = 'active';
+      branch_id = coalesce(p_branch_id, branch_id)
+  where user_id = p_user_id and org_id = p_org_id and status = 'active'
+    and (p_branch_id is null or branch_id = p_branch_id);
 
   -- Audit trail
   insert into public.admin_audit_log (actor_id, actor_org_ids, action, subject_table, subject_id, detail)
