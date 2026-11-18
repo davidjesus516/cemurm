@@ -1,25 +1,28 @@
-# F1 — Membership Admin (execution record)
+# F1 `0021` — membership smoke and doc-count gate (execution record)
 
-Branch: `feat/f1-pr1-migration` (stacked: PR2 → PR3 → PR4).
-Delivery: chained `-prN-` slices. Test runner: Vitest, plus a manual SQL smoke.
+Branch: `test/f1-0021-smoke`, stacked on PR1 (#523, `feat/f1-pr1-migration`).
+Delivery: chained `-prN-` slices. Manual SQL smoke; this unit ships no JS.
 Scope source: `features/organization-members.feature` (F1).
 
-> This record was deleted from PR1 by `38ba51f` to hold that PR inside the
-> 400-line budget, with the message "task record moves to the final slice". No
-> commit re-added it, so rebasing PR2→PR4 onto the fixed PR1 would have dropped
-> the record from every tip. This version is scoped to the migration fix and its
-> smoke; the PR3/PR4 page work remains to be recorded on the final slice.
+> **This is not the F1 feature record.** `odd/tasks/f1-membership-admin.md` is,
+> and the final slice owns it — PR4, #532 at `3b7be32`. This branch once added
+> that same path with different content, which is an add/add conflict the moment
+> either PR merges. The maintainer's decision (2026-11-17) was that **PR4 keeps
+> the feature record**, so this file is scoped to what this unit actually ships
+> — the verification of the migration fix and its smoke — under a name no other
+> slice claims. The PR3/PR4 page work stays in PR4's record.
 
 ## Commits
 
 | SHA | Unit |
 |---|---|
-| `d898995` | migration `0021_identity_account_lifecycle.sql` + record (initial slice) |
+| `d898995` | migration `0021_identity_account_lifecycle.sql` (PR1) |
 | `19bbc70` | doc counts 44 → 45 |
 | `e3fbd00` | `org_admin` may change/remove; status `removed` |
 | `c8400b8` | declare `v_is_admin`; revert status to `former` |
-| `38ba51f` | drop the record so PR1 fits the 400-line budget |
+| `38ba51f` | drop the feature record so PR1 fits the 400-line budget |
 | `77cc9f3` | smoke `0021-identity-account-lifecycle.sql` + smoke counts 22 → 23 |
+| `a1e1027` | `check-doc-counts.sh`: report the real next free slot, `0022` |
 
 ## The migration did not apply
 
@@ -72,12 +75,14 @@ named `0021-plan-freeze.sql` covers `0034` and is unrelated.
 ## Decisions
 
 1. **Size — stacked slice, no `size:exception`.** PR1 alone is 355 changed
-   lines; this smoke slice adds 351 more (225 smoke + 92 record + 18 doc
-   lines), so folded together they are ~706 and `check-pr-size.mjs` would block
-   the PR. Shipped as its own slice **stacked on PR1**, at 351 lines: both stay
-   under the 400 budget, the atomic migration is not split, and no label is
-   needed. (An earlier revision of this paragraph said the smoke adds 227; that
-   was the smoke file before the record and the doc fix joined the slice.)
+   lines; this slice adds 382 more (225 smoke + 110 record + 24 `AGENTS.md` +
+   16 `master-plan.md` + 7 gate script), so folded together they are 733 and
+   `check-pr-size.mjs` would block the PR — measured, not estimated:
+   `--base origin/main` reports 733 and exits 1. Shipped as its own slice
+   **stacked on PR1**, at 382: both stay under the 400 budget, the atomic
+   migration is not split, and no label is needed. (An earlier revision said the
+   smoke adds 227; that was the smoke file before the record and the doc fix
+   joined the slice.)
 2. **`0021`/`0022` — the gate told the truth again.** `0021` is consumed by
    this branch while `AGENTS.md` and `docs/master-plan.md` still called
    `0021`/`0022` a deliberate free gap, and `scripts/check-doc-counts.sh`
@@ -97,3 +102,9 @@ named `0021-plan-freeze.sql` covers `0034` and is unrelated.
   dead, not broken.
 - Smoke filenames do not track migration numbers, and this one now happens to
   match its migration. That is a coincidence, not a new convention.
+3. **The record's home — PR4, not here.** PR4 (`3b7be32`) re-added
+   `odd/tasks/f1-membership-admin.md`, so this branch's copy of that path was an
+   add/add conflict waiting for whichever PR merged second. The maintainer's
+   call: **PR4 keeps the feature record.** This slice therefore ships
+   `odd/tasks/f1-0021-smoke.md` instead — no shared path, no conflict, and the
+   ODD discipline still holds for this unit.
