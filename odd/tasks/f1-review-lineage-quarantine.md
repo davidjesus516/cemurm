@@ -67,6 +67,30 @@ Result (`review/abandon`, status `committed`, 2026-11-18T01:00:50Z):
   `supabase db reset`, not by this lineage. Nothing here should be read as the
   native review having caught them.
 
+## Addendum — the retry happened, same day
+
+`~/gentle-ai/models.json` was created with `deepseek-v4.1-flash-free` for the
+three lenses, and a fresh lineage was started:
+
+| Field | Value |
+|---|---|
+| Lineage | `review-b841a975e3ebd585` |
+| Tier / lens | medium / `review-reliability` |
+| Scope | 10 paths, 1358 changed lines, base tree `9fc8d8b8`, candidate `bfdd44aa` |
+| Result | **3 CRITICAL, 1 WARNING, 2 SUGGESTION** |
+| State | `correction_required` (bounded correction, budget 200 lines) |
+
+So the paragraph above ("F1 is still un-reviewed natively") described the state
+*before* the retry and no longer holds: the chain now has a native review, and it
+did find severe defects. It stopped at `correction_required` because the three
+CRITICAL findings live in the F1 chain's own branch, which this record's author
+could not modify.
+
+Because the CLI has no reviewer launcher of its own, the lens was run through
+`review lens-context` + `review capture-result`, i.e. **by the same agent and
+model that wrote the review request** — not an independent second opinion. Treat
+it as a stronger-than-nothing self-review, not as the independent RDD pass.
+
 ## To retry
 
 Configure a model per lens in `/home/antony/.pi/gentle-ai/models.json`, then
