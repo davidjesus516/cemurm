@@ -266,8 +266,8 @@ export default function Setlists() {
               </li>
             ))}
           </ul>
-          {batchError && <p className="mt-2 text-xs text-cem-text" role="alert">{batchError}</p>}
-          {batchNotice && <p className="mt-2 text-xs text-cem-amber">{batchNotice}</p>}
+          {batchError && <p className="mt-2 text-xs text-destructive" role="alert">{batchError}</p>}
+          {batchNotice && <p className="mt-2 text-xs text-cem-amber" role="status">{batchNotice}</p>}
         </div>
       )}
 
