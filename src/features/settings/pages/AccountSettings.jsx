@@ -74,14 +74,10 @@ export default function AccountSettings() {
               <td className="px-4 py-3 font-medium text-cem-text">Email</td>
               <td className="px-4 py-3 text-cem-text">{user.email ?? '—'}</td>
             </tr>
-            <tr className="border-t border-cem-elevated">
-              <td className="px-4 py-3 font-medium text-cem-text">Status</td>
-              <td className="px-4 py-3 text-cem-text font-medium">
-                <span className="rounded-md bg-cem-surface px-2 py-0.5 text-xs font-semibold text-cem-text border border-cem-elevated">
-                  Active
-                </span>
-              </td>
-            </tr>
+            {/* No Status row: the account lifecycle state (active/suspended/erased)
+                is not modelled yet — there is no column and no enum for it, so any
+                value rendered here would be invented. It comes back when S6 has a
+                state to read. */}
             <tr className="border-t border-cem-elevated">
               <td className="px-4 py-3 font-medium text-cem-text">Member since</td>
               <td className="px-4 py-3 text-cem-text">{formatDate(user.created_at)}</td>
