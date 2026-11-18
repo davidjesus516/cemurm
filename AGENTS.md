@@ -183,9 +183,10 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **45 files on `main`**, numbered `0001`–`0046`, with **`0021` and `0022` a deliberate
-free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
-(#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
+Migrations: **45 files on `main`**, numbered `0001`–`0046`, with **`0022` the only gap** —
+`0021_identity_account_lifecycle.sql` claims `0021`. Everything else is contiguous. That window was
+opened when `plan_freeze` and `projection` were renumbered out of `0021`/`0022` to `0034`/`0035`
+(`07522a0`, #344) so both would run after the feedback migration; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
 `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`,
 `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`,
@@ -220,10 +221,11 @@ creates what an earlier one references must sort **before** it.
   slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
   natural slot is gone; it is self-contained, so `0033` cost nothing.
 - **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
-  free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
-  `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
-  Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
-  than a free number to drop into.
+  free earlier slot, or renumber what it depends on. **The only free slot left is `0022`** — the last
+  residue of the `07522a0` renumber, not a reservation. Renumbering an *authored* migration into it is
+  the thing that inverts dependency order, so that is the thing not to do; a new self-contained file
+  claiming it is the same call `0021` was. Otherwise this case needs a decision (renumber the
+  dependency, or reorder the filenames) rather than a free number to drop into.
 
 Never commit an ad-hoc query script in `supabase/migrations/` (that's why `scripts/smoke/` is a
 sibling directory). Never push the seed with `supabase db push`.
