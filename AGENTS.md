@@ -183,7 +183,7 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **44 files on `main`**, numbered `0001`–`0046`, with **`0021` and `0022` a deliberate
+Migrations: **45 files on `main`**, numbered `0001`–`0046`, with **`0021` and `0022` a deliberate
 free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
@@ -332,8 +332,8 @@ The maintainer set this working agreement on 2026-09-27. It is standing, not per
 4. **Merge stays human.** You open the PR; the maintainer approves and merges. Never merge or push to `main` directly.
 5. Report honestly: if a check fails, a gate was weakened, or a spec conflict was found, say so in the PR body. Do not present a green run as covering something it does not.
 6. **Notify, do not wait silently.** A PR that sits at `REVIEW_REQUIRED` with nobody notified is indistinguishable from a PR nobody opened. So:
-   - **Always request a reviewer when you open the PR**: `gh pr edit <n> --add-reviewer davidjesus516`. The review request is itself the notification, and it fires without any extra step.
-   - **When you push new commits onto a PR that already has an approval**, leave a comment mentioning `@davidjesus516` explaining what changed and why. GitHub does not re-notify a reviewer for later pushes.
+   - **Request the reviewer who can actually approve**: `gh pr edit <n> --add-reviewer <the collaborator who did not push>`. `require_last_push_approval` makes the approver a function of authorship, not a fixed name: `davidjesus516` reviews PRs authored by `Antony-Figueroa`, and vice versa. The request is the notification — but **verify it landed**, because `gh` returns exit 0 while silently dropping a request aimed at the PR author (`reviewRequests` stays empty).
+   - **When you push new commits onto a PR that already has an approval**, leave a comment mentioning the approver (`@<approver>`) explaining what changed and why. GitHub does not re-notify a reviewer for later pushes.
    - **When a check goes red**, say so in the same thread. Do not let a failing gate sit in the checks tab.
 
    The repo's ruleset sets `require_last_push_approval`, so the last pusher cannot approve their own

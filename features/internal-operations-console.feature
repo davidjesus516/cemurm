@@ -1,6 +1,6 @@
 Feature: Internal Operations Console
   As a system administrator or a community moderator
-  I want a console of my own at /dashboard
+  I want a console of my own at /ops
   So that I can operate the platform without the member-facing navigation
 
   # ──────────────────────────────────────────────
@@ -36,33 +36,33 @@ Feature: Internal Operations Console
 
   Scenario: A system administrator reaches the console
     Given I am signed in and public.user_roles has my id with role "system_admin"
-    When I navigate to "/dashboard"
+    When I navigate to "/ops"
     Then I see the operations console
     And the console carries its own navigation, not the member navigation bar
     And I can reach the member app destinations from the console
 
   Scenario: A community moderator reaches a narrower console
     Given I am signed in and public.user_roles has my id with role "community_moderator"
-    When I navigate to "/dashboard"
+    When I navigate to "/ops"
     Then I see the operations console
     But the sections gated to system administrators are absent from my navigation
     And navigating directly to a system-administrator section URL does not render it
 
   Scenario: An ordinary member cannot reach the console
     Given I am signed in with no row in public.user_roles
-    When I navigate to "/dashboard"
+    When I navigate to "/ops"
     Then I do not see the operations console
     And I am returned to the member app
 
   Scenario: A signed-out visitor cannot reach the console
     Given I am not signed in
-    When I navigate to "/dashboard"
+    When I navigate to "/ops"
     Then I am redirected to sign in
 
   Scenario: A member whose access is locked stays locked
     Given I am signed in with no row in public.user_roles
     And my guardian consent is not active
-    When I navigate to "/dashboard"
+    When I navigate to "/ops"
     Then I am held at the guardian consent lock, exactly as for any other member route
 
   ──────────────────────────────────────────────
