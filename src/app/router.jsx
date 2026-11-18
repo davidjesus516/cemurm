@@ -44,6 +44,7 @@ const Songs = lazy(() => import('../features/repertoire/pages/Songs.jsx'))
 const SongDetail = lazy(() => import('../features/repertoire/pages/SongDetail.jsx'))
 const Setlists = lazy(() => import('../features/setlists/pages/Setlists.jsx'))
 const SetlistDetail = lazy(() => import('../features/setlists/pages/SetlistDetail.jsx'))
+const AcceptSetlistShare = lazy(() => import('../features/setlists/pages/AcceptSetlistShare.jsx'))
 const Gigs = lazy(() => import('../features/gigs/pages/Gigs.jsx'))
 const GigDetail = lazy(() => import('../features/gigs/pages/GigDetail.jsx'))
 const Bandmates = lazy(() => import('../features/bandmates/pages/Bandmates.jsx'))
@@ -133,6 +134,10 @@ const router = createBrowserRouter([
               { path: '/setlists', element: defer(<Setlists />) },
               { path: '/setlists/:id', element: defer(<SetlistDetail />) },
               { path: '/setlists/:id/stage', element: defer(<StageMode />) },
+              // 0047 share links. Inside RequireAuth on purpose: redeeming grants
+              // a collaborator row, which needs a user to attach to, so a
+              // signed-out visitor is sent to /auth first.
+              { path: '/share/setlists/:token', element: defer(<AcceptSetlistShare />) },
               { path: '/gigs', element: defer(<Gigs />) },
               { path: '/gigs/:id', element: defer(<GigDetail />) },
               { path: '/bandmates', element: defer(<Bandmates />) },

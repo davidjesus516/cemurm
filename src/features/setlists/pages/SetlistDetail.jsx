@@ -525,6 +525,7 @@ export default function SetlistDetail() {
         <ShareSetlistMenu
           setlist={setlist}
           songs={setlist.songs}
+          isOwner={setlist.isOwner}
           onNotice={setNotice}
           onError={setError}
         />

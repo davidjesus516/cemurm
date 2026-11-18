@@ -2,13 +2,13 @@
 // integrated share targets (features/export-and-sharing.feature:55-132).
 //
 // Everything here is pure string assembly, so the node tier asserts the exact
-// URL a share sheet receives. What this module deliberately does NOT do is mint
-// access: the schema has no share-token table, so a link opens the setlist only
-// for someone RLS already lets read it (owner or accepted collaborator). The
-// token/7-day-expiry, QR, embed, proximity-code and view-only-link scenarios
-// therefore stay unimplemented, and so does the PNG chord-chart target — the
-// first five need that token table, the last needs a canvas renderer this build
-// does not have.
+// URL a share sheet receives. This module's links are the PLAIN deep link: they
+// open the setlist for someone RLS already lets read it (owner or accepted
+// collaborator) and grant nothing on their own. The token links — permission,
+// 7-day expiry, revoke — live in 0047 and are assembled by shareLinks.js.
+// Still unimplemented, for their own reasons: QR, embed and proximity codes
+// (proximity needs an offline-verifiable one-time token the schema does not
+// hold) and the PNG chord-chart target (no canvas renderer in this build).
 //
 // Requirement source:
 //   :55-67  share a setlist link with bandmates (copy link, deep link)
