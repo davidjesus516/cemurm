@@ -91,6 +91,24 @@ Because the CLI has no reviewer launcher of its own, the lens was run through
 model that wrote the review request** — not an independent second opinion. Treat
 it as a stronger-than-nothing self-review, not as the independent RDD pass.
 
+## Outcome — the findings were fixed, not just reported
+
+All four defects the review found are closed in `4466da0` on
+`feat/f1-pr1-migration` (#523): nullable `actor_id`, branch-preserving role
+change, the `org_owner`-appointment guard on the role path, the revoked table
+grant, and the upsert that never fired for a null branch. The five assertions
+that fail on the reviewed code ship as #535, stacked on #533.
+
+Verified against a real database, not just the gates: `supabase db reset` applies
+the chain and the smoke is 21 PASS / 0 FAIL. So the "could not modify the F1
+chain's branch" sentence above is now historical — this record is what happened
+up to and including the hand-off, and #523 carries the fix itself.
+
+The lineage is still `correction_required` and still bound to the pre-fix
+candidate (`bfdd44aa`). Closing it needs a review of the new candidate, or an
+abandonment; declaring it validated here would be claiming a review of code that
+no longer exists.
+
 ## To retry
 
 Configure a model per lens in `/home/antony/.pi/gentle-ai/models.json`, then
