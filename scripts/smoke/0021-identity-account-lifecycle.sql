@@ -19,7 +19,7 @@
 -- Run: supabase db reset, then
 --   docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X \
 --     -v ON_ERROR_STOP=1 -f - < scripts/smoke/0021-identity-account-lifecycle.sql
--- Expects 16 PASS / 0 FAIL.
+-- Expects 21 PASS / 0 FAIL.
 set client_min_messages to notice;
 
 create or replace function tmp_assert(p_name text, p_ok boolean) returns void language plpgsql as $$
@@ -223,3 +223,88 @@ select tmp_assert('14 no audit row was written by the refused outsider',
 select tmp_assert('15 total audit rows for this org = 6, so the two refusals wrote nothing',
   (select count(*) = 6 from public.admin_audit_log
     where detail->>'org_id' = '10000000-0000-0000-0000-0000000004a6'));
+
+-- ══════════════ T7 the four defects the native review found in 0021 ══════════════
+-- Each block below fails on the code as reviewed: a role change cleared the
+-- branch, an org_admin could appoint an org_owner, re-adding a former member
+-- duplicated the row, the table was writable by a client, and erasing an actor
+-- hit the NOT NULL / ON DELETE SET NULL contradiction.
+
+insert into branches (id, org_id, name, status) values
+  ('70000000-0000-0000-0000-0000000007b1', '10000000-0000-0000-0000-0000000004a6',
+   'Sede F1', 'active')
+  on conflict do nothing;
+
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, confirmation_token, recovery_token,
+                        email_change_token_new, email_change_token_current, email_change,
+                        phone, phone_change, phone_change_token, reauthentication_token,
+                        raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+values
+  ('60000000-0000-0000-0000-0000000006a7', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'f1.branched@cemurm.app',
+   crypt('password1234', gen_salt('bf')), now(),
+   '', '', '', '', '', '+34910000607', '', '', '',
+   '{"provider":"email","providers":["email"]}',
+   '{"firstName":"F1","lastName":"Branched","displayName":"F1 Branched"}', now(), now())
+  on conflict do nothing;
+
+-- T7.1 a role change must not clear the branch of a member who has one
+select set_config('role', 'authenticated', false);
+select set_config('request.jwt.claims',
+  '{"sub":"60000000-0000-0000-0000-0000000006a2","role":"authenticated"}', false);
+select public.add_org_member('10000000-0000-0000-0000-0000000004a6',
+  '60000000-0000-0000-0000-0000000006a7', 'instructor',
+  '70000000-0000-0000-0000-0000000007b1');
+select public.change_member_role('10000000-0000-0000-0000-0000000004a6',
+  '60000000-0000-0000-0000-0000000006a7', 'branch_admin');
+
+select set_config('role', 'postgres', false);
+select tmp_assert('16 a role change keeps the branch the caller did not pass',
+  (select branch_id = '70000000-0000-0000-0000-0000000007b1' and role = 'branch_admin'
+     from public.org_memberships
+    where user_id = '60000000-0000-0000-0000-0000000006a7'
+      and org_id = '10000000-0000-0000-0000-0000000004a6' and status = 'active'));
+
+-- T7.2 appointing an org_owner is org_owner-only on the role-change path too
+select set_config('role', 'authenticated', false);
+select set_config('request.jwt.claims',
+  '{"sub":"60000000-0000-0000-0000-0000000006a2","role":"authenticated"}', false);
+select tmp_expect_error('17 org_admin cannot appoint an org_owner by changing a role',
+  $q$select public.change_member_role('10000000-0000-0000-0000-0000000004a6',
+    '60000000-0000-0000-0000-0000000006a7', 'org_owner')$q$,
+  'only org_owner can appoint org_owner');
+
+-- T7.3 re-adding a former org-level member reactivates instead of duplicating
+select public.add_org_member('10000000-0000-0000-0000-0000000004a6',
+  '60000000-0000-0000-0000-0000000006a6', 'member');
+select public.remove_org_member('10000000-0000-0000-0000-0000000004a6',
+  '60000000-0000-0000-0000-0000000006a6');
+select public.add_org_member('10000000-0000-0000-0000-0000000004a6',
+  '60000000-0000-0000-0000-0000000006a6', 'member');
+
+select set_config('role', 'postgres', false);
+select tmp_assert('18 re-adding a former member leaves exactly one active row',
+  (select count(*) = 1 from public.org_memberships
+    where user_id = '60000000-0000-0000-0000-0000000006a6'
+      and org_id = '10000000-0000-0000-0000-0000000004a6'
+      and status = 'active' and branch_id is null));
+
+-- T7.4 the table is no longer writable by a signed-in client
+select set_config('role', 'authenticated', false);
+select set_config('request.jwt.claims',
+  '{"sub":"60000000-0000-0000-0000-0000000006a1","role":"authenticated"}', false);
+select tmp_expect_error('19 authenticated cannot insert into org_memberships directly',
+  $q$insert into public.org_memberships (user_id, org_id, role, status)
+     values ('60000000-0000-0000-0000-0000000006a6',
+             '10000000-0000-0000-0000-0000000004a6', 'org_owner', 'active')$q$,
+  '%permission denied%');
+
+-- T7.5 erasing an actor anonymises its audit rows instead of failing on NOT NULL
+select set_config('role', 'postgres', false);
+delete from auth.users where id = '60000000-0000-0000-0000-0000000006a2';
+select tmp_assert('20 deleting an actor leaves its audit rows with a null actor',
+  (select count(*) > 0 from public.admin_audit_log where actor_id is null)
+  and
+  (select count(*) = 0 from public.admin_audit_log
+    where actor_id = '60000000-0000-0000-0000-0000000006a2'));
