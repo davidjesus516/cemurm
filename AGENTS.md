@@ -151,7 +151,7 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **22 files**, `0021-plan-freeze.sql` through `0046-feedback-triage.sql`
+`scripts/smoke/*.sql` — **23 files**, `0021-identity-account-lifecycle.sql` through `0046-feedback-triage.sql`
 (earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
 re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
