@@ -44,7 +44,7 @@ requirement that is not in them.
 | ID | Linked S# | Feature | Route | Commit |
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
-| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | inline | `aa0df92` (deep link, summary, WhatsApp/Telegram/email) — token links, QR, embed, proximity, PNG still open, see L11 |
+| **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | inline | `aa0df92` (deep link, summary, WhatsApp/Telegram/email); token links in `0047` — QR, embed, proximity, PNG still open, see L11/L12 |
 | **T3** | S1 | `export-and-sharing` — audience view + export management | — | — |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
 | **T5** | S2 | `user-onboarding` — tutorial hints + completion | — | — |
@@ -155,3 +155,41 @@ in this unit — it depends on four surfaces being stable and ships separately.
   needs a browser this run does not have; the panel was type-checked and linted, not clicked.
   No OpenSpec capability spec was written — `openspec/specs/` still has no
   `export-and-sharing` capability, a pre-existing gap T1 also left open.
+- **L12** (2026-11-18, orchestrator): **the token half of T2** — `0047_setlist_share_links.sql`
+  plus its smoke, repository, redeem route and the owner block in the share panel. The design is
+  in the migration header and matters more than the file list:
+  **the link grants a collaborator row, it does not bypass RLS.** Redeeming inserts (or upgrades)
+  a `setlist_collaborators` row with `accepted_at = now()` and `can_edit = (permission = 'edit')`,
+  so a view-only link is read-only through the same gate the owner's permission picker already
+  uses, and every existing setlist/item/comment policy keeps working untouched. Creation is
+  **RPC-only with no INSERT policy**, so a client cannot mint a link whose `expires_at` it chose;
+  the definer function stamps `now() + 7 days`. Tokens are `uuid` (122 bits), the same
+  capability shape `0032` uses, unique-indexed; only the owner can read or delete link rows, so a
+  non-owner cannot enumerate tokens. Expired, revoked and unknown links share **one** message so
+  a dead link is indistinguishable from a guessed one, and redeeming is idempotent and never
+  downgrades an editor who opens a view-only link.
+  **Layout.** `src/domain/setlist/shareLinks.js` (pure: URL, state, days left, 7-day constant) +
+  9 assertions; `src/data/repositories/setlistShares.js`; `/share/setlists/:token` →
+  `AcceptSetlistShare.jsx`, **inside RequireAuth** because a grant needs a user to attach to;
+  panel: permission picker, Create link (copies to clipboard), list with expiry state, Copy and
+  Revoke. `AGENTS.md` and `docs/master-plan.md` counts moved to 45 migrations / 23 smokes /
+  next free `0048`, and the stale header in `share.js` that claimed no token table existed was
+  corrected in the same change.
+  **NOT VERIFIED — and this is the important line: `0047` and its smoke were never executed.**
+  The runner has no Docker access (`permission denied` on `/var/run/docker.sock`), so
+  `supabase start` / `supabase db reset` cannot run here. The migration is written against the
+  real schema and passes `check-migrations-unique.sh` and `check-migrations-destructive.mjs`,
+  but **no SQL in it has been parsed by Postgres**, and the smoke's `expects 21 PASS / 0 FAIL`
+  is the expectation, not a result. Treat the DB half as unproven until someone runs:
+  `supabase db reset`, then the `docker exec … -f - < scripts/smoke/0047-setlist-share-links.sql`
+  invocation at the top of that file.
+  **Also open:** a signed-out visitor who opens a share link is bounced to `/auth` and the token
+  is lost (the route sits inside RequireAuth); carrying it through login needs a redirect-back
+  that this slice does not implement. QR, embed, proximity codes and the chord-chart PNG remain
+  unimplemented, as L8/L11 recorded.
+  **Verification actually run**: `pnpm test` 537 passed (33 files), `pnpm test:gherkin` 44,
+  `pnpm typecheck` clean, `pnpm lint` clean, `pnpm build` OK, `check-visual-contract.sh` 12/0,
+  `check-test-integrity.sh` OK, `check-migrations-unique.sh` 45 unique,
+  `check-migrations-destructive.mjs` OK, `check-doc-counts.sh` OK. The visual gate initially
+  failed at 243/240 dead accents because the new panel used `cem-rose`; the fix was to use the
+  sanctioned tokens, **not** to raise the ceiling.
