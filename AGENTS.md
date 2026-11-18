@@ -273,6 +273,32 @@ The rule of thumb: if you are writing down *what a capability is*, it goes in Op
 
 **Entry rule** (`docs/engineering-review-backlog.md:5`): an item is implemented only when its hito or BDD feature requires it. YAGNI is active. This is the only rule here that does not accumulate debt — do not weaken it in the name of scalability.
 
+## gentle-ai toolchain (standing instruction, 2026-11-17)
+
+The maintainer's gentle-ai installation is part of this project's toolchain, not an optional extra:
+use its skills, methodologies and CLIs whenever they fit the work instead of reimplementing them.
+
+- **CLI**: `gentle-ai` 4.5.0 on `PATH` (`~/.local/bin/gentle-ai`); `gentle-ai doctor` is the health
+  check. Verified 2026-11-17: 9 ok, 1 warning (the managed OpenCode launcher is not verified from
+  `fish`), RDD globally **on**, `gentle-ai review status` **clean** in this repo.
+- **Skills**: `~/.agents/skills` is the same registry this agent loads by name (`archify`,
+  `judgment-day`, `chained-pr`, `qodo-*`, `skill-creator`, …). Run `gentle-ai skill-registry list`
+  before writing a new skill.
+- **Review (RDD)**: `gentle-ai review status` is read-only; `review start` is the 4.5.0 entry point
+  (`review assess` no longer exists). A review is evidence: **never report a PASS the transport did
+  not produce.** Preflight stops historically resolve to `immutable_review_transport_unsupported`
+  (only `claude-code` and `codex` are eligible transports); record that as a limitation in
+  `odd/tasks/` and quarantine the lineage with `review abandon`.
+- **`gga`** (Gentleman Guardian Angel v2.10.1) is the provider-agnostic staged-files review path
+  (`gga run`). It is **not** wired as a git hook in this clone — do not install one unprompted.
+- **`engram`** (v3.7.2) is persistent memory over HTTP/MCP; a listener is already answering on
+  port 7437 and is not owned by its pidfile. Use it, do not restart it blindly.
+- **Version drift**: `sdd-status` / `sdd-archive-compose` no longer exist in 4.5.0. `odd/tasks/`
+  and `openspec/changes/archive/` cite them from the 3.x line — historical records, not current
+  commands. SDD work follows the `openspec/` layout directly.
+
+This grants no new work by itself: the entry rule above still decides *whether* something is built.
+
 ## Visual system
 
 **`skills/cemurm-visual-system/SKILL.md` is the single source of visual truth.** Read it before
