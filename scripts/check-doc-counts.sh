@@ -49,13 +49,12 @@ smokes=$(printf '%s\n' scripts/smoke/*.sql | wc -l)
 features=$(printf '%s\n' features/*.feature | wc -l)
 scenarios=$({ grep -hcE '^[[:space:]]*(Scenario|Scenario Outline):' features/*.feature || true; } | awk '{n+=$1} END {print n+0}')
 
-# The lowest number no migration file claims. 0021 and 0022 are free by design and stay
-# reserved, so they are skipped rather than reported as the next slot.
+# The lowest number no migration file claims. No special cases: 0021 has a file, so it is
+# skipped by the glob itself, and 0022 is reported as the next slot. It is a real gap, not a
+# reservation -- `07522a0` renumbered plan_freeze/projection out of `0021`/`0022`.
 next_free() {
   local n padded
   for ((n = 1; n < 10000; n++)); do
-    [ "$n" -eq 21 ] && continue
-    [ "$n" -eq 22 ] && continue
     padded=$(printf '%04d' "$n")
     local matches=(supabase/migrations/"${padded}"_*.sql)
     if [ ${#matches[@]} -eq 0 ]; then

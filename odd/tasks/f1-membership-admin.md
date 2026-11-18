@@ -69,17 +69,24 @@ after `supabase db reset` (not idempotent):
 Observed: **16 PASS / 0 FAIL**. No smoke covered `0021` before this; the file
 named `0021-plan-freeze.sql` covers `0034` and is unrelated.
 
-## Open decisions (not taken)
+## Decisions
 
-1. **Size.** PR1 alone is 355 authored lines; the smoke adds 227, so PR1+smoke
-   is 584 and `check-pr-size.mjs` blocks it. The smoke is a clean standalone
-   slice at 227 lines, stacked on PR1 — that keeps both under budget without
-   splitting the atomic migration and without a `size:exception`.
-2. **The `0021`/`0022` reservation.** `0021` is consumed by this branch while
-   `AGENTS.md:186`, `AGENTS.md:223`, `docs/master-plan.md:119` and
-   `docs/master-plan.md:120` still call it free by design.
-   `scripts/check-doc-counts.sh` hardcodes the skip in `next_free`, so the gate
-   stays green and hides it. Not changed here: the policy is the maintainer's.
+1. **Size — stacked slice, no `size:exception`.** PR1 alone is 355 changed
+   lines; this smoke slice adds 351 more (225 smoke + 92 record + 18 doc
+   lines), so folded together they are ~706 and `check-pr-size.mjs` would block
+   the PR. Shipped as its own slice **stacked on PR1**, at 351 lines: both stay
+   under the 400 budget, the atomic migration is not split, and no label is
+   needed. (An earlier revision of this paragraph said the smoke adds 227; that
+   was the smoke file before the record and the doc fix joined the slice.)
+2. **`0021`/`0022` — the gate told the truth again.** `0021` is consumed by
+   this branch while `AGENTS.md` and `docs/master-plan.md` still called
+   `0021`/`0022` a deliberate free gap, and `scripts/check-doc-counts.sh`
+   hardcoded both as skipped in `next_free` — the gate stayed green *because*
+   it agreed with the stale prose. Fixed here with the maintainer's decision
+   (2026-11-17): `next_free` lost both special cases, so it now reports the
+   genuine lowest unclaimed slot, **`0022`**, and the docs say `0022` too.
+   Verified with a temporary `0022_probe.sql`: the gate reported `0047` and
+   exit 1, then exit 0 again once the probe was deleted.
 
 ## Findings outside this slice
 

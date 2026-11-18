@@ -191,7 +191,7 @@ opened when `plan_freeze` and `projection` were renumbered out of `0021`/`0022` 
 `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`,
 `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`,
 `0045_respond_member_guard.sql` and `0046_feedback_triage_and_github_link.sql`.
-**The next free number is `0047`.**
+**The next free number is `0022`** — the lowest slot no file claims.
 
 Re-count rather than trusting this paragraph: it has been wrong five times, most recently on
 2026-11-01, when it still said 38 files through `0040` with `0041` next, while `main` carried 43
@@ -217,15 +217,17 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the first free number nobody has claimed — `0047` today, because the lowest free
-  slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
+  matter, so take the first free number nobody has claimed — `0022` today, the residue of the
+  `07522a0` renumber (`plan_freeze` `0021`→`0034`, `projection` `0022`→`0035`).
+  `0033_feedback.sql` is the precedent for renumbering when the
   natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
-  free earlier slot, or renumber what it depends on. **The only free slot left is `0022`** — the last
-  residue of the `07522a0` renumber, not a reservation. Renumbering an *authored* migration into it is
-  the thing that inverts dependency order, so that is the thing not to do; a new self-contained file
-  claiming it is the same call `0021` was. Otherwise this case needs a decision (renumber the
-  dependency, or reorder the filenames) rather than a free number to drop into.
+- **Must sort before an existing migration** → `0022` already sorts before everything from `0036`
+  on, so a new file claiming it is fine. What is *not* fine is renumbering an **authored** migration
+  down into a free earlier slot: that inverts dependency order against whatever it references.
+  `0021` is the example to read — the F1 migration claimed it as a genuinely free slot, while
+  `plan_freeze`/`projection` had to move the other way, up to `0034`/`0035`, for the same reason.
+  Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
+  than a free number to drop into.
 
 Never commit an ad-hoc query script in `supabase/migrations/` (that's why `scripts/smoke/` is a
 sibling directory). Never push the seed with `supabase db push`.
