@@ -39,10 +39,8 @@ const USER_ERRORS = new Set([
   'org not found',
   'user not found',
   'only org_owner can appoint org_owner',
-  'only org_owner can change member roles',
   'cannot modify org_owner',
   'membership not found',
-  'only org_owner can remove members',
   'cannot remove org_owner',
 ])
 
@@ -136,7 +134,8 @@ export function addOrgMember(orgId, userId, role = 'org_member', branchId = null
 }
 
 /**
- * Change a member's role within an org (org_owner only; cannot touch org_owner role).
+ * Change a member's role within an org (org_owner or org_admin; neither may touch
+ * an org_owner, and only an org_owner can appoint one).
  * @param {string} orgId
  * @param {string} userId
  * @param {MemberRole} role
