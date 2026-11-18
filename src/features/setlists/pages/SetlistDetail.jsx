@@ -12,6 +12,7 @@ import { getProfile } from '../../../data/repositories/profiles.js'
 import { formatDuration } from '../../../domain/library/duration.js'
 import { downloadSetlistFile, EXPORT_FORMATS } from '../../../domain/setlist/exporters/setlistFile.js'
 import { usePlanningCenter } from '../../../hooks/shared/usePlanningCenter.js'
+import ShareSetlistMenu from '../components/ShareSetlistMenu.jsx'
 
 export default function SetlistDetail() {
   const { id } = useParams()
@@ -33,6 +34,8 @@ export default function SetlistDetail() {
   const [transferTo, setTransferTo] = useState('')
   // 2.3 activity feed (R11): client-derived, newest first, broadcast-only.
   const [showActivity, setShowActivity] = useState(false)
+  // N3/T2 share panel: deep link + integrated targets (export-and-sharing).
+  const [showShare, setShowShare] = useState(false)
   const [feed, setFeed] = useState([])
   const [myName, setMyName] = useState('Someone')
 
@@ -504,12 +507,28 @@ export default function SetlistDetail() {
         )}
         <button
           type="button"
+          onClick={() => setShowShare((v) => !v)}
+          className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated"
+        >
+          {showShare ? 'Hide share' : 'Share'}
+        </button>
+        <button
+          type="button"
           onClick={() => setShowActivity((v) => !v)}
           className="rounded-md border border-cem-elevated px-4 py-2 text-sm font-medium text-cem-text hover:bg-cem-elevated"
         >
           {showActivity ? 'Hide activity' : 'Activity'}
         </button>
       </div>
+
+      {showShare && (
+        <ShareSetlistMenu
+          setlist={setlist}
+          songs={setlist.songs}
+          onNotice={setNotice}
+          onError={setError}
+        />
+      )}
 
       {showPcoPicker && (
         <div className="mt-3 rounded-lg border border-cem-elevated bg-cem-surface p-4 shadow-xs">
