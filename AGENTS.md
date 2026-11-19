@@ -181,8 +181,8 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **45 files on this branch**, numbered `0001`–`0049`, with **`0021` and `0022` a
-deliberate free gap** and **`0047`/`0048` absent because open PRs claim them**. `main` today is 44
+Migrations: **46 files on this branch**, numbered `0001`–`0049`, with **`0022` a
+deliberate free gap** and **`0047`/`0048` absent because open PRs claim them**. `main` today is 45
 files through `0046`; this tree adds `0049_audience_view.sql`. The `0020`–`0022` window closed when
 `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
