@@ -44,6 +44,7 @@ const Songs = lazy(() => import('../features/repertoire/pages/Songs.jsx'))
 const SongDetail = lazy(() => import('../features/repertoire/pages/SongDetail.jsx'))
 const Setlists = lazy(() => import('../features/setlists/pages/Setlists.jsx'))
 const SetlistDetail = lazy(() => import('../features/setlists/pages/SetlistDetail.jsx'))
+const AudienceView = lazy(() => import('../features/setlists/pages/AudienceView.jsx'))
 const Gigs = lazy(() => import('../features/gigs/pages/Gigs.jsx'))
 const GigDetail = lazy(() => import('../features/gigs/pages/GigDetail.jsx'))
 const Bandmates = lazy(() => import('../features/bandmates/pages/Bandmates.jsx'))
@@ -192,6 +193,16 @@ const router = createBrowserRouter([
   {
     path: '/overlay/:token',
     element: defer(<Overlay />),
+  },
+  // Public audience view (Hito 6 N3, T3). OUTSIDE AppLayout and the auth guards
+  // for the same reason as the overlay above: the audience member scanned a QR
+  // and has no account, so the app's 13-link nav and its sign-in state would be
+  // furniture on a page whose only job is to be read. The param is the capability
+  // token, NOT the setlist id — `get_audience_setlist` accepts nothing else, and
+  // an unknown, expired or revoked token renders the same dead-link state.
+  {
+    path: '/audience/:token',
+    element: defer(<AudienceView />),
   },
   // Marketing landing. OUTSIDE AppLayout and outside both auth guards for the
   // same reason as the two entries above: a public marketing surface gets no
