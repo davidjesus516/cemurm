@@ -32,6 +32,27 @@ import {
  */
 
 /**
+ * Serializes the read-modify-write mutators so two exports on different rows
+ * cannot interleave and clobber each other. One user, three buttons — unlikely
+ * to collide, but a module-level promise chain makes it impossible rather than
+ * merely unlikely.
+ * @type {any}
+ */
+let _writeChain = Promise.resolve()
+
+/**
+ * Runs `task` after every earlier enqueued write has settled, then chains the
+ * next writer onto it. Errors propagate to the caller that enqueued them.
+ * @template T
+ * @param {() => Promise<T>} task
+ * @returns {Promise<T>}
+ */
+function enqueueWrite(task) {
+  _writeChain = _writeChain.then(task)
+  return _writeChain
+}
+
+/**
  * A uuid when the platform has one, a timestamp+counter otherwise. The id only
  * has to be unique inside one user's history.
  * @returns {string}
@@ -95,10 +116,18 @@ export async function listExports(userId) {
  * @returns {Promise<ExportHistoryEntry>}
  */
 export async function recordExport(userId, { setlistId, setlistName, format, file }) {
-  const entry = createEntry({ id: newId(), setlistId, setlistName, format, file })
-  await writeFile(userId, entry, file)
-  await writeEntries(userId, appendEntry(await readEntries(userId), entry))
-  return entry
+  return enqueueWrite(async () => {
+    const entry = createEntry({ id: newId(), setlistId, setlistName, format, file })
+    await writeFile(userId, entry, file)
+    const current = await readEntries(userId)
+    const next = appendEntry(current, entry)
+    // When the history cap pushes the oldest entry off, drop its cached bytes
+    // too — otherwise unreachable files linger past the row that described them.
+    const dropped = current.filter((old) => !next.some((n) => n.id === old.id))
+    await Promise.all(dropped.map((d) => offlineRemove(fileKey(userId, d.id))))
+    await writeEntries(userId, next)
+    return entry
+  })
 }
 
 /**
@@ -112,10 +141,16 @@ export async function recordExport(userId, { setlistId, setlistName, format, fil
  * @returns {Promise<ExportHistoryEntry>}
  */
 export async function replaceExportFile(userId, entryId, { setlistId, setlistName, format, file }) {
-  const entry = createEntry({ id: entryId, setlistId, setlistName, format, file })
-  await writeFile(userId, entry, file)
-  await writeEntries(userId, appendEntry(await readEntries(userId), entry))
-  return entry
+  return enqueueWrite(async () => {
+    const entry = createEntry({ id: entryId, setlistId, setlistName, format, file })
+    await writeFile(userId, entry, file)
+    const current = await readEntries(userId)
+    const next = appendEntry(current, entry)
+    const dropped = current.filter((old) => !next.some((n) => n.id === old.id))
+    await Promise.all(dropped.map((d) => offlineRemove(fileKey(userId, d.id))))
+    await writeEntries(userId, next)
+    return entry
+  })
 }
 
 /**
@@ -140,8 +175,10 @@ export async function loadExportFile(userId, entryId) {
  * @returns {Promise<ExportHistoryEntry[]>}
  */
 export async function deleteExportFile(userId, entryId) {
-  await offlineRemove(fileKey(userId, entryId))
-  const entries = markUnavailable(await readEntries(userId), entryId)
-  await writeEntries(userId, entries)
-  return sortByRecency(entries)
+  return enqueueWrite(async () => {
+    await offlineRemove(fileKey(userId, entryId))
+    const entries = markUnavailable(await readEntries(userId), entryId)
+    await writeEntries(userId, entries)
+    return sortByRecency(entries)
+  })
 }

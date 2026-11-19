@@ -80,17 +80,21 @@ export default function ExportHistory() {
       // Serialized from the CURRENT setlist, which is the whole point of
       // regenerating: the new file reflects every edit since the last export.
       const file = buildSetlistFile(setlist, setlist.songs, entry.format)
+      // Save the file first: if the download throws, the history never claims
+      // an export the user never received. Persisting the entry after a
+      // successful save means worst case the user got the file and the row is
+      // missing — under-reporting, not a lie.
+      saveFile({ filename: file.filename, mimeType: file.mimeType, body: file.text })
       await replaceExportFile(user.id, entry.id, {
         setlistId: entry.setlistId,
         setlistName: setlist.name,
         format: entry.format,
         file,
       })
-      saveFile({ filename: file.filename, mimeType: file.mimeType, body: file.text })
       await reload()
       setNotice(`Regenerated ${file.filename} from the current setlist.`)
     } catch (err) {
-      setError(err.message)
+      setError(err instanceof Error ? err.message : String(err ?? 'Unknown error'))
     } finally {
       setBusyId('')
     }
@@ -109,7 +113,7 @@ export default function ExportHistory() {
       saveFile({ filename: cached.filename, mimeType: cached.mimeType, body: cached.text })
       setNotice(`Downloaded ${cached.filename}.`)
     } catch (err) {
-      setError(err.message)
+      setError(err instanceof Error ? err.message : String(err ?? 'Unknown error'))
     } finally {
       setBusyId('')
     }
@@ -124,7 +128,7 @@ export default function ExportHistory() {
       setEntries(rows)
       setNotice(`Deleted ${entry.filename} from this device. The history entry stays.`)
     } catch (err) {
-      setError(err.message)
+      setError(err instanceof Error ? err.message : String(err ?? 'Unknown error'))
     } finally {
       setBusyId('')
     }
