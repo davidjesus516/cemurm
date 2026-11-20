@@ -4,15 +4,9 @@ import { useAuth } from '../../../app/providers/useAuth.jsx'
 import * as orgMembers from '../../../data/repositories/orgMembers.js'
 import * as orgRepertoire from '../../../data/repositories/orgRepertoire.js'
 import { searchProfiles } from '../../../data/repositories/profiles.js'
+import { rolesAssignableBy } from '../orgRoles.js'
 
 const ADMIN_ROLES = ['org_owner', 'org_admin']
-const ASSIGNABLE_ROLES = [
-  { value: 'instructor', label: 'Instructor' },
-  { value: 'branch_admin', label: 'Branch admin' },
-  { value: 'org_admin', label: 'Org admin' },
-  { value: 'org_member', label: 'Member' },
-  { value: 'performer', label: 'Performer' },
-]
 
 const ROLE_LABELS = {
   org_owner: 'Org owner',
@@ -78,6 +72,7 @@ export default function OrganizationMembers() {
   const isOwner = myRoleInSelectedOrg === 'org_owner'
   const isAdmin = myRoleInSelectedOrg === 'org_admin'
   const canManage = isOwner || isAdmin
+  const assignableRoles = useMemo(() => rolesAssignableBy(isOwner), [isOwner])
 
   const loadMemberships = useCallback(async () => {
     if (!user) return
@@ -137,11 +132,11 @@ export default function OrganizationMembers() {
 
   function handleChangeRole(member) {
     const nextRole = window.prompt(
-      `New role for ${memberName(member)}?\nOptions: ${ASSIGNABLE_ROLES.map((r) => r.value).join(', ')}`,
+      `New role for ${memberName(member)}?\nOptions: ${assignableRoles.map((r) => r.value).join(', ')}`,
       member.role,
     )
     if (!nextRole || nextRole === member.role) return
-    if (!ASSIGNABLE_ROLES.some((r) => r.value === nextRole)) {
+    if (!assignableRoles.some((r) => r.value === nextRole)) {
       setActionError(`Unknown role "${nextRole}".`)
       return
     }
@@ -381,7 +376,7 @@ export default function OrganizationMembers() {
               onChange={(e) => setNewRole(e.target.value)}
               className={`mt-1 block ${inputCls}`}
             >
-              {ASSIGNABLE_ROLES.map((r) => (
+              {assignableRoles.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
                 </option>
