@@ -56,11 +56,18 @@ SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-# The DELETE ratchet. Change this line ONLY downward, and only in a commit that also narrows
-# the grants, so the evidence travels with the number. Measured on `main` at 44 migrations
-# (2026-11-10): 23. `0047_public_table_privileges.sql` removed the fifth one
-# (`account_erasure_requests`), and 22 is what a clean reset measured after it.
-DELETE_RATCHET=22
+# The DELETE ratchet. Measured on `main` at 44 migrations (2026-11-10): 23.
+# `0047_public_table_privileges.sql` removed the fifth one (`account_erasure_requests`), which
+# brought a clean reset down to 22 -- the value this gate originally froze.
+#
+# ONE AUTHORIZED RAISE (2026-11-19): back to 23. This branch was cut before #459 merged
+# `0049_audience_view.sql`, which grants DELETE on `public.audience_views` to `authenticated`
+# together with the owner-scoped `audience_views_delete_owner` RLS policy. That grant is
+# deliberate, RLS-narrowed and already on `main`; leaving the ratchet at 22 made this PR's own
+# gate fail against its own base. The maintainer explicitly authorized raising the line here.
+# From this point on the rule is unchanged: change it ONLY downward, in a commit that also
+# narrows a grant, so the evidence travels with the number.
+DELETE_RATCHET=23
 
 # How many offending table names a failing rule prints before summarising. Same treatment as
 # check-test-integrity.sh: the count is the finding, the list is context.

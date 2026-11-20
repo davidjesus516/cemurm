@@ -130,7 +130,7 @@ tests and before the uploads, for the same `set -euo pipefail` reason as the vis
 that fails early marks everything after it SKIPPED.
 
 What runs in `ci.yml` is its regression test, `bash scripts/check-table-privileges.test.sh`: the
-same gate with `docker` stubbed, so every verdict path (each rule, the ratchet at 21/22/23, the
+same gate with `docker` stubbed, so every verdict path (each rule, the ratchet at 22/23/24, the
 findings cap, empty catalog, unreachable database, missing `docker`, missing `config.toml`) is
 asserted in milliseconds with no stack. The stub is strict on purpose — SQL it does not model comes
 back as a non-number and the gate fails setup, so a new query announces itself instead of falling
@@ -142,14 +142,17 @@ It enforces three rules and warns about a fourth, all against `public`:
 |---|---|---|
 | 01 | `authenticated` holding TRUNCATE, REFERENCES or TRIGGER on any table | 0 of 61 |
 | 02 | `anon` holding any table privilege | 0 of 61 |
-| 03 | the count of tables where `authenticated` holds DELETE may not **grow** (ratchet) | 22 |
+| 03 | the count of tables where `authenticated` holds DELETE may not **grow** (ratchet) | 23 |
 | 04 | warn only: tables where `authenticated` holds UPDATE at table level, not columnar | 27 |
 
 Rules 01 and 02 are zero-exception on purpose: no policy can refuse TRUNCATE (it evaluates no row
 predicate), REFERENCES or TRIGGER, so the ACL is the only control that exists. Rule 03 is a ratchet
-because 22 tables legitimately DELETE their own rows and RLS narrows each one — an allowlist of 22
-entries would rot, a number that may only fall does not. **Change `DELETE_RATCHET` downward only,
-in the commit that narrows the grant**, so the evidence travels with the number.
+because 23 tables legitimately DELETE their own rows and RLS narrows each one — an allowlist of 23
+entries would rot, a number that may only fall does not. The line went 23 → 22 with `0047` and back
+to 23 on 2026-11-19 with explicit maintainer approval: #459 merged `0049_audience_view.sql` after
+this branch was cut, and its `audience_views` DELETE is owner-scoped by `audience_views_delete_owner`
+(RLS). That is the one documented raise; **from here change `DELETE_RATCHET` downward only, in the
+commit that narrows the grant**, so the evidence travels with the number.
 
 Why the gate exists at all: Supabase's default privileges grant `arwdDxtm` to `anon`,
 `authenticated` and `service_role` on every **new** table in `public`. A migration writing

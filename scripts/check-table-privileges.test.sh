@@ -160,15 +160,15 @@ expect_out "FAIL  02" "anon grants"
 expect_out "2 of 61 tables" "anon grants"
 
 # --- 04 the DELETE ratchet --------------------------------------------------
-run_gate "$STUBPATH" STUB_DELETE=23
+run_gate "$STUBPATH" STUB_DELETE=24
 expect_exit 1 "ratchet above the line fails"
-expect_out "23 > 22" "ratchet above the line"
+expect_out "24 > 23" "ratchet above the line"
+
+run_gate "$STUBPATH" STUB_DELETE=23
+expect_exit 0 "ratchet at the line passes"
+expect_out "23 of 23" "ratchet at the line"
 
 run_gate "$STUBPATH" STUB_DELETE=22
-expect_exit 0 "ratchet at the line passes"
-expect_out "22 of 22" "ratchet at the line"
-
-run_gate "$STUBPATH" STUB_DELETE=21
 expect_exit 0 "ratchet below the line passes"
 expect_out "Ratchet can be tightened" "ratchet below the line"
 
