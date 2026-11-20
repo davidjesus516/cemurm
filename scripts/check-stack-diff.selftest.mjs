@@ -110,13 +110,24 @@ try {
   git('commit', '-q', '-m', 'p2');
   const p2Sha = git('rev-parse', 'HEAD').trim();
 
-  /** @param {string} base @param {string} [body] */
-  const run = (base, body = CHAIN_BODY) =>
-    spawnSync(process.execPath, [GATE, '--base', base, '--head', p2Sha], {
+  /**
+   * @param {string[]} args
+   * @param {{ body?: string, headRef?: string }} [env]
+   */
+  const runRaw = (args, env = {}) =>
+    spawnSync(process.execPath, [GATE, ...args], {
       cwd: scratch,
       encoding: 'utf8',
-      env: { ...process.env, PR_BODY: body, PR_HEAD_REF: 'feat/foo-pr2' },
+      env: {
+        ...process.env,
+        PR_BODY: env.body ?? CHAIN_BODY,
+        PR_HEAD_REF: env.headRef ?? 'feat/foo-pr2',
+      },
     });
+
+  /** @param {string} base @param {string} [body] */
+  const run = (base, body = CHAIN_BODY) =>
+    runRaw(['--base', base, '--head', p2Sha], { body });
 
   assert('fails when the PR base is main but the slice starts on PR1', () => {
     const result = run(mainSha);
@@ -131,6 +142,26 @@ try {
   assert('fails when a chained PR omits Starts at', () => {
     const result = run(p1Sha, '| Chain | f1 |');
     return result.status === 1 && result.stderr.includes('Starts at');
+  });
+
+  assert('skips an unresolvable parent ref instead of failing CI', () => {
+    const result = runRaw(['--base', mainSha, '--head', p2Sha], {
+      body: '| Chain | foo |\n| Starts at | `gone-branch` |',
+    });
+    return result.status === 0 && result.stdout.includes('not available');
+  });
+
+  assert('skips a standalone PR with no chain context', () => {
+    const result = runRaw(['--base', mainSha, '--head', p2Sha], {
+      body: '## What changed\nsomething',
+      headRef: 'feat/deps-minor-update',
+    });
+    return result.status === 0 && result.stdout.includes('not a chained PR');
+  });
+
+  assert('requires --base', () => {
+    const result = runRaw(['--head', p2Sha]);
+    return result.status === 2 && result.stderr.includes('--base');
   });
 } finally {
   rmSync(scratch, { recursive: true, force: true });

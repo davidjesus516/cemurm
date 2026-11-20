@@ -36,7 +36,9 @@ jobs:
 
       # A native stack shows only its own layer per PR. This catches a chain
       # rebuilt by hand whose child PRs all target main and carry their
-      # ancestors' files (#204-#213, #244). Reports only, like the size check.
+      # ancestors' files (#204-#213, #244). Same policy as the size check above:
+      # an inherited-file violation fails the step, while a missing parent ref
+      # is reported and skipped (the parent may have been deleted after merge).
       - run: node scripts/check-stack-diff.mjs --base "${{ github.event.pull_request.base.sha }}" --head HEAD
         env:
           PR_BODY: ${{ github.event.pull_request.body }}

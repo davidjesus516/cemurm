@@ -101,9 +101,15 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   let layerBase;
   try {
     layerBase = resolveRef(startsAt);
-  } catch (error) {
-    console.error(`check-stack-diff: ${String(error)}`);
-    return 2;
+  } catch {
+    // The declared parent may have been deleted after its PR merged. An
+    // environmental missing ref is not a policy violation: report and skip so
+    // CI is not blocked for something the author cannot fix in this PR.
+    console.log(
+      `check-stack-diff: parent branch "${startsAt}" is not available locally or on origin; ` +
+        'skipping the slice check (fetch it or update Starts at to verify).',
+    );
+    return 0;
   }
 
   let prFiles;
