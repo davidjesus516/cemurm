@@ -193,19 +193,17 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **22 files**, `0021-plan-freeze.sql` through `0046-feedback-triage.sql`
+`scripts/smoke/*.sql` — **23 files**, `0021-plan-freeze.sql` through `0049-audience-view.sql`
 (earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
 re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
 `0034_plan_freeze.sql` and `0022-projection.sql` covers `0035_projection.sql` — both were
 renumbered after their smokes were written, and the smokes were not renamed with them. So a smoke
 name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
-that those migration slots are taken. The newest file is a third instance: it is
-`0046-feedback-triage.sql`, and the migration it covers is
-`0046_feedback_triage_and_github_link.sql`.
+that those migration slots are taken.
 
 What has a smoke: `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
-`0037`–`0039` and `0041`–`0046`. What does not: `0001`–`0020`,
+`0037`–`0039`, `0041`–`0046` and `0049`. What does not: `0001`–`0020`,
 `0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql`. They are **not**
 in CI and **not** wired to any pnpm script. The invocation
 exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
@@ -226,15 +224,21 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **45 files on `main`**, numbered `0001`–`0047`, with **`0021` and `0022` a deliberate
-free gap**. Everything else is contiguous. The `0020`–`0022` window closed when `0034_plan_freeze`
+Migrations: **47 files on `main`**, numbered `0001`–`0049`, with **`0022` a deliberate free gap**;
+`0048` is absent because open PR #460 claims it. `0021` is occupied by
+`0021_identity_account_lifecycle.sql`, `0047` by `0047_public_table_privileges.sql` and `0049` by
+`0049_audience_view.sql`. The `0020`–`0022` window closed when `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
 `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`,
 `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`,
-`0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql` and
-`0047_public_table_privileges.sql`.
-**The next free number is `0048`.**
+`0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`,
+`0047_public_table_privileges.sql` and `0049_audience_view.sql`.
+**The next free number is `0048`** — claimed, not available: open PR #460
+(`fix/setlist-collaborator-read`) carries `0048_setlist_collaborator_read.sql`. `0022` stays a
+deliberate free gap and the gate skips it, so `0048` is the slot it reports. This is the "free on
+`main` is not free for you" rule in the paragraph below happening live: a slot is consumed when the
+PR carrying it lands, and #451 consumed `0047` here while #459 took `0049` for the audience view.
 
 Re-count rather than trusting this paragraph: it has been wrong five times, most recently on
 2026-11-01, when it still said 38 files through `0040` with `0041` next, while `main` carried 43
@@ -376,8 +380,8 @@ The maintainer set this working agreement on 2026-09-27. It is standing, not per
 4. **Merge stays human.** You open the PR; the maintainer approves and merges. Never merge or push to `main` directly.
 5. Report honestly: if a check fails, a gate was weakened, or a spec conflict was found, say so in the PR body. Do not present a green run as covering something it does not.
 6. **Notify, do not wait silently.** A PR that sits at `REVIEW_REQUIRED` with nobody notified is indistinguishable from a PR nobody opened. So:
-   - **Always request a reviewer when you open the PR**: `gh pr edit <n> --add-reviewer davidjesus516`. The review request is itself the notification, and it fires without any extra step.
-   - **When you push new commits onto a PR that already has an approval**, leave a comment mentioning `@davidjesus516` explaining what changed and why. GitHub does not re-notify a reviewer for later pushes.
+   - **Request the reviewer who can actually approve**: `gh pr edit <n> --add-reviewer <the collaborator who did not push>`. `require_last_push_approval` makes the approver a function of authorship, not a fixed name: `davidjesus516` reviews PRs authored by `Antony-Figueroa`, and vice versa. The request is the notification — but **verify it landed**, because `gh` returns exit 0 while silently dropping a request aimed at the PR author (`reviewRequests` stays empty).
+   - **When you push new commits onto a PR that already has an approval**, leave a comment mentioning the approver (`@<approver>`) explaining what changed and why. GitHub does not re-notify a reviewer for later pushes.
    - **When a check goes red**, say so in the same thread. Do not let a failing gate sit in the checks tab.
 
    The repo's ruleset sets `require_last_push_approval`, so the last pusher cannot approve their own
