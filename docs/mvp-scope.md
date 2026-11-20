@@ -15,7 +15,7 @@
 
 ## Feature → Hito Mapping
 
-Forty-two of the 46 BDD features (`features/*.feature` — 734 scenarios in total) are assigned to a hito; two features are documented splits (see below). The four `education-*` features (`education-courses-and-exercises`, `education-enrollment`, `education-student-progress`, `education-teaching-assignments`, 67 scenarios) are **not assigned to any hito yet** — they await a scope decision. Assignments follow dependency logic: a feature ships in the same or a later hito than the features it depends on; prerequisites land early; tightly-coupled surfaces are grouped. `practice-mode` is the only feature split across hitos by *surface slice* — Hito 1 ships a thin practice-view slice, the full surface (metronome, auto-scroll, session tracking) is Hito 3. `song-lifecycle` is partially split by *scenario class*: Hito 1 covers the state-model scenarios (draft/ready/retired/deleted), and the version-history/rollback and duplicate/merge scenarios are deferred to Hito 3 — same feature file, two maturity tiers (see Hito 1 and Hito 3 notes).
+Forty-two of the 48 BDD features (`features/*.feature` — 776 scenarios in total) are assigned to a hito; two features are documented splits (see below). Six are unassigned, and only four of those are deliberate: the four `education-*` features (`education-courses-and-exercises`, `education-enrollment`, `education-student-progress`, `education-teaching-assignments`, 67 scenarios) **await a scope decision**, while `feedback-triage` and `internal-operations-console` shipped without ever being added to this mapping — this table is a plan, not a statement of what landed (see Hito 6 for what actually shipped). Assignments follow dependency logic: a feature ships in the same or a later hito than the features it depends on; prerequisites land early; tightly-coupled surfaces are grouped. `practice-mode` is the only feature split across hitos by *surface slice* — Hito 1 ships a thin practice-view slice, the full surface (metronome, auto-scroll, session tracking) is Hito 3. `song-lifecycle` is partially split by *scenario class*: Hito 1 covers the state-model scenarios (draft/ready/retired/deleted), and the version-history/rollback and duplicate/merge scenarios are deferred to Hito 3 — same feature file, two maturity tiers (see Hito 1 and Hito 3 notes).
 
 ### Hito 1 — Core Viewer + Auth
 - `authentication-and-profiles`
@@ -238,10 +238,13 @@ A new user browses the public library, finds "Amazing Grace" in ChordPro format,
 
 ## Hito 5 — Integrations (Months 9–10)
 
-**Implementation status: complete (re-verified 2026-10-12 against `main` = `bcd7550`; originally
-2026-09-30 against `762a040`).** All ten
-Hito 5 features are implemented and merged. `main` carries 33 migrations numbered `0001`–`0035`:
-`0023`–`0033` plus the renumbered `0034_plan_freeze.sql` and `0035_projection.sql`. The `0021`/`0022`
+**Implementation status: complete (re-verified 2026-11-20 against the tree at `3f01dc2`; originally
+2026-09-30 against `762a040`, then 2026-10-12 against `bcd7550`).** All ten Hito 5 features are
+implemented and merged, through migrations `0023`–`0035`: the `0023`–`0028` run, the `0029`–`0032`
+guardrails, `0033_feedback.sql`, and the renumbered `0034_plan_freeze.sql` / `0035_projection.sql`.
+Nothing after `0035` is Hito 5 — `0036` (guardian public sharing) and `0037` (offline tie-break,
+spec finding D) are guardrail/hardening work, and `0038` onward belongs to the Hito 6 chains in the
+section below. The tree now carries **46 migrations numbered `0001`–`0049`**. The `0021`/`0022`
 slots are free — they held the plan-freeze and projection migrations until #344 (2026-10-10) moved
 them past the feedback migration, alongside the earlier `0023`–`0028` run:
 
@@ -276,11 +279,11 @@ them past the feedback migration, alongside the earlier `0023`–`0028` run:
 - Build OBS overlay for streaming musicians
 
 ### Deliverables
-- [ ] Web MIDI: send program change messages to hardware/software synths
-- [ ] External display API: mirror Stage Mode to a second screen
-- [ ] OBS Browser Source overlay: show current song, chords, and setlist position
-- [ ] Spotify integration: fetch album art, BPM, and key for auto-tagging songs
-- [ ] LRCLIB integration: auto-fetch synchronized lyrics
+- [x] Web MIDI: send program change messages to hardware/software synths (`src/integrations/webMidi.js`, `0024_midi_program.sql`)
+- [x] External display API: mirror Stage Mode to a second screen (`src/features/stage/pages/ExternalDisplay.jsx`)
+- [x] OBS Browser Source overlay: show current song, chords, and setlist position (`0025_overlay_sessions.sql`, token-gated by `0032_overlay_access_token.sql`)
+- [x] Spotify integration: fetch album art, BPM, and key for auto-tagging songs (`src/integrations/spotify.js`, `0026_external_enrichment.sql`)
+- [x] LRCLIB integration: auto-fetch synchronized lyrics (`src/integrations/lrclib.js`; mock until `VITE_LRCLIB_LIVE=true`)
 
 ### BDD coverage
 The integration surface is specified in `features/midi-integration.feature`, `features/external-display.feature`, and `features/obs-overlay.feature`. The foot pedal (Hito 2) hardware surface is specified in `features/foot-pedal-hid.feature`; thematic collection and shared-comment surfaces from Hito 3 are specified in `features/collections.feature` and `features/collaborative-comments.feature`. Spotify auto-tagging is specified in `features/external-autotagging.feature`; in-app feedback is specified in `features/in-app-feedback.feature`; PDF scan charts in `features/pdf-scan-charts.feature`. The broader import/export surface — MusicBrainz metadata enrichment, lyrics fetch, and export to stage apps — is specified in `features/external-integrations.feature`. The execution half of the service-week cluster — publishing a plan snapshot, projecting lyrics to a congregation display (**an independent surface from the personal external display**, see the correction in "Service-Week Cluster Rationale"), and covering absences with substitutes (via the Hito 3 notification base) — is specified in `features/published-plan-freeze.feature`, `features/congregation-projection.feature`, and `features/substitutions-and-coverage.feature`.
@@ -296,7 +299,22 @@ A musician performing live connects a MIDI controller. When they switch songs in
 
 ## Hito 6 — Beta Polish (Months 11–12)
 
-**Implementation status: not started.**
+**Implementation status: partly shipped (verified 2026-11-20).** Three of the six features are on
+the tree (one of them partially); the polish deliverables below are untouched, and that is the part
+of Hito 6 that is still "not started".
+
+| Feature | Status | Evidence |
+|---|---|---|
+| `offboarding-cascade` | **shipped** | `0038_offboarding_cascade.sql` (open substitutions cancelled on leave), `0039_leave_handoff_guard.sql`, #368–#371, `odd/tasks/offboarding-cascade.md`. The setlist-handoff scenario (`:53`) is still open |
+| `account-data-export-and-erasure` | **shipped** | `0042_account_export.sql`, `0043_account_erasure.sql` (30-day grace), `0044_account_import.sql`, `src/domain/account/*`, `odd/tasks/account-data-export-and-erasure.md` |
+| `export-and-sharing` | **partial** | export serializers (ABC, ChordPro, OnSong, plain text, setlist file) in #450; export menu in #455; audience view + timeline in #459 (`0049_audience_view.sql`). Not shipped: PDF/MusicXML export, QR or proximity codes, embed, export history/regenerate/delete, batch ZIP |
+| `feedback-triage` (unmapped feature) | **shipped** | `0046_feedback_triage_and_github_link.sql`, #430/#432/#433/#437 |
+| `user-onboarding` | **not started** | — |
+| `analytics-and-insights` | **not started** | — |
+| `cross-organization-event-collaboration` | **not started** | — |
+
+Sequencing stays as `docs/master-plan.md` sets it: privacy obligations first (both done), then the
+product slice (in progress), then cross-org last.
 
 ### Objectives
 - Optimize performance across all devices
@@ -364,8 +382,13 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 | 2026-10-02 | #276 | `docs`: merge-queue drain findings recorded — backlog items 10–14 plus `odd/tasks/merge-queue-drain-and-findings.md` | Merged |
 | 2026-10-10 | #344 | migrations: plan-freeze and projection renumbered past the feedback migration — `0021_plan_freeze.sql` → `0034_plan_freeze.sql`, `0022_projection.sql` → `0035_projection.sql`; `0020` kept, next free `0036` | Merged |
 | 2026-10-11 → 2026-10-12 | drain | PR-queue drain on `main`: CI gained `typecheck` + `check-test-integrity.sh` + `test:gherkin` and the visual gate moved to the end, so the workflow no longer aborts before `test`/`build`; the gate itself is green (12 rules, 0 failing) | Merged |
+| 2026-10-14 → 2026-10-15 | #368–#371 | Hito 6: `offboarding-cascade` — `0038_offboarding_cascade.sql` (a leaving member's open substitutions are cancelled and the leader notified) and `0039_leave_handoff_guard.sql` (leave blocked while the member's setlists are in use) | Merged |
+| 2026-10-22 | branch | Hito 6: `account-data-export-and-erasure` — `0042_account_export.sql`, `0043_account_erasure.sql` (request/grace/cron + purge queue), `0044_account_import.sql` | Merged |
+| 2026-10-30 → 2026-11-01 | #430, #432, #433, #437 | `feedback-triage`: triage tables + GitHub link (`0046_feedback_triage_and_github_link.sql`), edge function, and the triage inbox UI | Merged |
+| 2026-11-10 → 2026-11-12 | #450, #455 | Hito 6 N3: setlist export serializers (ABC, ChordPro, OnSong, plain text, setlist file) and the export menu in the share panel | Merged |
+| 2026-11-18 | #459 | Hito 6 N3: audience view + timeline, migration `0049_audience_view.sql` | Merged |
 
-### Planned vs. implemented (as of 2026-10-12, against `main` = `bcd7550`; originally 2026-09-30 against `762a040`)
+### Planned vs. implemented (as of 2026-11-20, against the tree at `3f01dc2`; earlier passes 2026-10-12 against `bcd7550` and 2026-09-30 against `762a040`)
 
 > **Read the hito status lines with a caveat.** The per-hito paragraphs above were written when
 > the data layer was a hosted Supabase project and say "shipped against hosted Supabase". That is
@@ -377,5 +400,5 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 - **Hito 2 — Stage Mode: core complete.** Stage Mode and offline access shipped in #87 (8/8 deliverables; `public/sw.js` + IndexedDB cache/queue live). Remaining caveats: real-device HID testing requires a physical foot pedal + `chrome://flags` HID; browser-level offline QA and PWA background-update UX are follow-up work under `pwa-updates-and-storage`.
 - **Hito 3 — Collaboration: complete.** Band collaboration (shared setlists, bandmates, comments) and notifications shipped and archived (`openspec/changes/archive/2026-09-18-hito-3-band-collaboration/`, `2026-09-19-hito-3-notifications/`). Outstanding from the original feature list: MusicXML/ABC notation, thematic collections, and the full practice-mode surface.
 - **Hito 4 — Basic Community: complete.** Public library (S4.1 #125–#127), contributions/profiles/follows (S4.2 #131/#136), music theory (#137), community moderation (#138), org repertoire (#139), minors & guardian consent, service planning, and rehearsal workflow are merged on main (migrations through `0019_rehearsal_workflow.sql`). The URL-importer deliverable is not shipped — it rides Hito 5's integrations surface.
-- **Hito 5 — Integrations: complete.** All ten features are merged on `main`: migrations `0023`–`0033` plus the renumbered `0034`/`0035` (`main` carries 33 files numbered `0001`–`0035`). Plan-freeze landed via #192/#193 (as `0034_plan_freeze.sql` since #344), congregation projection via #181/#182/#186/#188/#189 (as `0035_projection.sql` since #344), in-app feedback via #190/#191/#228 (as `0033_feedback.sql` after two renumberings), and the earlier `0023`–`0028` run via #147/#148/#155/#156/#159/#165. ODD execution records exist in `odd/tasks/hito5-*.md`; the one gap is `external-display`, which has no ODD record yet. Deliverable-level caveats: the Spotify/MusicBrainz/LRCLIB clients run against a deterministic **mock** until live flags are set, and the OBS overlay is token-gated with no deploy pipeline behind it.
-- **Hito 6 — Beta Polish: not started.** No implementation for any of its six features. Planned for months 11–12; `docs/master-plan.md` §4 sequences it by privacy obligation first (`offboarding-cascade`, `account-data-export-and-erasure`).
+- **Hito 5 — Integrations: complete.** All ten features are merged: migrations `0023`–`0033` plus the renumbered `0034`/`0035` (that range held 33 files when this line was written; the tree now carries 46 numbered `0001`–`0049`, and only `0001`–`0035` are Hito 5). Plan-freeze landed via #192/#193 (as `0034_plan_freeze.sql` since #344), congregation projection via #181/#182/#186/#188/#189 (as `0035_projection.sql` since #344), in-app feedback via #190/#191/#228 (as `0033_feedback.sql` after two renumberings), and the earlier `0023`–`0028` run via #147/#148/#155/#156/#159/#165. ODD execution records exist in `odd/tasks/hito5-*.md`; the one gap is `external-display`, which has no ODD record yet. Deliverable-level caveats: the Spotify/MusicBrainz/LRCLIB clients run against a deterministic **mock** until live flags are set, and the OBS overlay is token-gated with no deploy pipeline behind it.
+- **Hito 6 — Beta Polish: partly shipped.** `offboarding-cascade` (`0038`/`0039`, #368–#371), `account-data-export-and-erasure` (`0042`–`0044`, branch merges) and `feedback-triage` (`0046`, #430/#432/#433/#437) are merged; `export-and-sharing` is partial (exporters #450, export menu #455, audience view `0049` from #459), and `user-onboarding`, `analytics-and-insights` and `cross-organization-event-collaboration` have no implementation. The polish deliverables — Lighthouse > 90, WCAG 2.1 AA, UI polish, bug sprint, beta docs — are untouched. `docs/master-plan.md` §4 / N2–N4 sequences the remainder: privacy first (done), product slice (in progress), cross-org last.

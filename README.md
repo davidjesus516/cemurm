@@ -4,7 +4,7 @@
 
 CEMURM lets individual musicians and bands organize their song libraries, create setlists for gigs, and share arrangements with bandmates — all from a responsive web app that works offline on any device.
 
-**Current status (2026-10-02, verified against `main` = `e849738`): Hito 1–5 implemented; Hito 6 not started.** Auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search, the practice view, Stage Mode, offline-first (service worker + IndexedDB), band collaboration, the public library, org repertoire, and services/rehearsals shipped with Hito 1–4. Hito 5 — integrations (MIDI, external display, OBS overlay, plan freeze, congregation projection, substitutions, PDF chart storage, import pipeline) — is **merged**: migrations `0021`–`0033` are all on `main`. Hito 6 (beta polish) has no implementation. See [`docs/mvp-scope.md`](docs/mvp-scope.md) for the per-hito breakdown and [`docs/master-plan.md`](docs/master-plan.md) for the sequencing of what remains.
+**Current status (2026-11-20, verified against this tree at `3f01dc2`): Hito 1–5 merged; Hito 6 in progress.** Auth (GoTrue), ChordPro parsing/rendering, song/setlist CRUD + search, the practice view, Stage Mode, offline-first (service worker + IndexedDB), band collaboration, the public library, org repertoire, and services/rehearsals shipped with Hito 1–4. Hito 5 — integrations (MIDI, external display, OBS overlay, plan freeze, congregation projection, substitutions, PDF chart storage, import pipeline) — is **merged**, through migrations `0034`/`0035`. Hito 6 is partly shipped: the privacy slice (`offboarding-cascade` `0038`/`0039`, `account-data-export-and-erasure` `0042`–`0044`), feedback triage (`0046`) and the start of the N3 product slice (setlist export serializers, audience view `0049`) are in the tree; `user-onboarding`, `analytics-and-insights` and `cross-organization-event-collaboration` are not, and `export-and-sharing` is partial. That is **46 migrations numbered `0001`–`0049`** (`0021`/`0022` free by design, `0047`/`0048` reserved by open PRs), 48 feature files and 776 scenarios. See [`docs/mvp-scope.md`](docs/mvp-scope.md) for the per-hito breakdown and [`docs/master-plan.md`](docs/master-plan.md) for the sequencing of what remains.
 
 ## Tech Stack
 
@@ -16,7 +16,7 @@ CEMURM lets individual musicians and bands organize their song libraries, create
 | Music Notation | ChordPro (custom JS parser — live); MusicXML (OSMD), ABC (abcjs) planned |
 | Offline | Service worker (`public/sw.js`) + IndexedDB read cache, offline write queue, background-sync drain — shipped (Hito 2) |
 | APIs | LRCLIB, MusicBrainz, Spotify — enrichment clients shipped (Hito 5, migration `0026`), default to a deterministic **mock** until live flags are set |
-| Deployment | Frontend is local dev only (Vite) — **CI exists** (`.github/workflows/ci.yml`, push to `main` + every PR: install → lint → typecheck → test → test:gherkin → build → visual gate). The visual gate runs LAST so its failures sit next to a known-green run. No deploy pipeline yet; Vercel/R2 hosting planned |
+| Deployment | Frontend is local dev only (Vite) — **CI exists** (`.github/workflows/ci.yml`, push to `main` + every PR: install → lint → `deno check 'supabase/functions/**/*.ts'` → typecheck → test-integrity → agent-rule selftest → test → test:gherkin → build → migrations-unique → migrations-destructive → doc-counts → visual gate). The visual gate runs LAST so its failures sit next to a known-green run. No deploy pipeline yet; Vercel/R2 hosting planned |
 
 ## Quick Start
 
@@ -51,11 +51,13 @@ The app will be available at `http://localhost:5173`.
 | `pnpm lint` | ESLint, zero warnings enforced (`--max-warnings 0`) |
 | `pnpm test` | Vitest run — characterization tests (`node` environment) |
 | `pnpm test:watch` | Vitest watch mode |
+| `pnpm test:gherkin` | Vitest over `src/test/gherkin/` — the BDD tier, not part of `pnpm test` |
 | `pnpm typecheck` | `tsc --noEmit` — per-file opt-in, see `AGENTS.md` |
 | `pnpm check:visual` | the visual contract gate (`scripts/check-visual-contract.sh`), also wired into CI |
+| `pnpm test:e2e` / `pnpm test:e2e:ci` | Playwright with `--ui` locally / `--workers=1` for CI; `.github/workflows/e2e.yml` runs chromium → firefox → webkit against a real local Supabase stack |
 
 **Full verification for a change** = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
-CI runs `install → lint → typecheck → test → test:gherkin → build → check-visual-contract.sh` (visual gate LAST);
+CI runs the full chain listed in the Deployment row above, ending with `check-visual-contract.sh` (visual gate LAST);
 `typecheck` runs inside CI as well as locally — run it before claiming a change is done.
 
 ## Documentation
