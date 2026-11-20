@@ -183,8 +183,8 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `docs/technical-spec.md` still prints a hosted project URL in its env example (`:265`) — stale, and its own status note (`:240`) says to read it as the local stack. `README.md` no longer names one.
 
-Migrations: **46 files on this branch**, numbered `0001`–`0049`, with **`0021`/`0022` deliberate free
-gaps** and **`0047`/`0048` absent because open PRs claim them**. `main` is 45 files through
+Migrations: **46 files on this branch**, numbered `0001`–`0049`, with **`0022` a deliberate free
+gap**, **`0021` taken by #523** and **`0047`/`0048` absent because open PRs claim them**. `main` is 45 files through
 `0046`; `0049_audience_view.sql` is the 46th, merged into this branch with #459. The `0020`–`0022`
 window closed when
 `0034_plan_freeze`
@@ -277,7 +277,7 @@ Four layers run in this repo. They are not interchangeable — putting an artifa
 
 | Layer | Owns | Home |
 |---|---|---|
-| **BDD** | Product truth. 48 `.feature` files, 776 scenarios. The source of what to build | `features/*.feature` |
+| **BDD** | Product truth. 49 `.feature` files, 789 scenarios. The source of what to build | `features/*.feature` |
 | **Milestones** | Temporal sequencing. Hitos 1–6, and the verified slice plan | `docs/master-plan.md`, `docs/mvp-scope.md` |
 | **SDD (OpenSpec)** | **Capabilities and delta specs.** One spec per capability, archived when the change closes | `openspec/specs/`, `openspec/changes/` |
 | **ODD** | **Execution records.** One file per work unit, with commit SHAs and verification evidence | `odd/tasks/*.md` |
