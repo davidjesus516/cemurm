@@ -69,6 +69,7 @@ const Profile = lazy(() => import('../features/library/pages/Profile.jsx'))
 const Moderation = lazy(() => import('../features/moderation/pages/Moderation.jsx'))
 const Storage = lazy(() => import('../features/settings/pages/Storage.jsx'))
 const Settings = lazy(() => import('../features/settings/pages/Settings.jsx'))
+const AccountSettings = lazy(() => import('../features/settings/pages/AccountSettings.jsx'))
 const FeedbackTriagePage = lazy(() => import('../features/feedback-triage/pages/FeedbackTriagePage.jsx'))
 const NotFound = lazy(() => import('../features/shell/pages/NotFound.jsx'))
 const Landing = lazy(() => import('../features/landing/pages/Landing.jsx'))
@@ -148,6 +149,7 @@ const router = createBrowserRouter([
               { path: '/rehearsals/:id', element: defer(<RehearsalDetail />) },
               { path: '/notifications', element: defer(<Notifications />) },
               { path: '/settings', element: defer(<Settings />) },
+              { path: '/settings/accounts', element: defer(<AccountSettings />) },
               { path: '/settings/storage', element: defer(<Storage />) },
               {
                 element: <RequireSystemAdmin />,
