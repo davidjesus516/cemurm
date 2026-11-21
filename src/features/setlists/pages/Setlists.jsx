@@ -87,7 +87,7 @@ export default function Setlists() {
       const zip = buildEventSetlistsZip(eventName, files)
       saveFile({ filename: zip.name, mimeType: 'application/zip', body: zip.bytes })
       setBatchNotice(
-        `Downloaded ${zip.name} with ${files.length} setlist${files.length === 1 ? '' : 's'}`,
+        `Downloaded ${zip.name} with ${zip.written} setlist${zip.written === 1 ? '' : 's'}`,
       )
     } catch (err) {
       setBatchError(err.message)
@@ -266,7 +266,7 @@ export default function Setlists() {
               </li>
             ))}
           </ul>
-          {batchError && <p className="mt-2 text-xs text-destructive" role="alert">{batchError}</p>}
+          {batchError && <p className="mt-2 text-xs text-cem-rose" role="alert">{batchError}</p>}
           {batchNotice && <p className="mt-2 text-xs text-cem-amber" role="status">{batchNotice}</p>}
         </div>
       )}

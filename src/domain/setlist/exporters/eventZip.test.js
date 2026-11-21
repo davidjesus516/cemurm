@@ -26,8 +26,9 @@ describe('buildEventSetlistsZip', () => {
   })
 
   it('holds one readable entry per setlist', () => {
-    const { bytes } = buildEventSetlistsZip('Weekend Festival 2025', FILES)
+    const { bytes, written } = buildEventSetlistsZip('Weekend Festival 2025', FILES)
 
+    expect(written).toBe(2)
     expect(entriesOf(bytes)).toEqual([
       ['Friday-Gig-setlist.chordpro', '{title: Way Maker}\n'],
       ['Saturday-Gig-setlist.chordpro', '{title: Oceans}\n'],

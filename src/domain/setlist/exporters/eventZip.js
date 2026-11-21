@@ -77,5 +77,6 @@ export function buildEventSetlistsZip(eventName, files = []) {
   return {
     name: `${slugify(eventName)}-setlists.zip`,
     bytes: zipSync(entries),
+    written: list.length,
   }
 }
