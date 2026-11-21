@@ -65,6 +65,10 @@ jobs:
       # PR budget, exit 2 on a block and 0 otherwise.
       - run: node scripts/hooks/pre-tool-guard.selftest.mjs
 
+      # The stacked-slice gate is a policy too. Its selftest builds a two-slice
+      # git repo in a temp dir and proves the broken and native cuts diverge.
+      - run: node scripts/check-stack-diff.selftest.mjs
+
       - run: pnpm test
 
       - run: pnpm test:gherkin
