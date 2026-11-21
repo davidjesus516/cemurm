@@ -151,7 +151,7 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **23 files**, `0021-plan-freeze.sql` through `0049-audience-view.sql`
+`scripts/smoke/*.sql` — **25 files**, `0021-plan-freeze.sql` through `0051-onboarding-org-creation.sql`
 (earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
 re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
@@ -161,7 +161,7 @@ name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is
 that those migration slots are taken.
 
 What has a smoke: `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
-`0037`–`0039`, `0041`–`0046` and `0049`. What does not: `0001`–`0020`,
+`0037`–`0039`, `0041`–`0046`, `0049`, `0050` and `0051`. What does not: `0001`–`0020`,
 `0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql`. They are **not**
 in CI and **not** wired to any pnpm script. The invocation
 exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
@@ -181,9 +181,10 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **46 files on this branch**, numbered `0001`–`0049`, with **`0022` a
-deliberate free gap** and **`0047`/`0048` absent because open PRs claim them**. `main` today is 45
-files through `0046`; this tree adds `0049_audience_view.sql`. The `0020`–`0022` window closed when
+Migrations: **48 files on this branch**, numbered `0001`–`0051`, with **`0022` a
+deliberate free gap** and **`0047`/`0048` absent because open PRs claim them**. `main` today is 46
+files through `0049`; this tree adds `0050_onboarding_invite_redemption.sql` and
+`0051_onboarding_org_creation.sql` on top of main's `0049_audience_view.sql`. The `0020`–`0022` window closed when
 `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
