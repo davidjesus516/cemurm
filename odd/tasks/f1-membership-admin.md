@@ -32,7 +32,7 @@
 |----|------|-------|--------|
 | T1 | S1, S2, S3, S4 | Write `organization-members.feature` BDD (13 scenarios) | PR #530 |
 | T2 | S1, S2, S3, S4 | Migration `0021_identity_account_lifecycle.sql`: `admin_audit_log`, `FORCE RLS`, 3 RPCs | PR #523 (`38ba51f`) |
-| T3 | S5 | UI `/organization/members` page + route | PR #537 (`feat/f1-pr3-page-v3-clean`) |
+| T3 | S5 | UI `/organization/members` page + route | PR #537 (`feat/f1-pr3-page-v3-clean`) — 435 líneas, `size:exception` |
 | T4 | S6 | UI `/settings/accounts` page + route + this record | PR #540 (`feat/f1-pr4-settings-v3-clean`) |
 | T5 | S1–S4 | Manual SQL smoke of the `0021` permission matrix + its execution record | PR #541 (`test/f1-0021-smoke-v2`), PR #542 (`test/f1-0021-smoke-record`) |
 
@@ -72,6 +72,8 @@
 **L11** (assistant): The maintainer ruled on 2026-11-20 that `0022` stays **reserved** and `0047` remains the next free migration number for general use, so the smoke's PR keeps the `0021`/`0022` skips in `check-doc-counts.sh`. The smoke was also recut onto the current `main` (#541, with its record in #542): the earlier cut (#533/#535) came from a `main` that predated #459 and #530 and would have reverted the feature counts. #533 and #535 are closed as superseded.
 
 **L12** (assistant): An independent verifier reviewed this slice and found no blockers — the router diff is exactly the two intended lines, every import resolves, the route sits under the same guards as `/settings`, and all six gates are green. It did find three false statements in these records, now corrected: S3 said `status='removed'` (the schema has `former`), S6 described an `active/suspended/erased` state the schema does not model and the page does not render, and two line references had drifted (`AGENTS.md:186` → `:184`; `OrganizationMembers.jsx` 398 → 393 lines).
+
+**L13** (assistant): T3's `size:exception` justification, as the gate asks for it in this file. PR #537 measures **435 authored changed lines** against `main`, over the 400 budget: `OrganizationMembers.jsx` 393, `orgRoles.js` 17, `orgRoles.test.js` 23, the route +2. The page is the whole slice because it renders five states — loading, empty, error, roster and the role menu — behind a single `canManage` gate, and the rule it delegates to (`rolesAssignableBy`) is a separate file so it can be tested without the page. Splitting the page would mean either shipping half an admin screen or dropping the states, and the record cannot ship without the page (it is the feature's own record). The maintainer's label stands; this paragraph is the record of why. The other three slices are inside the budget on their own: #540 331, #541 327, #542 146.
 
 ---
 
