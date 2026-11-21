@@ -164,10 +164,9 @@ select set_config('role', 'postgres', false);
 select tmp_assert('19. the second valid code is consumed exactly once',
   (select used_at is not null from public.invite_codes where code = 'ACAD-MAD-002'));
 
--- ── error-text equality (no oracle) ──
-select set_config('role', 'authenticated', false);
-select set_config('request.jwt.claims',
-  '{"sub":"10000000-0000-0000-0000-000000000003"}', false);
+-- Helper creation needs CREATE on schema public, which `authenticated` lacks.
+-- Create it as postgres here (like the preamble helpers); it is SECURITY
+-- INVOKER, so calls below still run as `authenticated` with RLS and RPC guards.
 create or replace function tmp_err(p_code text) returns text language plpgsql as $$
 declare err text := '';
 begin
@@ -175,6 +174,11 @@ begin
   exception when others then err := sqlerrm; end;
   return err;
 end $$;
+
+-- ── error-text equality (no oracle) ──
+select set_config('role', 'authenticated', false);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-0000-0000-000000000003"}', false);
 select tmp_assert('20. unknown, expired and wrong-kind errors are byte-identical',
   tmp_err('ACAD-MAD-NOPE') = tmp_err('ACAD-MAD-EXP')
   and tmp_err('ACAD-MAD-EXP') = tmp_err('ACAD-MAD-PROX'));
