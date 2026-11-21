@@ -279,7 +279,7 @@ Four layers run in this repo. They are not interchangeable — putting an artifa
 
 | Layer | Owns | Home |
 |---|---|---|
-| **BDD** | Product truth. 48 `.feature` files, 776 scenarios. The source of what to build | `features/*.feature` |
+| **BDD** | Product truth. 49 `.feature` files, 789 scenarios. The source of what to build | `features/*.feature` |
 | **Milestones** | Temporal sequencing. Hitos 1–6, and the verified slice plan | `docs/master-plan.md`, `docs/mvp-scope.md` |
 | **SDD (OpenSpec)** | **Capabilities and delta specs.** One spec per capability, archived when the change closes | `openspec/specs/`, `openspec/changes/` |
 | **ODD** | **Execution records.** One file per work unit, with commit SHAs and verification evidence | `odd/tasks/*.md` |
@@ -342,7 +342,7 @@ which carries the same visual language, is available everywhere.
   editing instead of converting it, and never flip `checkJs` globally to "fix" the split.
 - Tailwind only — no CSS modules, styled-components, or inline styles.
 - Components `PascalCase.jsx`; hooks `camelCase` with `use` prefix; utilities `camelCase`.
-- Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Merge is always a human decision.
+- Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Dependent slices use GitHub's native stacks via the `chained-pr` skill (`gh stack`). Merge is always a human decision.
 - ESLint's `no-unused-vars` uses `varsIgnorePattern: '^[A-Z_]'`, so uppercase bindings (JSX components) are exempt from the unused check — don't "fix" that by renaming.
 - **CONTRIBUTING.md is stale**: it says `npm install`, `npm run lint`, and lists a `src/store/` Zustand layer. Ignore those; use pnpm and the layout above.
 
@@ -363,6 +363,8 @@ The maintainer set this working agreement on 2026-09-27. It is standing, not per
    The repo's ruleset sets `require_last_push_approval`, so the last pusher cannot approve their own
    PR. **That is deliberate and correct — approval on `main` must be a second pair of eyes.** It does
    not remove the obligation to make the request, or to say so out loud when the branch moves.
+
+7. **Dependent slices are native GitHub stacks, not hand-built chains.** Follow the `chained-pr` skill: `gh stack init`, `gh stack submit`, `gh stack rebase` + `gh stack push`, and `gh stack merge <n>`. The bottom PR targets `main` (or the tracker branch in a feature-branch-chain), and each later PR targets the branch immediately below it; pointing every child PR at `main` prevents stack detection. `gh stack merge` is all-or-nothing and respects required checks — never use `gh pr merge --admin` or the hand-built async-merge recipe in `odd/tasks/pr-queue-merge-drain.md:401-418` for a stack member. No organization or extra GitHub setting is needed: `gh` ≥ 2.90, `git` ≥ 2.20 and `gh extension install github/gh-stack` are the only prerequisites.
 
 The one limit on clause 3: **a failing characterization test is fixed in the source, never in the assertion.** Once the suite lands (M0b), it records current behaviour on purpose (`odd/tasks/cemurm-brand-landing.md` §12.1). Editing a test to go green, loosening a threshold, or adding a skip to clear a gate hides a regression. If a test genuinely encodes a wrong expectation, that is a finding to report, not to silently rewrite. The same rule governs any future test: a red test is information, not an obstacle.
 
