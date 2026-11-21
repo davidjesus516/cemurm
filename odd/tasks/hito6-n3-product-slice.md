@@ -45,7 +45,7 @@ requirement that is not in them.
 |---|---|---|---|---|
 | **T1** | S1 | `export-and-sharing` — export formats | inline | `a8966ac` (serializers) + this slice (format menu) |
 | **T2** | S1 | `export-and-sharing` — sharing options + integrated targets | — | reopened — draft discarded, see L6 |
-| **T3** | S1 | `export-and-sharing` — audience view + export management | — | — |
+| **T3** | S1 | `export-and-sharing` — audience view + export management | inline | split: T3a `65395b6` (token RPC + smoke), T3b `4acf5f6` (page + timeline). Export management still open |
 | **T4** | S2 | `user-onboarding` — welcome flow + org setup | — | — |
 | **T5** | S2 | `user-onboarding` — tutorial hints + completion | — | — |
 | **T6** | S3 | `analytics-and-insights` — personal + performance history | — | — |
@@ -128,3 +128,97 @@ in this unit — it depends on four surfaces being stable and ships separately.
   `pr-size.yml` reported 639 because it diffs the merge base against the merge-ref `HEAD`,
   which pulls in `main` commits that landed after the branch point; the workflow's own base
   choice is the defect, and the PR body says so.
+
+- **L11** (2026-11-11, orchestrator): T3 audience view rebuilt from the real model. The untracked
+  `0049_get_audience_setlist.sql` inherited from an earlier pass was **wrong on three verifiable
+  counts** and was moved to `/tmp/opencode/cemurm-debris-20261111/`, not fixed in place: it read
+  `setlists.description` (no such column, `0001:155-166`), read `setlist_items.duration` (duration
+  lives on `song_versions`, `0001:108`), and gated on `owner_id = auth.uid()` — which is the one
+  guard that makes an *audience* view useless, since the audience member is by definition not the
+  owner. That is the same class of defect L6 recorded.
+  **The correct model already shipped in 0001 and was never reachable**: `public.audience_views`
+  (`0001:539`) has token + `expires_at` + opt-in push binding + `created_by`, and `0002:122`
+  revoked every privilege, so 44 migrations have read and written nothing. Precedent for the read
+  path is `0025_overlay_sessions.sql` (capability row, unauthenticated RPC, uuid is the
+  authorization). Migration took **`0049`**, not `0047` or `0048`: `0047_public_table_privileges.sql`
+  is claimed by open PR #451 (and by #452/#453 only because they are stacked on #451), and `0048`
+  is claimed by open PR #460 — which is the "free on `main` is not free for you" rule happening
+  live. (L11 originally said `0048`/#453; corrected in L13.)
+  **Two decisions made here, both documented in the migration header**: issuing a public token is
+  narrower than reading a shared setlist, so it requires owner or accepted `can_edit` collaborator —
+  a view-only collaborator cannot publish to anonymous strangers; and `get_audience_setlist` is
+  granted to `anon` **and** `authenticated`, deviating from 0025's anon-only grant, because a
+  congregation member with the app installed is logged in and 0025's grant would serve strangers but
+  not them. The token remains the whole authorization either way.
+  **Verification**: `supabase db reset` then `scripts/smoke/0049-audience-view.sql` → 29 PASS /
+  0 FAIL (40 after L13). Full gate set green (lint, typecheck, test 525 with 8 new, gherkin 44, build, visual
+  contract 0 failing, doc counts, test integrity, migration uniqueness, destructive scan,
+  pre-tool-guard 79).
+  **Deliberate gaps, same discipline as L8**: QR encoding (no QR dependency exists; the link is what
+  a QR encodes), the push-on-update scenario (needs web-push + VAPID + a service-worker
+  subscription), and export management (the other half of T3).
+  **Size exception**: 974 authored lines across two commits, both slices over the ~400 budget. The
+  overage is comment and coverage density — the migration header is a security document because the
+  function it introduces has no RLS behind it, and the smoke is 29 assertions of which the anti-leak
+  and token-scoping ones are load-bearing. Nothing here is droppable to reach a number.
+  **Environment defect, not a change**: `/usr/bin/node` on this machine is broken
+  (`libsimdjson.so.34` missing, only `.36` present), which takes out `pnpm`, `vitest` and the
+  Supabase CLI. A `libsimdjson.so.34 → .36` symlink makes `node -v` work and then dies with
+  `std::bad_alloc` under real load — a false fix. All gates were run with an official Node 22.23.5
+  unpacked in `/tmp/opencode`. The system binary is still broken.
+
+- **L12** (2026-11-11, orchestrator): independent verification of the T3 slice (required: the
+  change is `Risk: item 2`, a `security definer` RPC reachable by `anon`) found one real blocker and
+  two advisories. All three are fixed in `07e7203`.
+  **Blocker B1**: the delete policy was scoped to `created_by`, so a link minted by an accepted
+  editor collaborator could not be revoked by the setlist owner — and a removed editor's public
+  link would keep serving for up to 90 days with nobody able to turn it off. **The first fix was
+  wrong and the smoke caught it**: PostgreSQL applies the SELECT policy to DELETE as well (a row
+  that cannot be read cannot be deleted), so widening only the delete policy left the owner
+  deleting 0 rows. Both policies now admit the setlist owner, which is also the correct management
+  surface.
+  **A1**: a token inserted directly through PostgREST bypassed the RPC's 32-hex-char shape, so a
+  publisher could mint a guessable link. The table now carries
+  `check (token ~ '^[0-9a-f]{32}$')`. The 1..90-day expiry stays an RPC invariant — `now()` is not
+  immutable, so it cannot be a constraint — and owner revocation is the control that makes it safe.
+  **A3**: the client reported "Audience link revoked." for a DELETE that RLS filtered to zero rows,
+  because PostgREST answers 204 either way. `revokeAudienceView` now chains `.select('id')` and
+  refuses to claim success on an empty result.
+  **A2** (push binding) is left open on purpose: it is only reachable once the push scenario is
+  implemented, which is a declared gap.
+  Smoke grew 29 → 38 assertions. Re-verified after `supabase db reset`: 38 PASS / 0 FAIL.
+
+- **L13** (2026-11-12, orchestrator): review round on #459 — Antony-Figueroa,
+  **CHANGES_REQUESTED**, three blockers plus advisories, all verified on a stack rebuilt from the
+  branch. Fixes below are one commit.
+  **B1 — the migration number collided.** `0048_audience_view.sql` shared a version prefix with
+  #460's `0048_setlist_collaborator_read.sql`, and `supabase_migrations.schema_migrations` is keyed
+  by that prefix: whichever landed second would abort `supabase db reset` and take the E2E suite and
+  every smoke with it. Renumbered to **`0049`** (0047 is #451's, 0048 is #460's — both open, both
+  claimed), and the smoke was renamed with it, `scripts/smoke/0047-audience-view.sql` →
+  `0049-audience-view.sql`, so the filename finally matches what it covers. The doc correction in
+  the same commit: `0047_public_table_privileges.sql` lives in **#451**, not #453 (#452/#453 only
+  carry it because they are stacked on #451) — L11 said #453 and is corrected above.
+  **B2 — the 1..90-day window was not enforced against a client.** `create_audience_view` is
+  SECURITY INVOKER and the table also granted `insert` to `authenticated`, so a direct PostgREST
+  POST could mint a link expiring in 2099 and serve the setlist to `anon` indefinitely. The table now
+  carries `audience_views_expiry_ceiling check (expires_at <= now() + interval '90 days')`.
+  **The reviewer's exact SQL was not used, on evidence**: their form also required
+  `expires_at > now()`, and a CHECK is evaluated by COPY — reproduced on the local stack, an expired
+  row dumps fine and then fails to restore with "new row ... violates check constraint". A backup of
+  this table would have become unrestorable the day the first link expired. The upper bound alone
+  blocks the 2099 insert (reproduced: rejected) and leaves expired rows restorable (reproduced:
+  accepted). The 1-day floor stays an RPC invariant; a shorter link is strictly safer.
+  **B3 — the revocation control had no product path.** Nothing in `src/` ever SELECTed
+  `audience_views`, so after a reload the owner could not list, re-copy or revoke anything, and an
+  editor-issued link was invisible to the owner accountable for it. Added `listAudienceViews`
+  (RLS-scoped, soonest-expiring first, issuer name resolved the same two-step way
+  `listCollaborators` does) and a panel in `SetlistDetail` that lists every visible link with its
+  expiry and issuer, each copyable and revocable. The create control no longer depends on in-memory
+  token state, which is what made a second link accumulate with nothing able to show it.
+  **A1** fixed: the security header now names the setlist `id` and `name` as disclosed, not only the
+  four song fields. **A5** fixed: the docs no longer claim the migration is on `main`.
+  **A2** (cached envelope has no age bound) and **A4** (no E2E spec for the audience route) are left
+  open and stated as such — A2 is online-only revocation, which is what the feature file asks for,
+  and A4 is answered by retargeting the PR to `main`, which runs the E2E workflow.
+  Smoke grew 38 → 40 assertions (the ceiling and the owner's list view).
