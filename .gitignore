@@ -65,3 +65,6 @@ CEMURM/
 !/.claude/settings.json
 .playwright-mcp/
 deno.lock
+# Lockfile of an external agent skill (caru-ini/stack-diagram). The project's own
+# skills live in skills/ and are tracked; this is tool state, not project content.
+skills-lock.json

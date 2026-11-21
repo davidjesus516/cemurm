@@ -53,6 +53,12 @@ jobs:
       # suite could see them. Bash + grep only, same as the visual gate.
       - run: bash scripts/check-test-integrity.sh
 
+      # The ACL gate's own verdict logic, with `docker` stubbed: passes/fails, exit
+      # codes, the ratchet, the findings cap and every fail-closed setup path. The
+      # gate itself needs a live catalog and runs in e2e.yml; without this, a gate
+      # that silently always passed would look exactly like a gate that works.
+      - run: bash scripts/check-table-privileges.test.sh
+
       # The agent guard is a policy, and a policy nobody verifies decays the same
       # way `.only` did. This asserts the rules themselves: DROP/TRUNCATE blocked,
       # `supabase db reset` still allowed, generated artifacts excluded from the
