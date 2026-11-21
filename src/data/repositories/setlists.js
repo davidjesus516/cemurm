@@ -26,6 +26,7 @@ import { normalizeProgram } from '../../integrations/webMidi.js'
  * @property {string | null} version_id
  * @property {number | null} midi_program
  * @property {string | null} agreed_key
+ * @property {string | null} notes
  */
 
 /**
@@ -72,6 +73,8 @@ import { normalizeProgram } from '../../integrations/webMidi.js'
  * @property {string[]} itemIds
  * @property {Record<string, string>} versionIds
  * @property {Record<string, string>} agreedKeys absent songId = nobody agreed a key
+ * @property {Record<string, string>} itemNotes per-item rehearsal note (setlist_items.notes);
+ *   absent songId = no note. Item state, never song state.
  * @property {Record<string, number | null>} midiPrograms
  * @property {Record<string, { opKey: string, queuedAt: string }>} [conflictResolutions]
  *   Latest recorded tie-break resolution per song id (0037). Absent key = no
@@ -215,6 +218,15 @@ function flattenSetlist(row, userId) {
     if (item.agreed_key) agreedKeys[item.song_id] = item.agreed_key
   }
 
+  // Per-item rehearsal note (setlist_items.notes). Item state, not song state:
+  // the same song can carry a different note in every setlist. Omitted when
+  // NULL, like agreedKeys.
+  /** @type {Record<string, string>} */
+  const itemNotes = {}
+  for (const item of items) {
+    if (item.notes) itemNotes[item.song_id] = item.notes
+  }
+
   // MIDI program per song (Hito 5 #56): map omits null entries so an
   // unmapped song simply has no key (Stage Mode reads ─ absent key = no send).
   /** @type {Record<string, number>} */
@@ -260,6 +272,7 @@ function flattenSetlist(row, userId) {
     itemIds,
     versionIds,
     agreedKeys,
+    itemNotes,
     midiPrograms,
     conflictResolutions,
     createdAt: row.created_at,
@@ -286,7 +299,7 @@ function flattenSetlist(row, userId) {
 async function fetchSetlistById(userId, id) {
   const { data, error } = await supabase
     .from('setlists')
-    .select('*, setlist_items(song_id, position, version_id, midi_program), setlist_collaborators(user_id, can_edit, accepted_at), setlist_conflict_resolutions(song_id, winner_queued_at, winner_op_key)')
+    .select('*, setlist_items(song_id, position, version_id, midi_program, agreed_key, notes), setlist_collaborators(user_id, can_edit, accepted_at), setlist_conflict_resolutions(song_id, winner_queued_at, winner_op_key)')
     .eq('id', id)
     .maybeSingle()
 
@@ -431,7 +444,7 @@ export function listSetlists(userId) {
       // collaborators (0002 select_member); no owner_id filter.
       const { data, error } = await supabase
         .from('setlists')
-        .select('*, setlist_items(song_id, position, version_id, midi_program), setlist_collaborators(user_id, can_edit, accepted_at)')
+        .select('*, setlist_items(song_id, position, version_id, midi_program, agreed_key, notes), setlist_collaborators(user_id, can_edit, accepted_at)')
         .order('created_at', { ascending: true })
 
       if (error) throw error
@@ -463,7 +476,7 @@ export async function createSetlist(userId, { name }) {
       const { data, error } = await supabase
         .from('setlists')
         .insert({ owner_id: userId, name: trimmed })
-        .select('*, setlist_items(song_id, position, version_id, midi_program)')
+        .select('*, setlist_items(song_id, position, version_id, midi_program, agreed_key, notes)')
         .single()
       if (error) throw error
 
