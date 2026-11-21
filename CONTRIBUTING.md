@@ -88,9 +88,13 @@ project — see [`docs/local-dev.md`](docs/local-dev.md).
 
 ## Project Structure
 
-The tree was relocated into ADR 0002 boundaries. The pre-relocation layout (`components/`,
-`pages/`, `hooks/`, `store/`, `utils/`) **no longer exists** — those paths are gone, including
+The tree was relocated into ADR 0002 boundaries. The pre-relocation app layout (`src/main.jsx`,
+`src/App.jsx`, `src/pages/`, `src/store/`, `src/utils/`) **no longer exists** — including
 `store/`: there is **no Zustand** in this project, and state lives in React context and hooks.
+
+The vendored admin template keeps its own `.ts/.tsx` tree in `src/api/`, `src/components/`,
+`src/context/`, `src/hooks/`, `src/layouts/`, `src/routes/`, `src/types/` and `src/views/`. That
+tree is type-checked under `strict: true`; it is not where app code goes.
 
 ```
 src/
@@ -101,7 +105,9 @@ src/
 ├── integrations/   # Third-party provider clients (Spotify, MusicBrainz, LRCLIB, Web MIDI)
 ├── offline/        # IndexedDB cache, write queue, drain-on-reconnect
 ├── ui/             # Shared UI patterns
-└── lib/            # storage.js only — the one deliberate exception left here
+├── lib/            # storage.js only — the one deliberate exception left here
+├── api/ components/ context/ hooks/ layouts/ routes/ types/ views/   # vendored admin template
+└── assets/ content/ demo/ test/                                     # tokens, copy, fixtures, tests
 ```
 
 `AGENTS.md` is the authoritative description of this layout and of the conventions below.

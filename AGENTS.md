@@ -1,6 +1,6 @@
 # CEMURM — Agent Guide
 
-PWA for musicians: repertoires, setlists, live performance, offline-first. React 18 + Vite + Tailwind against a **local** Supabase stack (PostgreSQL + GoTrue + RLS). Milestone status lives in `README.md` / `docs/mvp-scope.md` — don't duplicate it here.
+PWA for musicians: repertoires, setlists, live performance, offline-first. React 19 + Vite 8 + Tailwind 4 against a **local** Supabase stack (PostgreSQL + GoTrue + RLS). Milestone status lives in `README.md` / `docs/mvp-scope.md` — don't duplicate it here.
 
 ## Commands
 
@@ -31,8 +31,9 @@ for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
 major fails hard against the Vite major it was not built for — Vitest 5 wants `vite ^6.4||^7||^8`
 and dies against Vite 5. That is why this was pinned at Vitest 3.2.7 / Vite 5.4.21 for so long:
 moving one without the other was guaranteed to break. #236 moved both together (Vite 6.4.3 /
-Vitest 5.0.2) and the suite passed unchanged. **The rule is the pairing, not the specific
-versions** — when one major moves, move the other in the same change and install for real.
+Vitest 5.0.2) and the suite passed unchanged; the tree now resolves **Vite 8.3.5 / Vitest 5.0.5**
+(`package.json`, read 2026-11-20), so the pin has moved twice since. **The rule is the pairing, not
+the specific versions** — when one major moves, move the other in the same change and install for real.
 
 Verifying a dependency bump here takes one step that is easy to skip and that silently invalidates
 the result: a worktree symlinked to the repo's `node_modules` runs the *old* versions, so every gate
@@ -101,8 +102,9 @@ and silently omits nested files. Still nothing in the JS gates reaches that path
 
 ## E2E is a separate workflow
 
-`.github/workflows/e2e.yml` runs on every PR to `main` and on push to `main`, as **three chained
-jobs**: `chromium` → `firefox` → `webkit`, each `needs:` the previous. `pnpm test:e2e:ci` is
+`.github/workflows/e2e.yml` runs on every PR to `main` and on push to `main`, as a `setup` job plus
+**three chained browser jobs**: `e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each `needs:` the
+previous (and `setup`). `pnpm test:e2e:ci` is
 `playwright test --workers=1`.
 
 It is **not** a mocked harness: `tests/e2e/global-setup.js` runs `supabase start`, polls the
@@ -119,10 +121,10 @@ the same regex selects zero tests while still exiting green — `chromium` there
 ## Type checking
 
 `tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. The vendored admin
-template's `.ts/.tsx` tree **is** covered: `include` admits all 172 files under `src/api`,
+template's `.ts/.tsx` tree **is** covered: `include` admits every `.ts`/`.tsx` file under `src/api`,
 `src/components`, `src/context`, `src/hooks`, `src/layouts`, `src/routes`, `src/types` and
-`src/views`, and `strict: true` applies to them. The `@/*` and `src/*` path aliases map onto
-`src/`, so the template's import style resolves.
+`src/views` — **166 files counted 2026-11-20** — and `strict: true` applies to them. The `@/*` and
+`src/*` path aliases map onto `src/`, so the template's import style resolves.
 
 The JS baseline stays per-file opt-in via the canonical pragma:
 
@@ -138,7 +140,7 @@ flag. Baseline history: `odd/tasks/ts-checkjs-baseline.md`.
 wrong `include` leaves `tsc` checking one untyped file and still exiting 0.
 
 ```bash
-npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 248 at F1 (172 TS/TSX + 76 JS)
+npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 248 at F1 (172 TS/TSX + 76 JS), never re-measured since — re-run it, don't trust 248
 ```
 
 The template's dead demo mocks (`chance` + MSW) were replaced by `src/demo/content.ts`, so neither
@@ -179,11 +181,12 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 
 ## Database layer
 
-**Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
+**Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `docs/technical-spec.md` still prints a hosted project URL in its env example (`:265`) — stale, and its own status note (`:240`) says to read it as the local stack. `README.md` no longer names one.
 
-Migrations: **46 files on this branch**, numbered `0001`–`0049`, with **`0022` a
-deliberate free gap** and **`0047`/`0048` absent because open PRs claim them**. `main` today is 45
-files through `0046`; this tree adds `0049_audience_view.sql`. The `0020`–`0022` window closed when
+Migrations: **46 files on this branch**, numbered `0001`–`0049`, with **`0022` a deliberate free
+gap**, **`0021` taken by #523** and **`0047`/`0048` absent because open PRs claim them**. `main` is 45 files through
+`0046`; `0049_audience_view.sql` is the 46th, merged into this branch with #459. The `0020`–`0022`
+window closed when
 `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
@@ -194,8 +197,10 @@ files through `0046`; this tree adds `0049_audience_view.sql`. The `0020`–`002
 **The next free number is `0047`** — in this tree, but *claimed*, not available: open PR #451
 (`fix/acl-table-privileges`) carries `0047_public_table_privileges.sql` (#452 and #453 only carry it
 because they are stacked on #451), and open PR #460 carries `0048_setlist_collaborator_read.sql`.
-That is why the audience view took `0049`. It is the "free on `main` is not free for you" rule in the
-paragraph below happening live: a slot is consumed when the PR carrying it lands.
+Local refs carry all four candidates (`0047_public_table_privileges.sql`, `0047_setlist_share_links.sql`,
+`0048_setlist_collaborator_read.sql`, `0048_audience_view.sql`), which is why the audience view moved
+between `0048` and `0049` before landing at `0049` here. It is the "free on `main` is not free for
+you" rule in the paragraph below happening live: a slot is consumed when the PR carrying it lands.
 
 Re-count rather than trusting this paragraph: it has been wrong five times, most recently on
 2026-11-01, when it still said 38 files through `0040` with `0041` next, while `main` carried 43
@@ -241,7 +246,7 @@ sibling directory). Never push the seed with `supabase db push`.
 | `10000000-…-0002` | `isolation@cemurm.app` | outsider; **accepted** view-only collaborator on the demo setlist |
 | `10000000-…-0003` | `outsider@cemurm.app` | outsider; **pending** collaborator (`accepted_at IS NULL`) |
 
-(`docs/local-dev.md` says "two confirmed users" — stale, there are three.) Seed gotchas: GoTrue v2 scans token/phone columns as plain strings, so they must be `''` and never `NULL` or login fails; `profiles` rows are created by the `0006` trigger, so the seed only `UPDATE`s them.
+Seed gotchas: GoTrue v2 scans token/phone columns as plain strings, so they must be `''` and never `NULL` or login fails; `profiles` rows are created by the `0006` trigger, so the seed only `UPDATE`s them.
 
 Env (`.env.local`, gitignored): `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are the only required vars — `src/lib/supabase.js` throws without both. Local API is `http://127.0.0.1:54321`. Optional live-provider flags (default = mock, no silent fallback): `VITE_SPOTIFY_CLIENT_ID`, `VITE_SPOTIFY_CLIENT_SECRET`, `VITE_MUSICBRAINZ_LIVE=true`, `VITE_LRCLIB_LIVE=true`.
 
@@ -249,8 +254,11 @@ Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-
 
 ## Architecture notes that aren't obvious from filenames
 
-The tree is post-relocation. `src/main.jsx`, `src/App.jsx`, `src/pages/` and `src/components/`
-no longer exist — several `docs/` files and `odd/tasks/*.md` still cite them.
+The tree is post-relocation: `src/main.jsx`, `src/App.jsx` and `src/pages/` no longer exist, and
+several `docs/` files and `odd/tasks/*.md` still cite them. The names `src/components/`, `src/views/`,
+`src/context/`, `src/hooks/`, `src/layouts/`, `src/routes/`, `src/types/` and `src/api/` **do**
+exist — they are the vendored admin template. "The layout" below means the app directories:
+`app/`, `features/`, `data/`, `domain/`, `integrations/`, `offline/`, `ui/`.
 
 - Entrypoint is `index.html` → **`src/app/main.jsx`**. Router: `src/app/router.jsx`. Shell
   chrome: `src/app/AppLayout.jsx`. Providers: `src/app/providers/`.
@@ -261,7 +269,7 @@ no longer exist — several `docs/` files and `odd/tasks/*.md` still cite them.
 - RLS is the client-side gate. The service worker (`public/sw.js`) + IndexedDB layer does read-cache, an offline write queue, and a drain on reconnect.
 - The `charts` storage bucket is **private** with owner-folder RLS (first path segment must be `auth.uid()`); reads are 1-hour signed URLs only. The 10 MB PDF cap is **app-side only** — the DB deliberately accepts oversized rows.
 - Import/enrichment provider clients **never throw**: they return `{ ok: true, … }` or `{ ok: false, error: 'offline' | 'unavailable' }`, gated by `isOnline()`.
-- No `src/store/` and no Zustand — state lives in React context and hooks. (CONTRIBUTING.md still claims a Zustand store exists; it does not.)
+- No `src/store/` and no Zustand — state lives in React context and hooks.
 
 ## Methodology
 
@@ -325,7 +333,7 @@ which carries the same visual language, is available everywhere.
 - Components `PascalCase.jsx`; hooks `camelCase` with `use` prefix; utilities `camelCase`.
 - Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Dependent slices use GitHub's native stacks via the `chained-pr` skill (`gh stack`). Merge is always a human decision.
 - ESLint's `no-unused-vars` uses `varsIgnorePattern: '^[A-Z_]'`, so uppercase bindings (JSX components) are exempt from the unused check — don't "fix" that by renaming.
-- **CONTRIBUTING.md is stale**: it says `npm install`, `npm run lint`, and lists a `src/store/` Zustand layer. Ignore those; use pnpm and the layout above.
+- **CONTRIBUTING.md is contributor-facing, not authoritative** — repaired 2026-11-20 (pnpm only, real remote, no Zustand claim), but this file wins on layout, commands and conventions.
 
 ## Delivery workflow (standing authorization)
 
@@ -352,7 +360,7 @@ The one limit on clause 3: **a failing characterization test is fixed in the sou
 ## Where the real context lives
 
 - `docs/local-dev.md` — local stack, reset procedure, seed identities, env vars. **Read before any DB work.**
-- `docs/master-plan.md` — the verified slice plan: what is on `main`, what is not, and in what order it ships. **Read before starting any work that is not a trivial fix.** Supersedes the Hito 5/6 status claims in `docs/mvp-scope.md`, which are stale.
+- `docs/master-plan.md` — the verified slice plan: what is on `main`, what is not, and in what order it ships. **Read before starting any work that is not a trivial fix.** It supersedes `docs/mvp-scope.md` on *sequencing*; `mvp-scope.md` is the per-hito breakdown and its Hito 5/6 status lines were re-verified against this tree on 2026-11-20.
 - `docs/engineering-review-backlog.md` — open engineering debt, triggers planned work (e.g. the checkJs baseline).
 - `odd/tasks/*.md` — one feature record per shipped unit, with commit SHAs, verification evidence, and deviations. This is where commands and rationale that never made it into `docs/` actually live; check here when a procedure seems undocumented.
 - `features/*.feature` — Gherkin specs; the product source of truth, ahead of the README.

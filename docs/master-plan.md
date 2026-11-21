@@ -1,8 +1,9 @@
 # Master Plan — CEMURM
 
 > Authoritative sequencing for everything not yet on `main`. Written 2026-09-27 against
-> verified git state at `main` = `8b66394`. Supersedes the Hito 5 / Hito 6 status claims in
-> `docs/mvp-scope.md`, which were stale (see §0).
+> verified git state at `main` = `8b66394`. Supersedes `docs/mvp-scope.md` on sequencing; that
+> document's Hito 5 / Hito 6 status lines were stale when this was written and were re-verified
+> against the tree on 2026-11-20 (see §0).
 >
 > Convention: ~400 changed lines per PR, chained `-prN-` slices. Larger work ships split, or
 > with a written `size:exception` (precedent: `odd/tasks/hito5-substitutions-and-coverage.md:4`).
@@ -103,25 +104,25 @@ native track has no entry in that order yet; it gets one once OD-1–OD-3 are se
 ## 0. State of play — verified, not read from prose
 
 Prose in this repo has drifted. These are the facts, checked against git and code on
-**2026-11-04 at `main` = `d324021`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
-`e849738`, re-verified 2026-10-12 at `c14e977`, re-verified 2026-11-01 at `86ab810`, and
-re-verified 2026-11-04 after #430 merged `0046`):
+**2026-11-20 at `3f01dc2`** (originally 2026-09-30 at `762a040`, re-verified 2026-10-02 at
+`e849738`, 2026-10-12 at `c14e977`, 2026-11-01 at `86ab810`, 2026-11-04 after #430 merged `0046`,
+and 2026-11-20 for a full docs sync — every row here was re-counted against the tree):
 
 | Fact | Value |
 |---|---|
-| `main` | `d324021`, in sync with `origin/main` (was `2e5f497` when the feedback-triage chain merged, `86ab810` at the 2026-11-01 pass, `d3f1269` at the 2026-10-13 re-verification, `a610dd0` before that, and `c14e977` before that) |
-| **Test files on `main`** | **32** — 27 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 23 at the 2026-10-12 pass, 17 at `c14e977`, and 9 at `e849738`) |
+| Verified tree | `3f01dc2` (this branch, which carries `0049` via #459); `main` was `d324021` at the 2026-11-04 pass (was `2e5f497` when the feedback-triage chain merged, `86ab810` at the 2026-11-01 pass, `d3f1269` at the 2026-10-13 re-verification, `a610dd0` before that, and `c14e977` before that) |
+| **Test files on `main`** | **33** — 28 unit/characterization + 5 BDD-tier in `src/test/gherkin/` (was 32 / 27 at the 2026-11-04 pass, 23 at the 2026-10-12 pass, 17 at `c14e977`, and 9 at `e849738`) |
 | **`test` script on `main`** | **present** — `package.json` has `build`, `check:visual`, `dev`, `lint`, `preview`, `test`, `test:gherkin`, `test:watch`, `typecheck`, plus the `test:e2e*` family (`test:e2e`, `:ci`, `:chromium`, `:firefox`, `:webkit`, `:debug`, `:headed`) |
-| **CI on `main`** | `install --frozen-lockfile → lint → deno check 'supabase/functions/**/*.ts' → typecheck → check-test-integrity.sh → test → test:gherkin → build → check-migrations-unique.sh → check-visual-contract.sh` (both gates run last on purpose: a gate that precedes `test`/`build` exits 1 under `set -euo pipefail` and marks them SKIPPED) |
-| **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, 3 chained jobs (`e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each gating the next through `needs`) |
-| `src/` layout on `main` | post-relocation: `app/`, `data/`, `domain/`, `features/`, `hooks/`, `integrations/`, `lib/` (incl. `lib/storage.js`), `offline/`, `test/`, `ui/`. No `store/` and no `components/` — there is no Zustand |
-| Feature files | **49**, 789 scenarios — was 47 / 747 before the internal operations console landed, 46 / 734 before the feedback-triage feature, 42 / 656 at `8b66394` |
-| Migrations on `main` | **46 files, numbered `0001`–`0049`, with `0022` a deliberate free gap and `0047`/`0048` absent because open PRs claim them** — `main` today is 45 through `0046`; #523 added `0021_identity_account_lifecycle.sql` and #459 added `0049_audience_view.sql`. Was 44 through `0046` at the 2026-11-11 pass, 43 through `0045` at the 2026-11-01 pass, 38 through `0040` at the 2026-10-12 pass, and 27 with a gap at `0021` before that |
+| **CI on `main`** | `install --frozen-lockfile → lint → deno check 'supabase/functions/**/*.ts' → typecheck → check-test-integrity.sh → pre-tool-guard.selftest.mjs → test → test:gherkin → build → check-migrations-unique.sh → check-migrations-destructive.mjs → check-doc-counts.sh → check-visual-contract.sh` — the gates run last on purpose: a gate that precedes `test`/`build` exits 1 under `set -euo pipefail` and marks them SKIPPED |
+| **E2E on `main`** | **present** — `.github/workflows/e2e.yml`, a `setup` job plus 3 chained browser jobs (`e2e-chromium` → `e2e-firefox` → `e2e-webkit`, each gating the next through `needs`) |
+| `src/` layout on `main` | post-relocation: app code lives in `app/`, `data/`, `domain/`, `features/`, `integrations/`, `offline/`, `test/`, `ui/`, with `lib/storage.js` as the one exception in `lib/`. The vendored admin template keeps `api/`, `components/`, `context/`, `hooks/`, `layouts/`, `routes/`, `types/`, `views/` (type-checked, not app code). No `store/` — there is no Zustand |
+| Feature files | **49**, 789 scenarios — was 48 / 776 at the 2026-11-20 docs-sync pass, 47 / 747 before the internal operations console landed, 46 / 734 before the feedback-triage feature, 42 / 656 at `8b66394` |
+| Migrations on `main` | **46 files, numbered `0001`–`0049`, with `0022` a deliberate free gap and `0047`/`0048` absent because open PRs claim them** — #523 added `0021_identity_account_lifecycle.sql` and #459 added `0049_audience_view.sql`. Was 44 through `0046` at the 2026-11-11 pass, 43 through `0045` at the 2026-11-01 pass, 38 through `0040` at the 2026-10-12 pass, and 27 with a gap at `0021` before that |
 | Next free migration number | **`0047`** in this tree, but claimed, not available: open PR #451 (`fix/acl-table-privileges`) carries `0047_public_table_privileges.sql` (#452 and #453 only carry it because they are stacked on #451), and open PR #460 carries `0048_setlist_collaborator_read.sql` — which is why the audience view took `0049`. `0021` is taken (#523), `0022` remains deliberately free; everything from `0036` to `0049` is taken except `0047`/`0048` (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`, `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`, `0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`, `0049_audience_view.sql`) |
 | Smoke scripts on `main` | **23**, `scripts/smoke/` from `0021-plan-freeze.sql` to `0049-audience-view.sql`. Not in CI and not wired to any pnpm script — manual, and a smoke filename is not a migration number |
 | Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`); #360 added `0036_guardian_approve_public_sharing.sql` |
-| Hito 6 | **privacy slice shipped, four features unstarted** — `offboarding-cascade` (`0038`/`0039`, recorded in `odd/tasks/offboarding-cascade.md`) and `account-data-export-and-erasure` (`0042`–`0044`, all slices closed in `odd/tasks/account-data-export-and-erasure.md`) are on `main`; `export-and-sharing`, `user-onboarding`, `analytics-and-insights` and `cross-organization-event-collaboration` have no implementation |
-| `// @ts-check` opt-ins | **48** files (`git grep -l '@ts-check' origin/main -- 'src/**/*.js'`); `tsc --listFiles` reached **62** `src/` files at `c14e977` and has not been re-measured since |
+| Hito 6 | **partly shipped** — `offboarding-cascade` (`0038`/`0039`, `odd/tasks/offboarding-cascade.md`) and `account-data-export-and-erasure` (`0042`–`0044`, `odd/tasks/account-data-export-and-erasure.md`) are merged, feedback triage (`0046`) is in, and the N3 product slice has started (setlist export serializers, audience view `0049`, `odd/tasks/hito6-n3-product-slice.md`); `user-onboarding`, `analytics-and-insights` and `cross-organization-event-collaboration` have no implementation, and `export-and-sharing` is partial |
+| `// @ts-check` opt-ins | **49** files (`git grep -l '@ts-check' -- 'src/**/*.js'`); `tsc --listFiles` reached **248** `src/` files at F1 (172 TS/TSX + 76 JS) and has not been re-measured since — re-run the command rather than trusting either number |
 | `docs/design-system.md` | superseded in part by `skills/cemurm-visual-system/` (PR #235, commit `5547150`); banner added in #238 |
 
 **`docs/mvp-scope.md` was wrong on Hito 5, twice.** It first stated "Nothing from Hito 5 is merged
@@ -432,7 +433,7 @@ own decision, separate from this plan. See §5.
 > **✅ ALL TEN FINDINGS NOW HAVE A FIX, AND ALL TEN ARE ON `main`. This section was badly stale.**
 > It previously said "All ten still hold on `main`" and that "one change proposal exists … B through
 > J have none". Verified 2026-09-30 against `762a040`: nine findings have their fix commit on `main`,
-> and `openspec/changes/` holds **eleven** live proposals, not one. **Finding D** closed the set —
+> and `openspec/changes/` holds **15** live proposal folders, not one (plus `archive/`; 13 shipped specs under `openspec/specs/`, counted 2026-11-20). **Finding D** closed the set —
 > its migration merged in #365 and its client, spec and docs halves merged with this change.
 
 | Finding | Subject | Status on `main` | Fix |
@@ -463,7 +464,8 @@ It is also the **only finding of the ten that needs a migration**, and the numbe
 blocked it is settled: `0034` was taken by plan-freeze (`0034_plan_freeze.sql`), so the
 tie-break migration takes **`0037`**, **not `0036`** — `0036` was taken by
 `0036_guardian_approve_public_sharing.sql`, so the next free slot after `0035` was `0037`, and #365
-consumed it. `0021`/`0022` are free but sort too early for it. The proposal deliberately
+consumed it. `0021`/`0022` were free then but sort too early for it; `0021` was later taken by
+#523, leaving `0022` as the only deliberate gap. The proposal deliberately
 left the number open; it is now resolved.
 
 **The three product decisions below were real, and all three have since been made** — B (in #219)
