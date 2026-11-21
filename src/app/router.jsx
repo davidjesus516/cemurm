@@ -68,6 +68,13 @@ const Profile = lazy(() => import('../features/library/pages/Profile.jsx'))
 const Moderation = lazy(() => import('../features/moderation/pages/Moderation.jsx'))
 const Storage = lazy(() => import('../features/settings/pages/Storage.jsx'))
 const Settings = lazy(() => import('../features/settings/pages/Settings.jsx'))
+// S3 analytics (T6–T8): four lazy surfaces behind the same auth/consent guards
+// as the rest of the app. Kept in one contiguous block so the parallel-writer
+// merge of this file stays a single, reviewable hunk.
+const Analytics = lazy(() => import('../features/analytics/pages/Analytics.jsx'))
+const OrgAnalytics = lazy(() => import('../features/analytics/pages/OrgAnalytics.jsx'))
+const RepertoireInsights = lazy(() => import('../features/analytics/pages/RepertoireInsights.jsx'))
+const Engagement = lazy(() => import('../features/analytics/pages/Engagement.jsx'))
 const FeedbackTriagePage = lazy(() => import('../features/feedback-triage/pages/FeedbackTriagePage.jsx'))
 const NotFound = lazy(() => import('../features/shell/pages/NotFound.jsx'))
 const Landing = lazy(() => import('../features/landing/pages/Landing.jsx'))
@@ -154,6 +161,10 @@ const router = createBrowserRouter([
               { path: '/notifications', element: defer(<Notifications />) },
               { path: '/settings', element: defer(<Settings />) },
               { path: '/settings/storage', element: defer(<Storage />) },
+              { path: '/analytics', element: defer(<Analytics />) },
+              { path: '/analytics/organization', element: defer(<OrgAnalytics />) },
+              { path: '/analytics/repertoire', element: defer(<RepertoireInsights />) },
+              { path: '/analytics/engagement', element: defer(<Engagement />) },
               {
                 element: <RequireSystemAdmin />,
                 children: [{ path: '/feedback-triage', element: defer(<FeedbackTriagePage />) }],

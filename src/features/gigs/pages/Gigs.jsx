@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useGigs } from '../../../hooks/shared/useGigs.js'
 import { useSetlists } from '../../../hooks/shared/useSetlists.js'
 import GigCard from '../components/GigCard.jsx'
@@ -21,14 +22,19 @@ export default function Gigs() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-cem-text">Gigs</h1>
-        {!showForm && (
-          <button type="button" onClick={() => { setShowForm(true); setError('') }}
-            className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90">
-            Add Gig
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/analytics" className="text-sm font-medium text-cem-text underline">
+            Performance history
+          </Link>
+          {!showForm && (
+            <button type="button" onClick={() => { setShowForm(true); setError('') }}
+              className="rounded-md bg-cem-amber px-4 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90">
+              Add Gig
+            </button>
+          )}
+        </div>
       </div>
 
       {showForm && (
