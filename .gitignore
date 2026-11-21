@@ -65,3 +65,8 @@ CEMURM/
 !/.claude/settings.json
 .playwright-mcp/
 deno.lock
+
+# Agent skill tooling state and generated output — never shipped.
+# AGENTS.md already says so; the ignore makes it mechanical instead of memory.
+skills-lock.json
+stack-diagram-output/
