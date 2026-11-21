@@ -1,6 +1,6 @@
 # F1 — Membership Admin
 
-**Branch:** `feat/f1-membership-admin` (from `main`)  
+**Branch:** `feat/f1-pr4-settings-v3-clean` (the final F1 slice, stacked on #537's branch)  
 **Phase:** F1 (Membership Admin) — blocks F3 (enrollment requires membership RPCs)  
 **Risk:** High (security: auth, permissions, guards — direct writes to `org_memberships`)
 
@@ -12,13 +12,17 @@
 
 **S2** — `change_member_role` RPC: org_owner can change any member's role within the org. org_admin can change instructor/branch_admin roles but not org_owner. Returns error if membership not found or caller not authorized.
 
-**S3** — `remove_org_member` RPC: org_owner can remove any member (sets status='removed', soft delete). org_admin can remove instructor/branch_admin/member but not org_owner. Returns error if membership not found or caller not authorized.
+**S3** — `remove_org_member` RPC: org_owner can remove any member (soft delete). org_admin can remove instructor/branch_admin/member but not org_owner. Returns error if membership not found or caller not authorized.
+
+> The soft delete writes `status='former'`, not `status='removed'`. `org_memberships.status` is the enum `member_status(active, former, pending)` (`0001_init.sql:25`), so `'removed'` is not a member of it and the write fails at runtime; `org_leave` (`0016:450`) already writes `'former'`. The schema wins over the spelling — see Log L6.
 
 **S4** — `admin_audit_log` table: records actor_id, actor_org_ids, action, subject_table, subject_id, detail, created_at. FORCE RLS. All membership RPCs write an audit entry.
 
 **S5** — UI `/organization/members`: org members list with roles, add member form, change role, remove member. Gated by module `education`/`inventory` etc.
 
-**S6** — UI `/settings/accounts`: account status view (active/suspended/erased), export, erasure request. F1 scope: view only; export/erasure is Hito 6.
+**S6** — UI `/settings/accounts`: account view. F1 scope: read-only identity (email, signup date) and the count of the caller's active memberships. Export and erasure are Hito 6 (`0042`/`0043`), reached from `/settings`, not from this page.
+
+> There is **no account lifecycle state** in the schema yet: no `account_status` column, no enum, nothing to read. The page therefore renders no status row — it says so in a comment rather than printing a value it would have to invent. The `active/suspended/erased` state comes back when the schema models it; `docs/database-schema-ampliacion.md` carries the proposal.
 
 ---
 
@@ -28,8 +32,9 @@
 |----|------|-------|--------|
 | T1 | S1, S2, S3, S4 | Write `organization-members.feature` BDD (13 scenarios) | PR #530 |
 | T2 | S1, S2, S3, S4 | Migration `0021_identity_account_lifecycle.sql`: `admin_audit_log`, `FORCE RLS`, 3 RPCs | PR #523 (`38ba51f`) |
-| T3 | S5 | UI `/organization/members` page + route | PR #531 |
-| T4 | S6 | UI `/settings/accounts` page + route | PR #532 |
+| T3 | S5 | UI `/organization/members` page + route | PR #537 (`feat/f1-pr3-page-v3-clean`) |
+| T4 | S6 | UI `/settings/accounts` page + route + this record | PR #540 (`feat/f1-pr4-settings-v3-clean`) |
+| T5 | S1–S4 | Manual SQL smoke of the `0021` permission matrix + its execution record | PR #541 (`test/f1-0021-smoke-v2`), PR #542 (`test/f1-0021-smoke-record`) |
 
 ---
 
@@ -61,6 +66,12 @@
 **L8** (assistant): Verified against the running database rather than by reading: `supabase db reset` clean, then a 7-assertion psql probe — org_admin changes a role, org_admin cannot touch org_owner, removal sets `former` with `left_at`, org_admin cannot remove org_owner, an outsider is rejected, `anon` lacks `EXECUTE`, audit rows are written. 7 PASS / 0 FAIL.
 
 **L9** (assistant): PR chain rebuilt on the corrected base (`38ba51f`): #523 (355 lines after the task record moved to the last slice) → #530 (280) → #531 (400) → #532. Earlier iterations #524/#525/#526 and #527/#528/#529 are closed as superseded; `git push --force-with-lease` is blocked in this environment, so a corrected branch is a new branch, never a rewrite.
+
+**L10** (assistant): The UI never reached `main`. #531 was closed unmerged, and #532 had been merged into its old base `feat/f1-pr3-page-v3`, which was then closed and deleted — GitHub reported MERGED while the code was in neither `main` nor any open PR. PR3 was re-raised clean as #537 and PR4 recovered as this PR (#540), on `feat/f1-pr3-page-v3-clean`.
+
+**L11** (assistant): The maintainer ruled on 2026-11-20 that `0022` stays **reserved** and `0047` remains the next free migration number for general use, so the smoke's PR keeps the `0021`/`0022` skips in `check-doc-counts.sh`. The smoke was also recut onto the current `main` (#541, with its record in #542): the earlier cut (#533/#535) came from a `main` that predated #459 and #530 and would have reverted the feature counts. #533 and #535 are closed as superseded.
+
+**L12** (assistant): An independent verifier reviewed this slice and found no blockers — the router diff is exactly the two intended lines, every import resolves, the route sits under the same guards as `/settings`, and all six gates are green. It did find three false statements in these records, now corrected: S3 said `status='removed'` (the schema has `former`), S6 described an `active/suspended/erased` state the schema does not model and the page does not render, and two line references had drifted (`AGENTS.md:186` → `:184`; `OrganizationMembers.jsx` 398 → 393 lines).
 
 ---
 

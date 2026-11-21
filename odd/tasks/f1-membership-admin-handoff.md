@@ -23,11 +23,13 @@ Cerrados como superseded: #524–#526 (v1), #527–#529 (v2), #531 y #532.
 
 | PR | Contenido | Base | Líneas | Estado |
 |----|-----------|------|--------|--------|
-| **#533** | `scripts/smoke/0021-identity-account-lifecycle.sql` + `odd/tasks/f1-0021-smoke.md` + doctrina de "next free" | `main` | 360+ / 22- | abierto, reviewer `davidjesus516` — **verificado 21 PASS / 0 FAIL** |
-| **#535** | asserts extra para los 4 fixes de la review | `test/f1-0021-smoke` | 86+ / 1- | abierto, reviewer `davidjesus516` |
+| **#541** | `scripts/smoke/0021-identity-account-lifecycle.sql` + los conteos de smokes | `main` | 327+ | abierto, reviewer `davidjesus516` — **verificado 21 PASS / 0 FAIL** |
+| **#542** | `odd/tasks/f1-0021-smoke.md` — el registro de ejecución del smoke | `test/f1-0021-smoke-v2` | 146+ | abierto, reviewer `davidjesus516` |
+| **#533** | el mismo smoke sobre un `main` viejo + una doctrina de slots rechazada | `main` | 360+ / 22- | **CERRADO** — superseded por #541/#542 |
+| **#535** | asserts extra para los 4 fixes | `test/f1-0021-smoke` | 86+ / 1- | **CERRADO** — superseded por #541 |
 | **#534** | registro de cuarentena del lineage de review atascado | `main` | 124+ | **MERGED** |
 
-**Merge en orden:** #533 → #535 (encadenados entre sí), y por separado #537 → este PR. Ningún par de PRs abiertos toca la misma línea de los docs: #530 movió los conteos de features/escenarios, #533/#535 mueven el conteo de smokes y la doctrina de "next free".
+**Merge en orden:** #537 → este PR (#540), y aparte #541 → #542. Ningún par de PRs abiertos toca la misma línea de los docs: #530 movió los conteos de features/escenarios, #541 mueve el conteo de smokes.
 
 ## Los ocho defectos que la revisión fue encontrando
 
@@ -48,7 +50,7 @@ La primera entrega pasó todos los gates de JS y aun así estaba rota:
 
 ## Verificación
 
-Sobre el tip de la cadena (este slice) y sobre el tip del smoke (#535):
+Sobre el tip de la cadena (este slice) y sobre el tip del smoke (#541):
 
 ```
 pnpm lint                              clean
@@ -59,7 +61,9 @@ scripts/check-doc-counts.sh            46 migrations, 23 smokes, 49 features, 78
 scripts/check-visual-contract.sh       12 rules checked, 0 failing
 ```
 
-(El conteo de migraciones subió a 46 y los smokes a 23 porque **#459** (audience view) ya está mergeado en `main` y trajo su propia migración 0049 y su smoke.)
+(El conteo de migraciones subió a 46 y los smokes a 23 porque **#459** (audience view) ya está mergeado en `main` y trajo su propia migración 0049 y su smoke. #541 agrega el smoke de 0021, así que al mergearlo los smokes pasan a 24.)
+
+Un verificador independiente revisó este slice: **sin bloqueantes**. El diff del router son exactamente las dos líneas previstas, todos los imports resuelven, la ruta queda bajo los mismos guards que `/settings`, y los seis gates están verdes.
 
 **Smoke `scripts/smoke/0021-identity-account-lifecycle.sql` sobre la DB corriendo → 21 PASS / 0 FAIL**, tal como declara el archivo. Cubre las 19 asserts de la matriz de permisos (org_admin puede re-rolear y remover instructor/branch_admin/member; ninguno de los dos puede tocar un org_owner; un no-miembro es rechazado; la remoción deja `former` con `left_at`; seis filas de audit y ninguna escrita por un rechazo) más las 4 asserts nuevas: el cambio de rol conserva la branch, org_admin no puede promover a org_owner por el camino del cambio de rol, re-agregar a un ex-miembro deja exactamente una fila activa, y `authenticated` no puede insertar directo en `org_memberships`.
 
@@ -67,13 +71,15 @@ Como el resto de los smokes del repo, **no es idempotente**: corre una vez sobre
 
 ## Dos decisiones abiertas para el maintainer
 
-### 1. La doctrina de "next free" cambió de 0047 a 0022 (en #533)
+### 1. La doctrina de "next free": 0022 sigue reservado (resuelto el 2026-11-20)
 
-`scripts/check-doc-counts.sh` tenía hardcodeados `0021` **y** `0022` como saltados en `next_free()`, por la teoría de que ambos estaban reservados a propósito. `0021` quedó reclamado por #523 (ya mergeado), así que el gate estaba verde porque coincidía con una prosa que ya era falsa. #533 saca los dos casos especiales: `next_free()` ahora reporta el slot libre más bajo real, **`0022`**, y `AGENTS.md` + `docs/master-plan.md` lo dicen.
+`scripts/check-doc-counts.sh` tenía hardcodeados `0021` **y** `0022` como saltados en `next_free()`, por la teoría de que ambos estaban reservados a propósito. `0021` quedó reclamado por #523 (ya mergeado), así que el gate estaba verde porque coincidía con una prosa que ya era falsa.
 
-**Esto cambia la doctrina del repo** y #533 pide explícitamente el visto bueno del maintainer antes de mergear.
+La primera propuesta (#533) sacaba los dos casos especiales: `next_free()` reportaba el slot libre más bajo real, **`0022`**, y la prosa lo decía. El maintainer la rechazó el 2026-11-20: **`0022` sigue reservado** y **el próximo número libre general sigue siendo `0047`**.
 
-Dato técnico para esa decisión: `AGENTS.md` (línea 224) todavía dice que 0021 y 0022 *"were kept deliberately, so claim one only knowing why the two are reserved"*. Con 0021 ya ocupado, la pregunta abierta es si **0022 sigue reservado a propósito** — si la reserva era para ambos juntos, entonces el "next free" para uso general debería seguir siendo 0047 y lo que corresponde es reportar 0022 como *reservado*, no como *libre*. #533 eligió lo segundo.
+El motivo: `0021` ya lo ocupó #523 — la migración de F1, que es self-contained y por lo tanto no necesitaba la posición — y eso dejó a `0022` como el **único slot temprano** que queda. Se lo reserva para una migración que deba ordenarse **antes** de una existente: el caso que no puede tomar `0047` sin más. Reportarlo como "next free" general lo expone a que alguien lo tome con una migración self-contained y cierre ese caso.
+
+La contra-evidencia queda registrada en vez de escondida: `docs/master-plan.md` dice *"The 0020–0022 gap is not deliberate"*, y ese análisis es correcto sobre el pasado — describe una carrera de numeración de septiembre 2026 y retractó una inferencia vieja de "deliberado". La decisión del 2026-11-20 es una decisión **nueva**, así que el post-mortem conserva su texto y gana una nota fechada.
 
 ### 2. La review nativa no corrió — y no es un PASS
 
@@ -107,16 +113,16 @@ Dato técnico para esa decisión: `AGENTS.md` (línea 224) todavía dice que 002
 ## Archivos de esta feature
 
 - `supabase/migrations/0021_identity_account_lifecycle.sql` — la migración (mergeado en main vía #523)
-- `scripts/smoke/0021-identity-account-lifecycle.sql` — el smoke de la matriz de permisos (#533/#535)
+- `scripts/smoke/0021-identity-account-lifecycle.sql` — el smoke de la matriz de permisos (#541)
 - `features/organization-members.feature` — 13 escenarios BDD (#530)
 - `src/data/repositories/orgMembers.js` — wrappers RPC delgados con mapeo de errores (#530)
-- `src/features/orgs/pages/OrganizationMembers.jsx` — roster admin, 398 líneas (#531)
+- `src/features/orgs/pages/OrganizationMembers.jsx` — roster admin, 393 líneas (#537)
 - `src/features/settings/pages/AccountSettings.jsx` — vista read-only de estado de cuenta (#532)
 - `src/app/router.jsx` — las dos rutas nuevas, partida entre #531 y #532 para que cada slice compile sola
 - `odd/tasks/f1-membership-admin.md` — el registro ODD del feature, con el log L1–L9 (#532)
 - `odd/tasks/f1-membership-admin-handoff.md` — este documento (#532)
-- `odd/tasks/f1-0021-smoke.md` — el registro de ejecución del smoke (#533)
-- `AGENTS.md:186`, `docs/master-plan.md:118-119` — los conteos
+- `odd/tasks/f1-0021-smoke.md` — el registro de ejecución del smoke (#542)
+- `AGENTS.md:184`, `docs/master-plan.md:119-121` — los conteos
 
 ## Log
 
@@ -133,3 +139,7 @@ Dato técnico para esa decisión: `AGENTS.md` (línea 224) todavía dice que 002
 **L6** (assistant): Reconciliación final. #530, #534 y #459 quedaron mergeados; #531 se cerró sin mergear y #532 se mergeó en su base vieja, que después se cerró y se borró — **su contenido quedó huérfano y F1 había perdido la UI entera en `main`**. PR3 se re-levanta como #537 desde `feat/f1-pr3-page-v3-clean` (limpio, sin PR4 mezclado). Este slice recupera PR4 (AccountSettings + su ruta + los dos registros ODD) sobre esa base limpia, con el fix `5656241` incluido y el handoff refrescado (4459751). Gates del tip: lint, typecheck, 34 archivos / 531 tests, build, doc counts (46 migraciones, 23 smokes, 49 features, 789 scenarios) y visual contract 12/12.
 
 **L7** (assistant): Se corrige una equivocación propia: un `git checkout <ref> -- .` sobreescribió el worktree completo y un commit ajeno quedó staged sobre la branch de verificación del smoke. Se revirtió sin `reset --hard` (`reset --soft` + `reset` mixto + restore puntual) y la regla queda anotada en la tabla de reglas de este handoff.
+
+**L8** (assistant): El maintainer resolvió la doctrina de slots el 2026-11-20: **`0022` sigue reservado** y el próximo número libre general sigue siendo `0047`. El smoke se re-cortó sobre el `main` actual (#541, con su registro en #542) porque #533 venía de un `main` anterior a #459 y #530 y habría revertido los conteos; #533 y #535 quedan cerrados como superseded.
+
+**L9** (assistant): Un verificador independiente revisó este slice y no encontró bloqueantes: el diff del router son exactamente las dos líneas previstas, los imports resuelven, la ruta queda bajo los mismos guards que `/settings` y los seis gates están verdes. Sí encontró tres afirmaciones falsas en estos registros, ya corregidas: S3 decía `status='removed'` (el enum tiene `former`), S6 describía un estado `active/suspended/erased` que el esquema no modela ni la página renderiza, y dos referencias de línea habían corrido (`AGENTS.md:186` → `:184`; `OrganizationMembers.jsx` 398 → 393 líneas).
