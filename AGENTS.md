@@ -331,7 +331,7 @@ which carries the same visual language, is available everywhere.
 - **JSX, not TSX.** The spec mentions TypeScript; the codebase is plain JS. Follow what exists.
 - Tailwind only — no CSS modules, styled-components, or inline styles.
 - Components `PascalCase.jsx`; hooks `camelCase` with `use` prefix; utilities `camelCase`.
-- Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Merge is always a human decision.
+- Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Dependent slices use GitHub's native stacks via the `chained-pr` skill (`gh stack`). Merge is always a human decision.
 - ESLint's `no-unused-vars` uses `varsIgnorePattern: '^[A-Z_]'`, so uppercase bindings (JSX components) are exempt from the unused check — don't "fix" that by renaming.
 - **CONTRIBUTING.md is contributor-facing, not authoritative** — repaired 2026-11-20 (pnpm only, real remote, no Zustand claim), but this file wins on layout, commands and conventions.
 
@@ -352,6 +352,8 @@ The maintainer set this working agreement on 2026-09-27. It is standing, not per
    The repo's ruleset sets `require_last_push_approval`, so the last pusher cannot approve their own
    PR. **That is deliberate and correct — approval on `main` must be a second pair of eyes.** It does
    not remove the obligation to make the request, or to say so out loud when the branch moves.
+
+7. **Dependent slices are native GitHub stacks, not hand-built chains.** Follow the `chained-pr` skill: `gh stack init`, `gh stack submit`, `gh stack rebase` + `gh stack push`, and `gh stack merge <n>`. The bottom PR targets `main` (or the tracker branch in a feature-branch-chain), and each later PR targets the branch immediately below it; pointing every child PR at `main` prevents stack detection. `gh stack merge` is all-or-nothing and respects required checks — never use `gh pr merge --admin` or the hand-built async-merge recipe in `odd/tasks/pr-queue-merge-drain.md:401-418` for a stack member. No organization or extra GitHub setting is needed: `gh` ≥ 2.90, `git` ≥ 2.20 and `gh extension install github/gh-stack` are the only prerequisites.
 
 The one limit on clause 3: **a failing characterization test is fixed in the source, never in the assertion.** Once the suite lands (M0b), it records current behaviour on purpose (`odd/tasks/cemurm-brand-landing.md` §12.1). Editing a test to go green, loosening a threshold, or adding a skip to clear a gate hides a regression. If a test genuinely encodes a wrong expectation, that is a finding to report, not to silently rewrite. The same rule governs any future test: a red test is information, not an obstacle.
 
