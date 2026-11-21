@@ -27,8 +27,22 @@ export const DASHBOARD_TOUR_STEPS = Object.freeze([
   { step: 1, element: 'Repertoire badge', instruction: 'Your song library is here', target: '/songs' },
   { step: 2, element: 'Setlist card', instruction: 'Create your first setlist', target: '/setlists' },
   { step: 3, element: 'Bandmates tab', instruction: 'Invite your collaborators', target: '/bandmates' },
-  { step: 4, element: 'Performance mode', instruction: 'Prepare for your next gig', target: '/performance' },
+  // /performance has no route; /setlists is where a musician picks a setlist
+  // to perform, matching the dashboard card's own target.
+  { step: 4, element: 'Performance mode', instruction: 'Prepare for your next gig', target: '/setlists' },
 ])
+
+// The version that introduced "Live Performance Mode". The feature tooltip is
+// shown until it has been seen on this version; a future introduction bumps it.
+export const FEATURE_TOOLTIP_VERSION = '0.1.0'
+
+/** @type {Readonly<Record<string, string>>} */
+export const ONBOARDING_CHECKLIST_LABELS = Object.freeze({
+  accountCreated: 'Account created',
+  joinedOrg: 'Joined an organization',
+  instrumentSet: 'Instrument and level set',
+  tourCompleted: 'Dashboard tour complete',
+})
 
 export const SETLIST_TOOLTIP_TEXT = 'Tap here to build your first setlist'
 export const INCOMPLETE_BANNER_TEXT = 'Complete your setup — it only takes 2 minutes'

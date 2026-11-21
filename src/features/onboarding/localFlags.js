@@ -7,6 +7,22 @@ const WALKTHROUGH_KEY = 'cem.onboarding.walkthroughDone'
 const PERFORMANCE_TOOLTIP_KEY = 'cem.onboarding.performanceTooltipSeen'
 const PENDING_INVITE_KEY = 'cem.onboarding.pendingInviteCode'
 
+function readValue(key) {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
+  } catch {
+    return null
+  }
+}
+
+function writeValue(key, value) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
+  } catch {
+    // Private mode / disabled storage: the UI still works, it just repeats.
+  }
+}
+
 function read(key) {
   try {
     return typeof localStorage !== 'undefined' && localStorage.getItem(key) === 'true'
@@ -25,8 +41,11 @@ function write(key) {
 
 export const walkthroughDone = () => read(WALKTHROUGH_KEY)
 export const markWalkthroughDone = () => write(WALKTHROUGH_KEY)
-export const performanceTooltipSeen = () => read(PERFORMANCE_TOOLTIP_KEY)
-export const markPerformanceTooltipSeen = () => write(PERFORMANCE_TOOLTIP_KEY)
+// Returns the raw stored value (a version string, or the legacy 'true') so the
+// pure version gate can decide; this module never makes that decision itself.
+export const performanceTooltipSeenVersion = () => readValue(PERFORMANCE_TOOLTIP_KEY)
+export const markPerformanceTooltipSeenVersion = (version) =>
+  writeValue(PERFORMANCE_TOOLTIP_KEY, version)
 
 export function getPendingInviteCode() {
   try {
