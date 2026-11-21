@@ -71,6 +71,12 @@ const Settings = lazy(() => import('../features/settings/pages/Settings.jsx'))
 const FeedbackTriagePage = lazy(() => import('../features/feedback-triage/pages/FeedbackTriagePage.jsx'))
 const NotFound = lazy(() => import('../features/shell/pages/NotFound.jsx'))
 const Landing = lazy(() => import('../features/landing/pages/Landing.jsx'))
+// S2 onboarding: setup wizard is lazy like every other route element; the two
+// transient tooltip wrappers are small and apply to existing pages we must not
+// edit, so they are mounted as route-level decorators around those elements.
+const Setup = lazy(() => import('../features/onboarding/pages/Setup.jsx'))
+import SetlistTooltip from '../features/onboarding/components/SetlistTooltip.jsx'
+import PerformanceTooltip from '../features/onboarding/components/PerformanceTooltip.jsx'
 // Dashboard template subtree (U3/S3, odd/tasks/gerencial-template-import.md).
 // Mounted at "dashboard" as a sibling of the app's own route subtrees: it
 // carries its own layout chrome (FullLayout), so it must NOT nest inside
@@ -131,13 +137,14 @@ const router = createBrowserRouter([
               { path: '/library', element: defer(<PublicLibrary />) },
               { path: '/moderation', element: defer(<Moderation />) },
               { path: '/profile/:userId', element: defer(<Profile />) },
-              { path: '/setlists', element: defer(<Setlists />) },
+              { path: '/setlists', element: defer(<SetlistTooltip><Setlists /></SetlistTooltip>) },
               { path: '/setlists/:id', element: defer(<SetlistDetail />) },
-              { path: '/setlists/:id/stage', element: defer(<StageMode />) },
+              { path: '/setlists/:id/stage', element: defer(<PerformanceTooltip><StageMode /></PerformanceTooltip>) },
               { path: '/gigs', element: defer(<Gigs />) },
               { path: '/gigs/:id', element: defer(<GigDetail />) },
               { path: '/bandmates', element: defer(<Bandmates />) },
               { path: '/organizations', element: defer(<Organizations />) },
+              { path: '/onboarding/setup', element: defer(<Setup />) },
               { path: '/services', element: defer(<Services />) },
               { path: '/services/:id', element: defer(<ServiceDetail />) },
               { path: '/services/:id/projection', element: defer(<Projection />) },
