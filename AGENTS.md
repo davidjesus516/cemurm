@@ -111,7 +111,7 @@ Docker, no stack, no network. `check-supabase-config.selftest.mjs` asserts all o
 the empty-value case that layer 1 calls valid.
 
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
-no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,
+no `tsc` (its `include` has no `supabase` path) and no ESLint (`eslint.config.js` ignores `supabase/`,
 whose functions target Deno rather than Node) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`.
 The glob is **quoted** on purpose — unquoted, bash expands `**` as `*` (globstar is off in Actions)
 and silently omits nested files. Still nothing in the JS gates reaches that path.
