@@ -151,7 +151,7 @@ export function useSpotifyEnrichment({ song = null, onSongUpdated = null } = {})
     if (stateRef.current !== 'suggested' || !matchRef.current) return
     setState('applying')
 
-    let applied = []
+    let applied
     let wroteValues = false
     try {
       // 1. Persist the applied values FIRST — a failure leaves the rows

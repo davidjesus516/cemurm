@@ -132,7 +132,7 @@ export function useLyricsEnrichment({ song = null, versionId = '', metadata = nu
       return
     }
 
-    let applied = []
+    let applied
     try {
       // 1. The lyrics text lands in the OPEN version's metadata FIRST — a
       // failed flip leaves the row 'suggested' so Apply can be retried.
