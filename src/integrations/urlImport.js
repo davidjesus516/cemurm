@@ -101,7 +101,7 @@ function looksLikeId(seg) {
  * @returns {string}
  */
 function deSlugify(seg) {
-  let cleaned = ''
+  let cleaned
   try {
     cleaned = decodeURIComponent(String(seg || ''))
   } catch {
@@ -169,7 +169,7 @@ export async function metadataOnlyFromUrl(rawUrl) {
 
   // Best-effort artist completion via MusicBrainz (mock by default; empty
   // when unavailable — a missing artist never fails the prefill).
-  let artist = ''
+  let artist
   try {
     const mb = /** @type {MusicBrainzResult} */ (await searchMusicBrainzMetadata({ title, artist: '' }))
     artist = mb.ok && mb.match ? mb.match.artist : ''

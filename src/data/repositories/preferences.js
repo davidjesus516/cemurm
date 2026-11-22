@@ -114,7 +114,7 @@ export async function getPreferences(userId) {
     const data = await fetchPreferences(userId)
     await offlineSet(PREF_KEY(userId), data)
     return data
-  } catch (e) {
+  } catch {
     const cached = await offlineGet(PREF_KEY(userId))
     if (cached?.data) return cached.data
     return { ...DEFAULT_PREFS }

@@ -268,7 +268,7 @@ export function conflictsForTarget(entry) {
 export async function buildImportEntries(files, userId) {
   const list = Array.isArray(files) ? files : []
   /** @type {OwnedSongRow[]} */
-  let ownedRows = []
+  let ownedRows
   try {
     ownedRows = await listOwnedSongTitles(userId)
   } catch {

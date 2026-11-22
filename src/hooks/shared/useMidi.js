@@ -55,7 +55,7 @@ export function useMidi({ autoConnect = false } = {}) {
       setPermission('granted')
       refreshOutputs(midiAccess)
       saveMidiSettings({ permissionGranted: true, outputDeviceId: loadMidiSettings().outputDeviceId })
-    } catch (e) {
+    } catch {
       setPermission('denied')
       setError('MIDI permission denied — performance mode keeps working.')
     } finally {
