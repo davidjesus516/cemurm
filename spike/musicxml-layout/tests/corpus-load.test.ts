@@ -10,13 +10,13 @@ const CORPUS = [
   { name: 'mozart-k464-menuetto', path: '/corpus/mozart-k464-menuetto.musicxml', complexity: '4-parts-instrumental' }
 ]
 
+// API real de Verovio 4.4.0: setOptions/loadData/getPageCount()/renderToSVG(page).
 describe('S3 Corpus Load Test', () => {
   let vrv: any
 
   beforeAll(async () => {
     vrv = await verovio()
-    // Configurar opciones por defecto
-    vrv.setDefaultOptions({
+    vrv.setOptions({
       adjustPageHeight: true,
       pageWidth: 1200,
       pageHeight: 1600,
@@ -27,30 +27,31 @@ describe('S3 Corpus Load Test', () => {
 
   it('should load all 5 corpus scores without crashes', async () => {
     const results = []
-    
+
     for (const score of CORPUS) {
-      try {
-        const xml = await (await fetch(score.path)).text()
-        const svg = vrv.renderToSVG(xml, {})
-        expect(svg).toContain('<svg')
-        expect(svg.length).toBeGreaterThan(1000)
-        results.push({ name: score.name, status: 'ok', svgSize: svg.length })
-      } catch (e) {
-        results.push({ name: score.name, status: 'error', error: String(e) })
-        throw new Error(`Failed to load ${score.name}: ${e}`)
-      }
+      const xml = await (await fetch(score.path)).text()
+      const loaded = vrv.loadData(xml)
+      expect(loaded).toBe(1) // Verovio devuelve 1, no `true`
+
+      const svg = vrv.renderToSVG(1)
+      expect(svg).toContain('<svg')
+      expect(svg.length).toBeGreaterThan(1000)
+
+      results.push({ name: score.name, status: 'ok', svgSize: svg.length })
     }
-    
+
     console.table(results)
   })
 
   it('should render first page for each score', async () => {
     for (const score of CORPUS) {
       const xml = await (await fetch(score.path)).text()
-      const pageCount = vrv.getPageCount(xml)
+      expect(vrv.loadData(xml)).toBe(1)
+
+      const pageCount = vrv.getPageCount()
       expect(pageCount).toBeGreaterThan(0)
-      
-      const svg = vrv.renderToSVG(xml, { page: 1 })
+
+      const svg = vrv.renderToSVG(1)
       expect(svg).toContain('<svg')
     }
   })

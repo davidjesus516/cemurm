@@ -1,0 +1,4 @@
+# Artefacto del build S3.1 (13 MB, regenerable con ./build_verovio_wasm.sh)
+wasm/
+# Clon de Verovio que crea el script de build
+verovio/
