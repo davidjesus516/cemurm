@@ -90,11 +90,15 @@ describe('S3 Performance Benchmarks', () => {
     for (const score of CORPUS) {
       const xml = corpusXML.get(score.name)!
 
+      // Una muestra = UNA transposición (subir o bajar, alternando). Antes la
+      // muestra hacía M6 y -M6 seguidas: medía dos acciones del usuario contra
+      // un umbral pensado para una, y por eso `stanford-windy-west` daba 249 ms
+      // cuando cada transposición suya cuesta ~116 ms (el coste propio de
+      // transponer, medido aparte, es 4-17 ms; el resto es la recarga).
+      let up = true
       const stats = measure(() => {
-        vrv.setOptions({ transpose: 'M6' })
-        vrv.loadData(xml)
-        vrv.renderToSVG(1)
-        vrv.setOptions({ transpose: '-M6' })
+        vrv.setOptions({ transpose: up ? 'M6' : '-M6' })
+        up = !up
         vrv.loadData(xml)
         vrv.renderToSVG(1)
       }, ITERATIONS)
