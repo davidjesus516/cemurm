@@ -14,12 +14,12 @@ import { useActiveOrgName } from '../hooks/shared/useActiveOrgName.js'
 import FeedbackForm from '../features/feedback/components/FeedbackForm.jsx'
 import { CardNav } from '../features/design/components/cardNav.jsx'
 
-// The same thirteen destinations the flat nav carried, grouped into the three
-// cards the component draws. `href` stays the route: CardNav's own anchor is
-// replaced by `renderNavLink` below, and it reads this field.
+// The same thirteen destinations the flat nav carried, plus Tasks, grouped into
+// the three cards the component draws. `href` stays the route: CardNav's own
+// anchor is replaced by `renderNavLink` below, and it reads this field.
 //
-// Coverage is 13/13 against the old `navLinks` — verified with a diff, not by
-// eye. Nothing was dropped and nothing was invented.
+// Coverage is 14/14 against the old `navLinks` plus `/tasks` — verified with a
+// diff, not by eye. Nothing was dropped and nothing was invented.
 //
 // ALL THREE SHARE `surface`. A three-step ramp (surface / elevated / hover)
 // gave each card its own weight, but the step from the bar's `base` up to
@@ -47,6 +47,7 @@ const NAV_CARDS = [
     links: [
       { label: 'Rehearsals', href: '/rehearsals', ariaLabel: 'Go to Rehearsals' },
       { label: 'Bandmates', href: '/bandmates', ariaLabel: 'Go to Bandmates' },
+      { label: 'Tasks', href: '/tasks', ariaLabel: 'Go to Tasks' },
       { label: 'Organizations', href: '/organizations', ariaLabel: 'Go to Organizations' },
       { label: 'Services', href: '/services', ariaLabel: 'Go to Services' },
     ],
