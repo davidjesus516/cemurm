@@ -1,6 +1,6 @@
 # Spike Suite Modular — Consolidated Report (Gate G2)
 
-**Fecha**: 2026-11-23T15:01:03-04:00  
+**Fecha**: 2026-11-23T16:50:31-04:00  
 **Rama**: `spike/suite-modular`  
 **Milestone**: #7  
 **Duración**: 3 semanas  
@@ -107,11 +107,11 @@ Ver: `audio-platform-config.md`
 
 | Partitura | Complejidad | Load OK | Primer Paint (p99) |
 |-----------|-------------|---------|-------------------|
-| Bach BWV 846 | Simple | N/A | N/Ams |
-| Mozart K.545 | 2 voces, Alberti | N/A | N/Ams |
-| Beethoven Op.27 | 3 pentagramas, pedal | N/A | N/Ams |
-| SATB Coral | 4 voces, lyrics | N/A | N/Ams |
-| Big Band | Transposición | N/A | N/Ams |
+| schroeter-an-laura | simple (voz + piano) | N/A | N/Ams |
+| schubert-der-zwerg | two-parts, ligaduras | N/A | N/Ams |
+| holmes-thrinodia | 3 pentagramas, 8 pedal | N/A | N/Ams |
+| stanford-windy-west | 7 voces, 335 lyrics | N/A | N/Ams |
+| mozart-k464-menuetto | 4 partes instrumentales | N/A | N/Ams |
 
 ### Performance Benchmarks
 
@@ -125,11 +125,11 @@ Ver: `audio-platform-config.md`
 
 | Partitura | Diff % | PASS |
 |-----------|--------|------|
-| Bach BWV 846 | N/A% | N/A |
-| Mozart K.545 | N/A% | N/A |
-| Beethoven Op.27 | N/A% | N/A |
-| SATB Coral | N/A% | N/A |
-| Big Band | N/A% | N/A |
+| schroeter-an-laura | N/A% | N/A |
+| schubert-der-zwerg | N/A% | N/A |
+| holmes-thrinodia | N/A% | N/A |
+| stanford-windy-west | N/A% | N/A |
+| mozart-k464-menuetto | N/A% | N/A |
 
 ### Stress Test (50 páginas)
 

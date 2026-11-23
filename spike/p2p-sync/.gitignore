@@ -1,0 +1,2 @@
+# Salida de CMake (se regenera con cmake -S . -B build)
+build/

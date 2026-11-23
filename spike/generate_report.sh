@@ -4,8 +4,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RESULTS_DIR="${1:-${SCRIPT_DIR}/../results}"
-OUTPUT_MD="${2:-${RESULTS_DIR}/spike-consolidated-report.md}"
+
+# Acepta --results/--output (lo que usa .github/workflows/spike.yml) y, por
+# compatibilidad, los dos posicionales de siempre: [results_dir] [output].
+RESULTS_DIR=""
+OUTPUT_MD=""
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --results) RESULTS_DIR="${2:?--results needs a value}"; shift 2 ;;
+    --output)  OUTPUT_MD="${2:?--output needs a value}";  shift 2 ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+RESULTS_DIR="${RESULTS_DIR:-${POSITIONAL[0]:-${SCRIPT_DIR}/results}}"
+OUTPUT_MD="${OUTPUT_MD:-${POSITIONAL[1]:-${RESULTS_DIR}/spike-consolidated-report.md}}"
 
 mkdir -p "${RESULTS_DIR}"
 
@@ -121,11 +134,11 @@ Ver: `audio-platform-config.md`
 
 | Partitura | Complejidad | Load OK | Primer Paint (p99) |
 |-----------|-------------|---------|-------------------|
-| Bach BWV 846 | Simple | {{S3_BACH_LOAD}} | {{S3_BACH_PAINT}}ms |
-| Mozart K.545 | 2 voces, Alberti | {{S3_MOZART_LOAD}} | {{S3_MOZART_PAINT}}ms |
-| Beethoven Op.27 | 3 pentagramas, pedal | {{S3_BEETHOVEN_LOAD}} | {{S3_BEETHOVEN_PAINT}}ms |
-| SATB Coral | 4 voces, lyrics | {{S3_SATB_LOAD}} | {{S3_SATB_PAINT}}ms |
-| Big Band | Transposición | {{S3_BIGBAND_LOAD}} | {{S3_BIGBAND_PAINT}}ms |
+| schroeter-an-laura | simple (voz + piano) | {{S3_BACH_LOAD}} | {{S3_BACH_PAINT}}ms |
+| schubert-der-zwerg | two-parts, ligaduras | {{S3_MOZART_LOAD}} | {{S3_MOZART_PAINT}}ms |
+| holmes-thrinodia | 3 pentagramas, 8 pedal | {{S3_BEETHOVEN_LOAD}} | {{S3_BEETHOVEN_PAINT}}ms |
+| stanford-windy-west | 7 voces, 335 lyrics | {{S3_SATB_LOAD}} | {{S3_SATB_PAINT}}ms |
+| mozart-k464-menuetto | 4 partes instrumentales | {{S3_BIGBAND_LOAD}} | {{S3_BIGBAND_PAINT}}ms |
 
 ### Performance Benchmarks
 
@@ -139,11 +152,11 @@ Ver: `audio-platform-config.md`
 
 | Partitura | Diff % | PASS |
 |-----------|--------|------|
-| Bach BWV 846 | {{S3_BACH_DIFF}}% | {{S3_BACH_DIFF_PASS}} |
-| Mozart K.545 | {{S3_MOZART_DIFF}}% | {{S3_MOZART_DIFF_PASS}} |
-| Beethoven Op.27 | {{S3_BEETHOVEN_DIFF}}% | {{S3_BEETHOVEN_DIFF_PASS}} |
-| SATB Coral | {{S3_SATB_DIFF}}% | {{S3_SATB_DIFF_PASS}} |
-| Big Band | {{S3_BIGBAND_DIFF}}% | {{S3_BIGBAND_DIFF_PASS}} |
+| schroeter-an-laura | {{S3_BACH_DIFF}}% | {{S3_BACH_DIFF_PASS}} |
+| schubert-der-zwerg | {{S3_MOZART_DIFF}}% | {{S3_MOZART_DIFF_PASS}} |
+| holmes-thrinodia | {{S3_BEETHOVEN_DIFF}}% | {{S3_BEETHOVEN_DIFF_PASS}} |
+| stanford-windy-west | {{S3_SATB_DIFF}}% | {{S3_SATB_DIFF_PASS}} |
+| mozart-k464-menuetto | {{S3_BIGBAND_DIFF}}% | {{S3_BIGBAND_DIFF_PASS}} |
 
 ### Stress Test (50 páginas)
 
