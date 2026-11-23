@@ -32,7 +32,10 @@ on:
   push:
     branches: [spike/suite-modular]
   pull_request:
-    branches: [spike/suite-modular]
+    # `branches` filtra la rama BASE, no la head: con [spike/suite-modular]
+    # nunca disparaba, porque la PR va contra main. Eso dejaba muerto el paso
+    # "Comment on PR with summary" del informe.
+    branches: [main]
   workflow_dispatch:
     inputs:
       spike:
@@ -284,7 +287,9 @@ jobs:
   s2-failover:
     name: S2 Maestro Failover
     if: "needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S2'"
-    needs: [plan, s2-heartbeat]
+    # No consume nada de heartbeat: colgarlo de ahí hacía que un drift fallido
+    # ocultara también el resultado del failover.
+    needs: [plan]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
