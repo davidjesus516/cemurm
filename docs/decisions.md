@@ -4,15 +4,15 @@ Records for decisions **already made and in force** in this repository — the r
 `odd/tasks/*.md` deliberately does not carry (it records *what* was done and how it was verified,
 not *why* the shape was chosen). When a decision changes, edit its status; do not delete it.
 
-**Numbering:** `ADR-001` … `ADR-011`, assigned by theme, not chronology. Note that
+**Numbering:** `ADR-001` … `ADR-012`, assigned by theme, not chronology. Note that
 `tsconfig.json`, `docs/master-plan.md` and `odd/tasks/cemurm-education-audit.md` all refer to an
 "ADR 0002" for the layer boundaries — that document **never existed in the tree**
 (`docs/master-plan.md` §5b: "ADR 0002 absent from the repo"). `ADR-010` below is its first
 in-tree record; the older references are the same decision.
 
-**Status vocabulary:** *Accepted* = in force today and verified against the code. Every ADR here
-was checked against the current tree before being written; where a claim could not be verified it
-says so in Consequences.
+**Status vocabulary:** *Accepted* = in force today and verified against the code. *Superseded* =
+replaced by a later ADR, kept for the rationale it records. Every ADR here was checked against the
+current tree before being written; where a claim could not be verified it says so in Consequences.
 
 ---
 
@@ -231,9 +231,8 @@ says so in Consequences.
 
 ### ADR-011 — Moodle owns academic management; CEMURM integrates it
 
-- **Status:** Accepted as a product decision (2026-10-20). **Not implemented** — Hito 8 has not
-  started, so unlike every other ADR here this one is not yet verified against the tree. Its first
-  unit, 8-0, exists precisely to verify that the platform supports what the decision assumes.
+- **Status:** Superseded by ADR-012 (2026-11-14). Kept for its rationale; the decision is no longer
+  in force.
 - **Date:** 2026-10-20
 - **Context:** The academy's eleven requirements include academic management: courses, exercises,
   online quizzes and assessments, grades, pedagogical feedback, student progress and activity
@@ -270,3 +269,69 @@ says so in Consequences.
   not closed. One claim remains unverified and is gated by 8-0: that `enrol_lti` publishes a course
   as an **LTI 1.3** tool. If it does not, the embedded path collapses to SSO plus a separate tab;
   the ownership model in this ADR does not change.
+
+---
+
+### ADR-012 — Native institutional and educational modules inside CEMURM
+
+- **Status:** Accepted (2026-11-14). Supersedes ADR-011. **Not implemented** — F0 is documentation
+  only; the first code unit is F1 (membership RPCs), which is still a prerequisite for everything
+  else.
+- **Date:** 2026-11-14
+- **Context:** The academy's eleven requirements (twenty-one detailed) cover courses, offerings,
+  enrollment, sessions, materials, exercises, progress, observations, evaluations, grades,
+  institutional activities, inventory, loans and institutional reports. Four Gherkin files already
+  specify part of the education surface — 67 scenarios across `education-courses-and-exercises`
+  (13), `education-enrollment` (21), `education-student-progress` (20) and
+  `education-teaching-assignments` (13) — with no implementation behind them. The original schema
+  (`0001_init.sql`) was written with 44 entities and `organizations.org_type` accepting `'Academy'`,
+  `'Church'` and `'Orchestra'`: the institutional scope was designed in from the start and only
+  partially built in Hitos 1–5. A twelve-candidate evaluation ranked a native Supabase build
+  highest (4.35/5) against Moodle (1.95/5), because completion is a single transaction that has to
+  join the offline outbox and because no external system can own a section selector over
+  `song_versions.section_context`. ADR-011 chose Moodle anyway, optimizing for maintenance load
+  over integration purity. That choice leaves the person duplicated in two systems, makes offline
+  academic work asymmetric, and turns the 67 existing scenarios from product truth into something
+  Hito 8-1 would have to rewrite against a foreign owner.
+- **Decision:** Build the institutional and educational surface **natively**, in the same
+  repository, the same local Supabase project, the same database and the same deployment, as four
+  modular, optional, organization-scoped capability areas: education, institutional activities,
+  inventory, and institutional administration/reporting. The musical core (repertoire, setlists,
+  stage mode, collaboration, offline) is unchanged and keeps working with every institutional module
+  disabled. The academic core is **13 tables plus 3 conditional ones**, introduced in phases F1–F7
+  and indexed in `docs/database-schema-ampliacion.md` §9; F0 is the documentation/ADR record and F8
+  is reporting over the completed modules. Enrollment targets an **offering** (course + academic
+  period + group + branch + optional instructor), not a course directly (decision B1).
+  `org_memberships` gains its missing writers through `SECURITY DEFINER` RPCs first (decision T3):
+  it currently has `grant select` only (`0016:552`) and the sole writer is the self-only
+  `private.org_leave` (`0016:437`). Gamification (XP ledger, streak, daily goal) is conserved (B2);
+  formal evaluations and grades are included now (B3); minors keep the guardian-consent flow,
+  extended with an `educational_data_access` permission (B4); module activation defaults on per
+  organization (B7); and the decisions D1–D5 recorded in
+  `odd/tasks/education-institutional-decisions.md` are resolved as written there.
+- **Alternatives:** (a) Keep ADR-011 — Moodle as the system of record for courses, enrollment and
+  grades, with CEMURM integrating it; (b) Canvas LMS — the best incumbent API (`graded_since`, Grade
+  Change Log, LTI Advantage) but heavier to self-host; (c) Frappe LMS — the leanest self-host
+  surface of the twelve; (d) a hybrid — native musical exercise, external LMS for the gradebook;
+  (e) no LMS, defer the academic area.
+- **Reason:** The native build was the evaluation's top-ranked option for the same two reasons it
+  still holds: academic completion has to be one transaction that can join the offline outbox, and
+  an external LMS cannot own the section selector over `song_versions.section_context` that anchors
+  an exercise to a song. Splitting the seam duplicates identity, adds a PHP runtime, a second
+  database, a twice-yearly upgrade cycle and a data-processing agreement for minors' data. The 67
+  `education-*` scenarios are product truth, and ADR-011 explicitly turned them into 8-1's rewrite
+  target; ADR-012 keeps them and extends them. ADR-011 weighed time-to-value against integration
+  cost, and that weighing is exactly what this ADR reverses, with the reversal recorded rather than
+  rationalized.
+- **Consequences:** Positive — one identity, one database, one offline queue; the academic surface
+  inherits RLS and the existing BDD instead of rewriting it; no external processor for minors'
+  educational data; each phase is independently reversible without touching the musical catalog.
+  Tradeoffs, accepted: CEMURM now owns the LMS-shaped surface (question banks and gradebook are no
+  longer someone else's product); `org_memberships` needs writers before any enrollment can exist,
+  which makes F1 a hard blocker; the migration numbering is contested (the next free number is
+  `0047` at the time of writing, but PR #451 claims it — re-count at implementation, T6); and every
+  new table must ship RLS, directed grants and a smoke test, because no CI gate reaches SQL. F2
+  (module activation) is enforced in UI/routes plus an RPC guard, deliberately **not** in RLS (T5),
+  so it is a product gate and not a security boundary. Hito 6 is untouched and runs in parallel;
+  the institutional phases start after it. ADR-011 remains in this file as history, not as a live
+  decision.
