@@ -10,12 +10,14 @@
 | 4    | 7–8    | Basic Community    |
 | 5    | 9–10   | Integrations       |
 | 6    | 11–12  | Beta Polish        |
+| 7    | post-beta | Identity & Org Admin (F1) |
+| 8    | post-beta | Education & Institutional (F3–F8, ADR-012) |
 
 ---
 
 ## Feature → Hito Mapping
 
-Forty-two of the 46 BDD features (`features/*.feature` — 734 scenarios in total) are assigned to a hito; two features are documented splits (see below). The four `education-*` features (`education-courses-and-exercises`, `education-enrollment`, `education-student-progress`, `education-teaching-assignments`, 67 scenarios) are **not assigned to any hito yet** — they await a scope decision. Assignments follow dependency logic: a feature ships in the same or a later hito than the features it depends on; prerequisites land early; tightly-coupled surfaces are grouped. `practice-mode` is the only feature split across hitos by *surface slice* — Hito 1 ships a thin practice-view slice, the full surface (metronome, auto-scroll, session tracking) is Hito 3. `song-lifecycle` is partially split by *scenario class*: Hito 1 covers the state-model scenarios (draft/ready/retired/deleted), and the version-history/rollback and duplicate/merge scenarios are deferred to Hito 3 — same feature file, two maturity tiers (see Hito 1 and Hito 3 notes).
+Forty-six of the 48 BDD features (`features/*.feature` — 776 scenarios in total) are assigned to a hito; `feedback-triage` and `internal-operations-console` are not assigned yet. Two features are documented splits (see below). The four `education-*` features (`education-courses-and-exercises`, `education-enrollment`, `education-student-progress`, `education-teaching-assignments`, 67 scenarios) are **assigned to Hito 8** as a native expansion under ADR-012 — the scope decision is closed, not pending. Assignments follow dependency logic: a feature ships in the same or a later hito than the features it depends on; prerequisites land early; tightly-coupled surfaces are grouped. `practice-mode` is the only feature split across hitos by *surface slice* — Hito 1 ships a thin practice-view slice, the full surface (metronome, auto-scroll, session tracking) is Hito 3. `song-lifecycle` is partially split by *scenario class*: Hito 1 covers the state-model scenarios (draft/ready/retired/deleted), and the version-history/rollback and duplicate/merge scenarios are deferred to Hito 3 — same feature file, two maturity tiers (see Hito 1 and Hito 3 notes).
 
 ### Hito 1 — Core Viewer + Auth
 - `authentication-and-profiles`
@@ -71,6 +73,17 @@ Forty-two of the 46 BDD features (`features/*.feature` — 734 scenarios in tota
 - `analytics-and-insights`
 - `export-and-sharing`
 - `cross-organization-event-collaboration` (advanced cross-org coordination; depends on org + service + performance bases from Hito 4/5)
+
+### Hito 7 — Identity & Org Admin (F1)
+- `organization-members` (member roster, role changes, soft removal — ADR-012 F1; the three membership RPCs are the prerequisite for all enrollment)
+
+### Hito 8 — Education & Institutional (F3–F8, ADR-012)
+- `education-courses-and-exercises` (courses, offerings, exercises, optional song anchor)
+- `education-enrollment` (offering-targeted enrollment; the 21 scenarios are rewritten in F3)
+- `education-student-progress` (XP ledger, streak, daily goal — conserved by B2)
+- `education-teaching-assignments` (formal evaluations, grades and assignment of work)
+- `education-structure`, `education-sessions`, `education-materials`, `education-followup`, `inventory-assets`, `inventory-loans` (new files shipped per phase; ~110 scenarios)
+- `analytics-and-insights` (rewritten from personal to institutional in F8)
 
 ---
 
@@ -327,6 +340,80 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 
 ---
 
+## Hito 7 — Identity & Org Admin (post-beta, F1)
+
+**Implementation status: not started.** This is the hinge of the institutional expansion (ADR-012):
+`org_memberships` has `grant select` only (`0016:552`) and the sole writer is the self-only
+`private.org_leave` (`0016:437`), so no screen can add a member, change a role or remove a third
+party today.
+
+### Objectives
+- Give organizations the three missing membership mutations through `SECURITY DEFINER` RPCs
+- Record every membership decision in `admin_audit_log`
+- Make the roster and account status administrable from the UI
+
+### Deliverables
+- [ ] Private cores `add_org_member_core`, `change_member_role_core`, `remove_org_member_core` plus thin public wrappers
+- [ ] `admin_audit_log` (append-only) and the `org_memberships.role` CHECK
+- [ ] `profiles.account_status`, `profiles.created_at` and `FORCE ROW LEVEL SECURITY` on the tables the phase touches
+- [ ] `/organization/members` and `/settings/accounts`
+- [ ] Smoke `scripts/smoke/<número>-identity.sql` (the filename takes the migration number; it is contested, see `docs/database-schema-ampliacion.md` §9)
+
+### BDD coverage
+Membership administration is specified by the new `features/organization-members.feature` (~12
+scenarios): roster by branch, role filter, role change, reactivation of a `former` member and the
+three separation-of-duties negatives. BDD lands before the migration (entry rule).
+
+### Estimated Team Effort
+- 1 full-stack developer (full-time, 4–6 weeks)
+- 0.25 backend developer (part-time — smoke tests, RLS review)
+
+---
+
+## Hito 8 — Education & Institutional (post-beta, F3–F8)
+
+**Implementation status: not started.** ADR-012 replaces the Moodle integration (ADR-011): the
+academic surface is built natively, org-scoped, on the same database and offline queue. Hito 8 is
+F3–F8. Its prerequisite F2 (Module Activation) is not assigned a hito of its own: it is built at
+the opening of Hito 8, because F3 cannot be gated without `organization_modules` (`module_key`
+values from decision D5: `education`, `sessions`, `materials`, `observations`, `inventory`).
+
+### Objectives
+- Build the academic core: periods, courses, offerings, enrollment, exercises, progress, XP ledger, evaluations and grades
+- Add class sessions and spaces, extending the existing `events` table instead of duplicating a calendar
+- Attach materials through the org-scoped `education_materials` bucket (D4) and record pedagogical observations
+- Add inventory, loans and (conditionally) inter-branch movements
+- Rewrite analytics from personal to institutional
+
+### Deliverables
+- [ ] F3: `academic_periods`, `education_courses`, `education_subjects` (conditional), `education_course_offerings`, `education_enrollments`, `education_exercises`, `education_progress`, `education_events`, `education_evaluations`, `education_grades` + enrollment RPCs T4
+- [ ] F4: `spaces`, `education_sessions`, `recurrence_patterns` (D2) and the `events` extension (`academic_type`, `space_id`, `recurrence_rule`, `session_number`)
+- [ ] F5: `education_materials` + the org-scoped bucket
+- [ ] F6: `education_observations` (per-observation visibility, D3) and the guardian-consent extension (`educational_data_access`, `expires_at`, D1)
+- [ ] F7: `inventory_asset_types`, `inventory_assets`, `inventory_loans`, `inventory_movements` (conditional)
+- [ ] F8: institutional analytics views/RPCs (zero tables) and the rewritten analytics feature
+
+### BDD coverage
+The 67 existing scenarios in the four `education-*` files stay product truth and are extended,
+not discarded. New/rewritten files by phase: `education-structure` (~15) and
+`education-enrollment` (21, rewritten) in F3; `education-sessions` (~20) in F4;
+`education-materials` (~12) in F5; `education-followup` (~15) in F6; `inventory-assets` and
+`inventory-loans` (~15 each) in F7; `analytics-and-insights` (~30, rewritten from personal to
+institutional) in F8. `education-courses-and-exercises`, `education-student-progress` and
+`education-teaching-assignments` are implemented as written in F3. Total: ~160 scenarios across
+~10 new/rewritten files.
+
+### Dependencies
+Hito 7 (membership RPCs) is a hard prerequisite for enrollment; F2 is a hard prerequisite for F3
+(module gating); F3 precedes F4, F5 and F6; F7 depends on F1/F2 and on `spaces` (F4) for asset
+location; F8 depends on F3–F7 being complete.
+
+### Estimated Team Effort
+- 1 full-stack developer (full-time, 16–20 weeks across F2–F8)
+- 0.5 backend developer (part-time — RLS, RPCs, smoke tests)
+
+---
+
 ## Milestone Summary
 
 | Hito | Duration | Key Milestone | Success Criteria |
@@ -337,6 +424,8 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 | 4 | 2 months | Community | Public library exists, users can contribute and discover |
 | 5 | 2 months | Integrations | MIDI control, external display, OBS overlay work |
 | 6 | 2 months | Beta Ready | App is polished, documented, and ready for public beta |
+| 7 | post-beta | Membership Admin | An org admin can add, re-role and remove members without direct table writes |
+| 8 | post-beta | Education & Institutional | Courses, offerings, enrollment, sessions, materials, follow-up, evaluations, inventory and institutional reports work org-scoped |
 
 ---
 
@@ -379,3 +468,5 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 - **Hito 4 — Basic Community: complete.** Public library (S4.1 #125–#127), contributions/profiles/follows (S4.2 #131/#136), music theory (#137), community moderation (#138), org repertoire (#139), minors & guardian consent, service planning, and rehearsal workflow are merged on main (migrations through `0019_rehearsal_workflow.sql`). The URL-importer deliverable is not shipped — it rides Hito 5's integrations surface.
 - **Hito 5 — Integrations: complete.** All ten features are merged on `main`: migrations `0023`–`0033` plus the renumbered `0034`/`0035` (`main` carries 33 files numbered `0001`–`0035`). Plan-freeze landed via #192/#193 (as `0034_plan_freeze.sql` since #344), congregation projection via #181/#182/#186/#188/#189 (as `0035_projection.sql` since #344), in-app feedback via #190/#191/#228 (as `0033_feedback.sql` after two renumberings), and the earlier `0023`–`0028` run via #147/#148/#155/#156/#159/#165. ODD execution records exist in `odd/tasks/hito5-*.md`; the one gap is `external-display`, which has no ODD record yet. Deliverable-level caveats: the Spotify/MusicBrainz/LRCLIB clients run against a deterministic **mock** until live flags are set, and the OBS overlay is token-gated with no deploy pipeline behind it.
 - **Hito 6 — Beta Polish: not started.** No implementation for any of its six features. Planned for months 11–12; `docs/master-plan.md` §4 sequences it by privacy obligation first (`offboarding-cascade`, `account-data-export-and-erasure`).
+- **Hito 7 — Identity & Org Admin: not started.** ADR-012 F1. The membership RPCs (`add_org_member`, `change_member_role`, `remove_org_member`), `admin_audit_log` and `/organization/members` are the prerequisite for every enrollment path.
+- **Hito 8 — Education & Institutional: not started.** ADR-012 F3–F8 (with F2 as its opening prerequisite). No migration, no bucket and no institutional UI exists yet; `docs/database-schema-ampliacion.md` is specification, not applied code.
