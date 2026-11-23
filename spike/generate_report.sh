@@ -7,12 +7,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RESULTS_DIR="${1:-${SCRIPT_DIR}/../results}"
 OUTPUT_MD="${2:-${RESULTS_DIR}/spike-consolidated-report.md}"
 
+mkdir -p "${RESULTS_DIR}"
+
 echo "=== Generating consolidated spike report ==="
 
 cat > "${OUTPUT_MD}" << 'EOF'
 # Spike Suite Modular — Consolidated Report (Gate G2)
 
-**Fecha**: $(date -Iseconds)  
+**Fecha**: {{DATE}}  
 **Rama**: `spike/suite-modular`  
 **Milestone**: #7  
 **Duración**: 3 semanas  
@@ -192,6 +194,8 @@ EOF
 # Rellenar placeholders con datos reales de los CSVs
 echo "Rellenando placeholders desde resultados..."
 
+sed -i "s|{{DATE}}|$(date -Iseconds)|" "${OUTPUT_MD}"
+
 # S1 - Audio
 for platform in ios android windows macos; do
   CSV="${RESULTS_DIR}/audio-core-latency-${platform}.csv"
@@ -249,10 +253,26 @@ for platform in IOS ANDROID WINDOWS MACOS; do
     S1_ALL_PASS=false
   fi
 done
-S1_STATUS=$(if $S1_ALL_PASS; then echo "✅ PASS"; else echo "❌ FAIL"; fi)
-S1_DECISION=$(if $S1_ALL_PASS; then echo "Go Fase 1"; else echo "Revisar / Partial"; fi)
-sed -i "s/{{S1_STATUS}}/${S1_STATUS}/g" "${OUTPUT_MD}"
-sed -i "s/{{S1_DECISION}}/${S1_DECISION}/g" "${OUTPUT_MD}"
+
+# Sin CSV no hay veredicto: la ausencia de medidas no es un PASS.
+S1_PLATFORMS=0
+for platform in ios android windows macos; do
+  if [ -f "${RESULTS_DIR}/audio-core-latency-${platform}.csv" ]; then
+    S1_PLATFORMS=$((S1_PLATFORMS + 1))
+  fi
+done
+if [ "${S1_PLATFORMS}" -lt 4 ]; then
+  S1_STATUS="🟡 PENDING"
+  S1_DECISION="Sin CSV (${S1_PLATFORMS}/4 plataformas)"
+elif $S1_ALL_PASS; then
+  S1_STATUS="✅ PASS"
+  S1_DECISION="Go Fase 1"
+else
+  S1_STATUS="❌ FAIL"
+  S1_DECISION="Revisar / Partial"
+fi
+sed -i "s|{{S1_STATUS}}|${S1_STATUS}|g" "${OUTPUT_MD}"
+sed -i "s|{{S1_DECISION}}|${S1_DECISION}|g" "${OUTPUT_MD}"
 
 # S2 - Parse results (simplificado - en real parsear CSVs)
 # Por ahora marcamos como PENDING
@@ -262,7 +282,7 @@ sed -i 's/{{S3_STATUS}}/🟡 PENDING/g' "${OUTPUT_MD}"
 sed -i 's/{{S3_DECISION}}/Pendiente resultados/g' "${OUTPUT_MD}"
 
 # Global decision
-sed -i 's/{{GLOBAL_DECISION}}/🟡 PENDING — Requiere resultados S2/S3/g' "${OUTPUT_MD}"
+sed -i 's|{{GLOBAL_DECISION}}|🟡 PENDING — Requiere resultados S2/S3|g' "${OUTPUT_MD}"
 sed -i 's/{{GLOBAL_DECISION_REASON}}/Esperando completación de todos los spikes/g' "${OUTPUT_MD}"
 sed -i 's/{{PARTIAL_SCOPE}}/TBD tras G2/g' "${OUTPUT_MD}"
 
@@ -284,6 +304,6 @@ sed -i 's/{{EST_WS_WEEKS}}/TBD/g' "${OUTPUT_MD}"
 sed -i 's/{{EST_WS_RISK}}/TBD/g' "${OUTPUT_MD}"
 
 # Limpiar placeholders restantes
-sed -i 's/{{[A-Z_]*}}/N\/A/g' "${OUTPUT_MD}"
+sed -i 's/{{[A-Z0-9_]*}}/N\/A/g' "${OUTPUT_MD}"
 
 echo "=== Reporte consolidado generado en ${OUTPUT_MD} ==="
