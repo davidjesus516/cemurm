@@ -5,9 +5,15 @@
  * vez que recibe el anuncio de un nodo distinto.
  *
  * Uso: discovery_test --node-id <id> --port <puerto_servicio> --log <path>
+ *                     [--iface <ip>]
  *
  * El script test_discovery.sh lanza N instancias en localhost con
  * puertos 5001..500N y espera N*(N-1) descubrimientos mutuos.
+ *
+ * La interfaz multicast por defecto es loopback (127.0.0.1): el harness
+ * es localhost y el grupo debe unirse y enviarse por la misma interfaz,
+ * con IP_MULTICAST_LOOP activo, para que los nodos del mismo host se
+ * reciban. Para probar entre máquinas: --iface <ip-de-LAN>.
  */
 
 #include <stdio.h>
@@ -30,6 +36,7 @@ int main(int argc, char *argv[])
 	const char *node_id = "node";
 	int service_port = 5000;
 	const char *log_path = "discovery.log";
+	const char *iface = "127.0.0.1";
 
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--node-id") == 0 && i + 1 < argc)
@@ -38,7 +45,10 @@ int main(int argc, char *argv[])
 			service_port = atoi(argv[++i]);
 		else if (strcmp(argv[i], "--log") == 0 && i + 1 < argc)
 			log_path = argv[++i];
+		else if (strcmp(argv[i], "--iface") == 0 && i + 1 < argc)
+			iface = argv[++i];
 	}
+	(void)service_port; /* el descubrimiento usa el puerto fijo del grupo */
 
 	FILE *log = fopen(log_path, "w");
 	if (!log) { perror("fopen log"); return 1; }
@@ -59,11 +69,11 @@ int main(int argc, char *argv[])
 		perror("bind"); close(sock); fclose(log); return 1;
 	}
 
-	/* Unirse al grupo multicast */
+	/* Unirse al grupo en la interfaz indicada */
 	struct ip_mreq mreq;
 	memset(&mreq, 0, sizeof(mreq));
 	mreq.imr_multiaddr.s_addr = inet_addr(MCAST_ADDR);
-	mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+	mreq.imr_interface.s_addr = inet_addr(iface);
 	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
 		perror("setsockopt IP_ADD_MEMBERSHIP"); close(sock); fclose(log); return 1;
 	}
@@ -71,10 +81,13 @@ int main(int argc, char *argv[])
 	/* Socket de envío */
 	int tx = socket(AF_INET, SOCK_DGRAM, 0);
 	if (tx < 0) { perror("socket tx"); close(sock); fclose(log); return 1; }
+	struct in_addr if_addr;
+	if_addr.s_addr = inet_addr(iface);
 	int ttl = 1;
 	setsockopt(tx, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
-	int loop = 0; /* no recibir nuestros propios anuncios */
+	int loop = 1; /* entregar también a los nodos del propio host */
 	setsockopt(tx, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
+	setsockopt(tx, IPPROTO_IP, IP_MULTICAST_IF, &if_addr, sizeof(if_addr));
 
 	struct sockaddr_in dst;
 	memset(&dst, 0, sizeof(dst));

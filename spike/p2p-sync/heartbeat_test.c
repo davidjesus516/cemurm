@@ -12,6 +12,8 @@
  *                                   --output out.slave.csv --node-id slave1
  *
  * El script test_heartbeat.sh lanza 1 master + 2 slaves y combina los CSVs.
+ * La interfaz multicast por defecto es loopback (127.0.0.1); para probar
+ * entre máquinas: --iface <ip-de-LAN>.
  */
 
 #include <stdio.h>
@@ -45,6 +47,7 @@ int main(int argc, char *argv[])
 	const char *output = "heartbeat.csv";
 	const char *master_ip = "127.0.0.1";
 	const char *node_id = "master";
+	const char *iface = "127.0.0.1";
 
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--role") == 0 && i + 1 < argc)
@@ -57,6 +60,8 @@ int main(int argc, char *argv[])
 			master_ip = argv[++i];
 		else if (strcmp(argv[i], "--node-id") == 0 && i + 1 < argc)
 			node_id = argv[++i];
+		else if (strcmp(argv[i], "--iface") == 0 && i + 1 < argc)
+			iface = argv[++i];
 	}
 
 	signal(SIGINT, handle_signal);
@@ -73,12 +78,16 @@ int main(int argc, char *argv[])
 	int reuse = 1;
 	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
+	struct in_addr if_addr;
+	if_addr.s_addr = inet_addr(iface);
+
 	if (strcmp(role, "master") == 0) {
 		/* Envío de heartbeats multicast cada 20 ms */
-		int loop = 0;
-		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
 		int ttl = 1;
 		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+		int loop = 1; /* los esclavos del propio host también deben recibir */
+		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
+		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, &if_addr, sizeof(if_addr));
 
 		struct sockaddr_in dst;
 		memset(&dst, 0, sizeof(dst));
@@ -112,8 +121,10 @@ int main(int argc, char *argv[])
 		struct ip_mreq mreq;
 		memset(&mreq, 0, sizeof(mreq));
 		mreq.imr_multiaddr.s_addr = inet_addr(MCAST_ADDR);
-		mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-		setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+		mreq.imr_interface.s_addr = if_addr.s_addr;
+		if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+			perror("setsockopt IP_ADD_MEMBERSHIP"); close(sock); fclose(csv); return 1;
+		}
 
 		char buf[128];
 		struct sockaddr_in src;

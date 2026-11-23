@@ -13,6 +13,8 @@
  *
  * El script test_failover.sh lanza 1 master + 2 slaves, mata al maestro
  * con SIGKILL tras 5 s y mide el gap hasta que un nuevo maestro emite.
+ * La interfaz multicast por defecto es loopback (127.0.0.1); para probar
+ * entre máquinas: --iface <ip-de-LAN>.
  */
 
 #include <stdio.h>
@@ -46,6 +48,7 @@ int main(int argc, char *argv[])
 	const char *output = "failover.csv";
 	const char *master_ip = "127.0.0.1";
 	const char *node_id = "master";
+	const char *iface = "127.0.0.1";
 
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--role") == 0 && i + 1 < argc)
@@ -56,6 +59,8 @@ int main(int argc, char *argv[])
 			master_ip = argv[++i];
 		else if (strcmp(argv[i], "--node-id") == 0 && i + 1 < argc)
 			node_id = argv[++i];
+		else if (strcmp(argv[i], "--iface") == 0 && i + 1 < argc)
+			iface = argv[++i];
 	}
 
 	(void)master_ip; /* multicast: no hay IP de maestro fija */
@@ -78,11 +83,15 @@ int main(int argc, char *argv[])
 	int seq = 0;
 	double last_hb_received = now_seconds();
 
+	struct in_addr if_addr;
+	if_addr.s_addr = inet_addr(iface);
+
 	if (is_master) {
-		int loop = 0;
-		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
 		int ttl = 1;
 		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+		int loop = 1; /* los esclavos del propio host también deben recibir */
+		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
+		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, &if_addr, sizeof(if_addr));
 	} else {
 		struct sockaddr_in addr;
 		memset(&addr, 0, sizeof(addr));
@@ -96,8 +105,10 @@ int main(int argc, char *argv[])
 		struct ip_mreq mreq;
 		memset(&mreq, 0, sizeof(mreq));
 		mreq.imr_multiaddr.s_addr = inet_addr(MCAST_ADDR);
-		mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-		setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+		mreq.imr_interface.s_addr = if_addr.s_addr;
+		if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+			perror("setsockopt IP_ADD_MEMBERSHIP"); close(sock); fclose(csv); return 1;
+		}
 	}
 
 	struct sockaddr_in dst;
@@ -117,8 +128,7 @@ int main(int argc, char *argv[])
 			/* Emitir heartbeat cada 20 ms */
 			char msg[64];
 			int len = snprintf(msg, sizeof(msg), "HB %d %.6f", seq, now);
-			sendto(sock, msg, (size_t)len, 0,
-			       (struct sockaddr *)&dst, sizeof(dst));
+			sendto(sock, msg, (size_t)len, 0, (struct sockaddr *)&dst, sizeof(dst));
 			fprintf(csv, "master,%s,%d,%.6f\n", node_id, seq, now);
 			fflush(csv);
 			seq++;
@@ -145,10 +155,9 @@ int main(int argc, char *argv[])
 				if (silent > FAILOVER_TIMEOUT_US && !is_master) {
 					fprintf(stderr, "[%s] maestro caído, asumiendo liderazgo\n", node_id);
 					is_master = 1;
-					int loop = 0;
-					setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
 					int ttl = 1;
 					setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+					setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, &if_addr, sizeof(if_addr));
 					seq = 0;
 					last_hb_received = now_seconds();
 					continue;
