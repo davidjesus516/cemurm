@@ -1,10 +1,30 @@
 # Spike Suite Modular — CI Workflow
 #
-# Matrix por spike (S1/S2/S3) y dispositivo (iOS/Android/Windows).
-# Requiere self-hosted runners etiquetados: spike-ios, spike-android, spike-windows
-# Artifacts → spike/results/ (retención 90 días)
+# Qué corre en cada evento (esto es lo que estaba roto: ver la nota de abajo):
 #
-# Uso: push a rama spike/suite-modular o manual workflow_dispatch
+#   push / pull_request   → `plan` + S2 software (discovery, heartbeat, failover)
+#                           + `spike-report` (Gate G2). Es todo lo que un runner
+#                           estándar de GitHub puede ejecutar de verdad.
+#   workflow_dispatch     → además, lo que se seleccione con `spike`, con
+#                           `hardware: true` para los jobs que necesitan
+#                           dispositivos o un router con netem.
+#
+# Los jobs S1/S3 y los de dispositivo siguen existiendo, pero **no** pretenden
+# correr en un runner alojado: S1 necesita hardware real (iOS/Android/Windows/
+# macOS), S2-netem necesita un linux-router con `tc`, y S3 necesita el toolchain
+# de emscripten y un Verovio nativo compilado. Se seleccionan a mano.
+#
+# Nota histórica: antes cada job llevaba
+#   if: github.event.inputs.spike == 'all' || ... == 'S1'
+# y `github.event.inputs` está vacío fuera de `workflow_dispatch`, así que en
+# push/PR **todos** los jobs se saltaban — incluido el informe G2, que por eso
+# nunca llegó a ejecutarse en una PR. El job `plan` existe para evaluar la
+# selección una sola vez y publicarla como output, que sí es legible desde el
+# `if` de cualquier otro job.
+#
+# Self-hosted runners esperados por los jobs manuales: spike-ios, spike-android,
+# spike-windows, spike-macos, spike-linux-router.
+# Artifacts → spike/results/ (retención 90 días)
 
 name: Spike Suite Modular
 
@@ -27,6 +47,16 @@ on:
         default: 'all'
         type: choice
         options: [ios, android, windows, all]
+      hardware:
+        description: 'Ejecutar también los jobs que requieren hardware self-hosted'
+        required: false
+        default: false
+        type: boolean
+      provision:
+        description: 'Provisionar el hardware de prueba (Ansible) en vez de medir'
+        required: false
+        default: false
+        type: boolean
 
 env:
   SPIKE_ROOT: ${{ github.workspace }}/spike
@@ -35,11 +65,29 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────────
-  # S1 — Audio Core (Capa 2A)
+  # Plan — qué se puede ejecutar en este evento
+  # ─────────────────────────────────────────────────────────────────
+  plan:
+    name: Plan — selección de spike
+    runs-on: ubuntu-latest
+    outputs:
+      spike: ${{ steps.pick.outputs.spike }}
+      hardware: ${{ steps.pick.outputs.hardware }}
+    steps:
+      - id: pick
+        name: Resolve target
+        run: |
+          # En push/pull_request no hay inputs: el default es 'all' sin hardware.
+          echo "spike=${{ github.event.inputs.spike || 'all' }}" >> "$GITHUB_OUTPUT"
+          echo "hardware=${{ github.event.inputs.hardware || 'false' }}" >> "$GITHUB_OUTPUT"
+
+  # ─────────────────────────────────────────────────────────────────
+  # S1 — Audio Core (Capa 2A) — requiere hardware
   # ─────────────────────────────────────────────────────────────────
   s1-build:
     name: S1 Build — ${{ matrix.platform }}
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S1')"
+    needs: plan
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -79,8 +127,8 @@ jobs:
 
   s1-loopback:
     name: S1 Loopback Test — ${{ matrix.device }}
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
-    needs: s1-build
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S1')"
+    needs: [plan, s1-build]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
@@ -116,8 +164,8 @@ jobs:
 
   s1-interruptions:
     name: S1 Interruptions Test — ${{ matrix.device }}
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
-    needs: s1-build
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S1')"
+    needs: [plan, s1-build]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -153,8 +201,8 @@ jobs:
 
   s1-config-doc:
     name: S1 Platform Config Doc
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S1'
-    needs: [s1-build, s1-loopback, s1-interruptions]
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S1')"
+    needs: [plan, s1-build, s1-loopback, s1-interruptions]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -176,18 +224,24 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────
   # S2 — P2P Sync (Capa 3A)
+  # Los tres primeros son software puro y corren en push/PR; el resto
+  # necesita un router con netem o dispositivos reales.
   # ─────────────────────────────────────────────────────────────────
   s2-discovery:
     name: S2 mDNS Discovery
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
+    if: "needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S2'"
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Run mDNS discovery test (3 nodos contenedor)
+      - name: Run mDNS discovery test (3 nodos)
+        # Los scripts toman argumentos POSICIONALES: <nodos> <log>. Pasarlos
+        # como --nodes/--output hacía que NODES valiera "--nodes" y `seq`
+        # reventara.
         run: |
           cd ${{ env.SPIKE_ROOT }}/p2p-sync
-          ./test_discovery.sh --nodes 3 --output ${{ env.RESULTS_DIR }}/p2p-discovery.log
+          ./test_discovery.sh 3 "${{ env.RESULTS_DIR }}/p2p-discovery.log"
       - name: Upload discovery log
         uses: actions/upload-artifact@v4
         with:
@@ -197,16 +251,29 @@ jobs:
 
   s2-heartbeat:
     name: S2 Heartbeat + Clock Sync
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
-    needs: s2-discovery
+    if: "needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S2'"
+    needs: [plan, s2-discovery]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pandas (the script analyzes with it)
+        run: pip install pandas
       - name: Run heartbeat test (10 min)
+        # El script imprime ❌/✅ pero sale con 0 en ambos casos, así que el
+        # veredicto se decide aquí: un job verde tras un ❌ sería un gate que
+        # no mide nada.
         run: |
+          set -o pipefail
           cd ${{ env.SPIKE_ROOT }}/p2p-sync
-          ./test_heartbeat.sh --duration 600 --output ${{ env.RESULTS_DIR }}/p2p-heartbeat.csv
+          ./test_heartbeat.sh 600 "${{ env.RESULTS_DIR }}/p2p-heartbeat.csv" | tee /tmp/heartbeat.out
+          if grep -q '❌' /tmp/heartbeat.out; then
+            echo "::error::S2 heartbeat criterion FAILED (see output above)"
+            exit 1
+          fi
       - name: Upload heartbeat CSV
         uses: actions/upload-artifact@v4
         with:
@@ -214,10 +281,39 @@ jobs:
           path: ${{ env.RESULTS_DIR }}/p2p-heartbeat.csv
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+  s2-failover:
+    name: S2 Maestro Failover
+    if: "needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S2'"
+    needs: [plan, s2-heartbeat]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pandas (the script analyzes with it)
+        run: pip install pandas
+      - name: Run failover test (kill maestro)
+        run: |
+          set -o pipefail
+          cd ${{ env.SPIKE_ROOT }}/p2p-sync
+          ./test_failover.sh "${{ env.RESULTS_DIR }}/p2p-failover.csv" | tee /tmp/failover.out
+          if grep -q '❌' /tmp/failover.out; then
+            echo "::error::S2 failover criterion FAILED (see output above)"
+            exit 1
+          fi
+      - name: Upload failover CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2p-failover.csv
+          path: ${{ env.RESULTS_DIR }}/p2p-failover.csv
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
   s2-netem:
     name: S2 Netem Chaos (10% loss)
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
-    needs: s2-heartbeat
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S2')"
+    needs: [plan, s2-heartbeat]
     runs-on: spike-linux-router  # Runner con tc/netem capabilities
     timeout-minutes: 30
     steps:
@@ -228,7 +324,7 @@ jobs:
       - name: Run heartbeat under chaos (5 min)
         run: |
           cd ${{ env.SPIKE_ROOT }}/p2p-sync
-          ./test_heartbeat.sh --duration 300 --output ${{ env.RESULTS_DIR }}/p2p-netem-10pct-loss.csv
+          ./test_heartbeat.sh 300 "${{ env.RESULTS_DIR }}/p2p-netem-10pct-loss.csv"
       - name: Cleanup netem
         if: always()
         run: sudo tc qdisc del dev eth0 root 2>/dev/null || true
@@ -241,8 +337,8 @@ jobs:
 
   s2-roaming:
     name: S2 Wi-Fi Roaming (AP primario → secundario)
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
-    needs: s2-heartbeat
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S2')"
+    needs: [plan, s2-heartbeat]
     runs-on: [spike-ios, spike-android, spike-windows]  # Requiere hardware real
     timeout-minutes: 20
     strategy:
@@ -262,29 +358,10 @@ jobs:
           path: ${{ env.RESULTS_DIR }}/p2p-roaming-${{ matrix.device }}.csv
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-  s2-failover:
-    name: S2 Maestro Failover
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
-    needs: s2-heartbeat
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run failover test (kill maestro)
-        run: |
-          cd ${{ env.SPIKE_ROOT }}/p2p-sync
-          ./test_failover.sh --output ${{ env.RESULTS_DIR }}/p2p-failover.csv
-      - name: Upload failover CSV
-        uses: actions/upload-artifact@v4
-        with:
-          name: p2p-failover.csv
-          path: ${{ env.RESULTS_DIR }}/p2p-failover.csv
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
-
   s2-integration:
     name: S2 Integration S1+S2 (Audio + Sync)
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S2'
-    needs: [s1-loopback, s2-heartbeat, s2-netem, s2-roaming, s2-failover]
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S2')"
+    needs: [plan, s1-loopback, s2-heartbeat, s2-netem, s2-roaming, s2-failover]
     runs-on: [spike-ios, spike-android, spike-windows]
     timeout-minutes: 40
     strategy:
@@ -310,11 +387,15 @@ jobs:
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
   # ─────────────────────────────────────────────────────────────────
-  # S3 — MusicXML Layout (Capa 1B)
+  # S3 — MusicXML Layout (Capa 1B) — dispatch manual
+  # Requiere emscripten (build propio de Verovio) y, para la paridad
+  # visual, un Verovio nativo compilado. Ninguno de los dos se instala
+  # en el camino por defecto, así que estos jobs no se disparan solos.
   # ─────────────────────────────────────────────────────────────────
   s3-verovio-build:
     name: S3 Verovio WASM Custom Build
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
+    if: "github.event_name == 'workflow_dispatch' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S3')"
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -328,8 +409,11 @@ jobs:
           cd ${{ env.SPIKE_ROOT }}/musicxml-layout
           ./build_verovio_wasm.sh --modules musicxml,layout,transpose,mei --output ./wasm/
       - name: Verify WASM size (< 3 MB gzipped)
+        # El build usa SINGLE_FILE=1: el wasm va embebido en verovio.js y no
+        # existe verovio.wasm. Medir el fichero equivocado hacía fallar el
+        # step por gzip: file not found.
         run: |
-          gzip -c ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/verovio.wasm | wc -c
+          gzip -c ${{ env.SPIKE_ROOT }}/musicxml-layout/wasm/verovio.js | wc -c
           # Debe ser < 3_145_728 bytes
       - name: Upload WASM artifacts
         uses: actions/upload-artifact@v4
@@ -340,8 +424,8 @@ jobs:
 
   s3-pwa-integration:
     name: S3 PWA Integration + Corpus Load
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
-    needs: s3-verovio-build
+    if: "github.event_name == 'workflow_dispatch' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S3')"
+    needs: [plan, s3-verovio-build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -373,8 +457,8 @@ jobs:
 
   s3-perf:
     name: S3 Performance Benchmarks
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
-    needs: s3-pwa-integration
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S3')"
+    needs: [plan, s3-pwa-integration]
     runs-on: [spike-ios, spike-android, spike-windows]
     timeout-minutes: 60
     strategy:
@@ -401,8 +485,8 @@ jobs:
 
   s3-visual-parity:
     name: S3 Visual Parity vs PDF
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
-    needs: s3-pwa-integration
+    if: "github.event_name == 'workflow_dispatch' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S3')"
+    needs: [plan, s3-pwa-integration]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -431,8 +515,8 @@ jobs:
 
   s3-stress:
     name: S3 Stress Test (50 páginas)
-    if: github.event.inputs.spike == 'all' || github.event.inputs.spike == 'S3'
-    needs: s3-pwa-integration
+    if: "needs.plan.outputs.hardware == 'true' && (needs.plan.outputs.spike == 'all' || needs.plan.outputs.spike == 'S3')"
+    needs: [plan, s3-pwa-integration]
     runs-on: spike-ios  # iPad 8th gen es el baseline de memoria
     timeout-minutes: 30
     steps:
@@ -455,17 +539,22 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────
   # Consolidated Report (Gate G2)
+  # Corre SIEMPRE que la selección sea 'all', también en push/PR, y
+  # aunque los jobs de los que depende se hayan saltado o fallado:
+  # `always()` lo desacopla y el generador ya marca PENDING lo que no
+  # tiene medidas (no lo convierte en PASS).
   # ─────────────────────────────────────────────────────────────────
   spike-report:
     name: Spike Consolidated Report (Gate G2)
-    if: github.event.inputs.spike == 'all'
-    needs: [s1-config-doc, s2-integration, s3-stress, s3-visual-parity]
+    if: "always() && needs.plan.outputs.spike == 'all'"
+    needs: [plan, s1-config-doc, s2-heartbeat, s2-failover, s2-integration, s3-pwa-integration, s3-visual-parity, s3-stress]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Download all results
         uses: actions/download-artifact@v4
+        continue-on-error: true  # sin artefactos (nada corrió) el informe es PENDING, no un error
         with:
           path: ${{ env.RESULTS_DIR }}/
       - name: Generate consolidated report
@@ -497,7 +586,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   provision-hardware:
     name: Provision Test Hardware
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.spike == 'provision'
+    if: "github.event_name == 'workflow_dispatch' && github.event.inputs.provision == 'true'"
+    needs: plan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
