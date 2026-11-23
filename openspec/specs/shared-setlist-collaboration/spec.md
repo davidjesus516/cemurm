@@ -137,6 +137,47 @@ A collaborator's song add, reorder, permission change, or removal on a shared se
 - WHEN the add commits
 - THEN I receive a notification "Julian added Song X to Friday Gig" with the song's key and tempo when available
 
+### Requirement: A shared setlist shares its songs, not only its rows
+
+Sharing a setlist MUST share the content it points at. An accepted collaborator MUST be able to
+read the songs referenced by the setlist — their titles, their `song_versions` and their
+`chart_files` — so the setlist page does not render "(missing song)" per row and the export does
+not serialize to an empty document. The collaborator's read MUST be the setlist owner's own read
+scope applied to those **songs**: what the owner can read, the collaborator can read, and nothing
+the owner cannot. A song the owner could not read MUST NOT become readable through the setlist,
+even if a collaborator with edit rights inserts its UUID. A pending invitation MUST grant nothing.
+
+For `chart_files` rows the owner-keyed policies key on the song's **creator**, so a collaborator can
+reach a chart row of a song created by another org member that the setlist's owner cannot read
+through their own scopes. That asymmetry is **created by setlist sharing**: at baseline neither the
+owner nor a collaborator could reach that chart row. The narrowness comes from the creator-keyed
+policy; the asymmetry itself is created here, and it is the feature's purpose. `song_versions` carries
+the same asymmetry for a different reason: its `SELECT` admits the version's own `owner_id` or the
+song's creator, so the collaborator also reaches version rows of a song the owner reads only through
+org or branch scope.
+
+PDF and MusicXML charts are **out of scope** of this requirement: the `charts` storage bucket is
+private with owner-folder RLS and 1-hour signed URLs, so a cross-organization collaborator sees the
+`chart_files` row and still cannot download the object. Inline ChordPro content is covered.
+
+Implemented in `supabase/migrations/0048_setlist_collaborator_read.sql`; verified by
+`scripts/smoke/0048-setlist-collaborator-read.sql` (15 PASS / 0 FAIL on a fresh reset); record:
+`odd/tasks/acl-setlist-collaborator-read.md`.
+
+#### Scenario: Bandmate opens a shared setlist from another organization
+
+- GIVEN "Lucia" accepted an invitation to "Julian"'s setlist, which holds "Way Maker" and "Oceans"
+- WHEN Lucia opens that setlist
+- THEN both songs appear with their titles and their agreed keys
+- AND their charts are readable, so the export is not empty
+
+#### Scenario: The owner vouches for the content
+
+- GIVEN "Julian" owns a setlist and "Lucia" is an accepted collaborator with edit rights
+- WHEN Lucia inserts the UUID of a song Julian cannot read into that setlist
+- THEN the song does not become readable for Lucia
+- AND Julian's own vouch for it is unsatisfiable, so no one gains it through the setlist
+
 ## Deferred Scenarios
 
 | Scenario | Feature ref | Disposition |

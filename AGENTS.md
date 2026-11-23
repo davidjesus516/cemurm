@@ -155,17 +155,19 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **23 files**, `0021-plan-freeze.sql` through `0049-audience-view.sql`
+`scripts/smoke/*.sql` — **24 files**, `0021-plan-freeze.sql` through `0049-audience-view.sql`; the #460 branch adds `0048-setlist-collaborator-read.sql` on this branch.
 (earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
 re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
 `0034_plan_freeze.sql` and `0022-projection.sql` covers `0035_projection.sql` — both were
 renumbered after their smokes were written, and the smokes were not renamed with them. So a smoke
 name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
-that those migration slots are taken.
+that those migration slots are taken. The branch smoke `0048-setlist-collaborator-read.sql` is
+also present on this branch.
 
 What has a smoke: `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
-`0037`–`0039`, `0041`–`0046` and `0049`. What does not: `0001`–`0020`,
+`0037`–`0039`, `0041`–`0046`, `0048` and `0049`. `0047` has no smoke because it is not on `main`
+yet (#451 carries it). What does not: `0001`–`0020`,
 `0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql`. They are **not**
 in CI and **not** wired to any pnpm script. The invocation
 exists in exactly one place in the repo, `odd/tasks/hito5-substitutions-and-coverage.md`:
