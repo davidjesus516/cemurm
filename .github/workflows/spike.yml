@@ -552,12 +552,14 @@ jobs:
   spike-report:
     name: Spike Consolidated Report (Gate G2)
     if: "always() && needs.plan.outputs.spike == 'all'"
-    # Sin esto el token por defecto es de solo lectura y el paso de comentario
-    # muere con 403 "Resource not accessible by integration". Se declara aquí y
-    # no a nivel de workflow para no dar escritura al resto de los jobs.
+    # Solo lectura: el informe se publica en el job summary y como artefacto,
+    # que no necesitan permisos de escritura. El comentario en la PR que había
+    # aquí moría con 403 "Resource not accessible by integration" porque el
+    # repo sirve tokens de solo lectura a los workflows disparados por
+    # pull_request (`default_workflow_permissions: read`); habilitarlo es un
+    # cambio de settings del repo, no del workflow.
     permissions:
       contents: read
-      issues: write
     needs: [plan, s1-config-doc, s2-heartbeat, s2-failover, s2-integration, s3-pwa-integration, s3-visual-parity, s3-stress]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -578,19 +580,13 @@ jobs:
           name: spike-consolidated-report.md
           path: ${{ env.RESULTS_DIR }}/spike-consolidated-report.md
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
-      - name: Comment on PR with summary
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('${{ env.RESULTS_DIR }}/spike-consolidated-report.md', 'utf8');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: report.substring(0, 65535)
-            });
+      - name: Publish report to the job summary
+        run: |
+          {
+            echo '## Spike Suite Modular — Gate G2'
+            echo
+            cat "${{ env.RESULTS_DIR }}/spike-consolidated-report.md"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ─────────────────────────────────────────────────────────────────
   # Hardware Provisioning (manual dispatch)
