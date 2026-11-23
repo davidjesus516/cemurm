@@ -55,6 +55,7 @@ pnpm install --frozen-lockfile
 → deno check 'supabase/functions/**/*.ts'
 → pnpm typecheck
 → bash scripts/check-test-integrity.sh
+→ bash scripts/check-table-privileges.test.sh
 → node scripts/hooks/pre-tool-guard.selftest.mjs
 → pnpm test
 → pnpm test:gherkin
@@ -79,15 +80,21 @@ by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm t
 not a failing run, they are a green run that tested less, so nothing inside the suite could see
 them. Bash + grep only, same as the visual gate.
 
-**Two gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
+**Three gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
 (destructive SQL blocked, `supabase db reset` still allowed, exit 2 on a block, `size:exception`
-clearing only the size verdict), and `check-migrations-destructive.mjs` applies the destructive-SQL
+clearing only the size verdict), `check-migrations-destructive.mjs` applies the destructive-SQL
 rule to the migration files rather than to the tool call that wrote them — the same rule from the
 same module (`scripts/hooks/rules.mjs`), which is what keeps the Claude Code hook, the OpenCode
-plugin and CI from drifting into three policies. The escape hatch is a comment in the migration
-itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is reviewable where
-the data loss would be. Comments are stripped before the scan, because `0046` explains that a
-revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate statement.
+plugin and CI from drifting into three policies — and `check-table-privileges.test.sh` exercises
+the ACL gate's verdict logic with `docker` stubbed. That last one exists because the ACL gate needs
+a live catalog and lives in `e2e.yml`, so nothing in `ci.yml` could see it: a gate that silently
+always passed looked identical to a gate that worked, which is the same hole `.only` was. It is
+DB-free by construction (the stub answers from variables), so it runs in `ci.yml` in milliseconds
+and needs no Supabase stack. The escape hatch for the destructive-SQL rule is a comment in the
+migration itself, `-- destructive-ok: <why this data is safe to drop>`, so the exception is
+reviewable where the data loss would be. Comments are stripped before the scan, because `0046`
+explains that a revoked grant included `TRUNCATE` and a raw regex read that sentence as a truncate
+statement.
 
 **The counts are now a gate too.** `check-doc-counts.sh` reads the migration count, the smoke
 count, the feature and scenario counts and the next free migration number from `AGENTS.md` and
@@ -119,6 +126,44 @@ the same regex selects zero tests while still exiting green — `chromium` there
 `vitest.config.js` keeps `tests/e2e/**` out of the unit tier and pins the `node` environment and
 the `src/**/*.test.js` include pattern that `vite.config.js` does not declare. The orphaned
 `spike/**` exclusion is not on `main`; add it there only if a `spike/` directory actually exists.
+
+**The Chromium job also runs the ACL gate**, `bash scripts/check-table-privileges.sh`, as its
+**last** step. It needs a live catalog, so `ci.yml` cannot host it — that workflow never starts
+Supabase. Here the stack is already up and reset, so the gate costs seconds. Last, not after the
+tests and before the uploads, for the same `set -euo pipefail` reason as the visual gate: a step
+that fails early marks everything after it SKIPPED.
+
+What runs in `ci.yml` is its regression test, `bash scripts/check-table-privileges.test.sh`: the
+same gate with `docker` stubbed, so every verdict path (each rule, the ratchet at 22/23/24, the
+findings cap, empty catalog, unreachable database, missing `docker`, missing `config.toml`) is
+asserted in milliseconds with no stack. The stub is strict on purpose — SQL it does not model comes
+back as a non-number and the gate fails setup, so a new query announces itself instead of falling
+through to a default that makes the gate look green.
+
+It enforces three rules and warns about a fourth, all against `public`:
+
+| Rule | What it forbids | Today |
+|---|---|---|
+| 01 | `authenticated` holding TRUNCATE, REFERENCES or TRIGGER on any table | 0 of 61 |
+| 02 | `anon` holding any table privilege | 0 of 61 |
+| 03 | the count of tables where `authenticated` holds DELETE may not **grow** (ratchet) | 23 |
+| 04 | warn only: tables where `authenticated` holds UPDATE at table level, not columnar | 27 |
+
+Rules 01 and 02 are zero-exception on purpose: no policy can refuse TRUNCATE (it evaluates no row
+predicate), REFERENCES or TRIGGER, so the ACL is the only control that exists. Rule 03 is a ratchet
+because 23 tables legitimately DELETE their own rows and RLS narrows each one — an allowlist of 23
+entries would rot, a number that may only fall does not. The line went 23 → 22 with `0047` and back
+to 23 on 2026-11-19 with explicit maintainer approval: #459 merged `0049_audience_view.sql` after
+this branch was cut, and its `audience_views` DELETE is owner-scoped by `audience_views_delete_owner`
+(RLS). That is the one documented raise; **from here change `DELETE_RATCHET` downward only, in the
+commit that narrows the grant**, so the evidence travels with the number.
+
+Why the gate exists at all: Supabase's default privileges grant `arwdDxtm` to `anon`,
+`authenticated` and `service_role` on every **new** table in `public`. A migration writing
+`revoke all ... from public, anon` removes nothing from `authenticated` — the role was never
+named — so migration 0048 is born identical to these unless its author remembers. That is a
+machine's job, not a reviewer's. `0047_public_table_privileges.sql` fixed the two tables that had
+shipped with it (`account_erasure_requests`, `overlay_sessions`).
 
 ## Type checking
 
@@ -179,27 +224,28 @@ docker exec -i supabase_db_cemurm psql -U postgres -d postgres -X -f - < scripts
 - Pass `-v ON_ERROR_STOP=1` or a failure mid-file won't halt.
 - `supabase db query` cannot run these (single-statement only). The container name `supabase_db_cemurm` comes from `project_id = "cemurm"` in `supabase/config.toml`.
 - Each file carries an `expects N PASS / 0 FAIL` line and a mandatory preamble: `set client_min_messages to notice`, `tmp_assert`, `tmp_expect_error`.
+- **That `expects` line was decorative until `0043`**: `tmp_assert` only raised a NOTICE, so a file failing half its assertions ended with status 0. `0043-account-erasure.sql` is now the reference: `\set ON_ERROR_STOP on` at the top (so it does not depend on the caller's flag), a `tmp_smoke_asserts` record written by `tmp_assert`, and a closing `DO` block that raises unless exactly the declared count ran **and** all of them passed. Three of its assertions could never pass (`x is null` on a `void` return, and a `union all` of two calls counted as one row) and nobody noticed for exactly that reason. Copy the shape; the other 21 files still exit 0 on failure.
 - Conventions to follow when writing one: role switches use `select set_config('role', ..., false)` (bare calls are invalid top-level); JWT via `select set_config('request.jwt.claims', '{"sub":"..."}', false)`; contract assertions run under `role postgres` (RLS filters them otherwise); use **fixed UUID literals**, never `gen_random_uuid()` (won't cross role switches); smoke fixtures live in `30000…6xx/7xx/8xx` to avoid the seed's `30000000-…` setlist family.
 
 ## Database layer
 
 **Local, not hosted.** `docs/local-dev.md` is authoritative: this project is NOT linked to a hosted Supabase project. `README.md` and `docs/technical-spec.md` still name a hosted project URL — that text is stale, ignore it.
 
-Migrations: **46 files on this branch**, numbered `0001`–`0049`, with **`0022` a
-deliberate free gap** and **`0047`/`0048` absent because open PRs claim them**. `main` today is 45
-files through `0046`; this tree adds `0049_audience_view.sql`. The `0020`–`0022` window closed when
-`0034_plan_freeze`
+Migrations: **47 files on `main`**, numbered `0001`–`0049`, with **`0022` a deliberate free gap**;
+`0048` is absent because open PR #460 claims it. `0021` is occupied by
+`0021_identity_account_lifecycle.sql`, `0047` by `0047_public_table_privileges.sql` and `0049` by
+`0049_audience_view.sql`. The `0020`–`0022` window closed when `0034_plan_freeze`
 (#192/#193) and `0035_projection` (#353) landed; `0036_guardian_approve_public_sharing.sql`
 (#360) is followed by `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`,
 `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`,
 `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`,
-`0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql` and
-`0049_audience_view.sql`.
-**The next free number is `0047`** — in this tree, but *claimed*, not available: open PR #451
-(`fix/acl-table-privileges`) carries `0047_public_table_privileges.sql` (#452 and #453 only carry it
-because they are stacked on #451), and open PR #460 carries `0048_setlist_collaborator_read.sql`.
-That is why the audience view took `0049`. It is the "free on `main` is not free for you" rule in the
-paragraph below happening live: a slot is consumed when the PR carrying it lands.
+`0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`,
+`0047_public_table_privileges.sql` and `0049_audience_view.sql`.
+**The next free number is `0048`** — claimed, not available: open PR #460
+(`fix/setlist-collaborator-read`) carries `0048_setlist_collaborator_read.sql`. `0022` stays a
+deliberate free gap and the gate skips it, so `0048` is the slot it reports. This is the "free on
+`main` is not free for you" rule in the paragraph below happening live: a slot is consumed when the
+PR carrying it lands, and #451 consumed `0047` here while #459 took `0049` for the audience view.
 
 Re-count rather than trusting this paragraph: it has been wrong five times, most recently on
 2026-11-01, when it still said 38 files through `0040` with `0041` next, while `main` carried 43
@@ -225,10 +271,10 @@ reset` executes *every* `.sql` in `supabase/migrations/` in filename order, so a
 creates what an earlier one references must sort **before** it.
 
 - **Self-contained** (creates its own tables, references only `auth.users(id)`) → position does not
-  matter, so take the first free number nobody has claimed — `0047` today, because the lowest free
-  slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
-  natural slot is gone; it is self-contained, so `0033` cost nothing.
-- **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
+  matter, so take the first free number nobody has claimed — `0048` today: `0047` went to the ACL
+  fix, and the lowest free slot `0046` landed with #430. `0033_feedback.sql` is the precedent for
+  renumbering when the natural slot is gone; it is self-contained, so `0033` cost nothing.
+- **Must sort before an existing migration** → you cannot simply take `0048`. Land it in a genuinely
   free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
   `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
   Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
