@@ -552,6 +552,12 @@ jobs:
   spike-report:
     name: Spike Consolidated Report (Gate G2)
     if: "always() && needs.plan.outputs.spike == 'all'"
+    # Sin esto el token por defecto es de solo lectura y el paso de comentario
+    # muere con 403 "Resource not accessible by integration". Se declara aquí y
+    # no a nivel de workflow para no dar escritura al resto de los jobs.
+    permissions:
+      contents: read
+      issues: write
     needs: [plan, s1-config-doc, s2-heartbeat, s2-failover, s2-integration, s3-pwa-integration, s3-visual-parity, s3-stress]
     runs-on: ubuntu-latest
     timeout-minutes: 15
