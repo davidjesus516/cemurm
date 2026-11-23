@@ -12,7 +12,7 @@ describe('S3 Stress Test — 50 pages continuous', () => {
     // Concatenar corpus para crear partitura larga
     const parts = []
     for (let i = 0; i < 10; i++) { // 5 partituras * 10 = ~50 páginas
-      for (const score of ['bach-bwv846', 'mozart-k545-m1', 'beethoven-op27n2', 'satb-choral', 'bigband-arrangement']) {
+      for (const score of ['schroeter-an-laura', 'schubert-der-zwerg', 'holmes-thrinodia', 'stanford-windy-west', 'mozart-k464-menuetto']) {
         const xml = await (await fetch(`/corpus/${score}.musicxml`)).text()
         parts.push(xml)
       }

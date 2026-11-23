@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import verovio from 'verovio-wasm'
 
-// Corpus de 5 partituras (MusicXML paths)
+// Corpus de 5 extractos reales de dominio público (ver corpus/README.md)
 const CORPUS = [
-  { name: 'bach-bwv846', path: '/corpus/bach-bwv846.musicxml', complexity: 'simple' },
-  { name: 'mozart-k545-m1', path: '/corpus/mozart-k545-m1.musicxml', complexity: '2-voices' },
-  { name: 'beethoven-op27n2', path: '/corpus/beethoven-op27n2.musicxml', complexity: '3-staves-pedal' },
-  { name: 'satb-choral', path: '/corpus/satb-choral.musicxml', complexity: '4-voices-lyrics' },
-  { name: 'bigband-arrangement', path: '/corpus/bigband-arrangement.musicxml', complexity: 'transposition' }
+  { name: 'schroeter-an-laura', path: '/corpus/schroeter-an-laura.musicxml', complexity: 'simple' },
+  { name: 'schubert-der-zwerg', path: '/corpus/schubert-der-zwerg.musicxml', complexity: 'two-parts' },
+  { name: 'holmes-thrinodia', path: '/corpus/holmes-thrinodia.musicxml', complexity: '3-staves-pedal' },
+  { name: 'stanford-windy-west', path: '/corpus/stanford-windy-west.musicxml', complexity: '4-voices-lyrics' },
+  { name: 'mozart-k464-menuetto', path: '/corpus/mozart-k464-menuetto.musicxml', complexity: '4-parts-instrumental' }
 ]
 
 describe('S3 Corpus Load Test', () => {

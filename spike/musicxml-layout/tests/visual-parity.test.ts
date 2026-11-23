@@ -6,11 +6,11 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 
 const CORPUS = [
-  { name: 'bach-bwv846', musicxml: '/corpus/bach-bwv846.musicxml', pdf: '/ref-pdfs/bach-bwv846.pdf' },
-  { name: 'mozart-k545-m1', musicxml: '/corpus/mozart-k545-m1.musicxml', pdf: '/ref-pdfs/mozart-k545-m1.pdf' },
-  { name: 'beethoven-op27n2', musicxml: '/corpus/beethoven-op27n2.musicxml', pdf: '/ref-pdfs/beethoven-op27n2.pdf' },
-  { name: 'satb-choral', musicxml: '/corpus/satb-choral.musicxml', pdf: '/ref-pdfs/satb-choral.pdf' },
-  { name: 'bigband-arrangement', musicxml: '/corpus/bigband-arrangement.musicxml', pdf: '/ref-pdfs/bigband-arrangement.pdf' }
+  { name: 'schroeter-an-laura', musicxml: '/corpus/schroeter-an-laura.musicxml', pdf: '/ref-pdfs/schroeter-an-laura.pdf' },
+  { name: 'schubert-der-zwerg', musicxml: '/corpus/schubert-der-zwerg.musicxml', pdf: '/ref-pdfs/schubert-der-zwerg.pdf' },
+  { name: 'holmes-thrinodia', musicxml: '/corpus/holmes-thrinodia.musicxml', pdf: '/ref-pdfs/holmes-thrinodia.pdf' },
+  { name: 'stanford-windy-west', musicxml: '/corpus/stanford-windy-west.musicxml', pdf: '/ref-pdfs/stanford-windy-west.pdf' },
+  { name: 'mozart-k464-menuetto', musicxml: '/corpus/mozart-k464-menuetto.musicxml', pdf: '/ref-pdfs/mozart-k464-menuetto.pdf' }
 ]
 
 const THRESHOLD = 0.02 // 2% pixel difference
@@ -74,10 +74,10 @@ describe('S3 Visual Parity vs PDF Reference', () => {
       const svg = vrv.renderToSVG(xml, { page: 1 })
       
       // Verificar presencia de elementos esperados
-      if (score.name === 'satb-choral') {
+      if (score.name === 'stanford-windy-west') {
         expect(svg).toContain('lyric') // o elemento de texto para letras
       }
-      if (score.name === 'beethoven-op27n2') {
+      if (score.name === 'holmes-thrinodia') {
         expect(svg).toContain('pedal') // o marca de pedal
       }
     }

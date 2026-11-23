@@ -3,11 +3,11 @@ import verovio from 'verovio-wasm'
 import { performance } from 'perf_hooks'
 
 const CORPUS = [
-  { name: 'bach-bwv846', path: '/corpus/bach-bwv846.musicxml' },
-  { name: 'mozart-k545-m1', path: '/corpus/mozart-k545-m1.musicxml' },
-  { name: 'beethoven-op27n2', path: '/corpus/beethoven-op27n2.musicxml' },
-  { name: 'satb-choral', path: '/corpus/satb-choral.musicxml' },
-  { name: 'bigband-arrangement', path: '/corpus/bigband-arrangement.musicxml' }
+  { name: 'schroeter-an-laura', path: '/corpus/schroeter-an-laura.musicxml' },
+  { name: 'schubert-der-zwerg', path: '/corpus/schubert-der-zwerg.musicxml' },
+  { name: 'holmes-thrinodia', path: '/corpus/holmes-thrinodia.musicxml' },
+  { name: 'stanford-windy-west', path: '/corpus/stanford-windy-west.musicxml' },
+  { name: 'mozart-k464-menuetto', path: '/corpus/mozart-k464-menuetto.musicxml' }
 ]
 
 const ITERATIONS = 100
