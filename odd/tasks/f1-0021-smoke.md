@@ -111,6 +111,24 @@ cover the four defects the migration review found (branch preservation, the
 - Smoke filenames do not track migration numbers, and this one happens to
   match its migration. That is a coincidence, not a new convention.
 
+## Size exception (2026-11-23)
+
+`size:exception` is applied to #541 deliberately, and the unit is larger than
+L5 planned. L5 cut the work into two slices (327 + 138 authored lines) so the
+two would each fit under 400. #542 — the execution record — then merged into
+this PR's branch, so the two slices measure as one PR: 478 authored lines
+against `main` after the merge with #537/#540.
+
+The alternative the gate suggests (slice it) is not available honestly here.
+The smoke is one permission matrix: its assertions share a single fixture and a
+single audit-row count (assertions 13–15), so splitting it would ship a partial
+matrix and a second run against the same database, which the smoke is
+on-purpose not idempotent for. The record cannot be deferred either — it is the
+only place the `0022` ruling and the 400-line rationale are written, and #542
+already merged, so re-opening it separately would require rewriting a pushed
+branch, which this repo forbids. The reviewer reads the same 478 lines under
+the label as without it; the label records the overage rather than hiding it.
+
 ## Log
 
 **L1** (assistant): The smoke lands with 16 assertions covering the `0021`
@@ -144,3 +162,11 @@ same explanation is carried by `AGENTS.md`, `docs/master-plan.md` and this
 record. The native review flagged the file path (`shell_process`), not the
 change; with the redundant comment gone the candidate is `under_budget` again
 and no shell file is in the diff.
+
+**L7** (assistant): #537 and #540 merge to `main` (2026-11-23), and the branch
+is brought up to date by merging `main` (no force-push, no conflicts). The
+`authored-lines` check then reports 478 lines — the stacked record is now part
+of this PR — so `size:exception` is applied with the justification above.
+Re-verified after the merge: smoke 21 PASS / 0 FAIL on a fresh reset, lint,
+typecheck, tests and build green, doc counts 46/24/49/789, visual contract
+12/12.
