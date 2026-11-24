@@ -155,7 +155,7 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **23 files**, `0021-plan-freeze.sql` through `0049-audience-view.sql`
+`scripts/smoke/*.sql` — **24 files**, `0021-identity-account-lifecycle.sql` through `0049-audience-view.sql`
 (earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
 re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
@@ -164,7 +164,7 @@ renumbered after their smokes were written, and the smokes were not renamed with
 name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
 that those migration slots are taken.
 
-What has a smoke: `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
+What has a smoke: `0021` (the F1 membership matrix), `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
 `0037`–`0039`, `0041`–`0046` and `0049`. What does not: `0001`–`0020`,
 `0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql`. They are **not**
 in CI and **not** wired to any pnpm script. The invocation
@@ -229,8 +229,9 @@ creates what an earlier one references must sort **before** it.
   slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
   natural slot is gone; it is self-contained, so `0033` cost nothing.
 - **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
-  free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
-  `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
+  free earlier slot, or renumber what it depends on. **`0022` is the only reserved slot left**
+  (`0021` was claimed by #523, which is self-contained and so did not need the position), and
+  it is kept deliberately, so claim it only knowing why it is reserved.
   Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
   than a free number to drop into.
 
