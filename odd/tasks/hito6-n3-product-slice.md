@@ -249,10 +249,11 @@ in this unit — it depends on four surfaces being stable and ships separately.
   **Verification**: `pnpm test` 557 passed (32 new), `pnpm test:gherkin` 44, lint, typecheck, build
   and the visual gate (0 failing) green; doc counts, test integrity, migration uniqueness and the
   destructive scan unchanged and green.
-  **Size exception**: 904+/21- = 925 authored lines against the PR's merge base (`686cc91`), over
-  the ~400 budget. 276 of those lines are the three test files pinning the two-kv-key contract, the
-  UTF-8 byte count and the unreadable-timestamp ordering; 209 are the page that is the only way a
-  user can see, download, regenerate or delete an entry. The domain and repository halves are
+  **Size exception**: 945+/21- = 966 authored lines against the PR's merge base, over the ~400
+  budget (925 before the review fixes in `0899309`, `49ea29f`, `91ed61e`; the base was re-measured
+  after merging `main` on 2026-11-25). 276 of those lines are the three test files pinning the
+  two-kv-key contract, the UTF-8 byte count and the unreadable-timestamp ordering; 213 are the page
+  that is the only way a user can see, download, regenerate or delete an entry. The domain and repository halves are
   independently testable and Antony's four-slice split is a valid alternative. This branch keeps
   them together because the storage contract is not shippable before the surface that exercises it,
   and records the decision here rather than letting the `size:exception` label assert one.
