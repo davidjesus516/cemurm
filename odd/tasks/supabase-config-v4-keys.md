@@ -189,6 +189,10 @@ in the unit's record, and the `size:exception` label is on #550 (`check-pr-size.
 - `node scripts/check-supabase-config.mjs` on this tree: `OK (110 keys, all known to the 3.2.0
   template, 0 warnings)`; selftest 6/6. Negative cases were run by hand as well: deprecated,
   unknown, removed, removed-with-empty-value, missing CLI (exit 2) and missing config (exit 2).
+- CI on `e6921ac` (the gate commit), 10/10 green, with the new steps inside `lint-and-build`:
+  `check-supabase-config selftest: 6 passed` and `supabase config: OK (110 keys, all known to the
+  3.2.0 template, 0 warnings)`. So the gate runs in the pipeline with the lockfile-pinned CLI, not
+  only on the machine that wrote it.
 - `pnpm lint` / `typecheck` / `test` / `build`: not re-run locally for these two-line changes; CI ran
   the JS gate (`lint-and-build`) on the same tree.
 
