@@ -5,7 +5,7 @@
 - **Record:** `docs/f1-record-counts` (PR #557) — moved there from #550 on request, so the dependency-bump PR carries only the bump and the config commits it already shipped
 - **Date:** 2026-11-25
 - **PRs:** #538 closed as superseded; #550 carries the change; #557 carries this record
-- **Changed lines:** `supabase/config.toml` 2+/2− in each commit; this record is docs-only and lives in a docs PR.
+- **Changed lines:** `supabase/config.toml` 2+/2− in each commit, plus the gate and its selftest in `e6921ac`; this record is docs-only and lives in a docs PR. #550 is over the budget and carries `size:exception` — see [Size exception](#size-exception).
 
 ## Context
 
@@ -134,6 +134,46 @@ was the problem. The repository still ships `""`, so the storage engine does not
 Deliberately not adopted: `api.db_pool` and `auth.email.require_current_password` are new v4 defaults,
 not deprecations. Adding them would be a behaviour change with no request behind it.
 
+## The gate that keeps this from coming back
+
+`e6921ac` adds `scripts/check-supabase-config.mjs`, its selftest, one `ci.yml` step and the
+AGENTS.md paragraph. It runs local-only: no Docker, no stack, no network.
+
+Why two layers, measured rather than assumed:
+
+| Case | `supabase config validate` (3.2.0) | Verdict |
+|---|---|---|
+| `auth.email.enable_signup = true` | `⚠ deprecated, will be removed in v4` | **exit 0** — a green run with a deprecated key |
+| `db.bogus_key = "x"` | `✗ unknown key`, exit 1 | caught |
+| `[experimental] orioledb_version = "1.0"` | `✗ removed`, exit 1 | caught |
+| `[experimental] orioledb_version = ""` | `✓ … is valid · 0 warnings` | **invisible** — the decoder skips an empty value |
+
+The last row is the key that hid in the audit above, so a gate built on `validate` alone would have
+passed the exact file this record exists to fix. The second layer parses the key set of
+`supabase/config.toml` and diffs it against the template `supabase init` generates with the same
+binary — generated per run, never committed, so a CLI pin bump cannot leave a stale reference behind.
+`[functions.<name>]` is exempt: function names are per project, so no template can list them.
+
+The selftest (`scripts/check-supabase-config.selftest.mjs`) builds each of those four fixtures from
+the repository config and asserts the gate's exit code, plus exit 2 when the CLI or the config is
+missing. It asserts that the empty-value case fails **without** a `config validate` block, which is
+what proves the second layer — not the CLI — caught it.
+
+The gate ships in #550 rather than its own PR because it cannot be green before the fix: on `main`
+its first line is the deprecation warning. Fix and guard land together, the way
+`check-migrations-destructive.mjs` guards the migration rule rather than describing it.
+
+## Size exception
+
+#550 measures **508 authored lines** against the 400 budget, with generated artifacts already
+excluded (the lockfile alone is 2,077 lines that do not count). The breakdown is 406 lines of gate
+and selftest, 64 of `package.json`, 16 of AGENTS.md, 14 of `ci.yml` and 8 of `supabase/config.toml`.
+
+Slicing does not solve it: the gate and the selftest are 406 lines on their own, so a child PR would
+still need the exception, and shipping either without the other is the failure mode this repository
+already fixed once — a gate whose failure nobody has demonstrated. The exception is recorded here,
+in the unit's record, and the `size:exception` label is on #550 (`check-pr-size.mjs` skips on it).
+
 ## Checks
 
 - `supabase status` on a copy of `origin/main`'s config: exactly the two WARN lines quoted above.
@@ -146,6 +186,9 @@ not deprecations. Adding them would be a behaviour change with no request behind
   The E2E workflow runs `supabase start` from scratch against this config, so the file is exercised
   by a real stack, not only parsed:
   <https://github.com/davidjesus516/cemurm/actions/runs/45623754700>
+- `node scripts/check-supabase-config.mjs` on this tree: `OK (110 keys, all known to the 3.2.0
+  template, 0 warnings)`; selftest 6/6. Negative cases were run by hand as well: deprecated,
+  unknown, removed, removed-with-empty-value, missing CLI (exit 2) and missing config (exit 2).
 - `pnpm lint` / `typecheck` / `test` / `build`: not re-run locally for these two-line changes; CI ran
   the JS gate (`lint-and-build`) on the same tree.
 
@@ -156,8 +199,9 @@ not deprecations. Adding them would be a behaviour change with no request behind
   v4. The diff was kept and the error documented in #538's closing comment and #550's body, rather
   than "fixing" the PR by reverting to the deprecated keys.
 - **Empty values hide retired keys from the CLI.** `[experimental] orioledb_version = ""` produced no
-  warning at all; the unknown-key warning only fires for keys the decoder actually sees. A future
-  audit should compare key sets, not just read `status` output.
+  warning at all; the unknown-key warning only fires for keys the decoder actually sees. The key-set
+  comparison this finding asked for now runs on every PR (`scripts/check-supabase-config.mjs`), and
+  its selftest pins the exact case so the protection cannot be removed silently.
 - **The approval flow is deadlocked on #550 (and on #543).** The `review` ruleset (id 24904691) sets
   `required_approving_review_count: 1` with `require_last_push_approval: true` and
   `dismiss_stale_reviews_on_push: true`, and there are only two accounts with write access. On #550
@@ -178,6 +222,10 @@ not deprecations. Adding them would be a behaviour change with no request behind
 - [x] Audited every key against the template; moved `orioledb_version` (`0dd9c7f`).
 - [x] Verified the CLI accepts the new section with a non-empty value, and emits nothing on this tree.
 - [x] CI green on `0dd9c7f`, E2E included.
-- [x] Moved this record to #557 (delete commit on #550, add commit on #557) and repointed both PR
-  bodies at the new home.
+- [x] Added the two-layer CI gate and its selftest (`e6921ac`), wired into `ci.yml` before the
+  visual gate and documented in AGENTS.md.
+- [x] Verified the gate locally: exit 0 on this tree (110 keys, 0 warnings), exit 1 on deprecated,
+  unknown, removed and empty-removed fixtures, exit 2 with no CLI and with no config; selftest 6/6.
+- [x] Applied `size:exception` to #550 after `check-pr-size.mjs` measured 508 authored lines, and
+  recorded the justification above.
 - [ ] Human approval and merge of #550 and #557.
