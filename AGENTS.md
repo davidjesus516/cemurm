@@ -56,12 +56,15 @@ pnpm install --frozen-lockfile
 → pnpm typecheck
 → bash scripts/check-test-integrity.sh
 → node scripts/hooks/pre-tool-guard.selftest.mjs
+→ node scripts/check-stack-diff.selftest.mjs
+→ node scripts/check-supabase-config.selftest.mjs
 → pnpm test
 → pnpm test:gherkin
 → pnpm build
 → bash scripts/check-migrations-unique.sh
 → node scripts/check-migrations-destructive.mjs
 → bash scripts/check-doc-counts.sh
+→ node scripts/check-supabase-config.mjs
 → bash scripts/check-visual-contract.sh
 ```
 
@@ -79,7 +82,7 @@ by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm t
 not a failing run, they are a green run that tested less, so nothing inside the suite could see
 them. Bash + grep only, same as the visual gate.
 
-**Two gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
+**Gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
 (destructive SQL blocked, `supabase db reset` still allowed, exit 2 on a block, `size:exception`
 clearing only the size verdict), and `check-migrations-destructive.mjs` applies the destructive-SQL
 rule to the migration files rather than to the tool call that wrote them — the same rule from the
@@ -95,6 +98,17 @@ count, the feature and scenario counts and the next free migration number from `
 file have been wrong every time anybody re-counted them — five times, most recently on 2026-11-01 —
 and each drift was found by hand. Fixing a number is a PR's work; this stops the next drift. If it
 fails, fix the document: the tree is the fact and the prose is a copy.
+
+**`supabase/config.toml` has its own gate, and it takes two layers.** `supabase config validate`
+(CLI 3.2.0, the devDependency) exits 1 on syntax errors, unknown keys and removed keys — but a
+*deprecation* is only a warning with exit 0, so the gate treats any warning as a failure. It is
+also blind to a removed key holding an empty value: `[experimental] orioledb_version = ""`
+reported `✓ … is valid · 0 warnings` on 2026-11-25, which is exactly how that key survived
+the audit before it. So the gate also diffs the key set against the template `supabase init`
+generates with the same binary — generated, never committed, so it cannot drift from the pin.
+`[functions.<name>]` is exempt because function names are per project. It is local only: no
+Docker, no stack, no network. `check-supabase-config.selftest.mjs` asserts all of it, including
+the empty-value case that layer 1 calls valid.
 
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
 no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,
