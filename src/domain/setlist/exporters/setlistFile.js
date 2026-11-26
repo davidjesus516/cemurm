@@ -18,6 +18,7 @@ import { serializeAbc } from './abc.js'
 import { serializeChordPro } from './chordpro.js'
 import { onsongFileName, serializeOnSong } from './onsong.js'
 import { serializePlainText } from './plaintext.js'
+import { saveFile } from './saveFile.js'
 import { slugify } from './shared.js'
 
 /**
@@ -95,16 +96,6 @@ export function buildSetlistFile(setlist, songs, format = 'txt') {
  */
 export function downloadSetlistFile(setlist, songs, format = 'txt') {
   const file = buildSetlistFile(setlist, songs, format)
-  if (typeof document === 'undefined') return file
-
-  const blob = new Blob([file.text], { type: file.mimeType })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = file.filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(url)
+  saveFile({ filename: file.filename, mimeType: file.mimeType, body: file.text })
   return file
 }
