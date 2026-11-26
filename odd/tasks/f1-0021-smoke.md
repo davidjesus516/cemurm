@@ -117,7 +117,9 @@ cover the four defects the migration review found (branch preservation, the
 L5 planned. L5 cut the work into two slices (327 + 138 authored lines) so the
 two would each fit under 400. #542 — the execution record — then merged into
 this PR's branch, so the two slices measure as one PR: 478 authored lines
-against `main` after the merge with #537/#540.
+against `main` after the merge with #537/#540. That is the number the label was
+applied at; the justification commit below (`ddc3623`, 26 lines) then took the
+merged PR to **504**, so 504 is what a reviewer of the merge reads.
 
 The alternative the gate suggests (slice it) is not available honestly here.
 The smoke is one permission matrix: its assertions share a single fixture and a

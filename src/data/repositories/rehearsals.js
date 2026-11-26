@@ -355,7 +355,7 @@ export function listRehearsals() {
   return withErrorMapping(async () => {
     const { data, error } = await supabase
       .from('rehearsals')
-      .select('*, rehearsal_items(count)')
+      .select('*, rehearsal_items!rehearsal_items_rehearsal_id_fkey(count)')
       .order('created_at', { ascending: false })
     if (error) throw error
 
