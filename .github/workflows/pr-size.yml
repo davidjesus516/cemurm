@@ -5,8 +5,10 @@ name: PR size
 # plugin loaded. Same metric (authored lines, generated artifacts excluded),
 # same rules module (scripts/hooks/rules.mjs).
 #
-# Marking this job a required status check is a repository-setting decision; the
-# workflow alone reports, it does not block a merge.
+# A violation fails the `authored-lines` job with a non-zero exit by design
+# (odd/tasks/agent-guards.md:52). The job is not in the `checks` ruleset, so a
+# red result does not block a merge; adding it there is a repository-setting
+# decision, not a code change.
 
 on:
   pull_request:
