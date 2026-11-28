@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../app/providers/useAuth.jsx'
 import { EMAIL_RE, getSession } from '../../../data/repositories/auth.js'
+import { redeemInvite } from '../../../data/repositories/onboardingInvites.js'
+import { setPendingInviteCode } from '../../onboarding/localFlags.js'
 
 const inputClass =
   'w-full rounded-md border border-cem-elevated bg-cem-surface px-3 py-2 text-sm text-cem-text placeholder:text-cem-secondary focus:border-cem-amber focus:outline-hidden focus:ring-2 focus:ring-cem-amber focus:ring-offset-2 focus:ring-offset-transparent disabled:bg-cem-elevated'
@@ -23,6 +25,7 @@ function Auth() {
     password: '',
     passwordConfirm: '',
     ageDeclaration: '', // '' | 'minor' | 'adult' (signup only)
+    inviteCode: '', // optional org invite code (S2 onboarding)
   })
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
@@ -106,6 +109,21 @@ function Auth() {
           if (!session) {
             setNotice('Complete guardian consent after confirming your email.')
             return
+          }
+        }
+        // S2: an invite code typed during registration joins the org. A
+        // session-less signup (email confirmation) cannot redeem yet, so keep
+        // the code for the setup step to pick up on first login.
+        const inviteCode = form.inviteCode.trim()
+        if (inviteCode) {
+          setPendingInviteCode(inviteCode)
+          if (await getSession()) {
+            try {
+              await redeemInvite(inviteCode)
+              setPendingInviteCode('')
+            } catch {
+              // Setup will retry and show the generic error if it is truly bad.
+            }
           }
         }
       } else {
@@ -239,6 +257,10 @@ function Auth() {
           renderField('passwordConfirm', 'Confirm password', {
             type: 'password',
             autoComplete: 'new-password',
+          })}
+        {isSignUp &&
+          renderField('inviteCode', 'Invite code (optional)', {
+            autoComplete: 'off',
           })}
 
         <button
