@@ -43,13 +43,25 @@ for i in $(seq 1 "${NODES}"); do
   cat "${RESULTS_DIR}/discovery_node${i}.log" >> "${OUTPUT_LOG}" 2>/dev/null || true
 done
 
-# Verificar que todos se detectaron mutuamente
-DETECTED=$(grep -c "Discovered peer" "${OUTPUT_LOG}" || true)
+# Verificar que todos se detectaron mutuamente. Cada nodo anuncia cada
+# 300 ms, así que el log repite el mismo par muchas veces: lo que importa
+# es que cada nodo haya visto a TODOS los demás, no cuántos anuncios hubo.
+MISSING=0
 EXPECTED=$((NODES * (NODES - 1)))  # cada nodo detecta a los otros N-1
+for i in $(seq 1 "${NODES}"); do
+  for j in $(seq 1 "${NODES}"); do
+    [ "${i}" -eq "${j}" ] && continue
+    if ! grep -q "Discovered peer node${j}" "${RESULTS_DIR}/discovery_node${i}.log"; then
+      echo "❌ node${i} no detectó a node${j}" | tee -a "${OUTPUT_LOG}"
+      MISSING=$((MISSING + 1))
+    fi
+  done
+done
+DETECTED=$((EXPECTED - MISSING))
 
 echo "=== Resultado: ${DETECTED}/${EXPECTED} peer discoveries ===" | tee -a "${OUTPUT_LOG}"
 
-if [ "${DETECTED}" -eq "${EXPECTED}" ]; then
+if [ "${MISSING}" -eq 0 ]; then
   echo "✅ PASS: Todos los nodos se detectaron mutuamente" | tee -a "${OUTPUT_LOG}"
   exit 0
 else

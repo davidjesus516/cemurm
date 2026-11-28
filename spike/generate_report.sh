@@ -4,15 +4,30 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RESULTS_DIR="${1:-${SCRIPT_DIR}/../results}"
-OUTPUT_MD="${2:-${RESULTS_DIR}/spike-consolidated-report.md}"
+
+# Acepta --results/--output (lo que usa .github/workflows/spike.yml) y, por
+# compatibilidad, los dos posicionales de siempre: [results_dir] [output].
+RESULTS_DIR=""
+OUTPUT_MD=""
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --results) RESULTS_DIR="${2:?--results needs a value}"; shift 2 ;;
+    --output)  OUTPUT_MD="${2:?--output needs a value}";  shift 2 ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+RESULTS_DIR="${RESULTS_DIR:-${POSITIONAL[0]:-${SCRIPT_DIR}/results}}"
+OUTPUT_MD="${OUTPUT_MD:-${POSITIONAL[1]:-${RESULTS_DIR}/spike-consolidated-report.md}}"
+
+mkdir -p "${RESULTS_DIR}"
 
 echo "=== Generating consolidated spike report ==="
 
 cat > "${OUTPUT_MD}" << 'EOF'
 # Spike Suite Modular — Consolidated Report (Gate G2)
 
-**Fecha**: $(date -Iseconds)  
+**Fecha**: {{DATE}}  
 **Rama**: `spike/suite-modular`  
 **Milestone**: #7  
 **Duración**: 3 semanas  
@@ -119,11 +134,11 @@ Ver: `audio-platform-config.md`
 
 | Partitura | Complejidad | Load OK | Primer Paint (p99) |
 |-----------|-------------|---------|-------------------|
-| Bach BWV 846 | Simple | {{S3_BACH_LOAD}} | {{S3_BACH_PAINT}}ms |
-| Mozart K.545 | 2 voces, Alberti | {{S3_MOZART_LOAD}} | {{S3_MOZART_PAINT}}ms |
-| Beethoven Op.27 | 3 pentagramas, pedal | {{S3_BEETHOVEN_LOAD}} | {{S3_BEETHOVEN_PAINT}}ms |
-| SATB Coral | 4 voces, lyrics | {{S3_SATB_LOAD}} | {{S3_SATB_PAINT}}ms |
-| Big Band | Transposición | {{S3_BIGBAND_LOAD}} | {{S3_BIGBAND_PAINT}}ms |
+| schroeter-an-laura | simple (voz + piano) | {{S3_BACH_LOAD}} | {{S3_BACH_PAINT}}ms |
+| schubert-der-zwerg | two-parts, ligaduras | {{S3_MOZART_LOAD}} | {{S3_MOZART_PAINT}}ms |
+| holmes-thrinodia | 3 pentagramas, 8 pedal | {{S3_BEETHOVEN_LOAD}} | {{S3_BEETHOVEN_PAINT}}ms |
+| stanford-windy-west | 7 voces, 335 lyrics | {{S3_SATB_LOAD}} | {{S3_SATB_PAINT}}ms |
+| mozart-k464-menuetto | 4 partes instrumentales | {{S3_BIGBAND_LOAD}} | {{S3_BIGBAND_PAINT}}ms |
 
 ### Performance Benchmarks
 
@@ -137,11 +152,11 @@ Ver: `audio-platform-config.md`
 
 | Partitura | Diff % | PASS |
 |-----------|--------|------|
-| Bach BWV 846 | {{S3_BACH_DIFF}}% | {{S3_BACH_DIFF_PASS}} |
-| Mozart K.545 | {{S3_MOZART_DIFF}}% | {{S3_MOZART_DIFF_PASS}} |
-| Beethoven Op.27 | {{S3_BEETHOVEN_DIFF}}% | {{S3_BEETHOVEN_DIFF_PASS}} |
-| SATB Coral | {{S3_SATB_DIFF}}% | {{S3_SATB_DIFF_PASS}} |
-| Big Band | {{S3_BIGBAND_DIFF}}% | {{S3_BIGBAND_DIFF_PASS}} |
+| schroeter-an-laura | {{S3_BACH_DIFF}}% | {{S3_BACH_DIFF_PASS}} |
+| schubert-der-zwerg | {{S3_MOZART_DIFF}}% | {{S3_MOZART_DIFF_PASS}} |
+| holmes-thrinodia | {{S3_BEETHOVEN_DIFF}}% | {{S3_BEETHOVEN_DIFF_PASS}} |
+| stanford-windy-west | {{S3_SATB_DIFF}}% | {{S3_SATB_DIFF_PASS}} |
+| mozart-k464-menuetto | {{S3_BIGBAND_DIFF}}% | {{S3_BIGBAND_DIFF_PASS}} |
 
 ### Stress Test (50 páginas)
 
@@ -191,6 +206,8 @@ EOF
 
 # Rellenar placeholders con datos reales de los CSVs
 echo "Rellenando placeholders desde resultados..."
+
+sed -i "s|{{DATE}}|$(date -Iseconds)|" "${OUTPUT_MD}"
 
 # S1 - Audio
 for platform in ios android windows macos; do
@@ -249,10 +266,26 @@ for platform in IOS ANDROID WINDOWS MACOS; do
     S1_ALL_PASS=false
   fi
 done
-S1_STATUS=$(if $S1_ALL_PASS; then echo "✅ PASS"; else echo "❌ FAIL"; fi)
-S1_DECISION=$(if $S1_ALL_PASS; then echo "Go Fase 1"; else echo "Revisar / Partial"; fi)
-sed -i "s/{{S1_STATUS}}/${S1_STATUS}/g" "${OUTPUT_MD}"
-sed -i "s/{{S1_DECISION}}/${S1_DECISION}/g" "${OUTPUT_MD}"
+
+# Sin CSV no hay veredicto: la ausencia de medidas no es un PASS.
+S1_PLATFORMS=0
+for platform in ios android windows macos; do
+  if [ -f "${RESULTS_DIR}/audio-core-latency-${platform}.csv" ]; then
+    S1_PLATFORMS=$((S1_PLATFORMS + 1))
+  fi
+done
+if [ "${S1_PLATFORMS}" -lt 4 ]; then
+  S1_STATUS="🟡 PENDING"
+  S1_DECISION="Sin CSV (${S1_PLATFORMS}/4 plataformas)"
+elif $S1_ALL_PASS; then
+  S1_STATUS="✅ PASS"
+  S1_DECISION="Go Fase 1"
+else
+  S1_STATUS="❌ FAIL"
+  S1_DECISION="Revisar / Partial"
+fi
+sed -i "s|{{S1_STATUS}}|${S1_STATUS}|g" "${OUTPUT_MD}"
+sed -i "s|{{S1_DECISION}}|${S1_DECISION}|g" "${OUTPUT_MD}"
 
 # S2 - Parse results (simplificado - en real parsear CSVs)
 # Por ahora marcamos como PENDING
@@ -262,7 +295,7 @@ sed -i 's/{{S3_STATUS}}/🟡 PENDING/g' "${OUTPUT_MD}"
 sed -i 's/{{S3_DECISION}}/Pendiente resultados/g' "${OUTPUT_MD}"
 
 # Global decision
-sed -i 's/{{GLOBAL_DECISION}}/🟡 PENDING — Requiere resultados S2/S3/g' "${OUTPUT_MD}"
+sed -i 's|{{GLOBAL_DECISION}}|🟡 PENDING — Requiere resultados S2/S3|g' "${OUTPUT_MD}"
 sed -i 's/{{GLOBAL_DECISION_REASON}}/Esperando completación de todos los spikes/g' "${OUTPUT_MD}"
 sed -i 's/{{PARTIAL_SCOPE}}/TBD tras G2/g' "${OUTPUT_MD}"
 
@@ -284,6 +317,6 @@ sed -i 's/{{EST_WS_WEEKS}}/TBD/g' "${OUTPUT_MD}"
 sed -i 's/{{EST_WS_RISK}}/TBD/g' "${OUTPUT_MD}"
 
 # Limpiar placeholders restantes
-sed -i 's/{{[A-Z_]*}}/N\/A/g' "${OUTPUT_MD}"
+sed -i 's/{{[A-Z0-9_]*}}/N\/A/g' "${OUTPUT_MD}"
 
 echo "=== Reporte consolidado generado en ${OUTPUT_MD} ==="
