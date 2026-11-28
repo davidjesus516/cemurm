@@ -14,15 +14,21 @@ Esta es la pieza que convierte la ampliación en algo ejecutable. La propuesta d
 
 **F1 va primero, y no es una preferencia de arquitectura.**
 
-`org_memberships` tiene `grant select` únicamente (`0016:552`) y sus políticas son todas `SELECT`. De las políticas vivas del repositorio, ninguna escribe en esa tabla.
+> **Estado actual:** la administración de membresías ya está implementada. La migración
+> `0021_identity_account_lifecycle.sql` añadió los tres RPC administrativos, sus cores privados y
+> `admin_audit_log`; `scripts/smoke/0021-identity-account-lifecycle.sql` registró 21 PASS / 0 FAIL.
+> `/organization/members` consume esos RPC. El prerrequisito de membresía para F2/F3 está
+> satisfecho. Lo pendiente de F1 es el ciclo de vida de la cuenta: creación, estado,
+> suspensión/reactivación, restricciones de rol y el endurecimiento RLS restante.
 
-**Con una excepción, y hay que nombrarla:** `private.org_leave` (`0016:437-453`) → `public.leave_organization` (`0016:455-459`), con `grant execute … to authenticated` (`0016:534,544`), hace `update org_memberships set status='former'` **sobre las filas del propio actor**. Es el único `INSERT`/`UPDATE` sobre esa tabla en las 44 migraciones, está cableado a `src/data/repositories/orgRepertoire.js:180` y tiene un botón vivo en `Organizations.jsx:318-340`. Es decir: **un miembro sí puede irse a sí mismo; no puede unirse, cambiar su rol ni sacar a nadie más.**
-
-Eso significa que una pantalla de administración sin F1 **no es una tarea más chica — es una tarea bloqueada**: hoy no existe forma de dar de alta una cuenta ni de cambiar el rol de nadie desde la aplicación. Y la matrícula de F3 depende de que existan miembros administrables (decisión T3).
+Antes de `0021`, `private.org_leave` era el único escritor de `org_memberships` y solo permitía que
+un miembro se retirara a sí mismo. Ese bloqueo quedó resuelto para alta, cambio de rol, baja y
+reactivación administrativa. La matrícula de F3 puede apoyarse en esas membresías; todavía no debe
+asumir que la plataforma puede crear o suspender cuentas desde la administración.
 
 | Fase | Depende de | Por qué |
 |---|---|---|
-| F1 Membresía administrable | — | los cuatro RPC son el punto único de escritura sobre `org_memberships` |
+| F1 Membresía y ciclo de cuenta | — | los tres RPC de membresía están listos; falta completar creación y estado de cuenta |
 | F2 Activación de módulos | F1 | el `org_owner` que apaga un módulo es el rol que F1 vuelve administrable |
 | F3 Núcleo académico | F1, F2 | matrícula a oferta + guard de módulo (T5) |
 | F4 Sesiones y espacios | F3 | una sesión pertenece a una oferta; el salón es de la organización |
@@ -77,27 +83,33 @@ Además: **la antigua D4 de bandas quedó resuelta como A** — una banda usa `o
 
 ### F1-2 — Migración de identidad y ciclo de cuenta
 
-El DDL está en `docs/database-schema-ampliacion.md` §1–§3. Incluye:
+La primera parte se entregó en `0021_identity_account_lifecycle.sql`:
 
-- `profiles.account_status` y `profiles.created_at`;
-- el CHECK de `org_memberships.role` (nueve valores de organización; `system_admin` y `community_moderator` quedan fuera porque viven en `user_roles`);
 - los **tres RPC de T3** — `add_org_member`, `change_member_role`, `remove_org_member` — con sus cores privados `*_core`;
-- `admin_audit_log` (append-only, con contexto de organización);
-- `FORCE ROW LEVEL SECURITY` en las tablas que la fase toca.
+- `admin_audit_log` append-only, con contexto de organización y `FORCE ROW LEVEL SECURITY`;
+- políticas administrativas sobre `org_memberships`, manteniendo revocada la escritura directa del cliente.
 
-**Más el smoke `scripts/smoke/<número>-identity.sql`**, con:
-- los guards de cada RPC, invocados **como el actor que debe fallar**;
-- SOD: auto-agregarse, auto-cambiarse el rol, auto-quitarse el rol → excepción;
-- `WITH CHECK`: un `system_admin` que intente escribir un `account_status` inválido → rechazo;
-- `FORCE RLS`: conexión **como owner** confirmando que ahora respeta la política.
+El smoke `scripts/smoke/0021-identity-account-lifecycle.sql` registró **21 PASS / 0 FAIL**. Verifica
+autorización, protección del owner, baja lógica, preservación de sede, reactivación, rechazo de
+escritura directa y anonimización del audit log. La evidencia de ejecución está en
+`odd/tasks/f1-0021-smoke.md`.
 
-**Requiere `supabase db reset` antes. No es idempotente.**
+Queda pendiente en una migración posterior:
+
+- `profiles.account_status` y el RPC `set_account_status`;
+- el CHECK de `org_memberships.role`;
+- `FORCE ROW LEVEL SECURITY` en `org_memberships` y `profiles`;
+- los casos del smoke que dependan de esas reglas de ciclo de cuenta.
 
 ### F1-3 — `/organization/members` y `/settings/accounts`
 
-Layout en `wireframes.md` §6.1 y §6.2. Dos repositorios nuevos o uno con dos superficies.
+`/organization/members` está implementada y permite alta, cambio de rol, baja y reactivación mediante
+los RPC de `0021`. `/settings/accounts` también existe, pero hoy es una vista de solo lectura de la
+cuenta del actor; no administra estados de otras cuentas.
 
-> **Lo que este PR no hace, y por qué:** no crea cuentas. Eso necesita `auth.admin.createUser`, que es la **primera Edge Function de escritura** del repositorio (hoy hay una sola: `send-guardian-consent`) y CI corre `deno check` sobre ellas. Va en su propio PR.
+> **Pendiente:** crear cuentas requiere `auth.admin.createUser` en una Edge Function de escritura.
+> La misma unidad deberá añadir suspensión/reactivación administrativa y completar
+> `/settings/accounts`; no debe presentarse la vista actual como administración de cuentas.
 
 ---
 
@@ -108,7 +120,7 @@ La tabla maestra. Cada fase lista su BDD, el contenido de su migración, sus RPC
 | Fase | BDD | Migración (nombre del proposal) | Contenido | RPCs | Smoke | UI | Depende de |
 |---|---|---|---|---|---|---|---|
 | **F0** | — | — | ADR-012, esta hoja, el change de OpenSpec, corrección de encabezados | — | — | — | — |
-| **F1** | `organization-members` | `004x_identity_account_lifecycle.sql` | `profiles.account_status/created_at`, CHECK de `role`, `admin_audit_log`, `FORCE RLS`, grant ampliado | `add_org_member`, `change_member_role`, `remove_org_member`, `set_account_status` | sí | `/organization/members`, `/settings/accounts` | — |
+| **F1** | `organization-members` | `0021_identity_account_lifecycle.sql` + migración pendiente de ciclo de cuenta | **Listo:** RPCs de membresía, audit log y políticas administrativas. **Pendiente:** `profiles.account_status`, CHECK de `role` y FORCE RLS restante | **Listos:** `add_org_member`, `change_member_role`, `remove_org_member`. **Pendiente:** `set_account_status` | 21 PASS / 0 FAIL; ampliación pendiente | `/organization/members` lista; `/settings/accounts` parcial | — |
 | **F2** | `module-activation` | `004y_organization_modules.sql` | `organization_modules` con los cinco `module_key` de D5, `enabled=true` por defecto | guard de módulo en los RPC de F3–F7 (T5) | sí | nav y rutas condicionadas | F1 |
 | **F3** | `education-structure` + reescritura de `education-enrollment` | `004z_education_core.sql` | `academic_periods`, `education_courses`, `education_subjects` (cond.), `education_course_offerings`, `education_enrollments`, `education_exercises`, `education_progress`, `education_events`, `education_evaluations`, `education_grades` + RLS + grants | `enroll_student`, `withdraw_student`; derivaciones `education_xp_total`, `education_streak`; wrappers de §4 | sí | `/education/*` | F1, F2 |
 | **F4** | `education-sessions` | `004a_spaces_sessions_events.sql` | `spaces`, `education_sessions`, `recurrence_patterns` (D2), extensión de `events` (`academic_type`, `space_id`, `recurrence_rule`, `session_number`) | RPC de conflictos de horario | sí | `/activities/*`, sesiones | F3 |
@@ -121,9 +133,12 @@ La tabla maestra. Cada fase lista su BDD, el contenido de su migración, sus RPC
 
 Solo documentación: ADR-012 supersede ADR-011, esta hoja, el change `education-institutional-modules` y la corrección de los encabezados que citaban el plan Moodle. No hay migración ni pantalla.
 
-### F1 — Membresía administrable
+### F1 — Membresía y ciclo de cuenta
 
-Detalle en §4. Es la fase que desbloquea el resto y la única que no se puede dividir: las políticas de `org_memberships` son un contrato indivisible.
+Detalle en §4. La administración de membresías ya desbloqueó el alta, cambio de rol, baja y
+reactivación dentro de una organización; esa parte satisface el prerrequisito operativo de F2/F3.
+F1 permanece parcial hasta que se complete el ciclo de cuenta: creación, estado,
+suspensión/reactivación, restricciones de rol y `FORCE RLS` restante.
 
 ### F2 — Activación de módulos
 
@@ -198,4 +213,4 @@ Hoy el árbol tiene **48 feature files y 776 escenarios**. De ellos, la ampliaci
 
 ---
 
-*Contra `main` = `f7d8bdc`, 15-11-2026. Ninguna migración de esta hoja existe todavía; `docs/database-schema-ampliacion.md` es especificación, no código aplicado. El próximo número de migración es `0047` y está contestado por el PR #451 — recontar al implementar (T6).*
+*Estado reconciliado contra `main` = `a489ab5`, 28-11-2026. F1 está parcialmente implementada en `0021_identity_account_lifecycle.sql`; F2–F8 continúan como especificación y deben recontar la numeración al implementarse (T6).*
