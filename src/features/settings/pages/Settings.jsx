@@ -7,6 +7,7 @@
 // (preferences.getPreferences), zero network when a cached copy exists.
 
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { usePreferences } from '../../../hooks/shared/usePreferences.js'
 import { useMidi } from '../../../hooks/shared/useMidi.js'
 import { useAuth } from '../../../app/providers/useAuth.jsx'
@@ -432,6 +433,16 @@ export default function Settings() {
           </p>
         </div>
       </div>
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-cem-text">Analytics</h2>
+        <p className="mt-2 text-xs text-cem-secondary">
+          Repertoire growth, performance history, organization insight and offline usage.
+        </p>
+        <Link to="/analytics" className="mt-2 inline-block rounded-md bg-cem-amber px-3 py-2 text-sm font-medium text-cem-base hover:bg-cem-amber/90">
+          Open analytics
+        </Link>
+      </section>
 
       <section className="mt-8">
         <h2 className="text-lg font-bold text-cem-text">Export my data</h2>
