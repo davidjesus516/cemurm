@@ -5,12 +5,21 @@
 
 import { useContext, useEffect, useState } from "react";
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
+  useTable,
+  tableFeatures,
+  columnFilteringFeature,
+  columnVisibilityFeature,
+  globalFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
   flexRender,
-  getPaginationRowModel,
   createColumnHelper,
 } from "@tanstack/react-table";
 import { Pen, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -47,6 +56,27 @@ import { useNavigate } from "react-router-dom";
 import PlaceholdersInput from "src/components/animated-components/animatedinput-placeholder";
 import { demoBlogCategories } from "@/demo/content";
 
+// TanStack Table v9: features are registered instead of bundled into the hook.
+// This table filters globally and per column, sorts, paginates and selects rows,
+// so those four features plus their row models are declared here; the three sort
+// fns are exactly what 'auto' resolves to (datetime, alphanumeric, text).
+const features = tableFeatures({
+  columnFilteringFeature,
+  globalFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  columnVisibilityFeature,
+  filteredRowModel: createFilteredRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    datetime: sortFn_datetime,
+    text: sortFn_text,
+  },
+});
+
 const ManageBlogTable = () => {
   const { posts } = useContext(BlogContext);
   const [tableData, setTableData] = useState<BlogPostType[]>([]);
@@ -68,9 +98,11 @@ const ManageBlogTable = () => {
     setTableData(posts);
   }, [posts]);
 
-  const columnHelper = createColumnHelper<BlogPostType>();
+  const columnHelper = createColumnHelper<typeof features, BlogPostType>();
 
-  const columns = [
+  // v9's columns() helper keeps each column's own TValue instead of widening the
+  // array to unknown, which is what makes info.getValue() typed in the cells.
+  const columns = columnHelper.columns([
     columnHelper.display({
       id: "select",
       header: ({ table }) => (
@@ -233,8 +265,9 @@ const ManageBlogTable = () => {
         );
       },
     }),
-  ];
-  const table = useReactTable({
+  ]);
+  const table = useTable({
+    features,
     data: tableData,
     columns,
     state: {
@@ -242,10 +275,6 @@ const ManageBlogTable = () => {
       rowSelection,
       pagination,
     },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
@@ -449,7 +478,7 @@ const ManageBlogTable = () => {
               <div className="flex items-center gap-2">
                 <p className="text-sm text-cem-secondary-elevated ">Show</p>
                 <Select
-                  value={String(table.getState().pagination.pageSize)}
+                  value={String(table.state.pagination.pageSize)}
                   onValueChange={(value) => table.setPageSize(Number(value))}
                 >
                   <SelectTrigger className="w-24">
@@ -471,12 +500,12 @@ const ManageBlogTable = () => {
                 <div>
                   <p className="text-sm font-normal text-cem-secondary-elevated">
                     {table.getRowModel().rows.length > 0
-                      ? `${table.getState().pagination.pageIndex *
-                      table.getState().pagination.pageSize +
+                      ? `${table.state.pagination.pageIndex *
+                      table.state.pagination.pageSize +
                       1
                       }-${Math.min(
-                        (table.getState().pagination.pageIndex + 1) *
-                        table.getState().pagination.pageSize,
+                        (table.state.pagination.pageIndex + 1) *
+                        table.state.pagination.pageSize,
                         table.getFilteredRowModel().rows.length
                       )} of ${table.getFilteredRowModel().rows.length}`
                       : `0 of 0`}
@@ -486,24 +515,24 @@ const ManageBlogTable = () => {
                 <div className="flex items-center gap-2">
                   <ChevronLeft
                     size={20}
-                    className={`text-cem-secondary-elevated hover:text-cem-amber cursor-pointer ${table.getState().pagination.pageIndex === 0
+                    className={`text-cem-secondary-elevated hover:text-cem-amber cursor-pointer ${table.state.pagination.pageIndex === 0
                       ? "opacity-50 cursor-not-allowed!"
                       : ""
                       }`}
                     onClick={() => table.previousPage()}
                   />
                   <span className="w-8 h-8 text-cem-amber flex items-center justify-center rounded-md  text-sm font-normal">
-                    {table.getState().pagination.pageIndex + 1}
+                    {table.state.pagination.pageIndex + 1}
                   </span>
                   <ChevronRight
                     size={20}
-                    className={`text-cem-secondary-elevated hover:text-cem-amber cursor-pointer ${table.getState().pagination.pageIndex + 1 ===
+                    className={`text-cem-secondary-elevated hover:text-cem-amber cursor-pointer ${table.state.pagination.pageIndex + 1 ===
                       table.getPageCount()
                       ? "opacity-50 cursor-not-allowed!"
                       : ""
                       }`}
                     onClick={() =>
-                      table.getState().pagination.pageIndex + 1 <
+                      table.state.pagination.pageIndex + 1 <
                       table.getPageCount() && table.nextPage()
                     }
                   />
