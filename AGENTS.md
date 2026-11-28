@@ -1,6 +1,6 @@
 # CEMURM — Agent Guide
 
-PWA for musicians: repertoires, setlists, live performance, offline-first. React 18 + Vite + Tailwind against a **local** Supabase stack (PostgreSQL + GoTrue + RLS). Milestone status lives in `README.md` / `docs/mvp-scope.md` — don't duplicate it here.
+PWA for musicians: repertoires, setlists, live performance, offline-first. React 19 + Vite 8 + Tailwind 4 against a **local** Supabase stack (PostgreSQL + GoTrue + RLS). Milestone status lives in `README.md` / `docs/mvp-scope.md` — don't duplicate it here.
 
 ## Commands
 
@@ -19,20 +19,23 @@ pnpm typecheck   # tsc --noEmit  (see "Type checking" below)
 
 `pnpm-workspace.yaml` holds `allowBuilds: { esbuild: true }`; postinstall scripts are blocked by default.
 
-Vitest is the only test dependency (no jsdom, no testing-library), running in the `node`
-environment — which is Vitest's **default**: `vite.config.js` has no `test` block and configures
-nothing. Tests are colocated as `<module>.test.js` beside the module under test, and
-**characterization tests now guard the domain layer** (`src/domain/**`,
-`src/integrations/spotify.js`): they assert what the code does *today*, so a failure is a
-finding to report, never a reason to edit the source or weaken the assertion. "Verification"
-for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
+Tests run on Vitest in the `node` environment — no jsdom and no testing-library, so nothing
+mounts JSX. `vite.config.js` carries no `test` block; **`vitest.config.js` is the only test
+config** and pins `environment: 'node'`, `include: ['src/**/*.test.js']` and the `tests/e2e/**`
+exclusion. Playwright (`@playwright/test`) is a separate E2E tier over `tests/e2e/specs/`, driven
+by `playwright.config.js` and never by `pnpm test`. Unit tests are colocated as `<module>.test.js`
+beside the module under test, and **characterization tests now guard the domain layer**
+(`src/domain/**`, `src/integrations/spotify.js`): they assert what the code does *today*, so a
+failure is a finding to report, never a reason to edit the source or weaken the assertion.
+"Verification" for JS work = `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
 
 **Vite and Vitest move as a pair, never one alone.** Vitest declares Vite as a peer, so a Vitest
 major fails hard against the Vite major it was not built for — Vitest 5 wants `vite ^6.4||^7||^8`
 and dies against Vite 5. That is why this was pinned at Vitest 3.2.7 / Vite 5.4.21 for so long:
 moving one without the other was guaranteed to break. #236 moved both together (Vite 6.4.3 /
-Vitest 5.0.2) and the suite passed unchanged. **The rule is the pairing, not the specific
-versions** — when one major moves, move the other in the same change and install for real.
+Vitest 5.0.2) and the suite passed unchanged; they have since moved again, and the installed pair
+is **Vite 8.3.5 / Vitest 5.0.5**. **The rule is the pairing, not the specific versions** — when one
+major moves, move the other in the same change and install for real.
 
 Verifying a dependency bump here takes one step that is easy to skip and that silently invalidates
 the result: a worktree symlinked to the repo's `node_modules` runs the *old* versions, so every gate
@@ -53,12 +56,15 @@ pnpm install --frozen-lockfile
 → pnpm typecheck
 → bash scripts/check-test-integrity.sh
 → node scripts/hooks/pre-tool-guard.selftest.mjs
+→ node scripts/check-stack-diff.selftest.mjs
+→ node scripts/check-supabase-config.selftest.mjs
 → pnpm test
 → pnpm test:gherkin
 → pnpm build
 → bash scripts/check-migrations-unique.sh
 → node scripts/check-migrations-destructive.mjs
 → bash scripts/check-doc-counts.sh
+→ node scripts/check-supabase-config.mjs
 → bash scripts/check-visual-contract.sh
 ```
 
@@ -76,7 +82,7 @@ by #287 — a separate Vitest tier over `src/test/gherkin/`, not part of `pnpm t
 not a failing run, they are a green run that tested less, so nothing inside the suite could see
 them. Bash + grep only, same as the visual gate.
 
-**Two gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
+**Gates guard the guards.** `pre-tool-guard.selftest.mjs` asserts the agent rules themselves
 (destructive SQL blocked, `supabase db reset` still allowed, exit 2 on a block, `size:exception`
 clearing only the size verdict), and `check-migrations-destructive.mjs` applies the destructive-SQL
 rule to the migration files rather than to the tool call that wrote them — the same rule from the
@@ -93,8 +99,19 @@ file have been wrong every time anybody re-counted them — five times, most rec
 and each drift was found by hand. Fixing a number is a PR's work; this stops the next drift. If it
 fails, fix the document: the tree is the fact and the prose is a copy.
 
+**`supabase/config.toml` has its own gate, and it takes two layers.** `supabase config validate`
+(CLI 3.2.0, the devDependency) exits 1 on syntax errors, unknown keys and removed keys — but a
+*deprecation* is only a warning with exit 0, so the gate treats any warning as a failure. It is
+also blind to a removed key holding an empty value: `[experimental] orioledb_version = ""`
+reported `✓ … is valid · 0 warnings` on 2026-11-25, which is exactly how that key survived
+the audit before it. So the gate also diffs the key set against the template `supabase init`
+generates with the same binary — generated, never committed, so it cannot drift from the pin.
+`[functions.<name>]` is exempt because function names are per project. It is local only: no
+Docker, no stack, no network. `check-supabase-config.selftest.mjs` asserts all of it, including
+the empty-value case that layer 1 calls valid.
+
 **`supabase/functions/**` is now inside a gate.** It was outside every one of them until #314:
-no `tsc` (its `include` has no `supabase` path) and no ESLint (`.eslintrc.cjs` ignores `supabase/`,
+no `tsc` (its `include` has no `supabase` path) and no ESLint (`eslint.config.js` ignores `supabase/`,
 whose functions target Deno rather than Node) still hold, but CI added `deno check 'supabase/functions/**/*.ts'`.
 The glob is **quoted** on purpose — unquoted, bash expands `**` as `*` (globstar is off in Actions)
 and silently omits nested files. Still nothing in the JS gates reaches that path.
@@ -113,16 +130,17 @@ Playwright project selection is `matches(grep)` **AND NOT** `matches(grepInvert)
 the same regex selects zero tests while still exiting green — `chromium` therefore carries no
 `grep`, and `@chromium-only` is expressed by excluding it from the other two.
 
-`vitest.config.js` exists solely to keep `tests/e2e/**` out of the unit tier. The orphaned
+`vitest.config.js` keeps `tests/e2e/**` out of the unit tier and pins the `node` environment and
+the `src/**/*.test.js` include pattern that `vite.config.js` does not declare. The orphaned
 `spike/**` exclusion is not on `main`; add it there only if a `spike/` directory actually exists.
 
 ## Type checking
 
 `tsconfig.json` has `allowJs` with **global `checkJs` deliberately OFF**. The vendored admin
-template's `.ts/.tsx` tree **is** covered: `include` admits all 172 files under `src/api`,
-`src/components`, `src/context`, `src/hooks`, `src/layouts`, `src/routes`, `src/types` and
-`src/views`, and `strict: true` applies to them. The `@/*` and `src/*` path aliases map onto
-`src/`, so the template's import style resolves.
+template's `.ts/.tsx` tree **is** covered: `include` admits thirteen directories, and its eight
+template ones (`src/api`, `src/components`, `src/context`, `src/hooks`, `src/layouts`, `src/routes`,
+`src/types`, `src/views`) alone hold 166 files, all under `strict: true`. The `@/*` and `src/*`
+path aliases map onto `src/`, so the template's import style resolves.
 
 The JS baseline stays per-file opt-in via the canonical pragma:
 
@@ -138,7 +156,7 @@ flag. Baseline history: `odd/tasks/ts-checkjs-baseline.md`.
 wrong `include` leaves `tsc` checking one untyped file and still exiting 0.
 
 ```bash
-npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 248 at F1 (172 TS/TSX + 76 JS)
+npx tsc --noEmit --listFiles | grep -c 'cemurm/src/'   # must be > 1; 269 on 2026-11-13
 ```
 
 The template's dead demo mocks (`chance` + MSW) were replaced by `src/demo/content.ts`, so neither
@@ -151,7 +169,7 @@ TypeScript is **6.0.3** (downgraded from 7.0.2 for typescript-eslint compatibili
 
 ## SQL smoke tests (manual only)
 
-`scripts/smoke/*.sql` — **25 files**, `0021-plan-freeze.sql` through `0051-onboarding-org-creation.sql`
+`scripts/smoke/*.sql` — **26 files**, from `0021-identity-account-lifecycle.sql` and `0021-plan-freeze.sql` through `0051-onboarding-org-creation.sql`
 (earlier versions of this line said "6 files, `0023`–`0028`", then "16 files … through `0039`";
 re-count rather than trusting it).
 **The smoke filenames do not track the migration numbers.** `0021-plan-freeze.sql` covers
@@ -160,7 +178,7 @@ renumbered after their smokes were written, and the smokes were not renamed with
 name is not a migration number, and `scripts/smoke/` sitting at `0021`/`0022` is **not** evidence
 that those migration slots are taken.
 
-What has a smoke: `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
+What has a smoke: `0021` (both `0021-identity-account-lifecycle.sql` and `0021-plan-freeze.sql`), `0023`–`0033`, `0034`/`0035` (through the `0021`/`0022` files above),
 `0037`–`0039`, `0041`–`0046`, `0049`, `0050` and `0051`. What does not: `0001`–`0020`,
 `0036_guardian_approve_public_sharing.sql` and `0040_fix_migration_chain_rls.sql`. They are **not**
 in CI and **not** wired to any pnpm script. The invocation
@@ -226,8 +244,9 @@ creates what an earlier one references must sort **before** it.
   slot `0046` landed with #430. `0033_feedback.sql` is the precedent for renumbering when the
   natural slot is gone; it is self-contained, so `0033` cost nothing.
 - **Must sort before an existing migration** → you cannot simply take `0047`. Land it in a genuinely
-  free earlier slot, or renumber what it depends on. **The only free slots left are `0021` and
-  `0022`**, and they were kept deliberately, so claim one only knowing why the two are reserved.
+  free earlier slot, or renumber what it depends on. **`0022` is the only reserved slot left**
+  (`0021` was claimed by #523, which is self-contained and so did not need the position), and
+  it is kept deliberately, so claim it only knowing why it is reserved.
   Otherwise this case needs a decision (renumber the dependency, or reorder the filenames) rather
   than a free number to drop into.
 
@@ -250,15 +269,21 @@ Schema contract: `supabase/migrations/` is authoritative; `docs/database-schema-
 
 ## Architecture notes that aren't obvious from filenames
 
-The tree is post-relocation. `src/main.jsx`, `src/App.jsx`, `src/pages/` and `src/components/`
-no longer exist — several `docs/` files and `odd/tasks/*.md` still cite them.
+The tree is post-relocation. `src/main.jsx`, `src/App.jsx` and `src/pages/` no longer exist —
+several `docs/` files and `odd/tasks/*.md` still cite them.
 
 - Entrypoint is `index.html` → **`src/app/main.jsx`**. Router: `src/app/router.jsx`. Shell
   chrome: `src/app/AppLayout.jsx`. Providers: `src/app/providers/`.
+- **Two component layers, and they are not alternatives.** `src/components/ui/` is the official
+  primitive library — 55 Base UI components carrying the `cem.*` tokens, imported 188 times by the
+  features. `src/features/<feature>/components/` holds that feature's own pieces. The rest of
+  `src/components/` (`apps`, `dashboards`, `animated-components`, `icons`, `tables`,
+  `user-profile`) is vendored template cargo, not a pattern to copy.
 - `src/domain/**` is pure logic with no I/O. `src/data/repositories/` holds the impure halves
   that talk to Supabase. `src/integrations/`, `src/offline/`, `src/ui/patterns/` are leaf
-  modules. `src/features/<feature>/` holds that feature's pages and components.
-  `src/lib/storage.js` is the one deliberate exception left in `src/lib/`.
+  modules. **`src/ui/patterns/` holds two files** (`ChordProRenderer`, `PdfChartViewer`) and is
+  not the component library. `src/lib/storage.js` is the one deliberate exception left in
+  `src/lib/`.
 - RLS is the client-side gate. The service worker (`public/sw.js`) + IndexedDB layer does read-cache, an offline write queue, and a drain on reconnect.
 - The `charts` storage bucket is **private** with owner-folder RLS (first path segment must be `auth.uid()`); reads are 1-hour signed URLs only. The 10 MB PDF cap is **app-side only** — the DB deliberately accepts oversized rows.
 - Import/enrichment provider clients **never throw**: they return `{ ok: true, … }` or `{ ok: false, error: 'offline' | 'unavailable' }`, gated by `isOnline()`.
@@ -283,9 +308,15 @@ The rule of thumb: if you are writing down *what a capability is*, it goes in Op
 
 **`skills/cemurm-visual-system/SKILL.md` is the single source of visual truth.** Read it before
 touching any interface. Two older sources conflict with it and are **superseded** for visual
-decisions: `docs/design-system.md` (464 lines, written 2026-09-06, never implemented) and
-`odd/tasks/cemurm-brand-landing.md` §5–§6 (unmerged branch). When they disagree with the skill, the
-skill wins.
+decisions: `docs/design-system.md` and `odd/tasks/cemurm-brand-landing.md` §5–§6 (unmerged branch).
+When they disagree with the skill, the skill wins.
+
+That supersession is **partial, and the distinction matters**. `docs/design-system.md` (514 lines,
+2026-09-06) is dead for colour, typography, spacing, radius and implementation priority — its
+visual rules were replaced by the skill in #235. Its brand voice, mascot, notification behaviour,
+onboarding, empty states and celebration triggers are still current, `docs/ux-spec.md` and
+`docs/wireframes.md` cite it by section number 14 times, and it is the only record of the mascot.
+**Do not delete it and do not treat a stale-looking banner as permission to.**
 
 ## UML diagrams
 
@@ -321,7 +352,10 @@ which carries the same visual language, is available everywhere.
 
 ## Conventions
 
-- **JSX, not TSX.** The spec mentions TypeScript; the codebase is plain JS. Follow what exists.
+- **`.jsx`/`.js` in the product, `.tsx`/`.ts` in the primitive and vendored layer.** `src/features/**`,
+  `src/domain/**` and `src/data/**` are plain JS/JSX (116 `.jsx`, 131 `.js`); `src/components/ui/`
+  and the template trees are TS/TSX under `strict` (166 files, 153 `.tsx`). Match the file you are
+  editing instead of converting it, and never flip `checkJs` globally to "fix" the split.
 - Tailwind only — no CSS modules, styled-components, or inline styles.
 - Components `PascalCase.jsx`; hooks `camelCase` with `use` prefix; utilities `camelCase`.
 - Conventional Commits. Feature branches from `main` (`feat/my-feature`). PRs stay ≤400 changed lines; bigger work ships as chained `-prN-` slices (precedent: `feat/hito-3-notifications` + children, `feat/ts-checkjs-baseline` + children). Dependent slices use GitHub's native stacks via the `chained-pr` skill (`gh stack`). Merge is always a human decision.

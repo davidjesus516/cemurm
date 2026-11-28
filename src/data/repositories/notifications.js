@@ -108,6 +108,29 @@ async function supabase() {
   return supabaseClient
 }
 
+// One realtime channel per user, shared by every concurrent consumer for
+// that userId (AppLayout badge + /notifications page, for example).
+// supabase-js reuses channels by topic, so a late subscriber that .on()s an
+// already joined channel throws
+//   cannot add `postgres_changes` callbacks ... after `subscribe()`
+// We therefore register a single postgres_changes listener before the first
+// subscribe() and fan out to every registered callback; unsubscribe removes
+// one callback and removes the channel when the last consumer leaves.
+const CHANNELS = new Map() // userId → { channel, subscribed: boolean, cbs: Set<(payload: unknown) => void> }
+
+/**
+ * @param {import('@supabase/supabase-js').SupabaseClient} client
+ * @param {string} userId
+ */
+const channelEntry = (client, userId) => {
+  let entry = CHANNELS.get(userId)
+  if (!entry) {
+    entry = { channel: client.channel(`notifications:${userId}`), subscribed: false, cbs: new Set() }
+    CHANNELS.set(userId, entry)
+  }
+  return entry
+}
+
 // Frozen category enum (0001): display order drives groupByCategory.
 /** @type {NotificationCategory[]} */
 export const CATEGORY_ORDER = ['invitation', 'setlist', 'event', 'system']
@@ -216,7 +239,13 @@ export async function markAllRead(userId) {
 /**
  * Live subscription to the caller's own rows (realtime delivery scenario:
  * the non-PK user_id filter + replica identity full deliver per subscriber,
- * and RLS caps the channel). Returns an unsubscribe fn — teardown on unmount.
+ * and RLS caps the channel). The channel is shared by every concurrent
+ * consumer for the same userId: a single postgres_changes listener, raised
+ * before the first subscribe(), fans out to every registered callback, so a
+ * late subscriber never touches an already-joined channel
+ * (supabase-js forbids `postgres_changes` callbacks after `subscribe()`).
+ * Returns an unsubscribe fn — teardown on unmount; the channel is removed
+ * when the last consumer leaves.
  */
 /**
  * @param {string} userId
@@ -225,15 +254,31 @@ export async function markAllRead(userId) {
  */
 export async function subscribeNotifications(userId, onChange) {
   const client = await supabase()
-  const channel = client
-    .channel(`notifications:${userId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-      onChange,
-    )
-    .subscribe()
-  return () => client.removeChannel(channel)
+  const entry = channelEntry(client, userId)
+  entry.cbs.add(onChange)
+  if (!entry.subscribed) {
+    entry.subscribed = true
+    /** @param {unknown} payload */
+    const dispatch = (payload) => {
+      const cbs = [...entry.cbs]
+      for (const cb of cbs) cb(payload)
+    }
+    entry.channel
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        dispatch,
+      )
+      .subscribe()
+  }
+  return () => {
+    entry.cbs.delete(onChange)
+    if (entry.cbs.size === 0) {
+      entry.subscribed = false
+      CHANNELS.delete(userId)
+      client.removeChannel(entry.channel)
+    }
+  }
 }
 
 /** Deep-link map (design "Deep-link navigation"): payload.action → route. */

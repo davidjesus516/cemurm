@@ -13,6 +13,7 @@ import {
   offlineRemove,
 } from '../../../offline/cache.js'
 import { isUserAuthoredKvEntry, parseCacheName, planEviction } from '../../../lib/storage.js'
+import { formatBytes } from '../../../domain/library/formatBytes.js'
 
 const WARN_RATIO = 0.9 // navigator.storage.estimate() usage/quota warning threshold
 const CLEAR_RATIO = 0.75 // cleanup frees until usage drops below 75% of quota
@@ -30,13 +31,6 @@ const KV_PREFIXES = CATEGORIES.flatMap((cat) => cat.kvPrefixes)
 function bytesOf(value) {
   const json = JSON.stringify(value ?? '')
   return typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(json).length : json.length
-}
-
-function formatBytes(n) {
-  if (!n) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)))
-  return `${(n / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`
 }
 
 async function estimateCacheBytes(name) {

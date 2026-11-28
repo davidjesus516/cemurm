@@ -249,6 +249,7 @@ function psql(sql) {
     throw new Error(
       `No pude leer la base local (container "${CONTAINER}").\n` +
       `Levantá el stack primero: pnpm exec supabase start\n\n${detail}`,
+      { cause: error },
     );
   }
   return raw.split('\n').filter(Boolean).map(line => line.split('\t'));

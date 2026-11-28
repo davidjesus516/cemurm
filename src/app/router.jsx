@@ -45,10 +45,12 @@ const SongDetail = lazy(() => import('../features/repertoire/pages/SongDetail.js
 const Setlists = lazy(() => import('../features/setlists/pages/Setlists.jsx'))
 const SetlistDetail = lazy(() => import('../features/setlists/pages/SetlistDetail.jsx'))
 const AudienceView = lazy(() => import('../features/setlists/pages/AudienceView.jsx'))
+const ExportHistory = lazy(() => import('../features/setlists/pages/ExportHistory.jsx'))
 const Gigs = lazy(() => import('../features/gigs/pages/Gigs.jsx'))
 const GigDetail = lazy(() => import('../features/gigs/pages/GigDetail.jsx'))
 const Bandmates = lazy(() => import('../features/bandmates/pages/Bandmates.jsx'))
 const Organizations = lazy(() => import('../features/orgs/pages/Organizations.jsx'))
+const OrganizationMembers = lazy(() => import('../features/orgs/pages/OrganizationMembers.jsx'))
 const Services = lazy(() => import('../features/services/pages/Services.jsx'))
 const ServiceDetail = lazy(() => import('../features/services/pages/ServiceDetail.jsx'))
 const SubstitutionAssignment = lazy(() => import('../features/services/pages/SubstitutionAssignment.jsx'))
@@ -68,6 +70,7 @@ const Profile = lazy(() => import('../features/library/pages/Profile.jsx'))
 const Moderation = lazy(() => import('../features/moderation/pages/Moderation.jsx'))
 const Storage = lazy(() => import('../features/settings/pages/Storage.jsx'))
 const Settings = lazy(() => import('../features/settings/pages/Settings.jsx'))
+const AccountSettings = lazy(() => import('../features/settings/pages/AccountSettings.jsx'))
 const FeedbackTriagePage = lazy(() => import('../features/feedback-triage/pages/FeedbackTriagePage.jsx'))
 const NotFound = lazy(() => import('../features/shell/pages/NotFound.jsx'))
 const Landing = lazy(() => import('../features/landing/pages/Landing.jsx'))
@@ -140,11 +143,13 @@ const router = createBrowserRouter([
               { path: '/setlists', element: defer(<SetlistTooltip><Setlists /></SetlistTooltip>) },
               { path: '/setlists/:id', element: defer(<SetlistDetail />) },
               { path: '/setlists/:id/stage', element: defer(<PerformanceTooltip><StageMode /></PerformanceTooltip>) },
+              { path: '/exports', element: defer(<ExportHistory />) },
               { path: '/gigs', element: defer(<Gigs />) },
               { path: '/gigs/:id', element: defer(<GigDetail />) },
               { path: '/bandmates', element: defer(<Bandmates />) },
               { path: '/organizations', element: defer(<Organizations />) },
               { path: '/onboarding/setup', element: defer(<Setup />) },
+              { path: '/organization/members', element: defer(<OrganizationMembers />) },
               { path: '/services', element: defer(<Services />) },
               { path: '/services/:id', element: defer(<ServiceDetail />) },
               { path: '/services/:id/projection', element: defer(<Projection />) },
@@ -153,6 +158,7 @@ const router = createBrowserRouter([
               { path: '/rehearsals/:id', element: defer(<RehearsalDetail />) },
               { path: '/notifications', element: defer(<Notifications />) },
               { path: '/settings', element: defer(<Settings />) },
+              { path: '/settings/accounts', element: defer(<AccountSettings />) },
               { path: '/settings/storage', element: defer(<Storage />) },
               {
                 element: <RequireSystemAdmin />,

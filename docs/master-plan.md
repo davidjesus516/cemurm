@@ -118,7 +118,7 @@ re-verified 2026-11-04 after #430 merged `0046`):
 | Feature files | **49**, 789 scenarios — was 47 / 747 before the internal operations console landed, 46 / 734 before the feedback-triage feature, 42 / 656 at `8b66394` |
 | Migrations on `main` | **48 files, numbered `0001`–`0051`, with `0022` a deliberate free gap and `0047`/`0048` absent because open PRs claim them** — `main` today is 46 through `0049`; #523 added `0021_identity_account_lifecycle.sql`, #459 added `0049_audience_view.sql`, and this branch adds `0050_onboarding_invite_redemption.sql` and `0051_onboarding_org_creation.sql`. Was 44 through `0046` at the 2026-11-11 pass, 43 through `0045` at the 2026-11-01 pass, 38 through `0040` at the 2026-10-12 pass, and 27 with a gap at `0021` before that |
 | Next free migration number | **`0047`** in this tree, but claimed, not available: open PR #451 (`fix/acl-table-privileges`) carries `0047_public_table_privileges.sql` (#452 and #453 only carry it because they are stacked on #451), and open PR #460 carries `0048_setlist_collaborator_read.sql` — which is why the audience view took `0049`. `0021` is taken (#523), `0022` remains deliberately free; everything from `0036` to `0049` is taken except `0047`/`0048` (`0036_guardian_approve_public_sharing.sql`, `0037_offline_tie_break.sql`, `0038_offboarding_cascade.sql`, `0039_leave_handoff_guard.sql`, `0040_fix_migration_chain_rls.sql`, `0041_gig_shared_read.sql`, `0042_account_export.sql`, `0043_account_erasure.sql`, `0044_account_import.sql`, `0045_respond_member_guard.sql`, `0046_feedback_triage_and_github_link.sql`, `0049_audience_view.sql`) |
-| Smoke scripts on `main` | **25**, `scripts/smoke/` from `0021-plan-freeze.sql` to `0051-onboarding-org-creation.sql`. Not in CI and not wired to any pnpm script — manual, and a smoke filename is not a migration number |
+| Smoke scripts on `main` | **26**, `scripts/smoke/` from `0021-identity-account-lifecycle.sql` / `0021-plan-freeze.sql` to `0051-onboarding-org-creation.sql`. Not in CI and not wired to any pnpm script — manual, and a smoke filename is not a migration number |
 | Hito 5 | **complete and merged.** Migrations up to `0035` all on `main`; plan-freeze and projection landed as `0034_plan_freeze.sql` / `0035_projection.sql` (renumbered in `07522a0`); #360 added `0036_guardian_approve_public_sharing.sql` |
 | Hito 6 | **privacy slice shipped, four features unstarted** — `offboarding-cascade` (`0038`/`0039`, recorded in `odd/tasks/offboarding-cascade.md`) and `account-data-export-and-erasure` (`0042`–`0044`, all slices closed in `odd/tasks/account-data-export-and-erasure.md`) are on `main`; `export-and-sharing`, `user-onboarding`, `analytics-and-insights` and `cross-organization-event-collaboration` have no implementation |
 | `// @ts-check` opt-ins | **48** files (`git grep -l '@ts-check' origin/main -- 'src/**/*.js'`); `tsc --listFiles` reached **62** `src/` files at `c14e977` and has not been re-measured since |
@@ -241,6 +241,17 @@ whatever `main` looked like when it forked: `0020_feedback` (in-app-feedback),
 `0034_plan_freeze`, `0035_projection`. An earlier version of this plan called the gap
 "deliberate — do not renumber"; that was an inference from the missing files, and it was
 wrong.
+
+> **Updated 2026-11-20 — `0022` is now reserved, by decision.** The paragraph above is
+> still right about the past: the gap was a numbering race, and "deliberate" was an
+> inference the plan retracted. What changed is a *new* maintainer decision, not the old
+> inference coming back. `0021` was claimed by #523 (the F1 migration — self-contained, so
+> its position does not matter), which left `0022` as the last early slot. It is now kept
+> reserved on purpose, for a migration that must sort **before** an existing one — the case
+> that cannot simply take `0047`. `scripts/check-doc-counts.sh` therefore keeps skipping
+> `0021` and `0022`, and `0047` remains the next free number for general use. The decision
+> is recorded in `AGENTS.md` (the migration-numbering section) and in
+> `odd/tasks/f1-0021-smoke.md`.
 
 **Verified: only `0020` actually collides.** Two different files claim it —
 `0020_review_batch1.sql` on `fix/hito4-review-batch1` and `0020_feedback.sql` on
