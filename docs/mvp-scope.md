@@ -1,5 +1,9 @@
 # CEMURM — MVP Scope & Milestones
 
+> This document maps capabilities to milestones and preserves dated implementation snapshots.
+> Use the [Master Plan](master-plan.md) for sequencing and [AGENTS.md](../AGENTS.md) for current
+> repository commands and local development conventions.
+
 ## Timeline Overview
 
 | Hito | Months | Focus              |
@@ -388,7 +392,7 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 | 2026-11-10 → 2026-11-12 | #450, #455 | Hito 6 N3: setlist export serializers (ABC, ChordPro, OnSong, plain text, setlist file) and the export menu in the share panel | Merged |
 | 2026-11-18 | #459 | Hito 6 N3: audience view + timeline, migration `0049_audience_view.sql` | Merged |
 
-### Planned vs. implemented (as of 2026-11-20, against the tree at `3f01dc2`; earlier passes 2026-10-12 against `bcd7550` and 2026-09-30 against `762a040`)
+### Historical implementation snapshot (2026-11-20, against the tree at `3f01dc2`; earlier passes 2026-10-12 against `bcd7550` and 2026-09-30 against `762a040`)
 
 > **Read the hito status lines with a caveat.** The per-hito paragraphs above were written when
 > the data layer was a hosted Supabase project and say "shipped against hosted Supabase". That is
