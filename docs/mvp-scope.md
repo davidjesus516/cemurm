@@ -342,10 +342,11 @@ A beta tester installs the PWA on their phone, goes through the onboarding tutor
 
 ## Hito 7 — Identity & Org Admin (post-beta, F1)
 
-**Implementation status: not started.** This is the hinge of the institutional expansion (ADR-012):
-`org_memberships` has `grant select` only (`0016:552`) and the sole writer is the self-only
-`private.org_leave` (`0016:437`), so no screen can add a member, change a role or remove a third
-party today.
+**Implementation status: partially implemented.** Migration `0021_identity_account_lifecycle.sql`
+shipped the three administrative membership RPCs and `admin_audit_log`; the matching manual smoke
+recorded **21 PASS / 0 FAIL**. `/organization/members` is live. The remaining F1 work is the account
+lifecycle: constrained roles, profile status, broader `FORCE ROW LEVEL SECURITY`, account creation,
+and administrator suspension/reactivation.
 
 ### Objectives
 - Give organizations the three missing membership mutations through `SECURITY DEFINER` RPCs
@@ -353,16 +354,22 @@ party today.
 - Make the roster and account status administrable from the UI
 
 ### Deliverables
-- [ ] Private cores `add_org_member_core`, `change_member_role_core`, `remove_org_member_core` plus thin public wrappers
-- [ ] `admin_audit_log` (append-only) and the `org_memberships.role` CHECK
-- [ ] `profiles.account_status`, `profiles.created_at` and `FORCE ROW LEVEL SECURITY` on the tables the phase touches
-- [ ] `/organization/members` and `/settings/accounts`
-- [ ] Smoke `scripts/smoke/<número>-identity.sql` (the filename takes the migration number; it is contested, see `docs/database-schema-ampliacion.md` §9)
+- [x] Private cores `add_org_member_core`, `change_member_role_core`, `remove_org_member_core` plus thin public wrappers
+- [x] `admin_audit_log` (append-only)
+- [x] `/organization/members`
+- [x] Smoke `scripts/smoke/0021-identity-account-lifecycle.sql` — 21 PASS / 0 FAIL; evidence in `odd/tasks/f1-0021-smoke.md`
+- [x] `/settings/accounts` route and caller-only account summary
+- [ ] `org_memberships.role` CHECK
+- [ ] `profiles.account_status`, dedicated profile lifecycle timestamps and `set_account_status`
+- [ ] `FORCE ROW LEVEL SECURITY` on `org_memberships` and `profiles` (`admin_audit_log` already has it)
+- [ ] Administrator account-status controls in `/settings/accounts`
+- [ ] Account-creation Edge Function using `auth.admin.createUser`
 
 ### BDD coverage
-Membership administration is specified by the new `features/organization-members.feature` (~12
-scenarios): roster by branch, role filter, role change, reactivation of a `former` member and the
-three separation-of-duties negatives. BDD lands before the migration (entry rule).
+Membership administration is specified by `features/organization-members.feature` (13 scenarios):
+roster by branch, role filter, role change, reactivation of a `former` member and the separation-of-
+duties negatives. The feature exists as product specification; no matching executable binding is
+present under `src/test/gherkin/` yet.
 
 ### Estimated Team Effort
 - 1 full-stack developer (full-time, 4–6 weeks)
@@ -468,5 +475,5 @@ location; F8 depends on F3–F7 being complete.
 - **Hito 4 — Basic Community: complete.** Public library (S4.1 #125–#127), contributions/profiles/follows (S4.2 #131/#136), music theory (#137), community moderation (#138), org repertoire (#139), minors & guardian consent, service planning, and rehearsal workflow are merged on main (migrations through `0019_rehearsal_workflow.sql`). The URL-importer deliverable is not shipped — it rides Hito 5's integrations surface.
 - **Hito 5 — Integrations: complete.** All ten features are merged on `main`: migrations `0023`–`0033` plus the renumbered `0034`/`0035` (`main` carries 33 files numbered `0001`–`0035`). Plan-freeze landed via #192/#193 (as `0034_plan_freeze.sql` since #344), congregation projection via #181/#182/#186/#188/#189 (as `0035_projection.sql` since #344), in-app feedback via #190/#191/#228 (as `0033_feedback.sql` after two renumberings), and the earlier `0023`–`0028` run via #147/#148/#155/#156/#159/#165. ODD execution records exist in `odd/tasks/hito5-*.md`; the one gap is `external-display`, which has no ODD record yet. Deliverable-level caveats: the Spotify/MusicBrainz/LRCLIB clients run against a deterministic **mock** until live flags are set, and the OBS overlay is token-gated with no deploy pipeline behind it.
 - **Hito 6 — Beta Polish: not started.** No implementation for any of its six features. Planned for months 11–12; `docs/master-plan.md` §4 sequences it by privacy obligation first (`offboarding-cascade`, `account-data-export-and-erasure`).
-- **Hito 7 — Identity & Org Admin: not started.** ADR-012 F1. The membership RPCs (`add_org_member`, `change_member_role`, `remove_org_member`), `admin_audit_log` and `/organization/members` are the prerequisite for every enrollment path.
+- **Hito 7 — Identity & Org Admin: partially implemented.** Migration `0021_identity_account_lifecycle.sql`, the three membership RPCs, `admin_audit_log`, `/organization/members`, the caller-only `/settings/accounts` summary and the 21 PASS / 0 FAIL smoke are shipped. Account creation, constrained roles, profile lifecycle status, broader `FORCE RLS` and administrator suspension/reactivation remain.
 - **Hito 8 — Education & Institutional: not started.** ADR-012 F3–F8 (with F2 as its opening prerequisite). No migration, no bucket and no institutional UI exists yet; `docs/database-schema-ampliacion.md` is specification, not applied code.
