@@ -390,7 +390,7 @@ export function postComment(userId, payload) {
       if (error) throw error
       return normalizeRow(data, null)
     } catch (e) {
-      if (isRlsDenied(e)) throw new Error('No access.')
+      if (isRlsDenied(e)) throw new Error('No access.', { cause: e })
       if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'postComment', args: [userId, { ...payload, body }] })
       return optimisticPost(userId, { ...payload, body })
@@ -424,7 +424,7 @@ export function editComment(userId, commentId, body) {
       if (error) throw error
       return { id: commentId, body: trimmed, updatedAt: new Date().toISOString(), pendingSync: false }
     } catch (e) {
-      if (isRlsDenied(e)) throw new Error('No access.')
+      if (isRlsDenied(e)) throw new Error('No access.', { cause: e })
       if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'editComment', args: [userId, commentId, trimmed] })
       return { id: commentId, body: trimmed, updatedAt: new Date().toISOString(), pendingSync: true }
@@ -452,7 +452,7 @@ export function resolveComment(userId, commentId) {
       if (error) throw error
       return { id: commentId, resolved: true, updatedAt: new Date().toISOString(), pendingSync: false }
     } catch (e) {
-      if (isRlsDenied(e)) throw new Error('No access.')
+      if (isRlsDenied(e)) throw new Error('No access.', { cause: e })
       if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'resolveComment', args: [userId, commentId] })
       return { id: commentId, resolved: true, updatedAt: new Date().toISOString(), pendingSync: true }
@@ -481,7 +481,7 @@ export function deleteComment(userId, commentId) {
       if (error) throw error
       return { id: commentId, deleted: true, pendingSync: false }
     } catch (e) {
-      if (isRlsDenied(e)) throw new Error('No access.')
+      if (isRlsDenied(e)) throw new Error('No access.', { cause: e })
       if (USER_ERRORS.has(/** @type {Error} */ (e)?.message) || !isConnectivityError(e)) throw e
       await enqueueOp(userId, { name: 'deleteComment', args: [userId, commentId] })
       return { id: commentId, deleted: true, pendingSync: true }

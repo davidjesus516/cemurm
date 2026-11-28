@@ -2,11 +2,20 @@
 
 import React, { useMemo, useState } from 'react'
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
+  useTable,
+  tableFeatures,
+  columnFilteringFeature,
+  columnVisibilityFeature,
+  globalFilteringFeature,
+  rowSortingFeature,
+  rowPaginationFeature,
+  createFilteredRowModel,
+  createSortedRowModel,
+  createPaginatedRowModel,
+  filterFn_includesString,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
   flexRender,
   CellContext,
 } from '@tanstack/react-table'
@@ -39,6 +48,28 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+// TanStack Table v9 registers code through features instead of bundling every
+// row model into the hook: the processing this table actually runs (filter,
+// sort, paginate) is declared here, and so is everything a column reaches for
+// by NAME. The three sort fns are exactly what 'auto' resolves to — datetime
+// first, then alphanumeric, then text — so registering the rest of the built-in
+// registry would only grow the bundle.
+const features = tableFeatures({
+  columnFilteringFeature,
+  columnVisibilityFeature,
+  globalFilteringFeature,
+  rowSortingFeature,
+  rowPaginationFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    datetime: sortFn_datetime,
+    text: sortFn_text,
+  },
+})
 
 // V1/S1: the template hashed a value into a light chip on the default
 // palette (a pale blue fill with a dark blue label, ...). Those chips are substituted by
@@ -107,7 +138,7 @@ const DataTable = <T extends Record<string, unknown>>({
     return sizes.filter((size) => size <= Math.max(data.length, sizes[0]))
   }, [data.length])
 
-  const columns = useMemo<ColumnDef<T, unknown>[]>(() => {
+  const columns = useMemo<ColumnDef<typeof features, T, unknown>[]>(() => {
     if (!data.length) return []
 
     const keys = Object.keys(data[0]).filter((key) => {
@@ -127,7 +158,7 @@ const DataTable = <T extends Record<string, unknown>>({
       header:
         HEADER_LABELS[col] ??
         toTitleCase(col.replace(/([A-Z])/g, ' $1').trim()),
-      cell: (info: CellContext<T, unknown>) => {
+      cell: (info: CellContext<typeof features, T, unknown>) => {
         const value = info.getValue()
 
         if (
@@ -369,7 +400,7 @@ const DataTable = <T extends Record<string, unknown>>({
       enableGlobalFilter: true,
     }))
 
-    const actionColumn: ColumnDef<T, unknown> = {
+    const actionColumn: ColumnDef<typeof features, T, unknown> = {
       id: 'action',
       header: 'Open',
       enableSorting: false,
@@ -392,18 +423,17 @@ const DataTable = <T extends Record<string, unknown>>({
   }, [data])
 
   // React Table Setup
-  const table = useReactTable({
+  const table = useTable({
+    features,
     data,
     columns,
     state: { globalFilter, sorting },
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
-    globalFilterFn: 'includesString',
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: paginationOptions[0] || 5 } },
+    globalFilterFn: filterFn_includesString,
+    initialState: {
+      pagination: { pageIndex: 0, pageSize: paginationOptions[0] || 5 },
+    },
   })
 
   // CSV Download
@@ -553,7 +583,7 @@ const DataTable = <T extends Record<string, unknown>>({
               </div>
 
               <div className='text-cem-text/90 font-medium text-base'>
-                Page {table.getState().pagination.pageIndex + 1} of{' '}
+                Page {table.state.pagination.pageIndex + 1} of{' '}
                 {table.getPageCount()}
               </div>
 
@@ -564,7 +594,7 @@ const DataTable = <T extends Record<string, unknown>>({
                   Rows per page:
                 </Label>
                 <Select
-                  value={String(table.getState().pagination.pageSize)}
+                  value={String(table.state.pagination.pageSize)}
                   onValueChange={(value) => table.setPageSize(Number(value))}>
                   <SelectTrigger id='pageSize' className='w-18! cursor-pointer'>
                     <SelectValue placeholder='Page size' />

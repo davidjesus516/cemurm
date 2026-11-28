@@ -848,7 +848,7 @@ export async function moveSongInSetlist(userId, setlistId, fromIndex, toIndex) {
       // when private visibility is PROVEN by the fresh read or the cache.
       const base = await readBaseSetlist(userId, setlistId)
       if (base?.visibility !== 'private') {
-        throw new Error('Reordering a shared setlist requires an internet connection.')
+        throw new Error('Reordering a shared setlist requires an internet connection.', { cause: e })
       }
       await enqueueOp(userId, { name: 'moveSongInSetlist', args: [userId, setlistId, fromIndex, toIndex] })
       return buildOptimisticSetlist(userId, setlistId, {
