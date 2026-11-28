@@ -45,6 +45,10 @@ select tmp_assert('1. create_organization returns the owner envelope',
   and :'created'::jsonb->>'org_name' = 'Academia Nueva'
   and :'created'::jsonb->>'branch_name' = 'Sede Centro');
 
+-- Capture the generated org id once. psql does NOT interpolate :'vars' inside
+-- dollar-quoted strings, so dynamic SQL below is built with format() instead.
+select (:'created'::jsonb->>'org_id') as org_id \gset
+
 select set_config('role', 'postgres', false);
 select tmp_assert('2. the organization row exists', exists(
   select 1 from public.organizations where name = 'Academia Nueva' and org_type = 'Academy'));
@@ -65,12 +69,12 @@ select set_config('role', 'authenticated', false);
 select set_config('request.jwt.claims',
   '{"sub":"10000000-0000-0000-0000-000000000002"}', false);
 select tmp_expect_error('6. an outsider cannot add a branch',
-  $q$select public.add_org_branch(:'created'::jsonb->>'org_id', 'Sede Lima', 'Lima')$q$,
+  format('select public.add_org_branch(%L::uuid, %L, %L)', :'org_id', 'Sede Lima', 'Lima'),
   '%Branch details are invalid.%');
 
 select set_config('request.jwt.claims',
   '{"sub":"10000000-0000-0000-0000-000000000003"}', false);
-select public.add_org_branch(:'created'::jsonb->>'org_id', 'Sede Lima', 'Lima') as added \gset
+select public.add_org_branch(:'org_id'::uuid, 'Sede Lima', 'Lima') as added \gset
 select tmp_assert('7. the owner can add a branch',
   :'added'::jsonb->>'branch_name' = 'Sede Lima');
 select set_config('role', 'postgres', false);
@@ -86,7 +90,7 @@ select tmp_expect_error('9. blank org details are rejected',
   $q$select public.create_organization('   ', 'Academy', 'Sede X', '')$q$,
   '%Organization details are invalid.%');
 select tmp_expect_error('10. oversized branch name is rejected',
-  $q$select public.add_org_branch(:'created'::jsonb->>'org_id', repeat('x', 201), 'Lima')$q$,
+  format('select public.add_org_branch(%L::uuid, repeat(''x'', 201), %L)', :'org_id', 'Lima'),
   '%Branch details are invalid.%');
 select set_config('role', 'postgres', false);
 select tmp_assert('11. anon has no EXECUTE grant on either RPC',

@@ -9,8 +9,8 @@ import { walkthroughDone } from '../../onboarding/localFlags.js'
 import { useOnboarding } from '../../onboarding/useOnboarding.js'
 
 // The four highlighted dashboard elements. Targets are the existing routes;
-// "Performance mode" has no standalone route in this build, so it links to the
-// setlists list where a musician picks a setlist to perform (declared gap).
+// "Performance mode" links to the setlists list where a musician picks a
+// setlist to perform — the same target the guided tour's step 4 uses.
 const CARDS = [
   { key: 'repertoire', to: '/songs', label: 'Repertoire', detail: 'Your song library' },
   { key: 'setlists', to: '/setlists', label: 'Setlists', detail: 'Plans for every gig' },
@@ -127,7 +127,9 @@ function MemberDashboard() {
           }}
         />
       )}
-      {showCompletion && <CompletionScreen onDismiss={() => setShowCompletion(false)} />}
+      {showCompletion && (
+        <CompletionScreen steps={steps} onDismiss={() => setShowCompletion(false)} />
+      )}
     </div>
   )
 }
