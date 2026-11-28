@@ -223,6 +223,40 @@ in this unit — it depends on four surfaces being stable and ships separately.
   and A4 is answered by retargeting the PR to `main`, which runs the E2E workflow.
   Smoke grew 38 → 40 assertions (the ceiling and the owner's list view).
 
+- **L14** (2026-11-12, orchestrator): T3 export management, first half — history, regenerate and
+  delete-from-local-storage (`features/export-and-sharing.feature:158-178`).
+  **The model is two kv keys, not one row.** `export-history:v1:<user>` holds the metadata index and
+  `export-file:v1:<user>:<id>` holds the bytes the browser wrote. One row cannot express "the file is
+  gone but the export happened", which is exactly what the delete scenario asserts ("the export
+  history entry is marked as no longer available offline"). Deleting the row would erase history;
+  keeping the bytes would make "removed from local storage" a lie.
+  **Regenerate re-serializes the CURRENT setlist**, not a stored copy, which is the scenario's
+  "reflects any setlist changes made since the last export". It keeps the same entry id, so the row
+  is the same export with today's date and today's bytes.
+  **PDF is still refused by name**, same deviation L11 recorded: no PDF writer exists in this build
+  and a setlist's PDF chart is a storage object. A history row can never be a PDF, and `Regenerate`
+  re-runs the real serializer for the format that was actually exported.
+  **`saveFile` extracted** (`exporters/saveFile.js`) so the single-setlist download, the regenerate
+  action and the batch archive share one DOM touch instead of three spellings of
+  `URL.createObjectURL`.
+  **`formatBytes` extracted** (`domain/library/formatBytes.js`): the storage screen already had a
+  copy and the export history needed the same rounding rule, so the settings screen now imports the
+  one implementation. `PdfChartViewer` deliberately keeps its own variant — it returns `''` for
+  zero because it renders inside a sentence, which is a different contract, not a duplicate.
+  **Honest gap**: the repository's happy path (a row that survives a reload) is only observable in a
+  browser; the node test pins the failure mode instead — with no IndexedDB the export must still
+  succeed and the history degrade to empty, never fail the download.
+  **Verification**: `pnpm test` 557 passed (32 new), `pnpm test:gherkin` 44, lint, typecheck, build
+  and the visual gate (0 failing) green; doc counts, test integrity, migration uniqueness and the
+  destructive scan unchanged and green.
+  **Size exception**: 945+/21- = 966 authored lines against the PR's merge base, over the ~400
+  budget (925 before the review fixes in `0899309`, `49ea29f`, `91ed61e`; the base was re-measured
+  after merging `main` on 2026-11-25). 276 of those lines are the three test files pinning the
+  two-kv-key contract, the UTF-8 byte count and the unreadable-timestamp ordering; 213 are the page
+  that is the only way a user can see, download, regenerate or delete an entry. The domain and repository halves are
+  independently testable and Antony's four-slice split is a valid alternative. This branch keeps
+  them together because the storage contract is not shippable before the surface that exercises it,
+  and records the decision here rather than letting the `size:exception` label assert one.
 - **L15** (2026-11-21, user, verbatim): "ok avancemos en t4-t8 que estan sin empezar"
 - **L16** (2026-11-21, orchestrator): resumed this feature document from `main` = `51b11bf`. The file on `main` ends at L13; the L14 `size:exception` rationale for #462 exists only on `feat/hito6-n3-t3b-export-history` (commit `b3baf84`), so it is deliberately NOT copied here. T4–T8 are authorized. Route: **delegated direct**, two bounded writers launched together in one turn — writer A owns S2 (T4–T5), writer B owns S3 (T6–T8). Writer trigger = two independent behavior units with disjoint edit surfaces, each requiring several minutes of work; the context backstop is not the reason. Each writer works in its own worktree/branch from `main`; the parent owns git, the ODD document, OpenSpec/docs and integration.
   Read-only mapping corrected two stale claims before any write: `invite_codes` was re-granted to `authenticated` with own-row RLS by `0006_band_collaboration.sql:145-181` (the service-role-only state at `0002` is no longer current), and `profiles.instrument` is self-writable (`0006:174-177`). Redeeming an invite code for a *new* user still needs a narrow SECURITY DEFINER RPC because the code row is readable only by its creator: that RPC is **Risk: item 2 (auth/permissions)** and gets its own migration (`0050`, checked free on every branch and open PR) plus one independent verifier. S3 is client/RPC-derivation only unless writer B proves a real gap and reports it to the parent; no second migration is authorized implicitly. Visual tier: onboarding/auth/settings = tier 1, analytics dashboards/lists = tier 2; `bash scripts/check-visual-contract.sh` must pass. TDD is off in `openspec/config.yaml`, but deterministic progress/aggregation math still gets RED→GREEN colocated tests. Native `gh stack` is installed (`gh stack version 0.3.0`); the cached chain strategy `stacked-to-main` still applies.

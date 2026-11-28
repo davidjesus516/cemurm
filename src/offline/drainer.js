@@ -167,7 +167,7 @@ export function startOfflineSync() {
  * @returns {Promise<ReplayDecision>}
  */
 async function decideReplay(userId, op) {
-  let server = null
+  let server
   try {
     // args is [userId, setlistId, songId] for the two reconciled ops.
     server = await setlists.fetchServerSetlist(userId, /** @type {string} */ (op.args?.[1]))

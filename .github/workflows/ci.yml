@@ -63,6 +63,12 @@ jobs:
       # git repo in a temp dir and proves the broken and native cuts diverge.
       - run: node scripts/check-stack-diff.selftest.mjs
 
+      # The Supabase config gate is a policy the same way. Its selftest proves it
+      # fails on a deprecated key, an unknown key and a removed key holding an
+      # empty value -- the last of which `supabase config validate` reports as
+      # valid, so only a deliberate fixture can show the second layer working.
+      - run: node scripts/check-supabase-config.selftest.mjs
+
       - run: pnpm test
 
       - run: pnpm test:gherkin
@@ -100,6 +106,14 @@ jobs:
       # PR's work; this is what stops the next drift. Bash + grep only, and here
       # for the same set -euo pipefail reason as the gates around it.
       - run: bash scripts/check-doc-counts.sh
+
+      # Supabase config keys, against the CLI the lockfile pins. Two layers: a
+      # deprecation is a warning in `config validate` (exit 0) and a removed key
+      # with an empty value is not even that, so the key set is also diffed
+      # against the template `supabase init` generates. Local only -- no Docker,
+      # no stack, no network. Here rather than before test and build for the same
+      # set -euo pipefail reason as the gates around it.
+      - run: node scripts/check-supabase-config.mjs
 
       # Visual contract gate. Bash + grep only, so it needs no install step, and
       # it deliberately runs LAST rather than before test and build: a gate that

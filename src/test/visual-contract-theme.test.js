@@ -1,4 +1,3 @@
-/* eslint-env node */
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';

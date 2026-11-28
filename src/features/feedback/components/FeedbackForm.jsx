@@ -64,7 +64,7 @@ function FeedbackFormBody() {
       setScreenshot('')
       return
     }
-    let dataUrl = ''
+    let dataUrl
     try {
       dataUrl = await readFileAsDataUrl(file)
     } catch {
